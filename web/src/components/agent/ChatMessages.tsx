@@ -138,7 +138,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     paddingRight: m.role === 'user' ? 4 : 0,
                   }}
                 >
-                  {m.role === 'bot' && 'NOFXi · '}{m.time}
+                  {m.role === 'bot' && 'AiTi · '}{m.time}
                 </div>
               )}
             </div>

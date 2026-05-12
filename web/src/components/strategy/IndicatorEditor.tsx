@@ -3,8 +3,8 @@ import type { IndicatorConfig } from '../../types'
 import { indicator, ts } from '../../i18n/strategy-translations'
 import { NofxSelect } from '../ui/select'
 
-// Default NofxOS API Key
-const DEFAULT_NOFXOS_API_KEY = 'cm_568c67eae410d912c54c'
+// Default API Key
+const DEFAULT_API_KEY = 'cm_568c67eae410d912c54c'
 
 interface IndicatorEditorProps {
   config: IndicatorConfig
@@ -170,7 +170,7 @@ export function IndicatorEditor({
                 </span>
               )}
               <a
-                href="https://nofxos.ai/api-docs"
+                href="https://binance-docs.github.io/apidocs/futures/en/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full transition-all hover:scale-[1.02]"
@@ -206,7 +206,7 @@ export function IndicatorEditor({
             {!disabled && !config.nofxos_api_key && (
               <button
                 type="button"
-                onClick={() => onChange({ ...config, nofxos_api_key: DEFAULT_NOFXOS_API_KEY })}
+                onClick={() => onChange({ ...config, nofxos_api_key: DEFAULT_API_KEY })}
                 className="px-3 py-2 rounded-lg text-xs font-medium transition-all hover:scale-[1.02]"
                 style={{
                   background: 'linear-gradient(135deg, #6366f1, #a855f7)',

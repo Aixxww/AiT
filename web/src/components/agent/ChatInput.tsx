@@ -96,8 +96,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             }}
             placeholder={
               language === 'zh'
-                ? '跟 NOFXi 聊点什么...  ⌘K'
-                : 'Ask NOFXi anything...  ⌘K'
+                ? '跟 AiTi 聊点什么...  ⌘K'
+                : 'Ask AiTi anything...  ⌘K'
             }
             rows={1}
             style={{
@@ -146,7 +146,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             color: '#1e1e32',
           }}
         >
-          NOFXi may make mistakes. Always verify trading decisions.
+          AiTi may make mistakes. Always verify trading decisions.
         </div>
       </div>
     )

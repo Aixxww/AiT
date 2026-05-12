@@ -72,7 +72,7 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
           margin: '0 0 8px',
           letterSpacing: '-0.02em',
         }}>
-          {language === 'zh' ? '跟 NOFXi 聊点什么' : 'What can I help with?'}
+          {language === 'zh' ? '跟 AiTi 聊点什么' : 'What can I help with?'}
         </h1>
         <p style={{
           fontSize: 13.5,

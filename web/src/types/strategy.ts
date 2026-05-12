@@ -101,7 +101,7 @@ export interface CoinSourceConfig {
   square_heat_limit?: number;
   square_heat_url?: string;
   square_min_score?: number;
-  // Note: API URLs are now built automatically using nofxos_api_key from IndicatorConfig
+  // Note: API URLs are now built automatically using Binance public API (local provider)
 }
 
 export interface IndicatorConfig {
@@ -123,8 +123,8 @@ export interface IndicatorConfig {
   boll_periods?: number[];
   external_data_sources?: ExternalDataSource[];
 
-  // ========== NofxOS 数据源统一配置 ==========
-  // Unified NofxOS API Key - used for all NofxOS data sources
+  // ========== 数据源配置（由 Linux local provider 强制 Binance） ==========
+  // Legacy: nofxosApi key — now ignored at runtime, Binance public API used instead
   nofxos_api_key?: string;
 
   // 量化数据源（资金流向、持仓变化、价格变化）

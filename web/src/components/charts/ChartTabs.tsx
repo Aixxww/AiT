@@ -16,7 +16,7 @@ interface ChartTabsProps {
 
 type ChartTab = 'equity' | 'kline'
 type Interval = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d'
-type MarketType = 'hyperliquid' | 'crypto' | 'stocks' | 'forex' | 'metals'
+type MarketType = 'hyperliquid' | 'crypto'
 
 interface SymbolInfo {
   symbol: string
@@ -25,13 +25,12 @@ interface SymbolInfo {
 }
 
 // Market type configuration
+// NOTE: stocks/forex/metals removed (no backend data source available).
+// Use TradingView embed on /data page for non-crypto market data.
 const MARKET_CONFIG = {
   hyperliquid: { exchange: 'hyperliquid', defaultSymbol: 'BTC', icon: '🔷', labelKey: 'hyperliquid' as const, color: 'cyan', hasDropdown: true },
   crypto: { exchange: 'binance', defaultSymbol: 'BTCUSDT', icon: '₿', labelKey: 'crypto' as const, color: 'yellow', hasDropdown: false },
-  stocks: { exchange: 'alpaca', defaultSymbol: 'AAPL', icon: '📈', labelKey: 'stocks' as const, color: 'green', hasDropdown: false },
-  forex: { exchange: 'forex', defaultSymbol: 'EUR/USD', icon: '💱', labelKey: 'forex' as const, color: 'blue', hasDropdown: false },
-  metals: { exchange: 'metals', defaultSymbol: 'XAU/USD', icon: '🥇', labelKey: 'metals' as const, color: 'amber', hasDropdown: false },
-}
+} as const
 
 const INTERVALS: { value: Interval; label: string }[] = [
   { value: '1m', label: '1m' },
