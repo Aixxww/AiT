@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="150" height="150">
+  <defs>
+    <linearGradient id="mimo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6A00"/>
+      <stop offset="100%" stop-color="#FF9248"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="4" width="22" height="16" rx="2" fill="url(#mimo-gradient)"/>
+  <text x="12" y="15.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="10" fill="white">Mi</text>
+</svg>
