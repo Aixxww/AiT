@@ -28,7 +28,7 @@ func NewMiMoClientWithOptions(opts ...mcp.ClientOption) mcp.AIClient {
 		mcp.WithProvider(mcp.ProviderMiMo),
 		mcp.WithModel(mcp.DefaultMiMoModel),
 		mcp.WithBaseURL(mcp.DefaultMiMoBaseURL),
-		mcp.WithTimeout(5 * time.Minute), // MiMo models are larger and slower than OpenAI/DeepSeek
+		mcp.WithTimeout(8 * time.Minute), // MiMo at Amsterdam endpoint has high latency
 	}
 
 	allOpts := append(mimoOpts, opts...)

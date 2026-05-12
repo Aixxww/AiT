@@ -743,7 +743,7 @@ export function TraderDashboardPage({
                         </div>
 
                         {/* Square Heat Signals */}
-                        <SquareHeatPanel language={language} refreshInterval={30000} />
+                        <SquareHeatPanel language={language} refreshInterval={360000} />
                     </div>
 
                     {/* Right Column: Recent Decisions */}

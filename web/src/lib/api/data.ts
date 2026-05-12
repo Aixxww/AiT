@@ -162,9 +162,16 @@ export const dataApi = {
   },
 
   async getSquareHeat(): Promise<SquareHeatResponse> {
-    const result = await httpClient.get<SquareHeatResponse>(
-      `${API_BASE}/square-heat`
-    )
-    return result.data ?? { items: [], updated_at: null, count: 0 }
+    try {
+      const result = await httpClient.get<any>(
+        `${API_BASE}/square-heat`
+      )
+      if (result && result.data) {
+        return result.data as SquareHeatResponse
+      }
+      return { items: [], updated_at: null, count: 0 }
+    } catch {
+      return { items: [], updated_at: null, count: 0 }
+    }
   },
 }
