@@ -3,7 +3,7 @@ set -e
 
 # Railway sets the PORT environment variable
 export PORT=${PORT:-8080}
-echo "🚀 Starting NOFX on port $PORT..."
+echo "🚀 Starting AiT on port $PORT..."
 
 # Generate encryption keys (if not already set)
 if [ -z "$RSA_PRIVATE_KEY" ]; then
@@ -45,13 +45,13 @@ server {
 NGINX_EOF
 
 # Start backend (port 8081)
-API_SERVER_PORT=8081 /app/nofx &
+API_SERVER_PORT=8081 /app/ait &
 sleep 2
 
 # Start nginx (background)
 nginx
 
-echo "✅ NOFX started successfully"
+echo "✅ AiT started successfully"
 
 # Keep the container running
 tail -f /dev/null

@@ -11,6 +11,7 @@ CLAUDE.md
 nofx-auto
 *.exe
 nofx
+ait
 nofx_test
 
 # Go 相关
@@ -129,3 +130,5 @@ PR_DESCRIPTION.md
 
 # Go build artifacts
 /nofx-server
+.pids/
+.logs/

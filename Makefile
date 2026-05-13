@@ -1,10 +1,22 @@
-# NOFX Makefile for testing and development
+# AiT Makefile — Build, Test, Run
 
-.PHONY: help test test-backend test-frontend test-coverage clean
+APP_NAME := ait
+
+.PHONY: help test test-backend test-frontend test-coverage clean install dev start stop status logs
 
 # Default target
 help:
-	@echo "NOFX Testing & Development Commands"
+	@echo "AiT — AI Trading System"
+	@echo ""
+	@echo "Quick Start:"
+	@echo "  make install              - One-click install (deps + build)"
+	@echo "  make dev                  - Start all services (dev mode)"
+	@echo ""
+	@echo "Services:"
+	@echo "  make start                - Start in dev mode"
+	@echo "  make stop                 - Stop all services"
+	@echo "  make status               - Show service status"
+	@echo "  make logs                 - View service logs"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test                 - Run all tests (backend + frontend)"
@@ -15,6 +27,11 @@ help:
 	@echo "Build:"
 	@echo "  make build                - Build backend binary"
 	@echo "  make build-frontend       - Build frontend"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build         - Build Docker images"
+	@echo "  make docker-up            - Start Docker services"
+	@echo "  make docker-down          - Stop Docker services"
 	@echo ""
 	@echo "Clean:"
 	@echo "  make clean                - Clean build artifacts and test cache"
@@ -56,8 +73,8 @@ test-coverage:
 # Build backend binary
 build:
 	@echo "🔨 Building backend..."
-	go build -o nofx
-	@echo "✅ Backend built: ./nofx"
+	CGO_ENABLED=1 go build -o $(APP_NAME)
+	@echo "✅ Backend built: ./$(APP_NAME)"
 
 # Build frontend
 build-frontend:
@@ -97,11 +114,40 @@ lint:
 
 clean:
 	@echo "🧹 Cleaning..."
-	rm -f nofx
+	rm -f $(APP_NAME)
 	rm -f coverage.out coverage.html
-	rm -rf web/dist
+	rm -rf web/dist .pids .logs
 	go clean -testcache
 	@echo "✅ Cleaned"
+
+# =============================================================================
+# Quick Start
+# =============================================================================
+
+# One-click install
+install:
+	@echo "📦 Installing AiT..."
+	bash scripts/install.sh
+
+# Start all services in dev mode
+dev:
+	@bash scripts/start.sh dev
+
+# Start services
+start:
+	@bash scripts/start.sh dev start
+
+# Stop services
+stop:
+	@bash scripts/start.sh dev stop
+
+# Service status
+status:
+	@bash scripts/start.sh dev status
+
+# View logs
+logs:
+	@tail -f .logs/*.log 2>/dev/null || echo "No logs found. Start services first."
 
 # =============================================================================
 # Docker

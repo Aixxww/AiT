@@ -1,7 +1,7 @@
 # docker/backend/Dockerfile
 
 # ═══════════════════════════════════════════════════════════════
-# NOFX Backend Dockerfile (Go + TA-Lib)
+# AiT Backend Dockerfile (Go + TA-Lib)
 # Multi-stage build with shared TA-Lib compilation stage
 # Versions extracted as ARGs for maintainability
 # ═══════════════════════════════════════════════════════════════
@@ -49,7 +49,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=1 GOOS=linux \
     CGO_CFLAGS="-D_LARGEFILE64_SOURCE" \
-    go build -trimpath -ldflags="-s -w" -o nofx .
+    go build -trimpath -ldflags="-s -w" -o ait .
 
 # ──────────────────────────────────────────────────────────────
 # Runtime Stage (Minimal Executable Environment)
@@ -60,11 +60,11 @@ RUN apk update && apk add --no-cache ca-certificates tzdata sqlite
 
 COPY --from=ta-lib-builder /usr/local /usr/local
 WORKDIR /app
-COPY --from=backend-builder /app/nofx .
+COPY --from=backend-builder /app/ait .
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
-CMD ["./nofx"]
+CMD ["./ait"]

@@ -15,6 +15,20 @@
 
 ---
 
+## 快速开始
+
+```bash
+# 一键安装（自动安装 Go/Node/TA-Lib、生成配置、编译项目）
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash
+
+# 启动所有服务
+cd ~/AiT && ./scripts/start.sh dev
+```
+
+浏览器打开 **http://localhost:3000** → 注册 → 添加 AI 模型和交易所 → 开始交易。
+
+---
+
 ## 概述
 
 AiT 是一个开源的全自动 AI 交易系统，专为加密货币合约交易设计。
@@ -131,126 +145,83 @@ AI 模型分析 (思维链 + 多维数据 → JSON决策)
 
 ### 环境要求
 
-| 组件 | 最低版本 |
-|------|----------|
-| Go | 1.25+ |
-| Node.js | 18+ |
-| Python | 3.10+（仅 Square Monitor） |
-| TA-Lib | 0.4+（可选，技术指标） |
+| 组件 | 最低版本 | 安装脚本自动处理 |
+|------|----------|:---:|
+| Go | 1.25+ | ✅ |
+| Node.js | 18+ | ✅ |
+| Python | 3.10+（仅 Square Monitor） | ✅ |
+| TA-Lib | 0.4+（技术指标） | ✅ |
 
-**macOS:**
+### 方式一：一键安装（推荐）
+
 ```bash
-brew install ta-lib
+# 开发模式（自动安装所有依赖 + 编译）
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash
+
+# Docker 模式（拉取预构建镜像）
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash -s -- --docker
+
+# 最小安装（跳过 Python / Square Monitor）
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash -s -- --minimal
 ```
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install libta-lib0-dev
-```
+安装脚本自动检测操作系统（macOS / Ubuntu / CentOS / Arch），安装 Go、Node.js、TA-Lib 等依赖，生成加密密钥，编译项目。
 
-### 1. 克隆代码
+### 方式二：手动安装
 
 ```bash
+# 1. 克隆代码
 git clone https://github.com/Aixxww/AiT.git
 cd AiT
-```
 
-### 2. 配置环境变量
-
-```bash
+# 2. 配置环境变量
 cp .env.example .env
+# 编辑 .env 填入 JWT_SECRET、DATA_ENCRYPTION_KEY 等
+# 首次运行时密钥会自动生成
+
+# 3. 安装依赖
+go mod download
+cd web && npm install && cd ..
+
+# 4. 编译
+CGO_ENABLED=1 go build -o ait .
+cd web && npm run build && cd ..
 ```
 
-编辑 `.env`：
+### 启动服务
 
 ```bash
-# 端口
-AIT_BACKEND_PORT=8080
-AIT_FRONTEND_PORT=3000
+# 开发模式（后台启动 backend + frontend + square-monitor）
+./scripts/start.sh dev
 
-# JWT 密钥（生产环境务必更换）
-JWT_SECRET=$(openssl rand -base64 32)
-
-# 传输加密（本地测试可关闭）
-TRANSPORT_ENCRYPTION=false
-
-# 数据库（SQLite 最简单，生产用 PostgreSQL）
-DB_TYPE=sqlite
-DB_PATH=data/data.db
-
-# 时区
-AIT_TIMEZONE=Asia/Shanghai
+# 或使用 Makefile
+make dev
 ```
+
+服务启动后：
+- **Web Dashboard:** http://localhost:3000
+- **API Endpoint:** http://localhost:8080
+- **Square Monitor:** http://localhost:8000（可选）
 
 ```bash
-mkdir -p data
+# 管理服务
+./scripts/start.sh dev stop      # 停止
+./scripts/start.sh dev status    # 状态
 ```
-
-### 3. 启动 Square Monitor（可选）
-
-社交热度信号源，独立 Python 服务：
-
-```bash
-cd scripts/square-monitor
-pip install -r requirements.txt
-playwright install chromium
-python web.py
-# 服务启动在 http://localhost:8000
-```
-
-首次运行需 5-10 分钟采集数据。不启动则自动回退到 ai500 币源。
-
-### 4. 启动后端
-
-```bash
-go run main.go
-# 或编译后运行
-go build -o ait && ./ait
-```
-
-默认监听 `:8080`，日志输出：
-
-```
-🚀 AiT - AI-Powered Trading System
-✅ Configuration loaded
-✅ Database initialized
-```
-
-### 5. 启动前端
-
-```bash
-cd web
-npm install
-npm run dev
-# 浏览器打开 http://localhost:3000
-```
-
-### 6. 部署前验证
-
-```bash
-# Go 编译 + 静态检查
-go build ./... && go vet ./...
-
-# TypeScript 类型检查
-cd web && npx tsc --noEmit
-
-# Python 语法检查
-python -m py_compile scripts/square-monitor/web.py
-```
-
----
 
 ### Docker 部署
 
 ```bash
+# 一键启动
+./scripts/start.sh docker
+
+# 或手动
 docker compose up -d
-# 后端 :8080, 前端 :3000
 ```
 
 ### Railway 云部署
 
 ```bash
-# 使用 Railway 配置
 railway up
 ```
 
@@ -297,6 +268,8 @@ AiT/
 │   ├── square/          # 币安广场热度客户端
 │   └── ...              # Coinank, Hyperliquid, TwelveData
 ├── scripts/
+│   ├── install.sh       # 一键安装脚本
+│   ├── start.sh         # 统一启动脚本 (dev/docker/prod)
 │   └── square-monitor/  # Python 社交热度监控 (独立服务)
 ├── store/               # 数据持久化 (SQLite/PostgreSQL)
 ├── trader/              # 交易所适配器 (10家)
@@ -310,6 +283,7 @@ AiT/
 │   │   └── i18n/        # 国际化
 │   └── package.json
 ├── main.go              # 程序入口
+├── Makefile             # 构建/测试/启动命令
 ├── go.mod               # Go 模块定义
 └── .env.example         # 环境变量模板
 ```
