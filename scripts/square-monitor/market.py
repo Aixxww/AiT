@@ -12,12 +12,17 @@
 - /fapi/v1/klines               合约 K 线（算短期动量/波动）
 """
 from __future__ import annotations
+import json
+import ssl
 import time
 from typing import Optional
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-import json
+import certifi
 import config
+
+# macOS Python often can't find system certs; use certifi's bundle instead
+_SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 
 SPOT_BASE = "https://api.binance.com"
@@ -34,7 +39,7 @@ def _http_get(url: str, params: dict = None, timeout: int = 15) -> Optional[dict
         url = f"{url}?{urlencode(params)}"
     try:
         req = Request(url, headers={"User-Agent": "Mozilla/5.0 market-monitor"})
-        with urlopen(req, timeout=timeout) as resp:
+        with urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         # 不打印每个请求的错误，只在上层按需处理

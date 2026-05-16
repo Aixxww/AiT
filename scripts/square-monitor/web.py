@@ -164,8 +164,110 @@ def _verdict_rank(verdict: str) -> int:
     return VERDICT_ORDER.get(verdict, 99)
 
 
+# --- leaderboard market snapshot auto-refresh ---
+_leaderboard_refresh_ts = 0.0
+_leaderboard_refresh_lock = threading.Lock()
+LEADERBOARD_REFRESH_TTL = 300  # 5 min
+
+
+def _maybe_refresh_leaderboard_snapshots(conn):
+    """If leaderboard market snapshots are stale/missing, refresh top-scored tokens."""
+    global _leaderboard_refresh_ts
+    now = time.time()
+    with _leaderboard_refresh_lock:
+        if now - _leaderboard_refresh_ts < LEADERBOARD_REFRESH_TTL:
+            return
+        _leaderboard_refresh_ts = now
+
+    # Check how many tokens already have snapshots
+    try:
+        existing = conn.execute(
+            "SELECT COUNT(*) FROM market_snapshots WHERE updated_at > datetime('now', '-5 minutes')"
+        ).fetchone()[0]
+    except Exception:
+        existing = 0
+
+    if existing >= 10:
+        return  # Enough fresh snapshots
+
+    raw_scores = compute_short_scores(conn)
+    if not raw_scores:
+        # Fallback: get top tokens from recent heat history when worker is idle
+        try:
+            rows = conn.execute(
+                "SELECT token, MAX(score) as s FROM token_heat_history "
+                "WHERE recorded_at > datetime('now', '-24 hours') "
+                "GROUP BY token ORDER BY s DESC LIMIT 30"
+            ).fetchall()
+            top_tokens = [r["token"] for r in rows]
+        except Exception:
+            return
+        social_map = {}
+    else:
+        top_tokens = [s["token"] for s in raw_scores[:30]]
+        social_map = {s["token"]: s["score"] for s in raw_scores}
+    try:
+        futures_set = get_futures_symbols()
+    except Exception:
+        return
+
+    to_refresh = [t for t in top_tokens if t.upper() in futures_set]
+    if not to_refresh:
+        return
+
+    import signals as _signals
+    refreshed = 0
+    for token in to_refresh:
+        if refreshed >= 15:
+            break
+        try:
+            snap = get_market_snapshot(token)
+        except Exception:
+            continue
+        if not snap:
+            continue
+        analysis = _signals.analyze(snap, social_map.get(token, 0.0))
+        snap_json = json.dumps(snap, default=str, ensure_ascii=False)
+        ana_json = json.dumps(analysis, default=str, ensure_ascii=False)
+        with storage.get_conn() as wconn:
+            storage.snapshot_upsert(wconn, token, snap_json, ana_json)
+        refreshed += 1
+        time.sleep(0.3)
+
+
 def _build_leaderboard_items(conn) -> tuple[list[dict], int]:
     raw_scores = compute_short_scores(conn)
+
+    # Fallback: when worker is idle and 15-min window is empty, use heat history
+    if not raw_scores:
+        try:
+            rows = conn.execute(
+                "SELECT token, MAX(score) as score, MAX(mentions) as mentions, "
+                "MAX(total_likes) as total_likes, MAX(total_comments) as total_comments, "
+                "MAX(total_shares) as total_shares, MAX(unique_posts) as unique_posts "
+                "FROM token_heat_history "
+                "WHERE recorded_at > datetime('now', '-24 hours') "
+                "GROUP BY token ORDER BY score DESC LIMIT 30"
+            ).fetchall()
+            if rows:
+                raw_scores = []
+                for r in rows:
+                    raw_scores.append({
+                        "token": r["token"],
+                        "score": r["score"] or 0,
+                        "mentions": r["mentions"] or 0,
+                        "total_likes": r["total_likes"] or 0,
+                        "total_comments": r["total_comments"] or 0,
+                        "total_shares": r["total_shares"] or 0,
+                        "unique_posts": r["unique_posts"] or 0,
+                        "unique_authors": 0,
+                        "raw_score": r["score"] or 0,
+                        "author_capped_posts": 0,
+                        "similar_posts": 0,
+                    })
+        except Exception:
+            pass
+
     # 综合热度增强：加 composite_score, trend, prev_score 等
     scored = compute_composite_scores(conn, raw_scores, config.COMPOSITE_HISTORY_WINDOW)
 
@@ -226,6 +328,7 @@ def api_leaderboard():
     """
     def compute():
         with storage.get_conn() as conn:
+            _maybe_refresh_leaderboard_snapshots(conn)
             result, skipped_no_contract = _build_leaderboard_items(conn)
         return {
             "updated_at": datetime.now().isoformat(timespec="seconds"),

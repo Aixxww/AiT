@@ -80,6 +80,10 @@ export interface DecisionRecord {
   execution_log: string[]
   success: boolean
   error_message?: string
+  ai_request_duration_ms?: number
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
 }
 
 export interface Statistics {

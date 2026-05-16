@@ -30,6 +30,17 @@ class SquareScraper:
     def __init__(self):
         self.captured_posts = []
         self.captured_authors = {}
+        self._stop_requested = False
+
+    def request_stop(self):
+        """Called from signal handler to gracefully stop the scraper."""
+        self._stop_requested = True
+
+    def reset(self):
+        """Reset state for a new scrape round."""
+        self._stop_requested = False
+        self.captured_posts = []
+        self.captured_authors = {}
 
     async def _handle_response(self, response: Response):
         url = response.url
@@ -161,6 +172,10 @@ class SquareScraper:
                 continue
         return 0
 
+    async def scrape_once(self) -> tuple[list[dict], dict[str, dict]]:
+        """Single round scrape — delegates to scrape_continuous with configured duration."""
+        return await self.scrape_continuous(config.SCRAPE_ROUND_SECONDS)
+
     async def scrape_continuous(self, duration_seconds: int,
                                  progress_cb=None) -> tuple[list[dict], dict[str, dict]]:
         """持续抓取 duration_seconds 秒
@@ -173,24 +188,35 @@ class SquareScraper:
         scrolls = 0
 
         async with async_playwright() as p:
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=str(USER_DATA_DIR),
-                headless=config.HEADLESS,
-                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/120.0 Safari/537.36"),
-                viewport={"width": 1440, "height": 900},
-                args=["--disable-blink-features=AutomationControlled"],
-            )
-            page = context.pages[0] if context.pages else await context.new_page()
-            page.on("response", self._handle_response)
-
+            context = None
             try:
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir=str(USER_DATA_DIR),
+                    headless=config.HEADLESS,
+                    user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/120.0 Safari/537.36"),
+                    viewport={"width": 1440, "height": 900},
+                    args=["--disable-blink-features=AutomationControlled"],
+                )
+                page = context.pages[0] if context.pages else await context.new_page()
+                page.on("response", self._handle_response)
+
                 await page.goto(SQUARE_URL, wait_until="domcontentloaded", timeout=60000)
                 await page.wait_for_timeout(3000)
 
                 while time.time() - start < duration_seconds:
-                    await page.mouse.wheel(0, 4000)
+                    # Check if stop was requested (e.g. SIGTERM)
+                    if self._stop_requested:
+                        print("[scraper] 收到停止信号，提前结束本轮抓取")
+                        break
+
+                    try:
+                        await page.mouse.wheel(0, 4000)
+                    except Exception:
+                        if self._stop_requested:
+                            break
+                        raise
                     scrolls += 1
                     await page.wait_for_timeout(config.SCROLL_PAUSE_SECONDS * 1000)
 
@@ -200,6 +226,8 @@ class SquareScraper:
                             await page.goto(SQUARE_URL, wait_until="domcontentloaded", timeout=60000)
                             await page.wait_for_timeout(2500)
                         except Exception:
+                            if self._stop_requested:
+                                break
                             pass
 
                     if progress_cb:
@@ -207,7 +235,12 @@ class SquareScraper:
             except Exception as e:
                 print(f"[scraper] 出错：{e}")
             finally:
-                await context.close()
+                if context:
+                    try:
+                        await context.close()
+                    except Exception as e:
+                        # Ignore cleanup errors (context may already be closed)
+                        print(f"[scraper] 关闭浏览器上下文时出错（已忽略）：{e}")
 
         # 去重
         seen = set()

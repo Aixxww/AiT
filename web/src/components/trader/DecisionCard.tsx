@@ -463,6 +463,29 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
         </div>
       )}
 
+      {/* AI Token Usage Stats */}
+      {(decision.ai_request_duration_ms || decision.total_tokens) ? (
+        <div
+          className="rounded-lg p-2 mt-2 text-xs font-mono"
+          style={{ background: 'rgba(30, 154, 247, 0.08)', border: '1px solid rgba(30, 154, 247, 0.2)' }}
+        >
+          <div className="flex items-center gap-4 flex-wrap">
+            {decision.ai_request_duration_ms ? (
+              <span style={{ color: '#1e9af7' }}>⏱ {(decision.ai_request_duration_ms / 1000).toFixed(1)}s</span>
+            ) : null}
+            {decision.prompt_tokens ? (
+              <span style={{ color: '#F0B90B' }}>📥 Prompt: {decision.prompt_tokens.toLocaleString()} tokens</span>
+            ) : null}
+            {decision.completion_tokens ? (
+              <span style={{ color: '#0ecb81' }}>📤 Output: {decision.completion_tokens.toLocaleString()} tokens</span>
+            ) : null}
+            {decision.total_tokens ? (
+              <span style={{ color: '#8899aa' }}>Σ Total: {decision.total_tokens.toLocaleString()}</span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* Error Message */}
       {decision.error_message && (
         <div

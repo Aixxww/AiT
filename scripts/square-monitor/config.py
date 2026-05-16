@@ -25,11 +25,16 @@ WEIGHT_COMMENT = 3
 WEIGHT_SHARE = 5
 
 # === 抓取参数 ===
-# 现在是"一轮 = 5 分钟持续抓取"，所以 INTERVAL = 每轮时长
-SCRAPE_ROUND_SECONDS = 300      # 每轮持续 5 分钟
+SCRAPE_ROUND_SECONDS = 300      # 每轮持续抓取 5 分钟
+SCRAPE_INTERVAL_SECONDS = 600   # 两轮之间间隔（秒），最少 10 分钟
 HEADLESS = True                 # 仪表盘模式下建议 True（浏览器别挡视线）
 SCROLL_PAUSE_SECONDS = 3        # 每次滚动之间等待
 SCROLL_RESET_EVERY = 40         # 每滚动 N 次后刷新一次页面（防止懒加载卡死）
+
+# === 历史缓存清理 ===
+HEAT_HISTORY_PURGE_INTERVAL_ROUNDS = 3   # 每 N 轮清理一次旧历史
+HEAT_HISTORY_KEEP_ROUNDS = 10            # 保留最近 N 轮热帖历史
+SNAPSHOT_STALE_MINUTES = 10              # 快照超过此时间视为过期，需清理
 
 # === 数据库 ===
 DB_PATH = "binance_square.db"
@@ -52,6 +57,7 @@ EXCLUDED_TOKENS = {
 SHORT_WINDOW_MINUTES = 15       # 榜单时间窗口
 SHORT_HALF_LIFE_HOURS = 0.25    # 热度衰减半衰期
 TOP_N_SHORT = 20                # 榜单显示前 N
+TOP_N = 30                      # 24h 榜单显示前 N
 
 # === Web 仪表盘 ===
 WEB_HOST = "127.0.0.1"
