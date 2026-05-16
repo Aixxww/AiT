@@ -152,6 +152,95 @@ func isUSDTPerp(symbol string) bool {
 	return true
 }
 
+// klineBar represents a single Binance kline (candlestick).
+type klineBar struct {
+	OpenTime  int64
+	Open      float64
+	High      float64
+	Low       float64
+	Close     float64
+	Volume    float64
+	Trades             int64
+	TakerBuyBaseVolume float64
+	TakerBuyQuoteVol   float64
+}
+
+// fetchKlines fetches klines from Binance Futures API.
+// interval: "1m", "5m", "15m", "1h", "4h", etc.
+// limit: number of klines (max 1500).
+func (c *Client) fetchKlines(symbol, interval string, limit int) ([]klineBar, error) {
+	url := fmt.Sprintf("%s/fapi/v1/klines?symbol=%s&interval=%s&limit=%d",
+		c.BinanceURL, symbol, interval, limit)
+
+	var raw [][]interface{}
+	if err := c.fetchJSON(url, &raw); err != nil {
+		return nil, fmt.Errorf("local: klines fetch failed for %s: %w", symbol, err)
+	}
+
+	bars := make([]klineBar, 0, len(raw))
+	for _, r := range raw {
+		if len(r) < 8 {
+			continue
+		}
+		bar := klineBar{
+			OpenTime: int64(toFloat(r[0])),
+			Open:     toFloat(r[1]),
+			High:     toFloat(r[2]),
+			Low:      toFloat(r[3]),
+			Close:    toFloat(r[4]),
+			Volume:   toFloat(r[5]),
+			Trades:   int64(toFloat(r[8])),
+		}
+		if len(r) >= 11 {
+			bar.TakerBuyBaseVolume = toFloat(r[9])
+			bar.TakerBuyQuoteVol = toFloat(r[10])
+		}
+		bars = append(bars, bar)
+	}
+	return bars, nil
+}
+
+// toFloat converts an interface{} (from JSON number) to float64.
+func toFloat(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case json.Number:
+		f, _ := n.Float64()
+		return f
+	default:
+		return 0
+	}
+}
+
+// fetchOIHist fetches OI history for a symbol from Binance.
+func (c *Client) fetchOIHist(symbol, period string, limit int) (deltaPercent float64, err error) {
+	url := fmt.Sprintf("%s/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d",
+		c.BinanceURL, symbol, period, limit)
+
+	type oiEntry struct {
+		Symbol               string `json:"symbol"`
+		SumOpenInterest      string `json:"sumOpenInterest"`
+		SumOpenInterestValue string `json:"sumOpenInterestValue"`
+		Timestamp            int64  `json:"timestamp"`
+	}
+
+	var entries []oiEntry
+	if err := c.fetchJSON(url, &entries); err != nil {
+		return 0, err
+	}
+	if len(entries) < 2 {
+		return 0, nil
+	}
+
+	oldest := parseFloat(entries[0].SumOpenInterestValue)
+	newest := parseFloat(entries[len(entries)-1].SumOpenInterestValue)
+	if oldest > 0 {
+		deltaPercent = (newest - oldest) / oldest * 100
+	}
+	return deltaPercent, nil
+}
+
 // excludedMainstreamCoins is a set of high-cap coins that the strategy tiers
 // typically filter out. These are still scored but flagged lower so they don't
 // dominate the list.

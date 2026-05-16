@@ -447,6 +447,7 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 		hasOILow := false
 		hasHyperAll := false
 		hasHyperMain := false
+		hasHunter := false
 		for _, s := range sources {
 			switch s {
 			case "ai500":
@@ -459,6 +460,8 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 				hasHyperAll = true
 			case "hyper_main":
 				hasHyperMain = true
+			case "hunter":
+				hasHunter = true
 			}
 		}
 		if hasAI500 && hasOITop {
@@ -472,6 +475,12 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 		}
 		if hasHyperMain && hasAI500 {
 			return " (HyperMain+AI500)"
+		}
+		if hasHunter && hasAI500 {
+			return " (Hunter+AI500)"
+		}
+		if hasHunter {
+			return " (Hunter+multi)"
 		}
 		if hasHyperAll || hasHyperMain {
 			return " (Hyperliquid)"
@@ -491,6 +500,8 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 			return " (Hyperliquid All)"
 		case "hyper_main":
 			return " (Hyperliquid Top20)"
+		case "hunter":
+			return " (Hunter)"
 		}
 	}
 	return ""

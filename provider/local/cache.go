@@ -10,6 +10,7 @@ const (
 	CacheTTLTicker  = 60 * time.Second  // 24h ticker data (price, volume, trades)
 	CacheTTLHistory = 300 * time.Second // OI history, LSR, taker ratio (5 min)
 	CacheTTLScore   = 120 * time.Second // AI500 composite scores (2 min)
+	CacheTTLHunter  = 180 * time.Second // Hunter composite scores (3 min)
 )
 
 // cacheEntry represents a single cached item with expiration time

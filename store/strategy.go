@@ -42,6 +42,11 @@ func (c *StrategyConfig) ClampLimits() {
 		c.CoinSource.SquareHeatLimit = MaxCandidateCoins
 	}
 
+	// Clamp Hunter limit
+	if c.CoinSource.HunterLimit <= 0 || c.CoinSource.HunterLimit > MaxCandidateCoins {
+		c.CoinSource.HunterLimit = MaxCandidateCoins
+	}
+
 	// Clamp kline count
 	if c.Indicators.Klines.PrimaryCount < MinKlineCount {
 		c.Indicators.Klines.PrimaryCount = MinKlineCount
@@ -190,6 +195,10 @@ type CoinSourceConfig struct {
 	SquareHeatURL string `json:"square_heat_url,omitempty"`
 	// Minimum composite_score threshold for Square heat tokens
 	SquareMinScore float64 `json:"square_min_score,omitempty"`
+	// whether to use Hunter smart coin selection
+	UseHunter bool `json:"use_hunter"`
+	// Hunter coin pool maximum count (default 10)
+	HunterLimit int `json:"hunter_limit,omitempty"`
 	// Note: API URLs are now built automatically using NofxOSAPIKey from IndicatorConfig
 }
 
@@ -865,6 +874,8 @@ func (c *StrategyConfig) getEffectiveCoinCount() int {
 		count = c.CoinSource.OILowLimit
 	case "square_heat":
 		count = c.CoinSource.SquareHeatLimit
+	case "hunter":
+		count = c.CoinSource.HunterLimit
 	case "mixed":
 		if c.CoinSource.UseAI500 {
 			count += c.CoinSource.AI500Limit

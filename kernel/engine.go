@@ -145,6 +145,9 @@ type FullDecision struct {
 	RawResponse         string     `json:"raw_response"`
 	Timestamp           time.Time  `json:"timestamp"`
 	AIRequestDurationMs int64      `json:"ai_request_duration_ms,omitempty"`
+	PromptTokens        int        `json:"prompt_tokens,omitempty"`
+	CompletionTokens    int        `json:"completion_tokens,omitempty"`
+	TotalTokens         int        `json:"total_tokens,omitempty"`
 }
 
 // QuantData quantitative data structure (fund flow, position changes, price changes)
@@ -401,6 +404,13 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 		logger.Infof("🔥 Square Heat: loaded %d candidates (limit=%d)", len(candidates), limit)
 		return e.filterExcludedCoins(candidates), nil
 
+	case "hunter":
+		coins, err := e.getHunterCoins(coinSource.HunterLimit)
+		if err != nil {
+			return nil, err
+		}
+		return e.filterExcludedCoins(coins), nil
+
 	case "mixed":
 		if coinSource.UseAI500 {
 			poolCoins, err := e.getAI500Coins(coinSource.AI500Limit)
@@ -474,6 +484,22 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 				}
 			}
 
+			if coinSource.UseHunter {
+				if limit := coinSource.HunterLimit; limit > 0 {
+					if localClient, ok := e.nofxosClient.(*local.Client); ok {
+						symbols, err := localClient.GetHunterTopRatedCoins(limit)
+						if err != nil {
+							logger.Warnf("⚠ Hunter unavailable in mixed mode: %v", err)
+						} else {
+							for _, sym := range symbols {
+								symbolSources[sym] = append(symbolSources[sym], "hunter")
+							}
+							logger.Infof("🎯 Hunter (mixed): contributed %d symbols", len(symbols))
+						}
+					}
+				}
+			}
+
 		for _, symbol := range coinSource.StaticCoins {
 			symbol = market.Normalize(symbol)
 			if _, exists := symbolSources[symbol]; !exists {
@@ -537,6 +563,28 @@ func (e *StrategyEngine) getAI500Coins(limit int) ([]CandidateCoin, error) {
 		candidates = append(candidates, CandidateCoin{
 			Symbol:  symbol,
 			Sources: []string{"ai500"},
+		})
+	}
+	return candidates, nil
+}
+
+func (e *StrategyEngine) getHunterCoins(limit int) ([]CandidateCoin, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	localClient, ok := e.nofxosClient.(*local.Client)
+	if !ok {
+		return nil, fmt.Errorf("hunter source requires local.Client, got %T", e.nofxosClient)
+	}
+	symbols, err := localClient.GetHunterTopRatedCoins(limit)
+	if err != nil {
+		return nil, err
+	}
+	var candidates []CandidateCoin
+	for _, symbol := range symbols {
+		candidates = append(candidates, CandidateCoin{
+			Symbol:  symbol,
+			Sources: []string{"hunter"},
 		})
 	}
 	return candidates, nil
