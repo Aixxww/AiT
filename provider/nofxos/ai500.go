@@ -10,15 +10,16 @@ import (
 
 // CoinData represents AI500 coin information
 type CoinData struct {
-	Pair            string  `json:"pair"`             // Trading pair symbol (e.g.: BTCUSDT)
-	Score           float64 `json:"score"`            // Current AI score (0-100)
-	StartTime       int64   `json:"start_time"`       // Start time (Unix timestamp)
-	StartPrice      float64 `json:"start_price"`      // Start price
-	LastScore       float64 `json:"last_score"`       // Latest score
-	MaxScore        float64 `json:"max_score"`        // Highest score
-	MaxPrice        float64 `json:"max_price"`        // Highest price
-	IncreasePercent float64 `json:"increase_percent"` // Increase percentage (already x100)
-	IsAvailable     bool    `json:"-"`                // Whether tradable (internal use)
+	Pair            string   `json:"pair"`             // Trading pair symbol (e.g.: BTCUSDT)
+	Score           float64  `json:"score"`            // Current AI score (0-100)
+	StartTime       int64    `json:"start_time"`       // Start time (Unix timestamp)
+	StartPrice      float64  `json:"start_price"`      // Start price
+	LastScore       float64  `json:"last_score"`       // Latest score
+	MaxScore        float64  `json:"max_score"`        // Highest score
+	MaxPrice        float64  `json:"max_price"`        // Highest price
+	IncreasePercent float64  `json:"increase_percent"` // Increase percentage (already x100)
+	IsAvailable     bool     `json:"-"`                // Whether tradable (internal use)
+	SignalTags      []string `json:"signal_tags,omitempty"` // Trading signal tags (e.g. "rsi_oversold", "vol_breakout", "oi_up_price_up")
 }
 
 // AI500Response is the API response structure

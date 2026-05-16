@@ -3,6 +3,7 @@ package local
 import (
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -24,17 +25,18 @@ type binanceTicker struct {
 }
 
 // GetAI500List fetches all USDT-perpetual 24h tickers from Binance,
-// computes a simplified composite score (price change + volume + activity),
+// computes a composite score emphasising volatility over raw volume,
 // and returns the top 30 as []nofxos.CoinData.
 //
-// Algorithm (min-max normalised):
+// Algorithm (log-compressed, anti-wash-trading):
 //
-//	price_norm   = (change% - min_change%) / (max_change% - min_change%) * 100
-//	volume_norm  = (quoteVol  - min_qv)    / (max_qv     - min_qv    ) * 100
-//	activity_norm= (count     - min_count)  / (max_count   - min_count)  * 100
+//	pctAbs_norm = (|change%| - min_abs) / (max_abs - min_abs) * 100
+//	vol_norm    = (log10(qv)  - min_log) / (max_log - min_log) * 100
+//	act_norm    = (log10(cnt) - min_log) / (max_log - min_log) * 100
 //
-// score = price_norm*0.40 + volume_norm*0.35 + activity_norm*0.25
+// score = pctAbs_norm*0.50 + vol_norm*0.25 + act_norm*0.25
 //
+// Coins with trade count > 5M (wash-trading bots) receive a 0.6x penalty.
 // Mainstream coins are down-weighted by 30% so the list favours smaller,
 // higher-beta names that are more relevant to the AI trading strategy.
 func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
@@ -63,12 +65,8 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 		finalScore float64
 	}
 
-	// Collect raw values for min-max normalisation
+	// Collect raw values for log-based normalisation
 	var pool []scoredTicker
-	var minPct, maxPct float64
-	var minQV, maxQV float64
-	var minCnt, maxCnt float64
-	first := true
 
 	for _, t := range tickers {
 		if !isUSDTPerp(t.Symbol) {
@@ -81,32 +79,6 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 
 		st := scoredTicker{ticker: t, pct: pct, qv: qv, count: cnt}
 		pool = append(pool, st)
-
-		if first {
-			minPct, maxPct = pct, pct
-			minQV, maxQV = qv, qv
-			minCnt, maxCnt = cnt, cnt
-			first = false
-		} else {
-			if pct < minPct {
-				minPct = pct
-			}
-			if pct > maxPct {
-				maxPct = pct
-			}
-			if qv < minQV {
-				minQV = qv
-			}
-			if qv > maxQV {
-				maxQV = qv
-			}
-			if cnt < minCnt {
-				minCnt = cnt
-			}
-			if cnt > maxCnt {
-				maxCnt = cnt
-			}
-		}
 	}
 
 	if len(pool) == 0 {
@@ -114,29 +86,80 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 		return []nofxos.CoinData{}, nil
 	}
 
-	pctRange := maxPct - minPct
-	qvRange := maxQV - minQV
-	cntRange := maxCnt - minCnt
+	// Compute log-space min/max for volume and activity
+	var minQVLog, maxQVLog float64
+	var minCntLog, maxCntLog float64
+	var minPctAbs, maxPctAbs float64
+	first := true
 
-	// Avoid division by zero
-	if pctRange == 0 {
-		pctRange = 1
+	for _, p := range pool {
+		pctAbs := math.Abs(p.pct)
+		qvLog := math.Log10(p.qv + 1)
+		cntLog := math.Log10(p.count + 1)
+
+		if first {
+			minQVLog, maxQVLog = qvLog, qvLog
+			minCntLog, maxCntLog = cntLog, cntLog
+			minPctAbs, maxPctAbs = pctAbs, pctAbs
+			first = false
+		} else {
+			if qvLog < minQVLog {
+				minQVLog = qvLog
+			}
+			if qvLog > maxQVLog {
+				maxQVLog = qvLog
+			}
+			if cntLog < minCntLog {
+				minCntLog = cntLog
+			}
+			if cntLog > maxCntLog {
+				maxCntLog = cntLog
+			}
+			if pctAbs < minPctAbs {
+				minPctAbs = pctAbs
+			}
+			if pctAbs > maxPctAbs {
+				maxPctAbs = pctAbs
+			}
+		}
 	}
-	if qvRange == 0 {
-		qvRange = 1
+
+	pctAbsRange := maxPctAbs - minPctAbs
+	qvLogRange := maxQVLog - minQVLog
+	cntLogRange := maxCntLog - minCntLog
+	if pctAbsRange == 0 {
+		pctAbsRange = 1
 	}
-	if cntRange == 0 {
-		cntRange = 1
+	if qvLogRange == 0 {
+		qvLogRange = 1
+	}
+	if cntLogRange == 0 {
+		cntLogRange = 1
 	}
 
 	// ---- compute scores ----
+	// New formula (anti-wash-trading):
+	//   |price_change| volatility  50%  — captures real directional moves
+	//   log(volume)                25%  — log compresses outlier volumes
+	//   log(activity)              25%  — log compresses outlier trade counts
+	//   Wash-trading penalty: coins with count > 5M get 0.6x penalty
 	for i := range pool {
 		p := &pool[i]
-		p.normPct = ((p.pct - minPct) / pctRange) * 100
-		p.normQV = ((p.qv - minQV) / qvRange) * 100
-		p.normCount = ((p.count - minCnt) / cntRange) * 100
+		pctAbs := math.Abs(p.pct)
+		qvLog := math.Log10(p.qv + 1)
+		cntLog := math.Log10(p.count + 1)
 
-		score := clamp(p.normPct*0.40+p.normQV*0.35+p.normCount*0.25, 0, 100)
+		normPctAbs := ((pctAbs - minPctAbs) / pctAbsRange) * 100
+		normQVLog := ((qvLog - minQVLog) / qvLogRange) * 100
+		normCntLog := ((cntLog - minCntLog) / cntLogRange) * 100
+
+		score := clamp(normPctAbs*0.50+normQVLog*0.25+normCntLog*0.25, 0, 100)
+
+		// Wash-trading penalty: extremely high trade counts (e.g. 5M+ for LAB/BILL)
+		// These are algorithmic market-making, not organic trading interest
+		if p.count > 5_000_000 {
+			score *= 0.60
+		}
 
 		// Down-weight mainstream coins so the list is richer in mid/small caps
 		if excludedMainstreamCoins[p.ticker.Symbol] {
@@ -173,6 +196,14 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 			IsAvailable:     true,
 		})
 	}
+
+	// ---- signal bonus: detect RSI oversold, volume breakout, OI-price divergence ----
+	c.applySignalBonus(coins)
+
+	// Re-sort after signal bonus
+	sort.SliceStable(coins, func(i, j int) bool {
+		return coins[i].Score > coins[j].Score
+	})
 
 	// ---- cache ----
 	c.cache.Set(cacheKey, coins, CacheTTLScore)
@@ -232,4 +263,117 @@ func parseFloat(s string) float64 {
 	var f float64
 	fmt.Sscanf(s, "%f", &f)
 	return f
+}
+
+// applySignalBonus fetches 1h klines + OI history for each coin and applies
+// signal-based score bonuses. Called after the initial scoring to boost coins
+// that show actionable technical signals.
+//
+// Signals detected (each adds bonus points):
+//   - RSI14 < 30 (oversold bounce setup): +15
+//   - Volume breakout (latest 1h vol > 5-bar avg × 2): +10
+//   - OI increase + price increase (bullish accumulation): +10
+//
+// Rate-limited: 120ms between API calls. For 30 coins with 2 calls each,
+// worst case ~7.2s additional latency.
+func (c *Client) applySignalBonus(coins []nofxos.CoinData) {
+	if len(coins) == 0 {
+		return
+	}
+
+	for i := range coins {
+		coin := &coins[i]
+		symbol := coin.Pair
+		bonus := 0.0
+		var tags []string
+
+		// Fetch 1h klines (20 bars for RSI14 + volume avg)
+		klines, err := c.fetchKlines(symbol, "1h", 20)
+		if err != nil {
+			log.Printf("⚠ Signal bonus: klines fetch failed for %s: %v", symbol, err)
+			continue
+		}
+		if len(klines) < 15 {
+			continue
+		}
+
+		// Signal 1: RSI14 oversold (< 30)
+		rsi14 := computeRSI(klines, 14)
+		if rsi14 > 0 && rsi14 < 30 {
+			bonus += 15
+			tags = append(tags, "rsi_oversold")
+		}
+
+		// Signal 2: Volume breakout (latest 1h vol > 5-bar avg × 2)
+		if len(klines) >= 6 {
+			latestVol := klines[len(klines)-1].Volume
+			avgVol := 0.0
+			for _, k := range klines[len(klines)-6 : len(klines)-1] {
+				avgVol += k.Volume
+			}
+			avgVol /= 5
+			if avgVol > 0 && latestVol > avgVol*2 {
+				bonus += 10
+				tags = append(tags, "vol_breakout")
+			}
+		}
+
+		// Signal 3: OI increase + price increase (bullish accumulation)
+		// Fetch 1h OI history (last 4 hours)
+		oiDelta, err := c.fetchOIHist(symbol, "1h", 4)
+		if err == nil && oiDelta > 0 {
+			// Price also increasing over same period
+			priceStart := klines[len(klines)-4].Close
+			priceEnd := klines[len(klines)-1].Close
+			if priceStart > 0 && priceEnd > priceStart {
+				bonus += 10
+				tags = append(tags, "oi_up_price_up")
+			}
+		}
+
+		if bonus > 0 {
+			coin.Score += bonus
+			coin.SignalTags = tags
+			log.Printf("🎯 %s signal bonus: +%.0f %v (new score: %.1f)", symbol, bonus, tags, coin.Score)
+		}
+	}
+}
+
+// computeRSI calculates RSI for the given period using Wilder's smoothing method.
+func computeRSI(klines []klineBar, period int) float64 {
+	if len(klines) < period+1 {
+		return 0
+	}
+
+	var gains, losses float64
+	for i := 1; i <= period; i++ {
+		change := klines[i].Close - klines[i-1].Close
+		if change > 0 {
+			gains += change
+		} else {
+			losses -= change // make positive
+		}
+	}
+
+	avgGain := gains / float64(period)
+	avgLoss := losses / float64(period)
+
+	// Wilder's smoothing for remaining bars
+	for i := period + 1; i < len(klines); i++ {
+		change := klines[i].Close - klines[i-1].Close
+		var gain, loss float64
+		if change > 0 {
+			gain = change
+		} else {
+			loss = -change
+		}
+		avgGain = (avgGain*float64(period-1) + gain) / float64(period)
+		avgLoss = (avgLoss*float64(period-1) + loss) / float64(period)
+	}
+
+	if avgLoss == 0 {
+		return 100
+	}
+	rs := avgGain / avgLoss
+	return 100 - 100/(1+rs)
 }
