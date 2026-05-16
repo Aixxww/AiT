@@ -100,9 +100,15 @@ func (at *AutoTrader) runCycle() error {
 
 	if aiDecision != nil && aiDecision.AIRequestDurationMs > 0 {
 		record.AIRequestDurationMs = aiDecision.AIRequestDurationMs
-		at.logInfof("⏱️ AI call duration: %.2f seconds", float64(record.AIRequestDurationMs)/1000)
+		record.PromptTokens = aiDecision.PromptTokens
+		record.CompletionTokens = aiDecision.CompletionTokens
+		record.TotalTokens = aiDecision.TotalTokens
+		at.logInfof("⏱️ AI call duration: %.2f seconds | tokens: in=%d out=%d total=%d",
+			float64(record.AIRequestDurationMs)/1000,
+			record.PromptTokens, record.CompletionTokens, record.TotalTokens)
 		record.ExecutionLog = append(record.ExecutionLog,
-			fmt.Sprintf("AI call duration: %d ms", record.AIRequestDurationMs))
+			fmt.Sprintf("AI call duration: %d ms | prompt: %d tokens, output: %d tokens, total: %d",
+				record.AIRequestDurationMs, record.PromptTokens, record.CompletionTokens, record.TotalTokens))
 	}
 
 	// Save chain of thought, decisions, and input prompt even if there's an error (for debugging)
@@ -426,6 +432,27 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 		} else {
 			candidateCoins = coins
 			logger.Infof("📋 [%s] Strategy engine fetched candidate coins: %d", at.name, len(candidateCoins))
+
+			// Anti-repeat filter: remove coins that have been "wait"ed for 3+ consecutive cycles
+			if at.store != nil && len(candidateCoins) > 0 {
+				staleWaits := at.store.Decision().GetRecentWaitSymbols(at.id, 3, 3)
+				if len(staleWaits) > 0 {
+					filtered := make([]kernel.CandidateCoin, 0, len(candidateCoins))
+					for _, coin := range candidateCoins {
+						if count, stale := staleWaits[coin.Symbol]; stale {
+							logger.Infof("🔄 [%s] Anti-repeat: skipping %s (waited %d recent cycles)", at.name, coin.Symbol, count)
+						} else {
+							filtered = append(filtered, coin)
+						}
+					}
+					if len(filtered) > 0 {
+						logger.Infof("🔄 [%s] Anti-repeat filtered: %d → %d candidates", at.name, len(candidateCoins), len(filtered))
+						candidateCoins = filtered
+					} else {
+						logger.Infof("🔄 [%s] Anti-repeat: all candidates were stale, keeping originals", at.name)
+					}
+				}
+			}
 		}
 	}
 

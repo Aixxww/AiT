@@ -30,6 +30,9 @@ type DecisionRecordDB struct {
 	Success             bool      `gorm:"default:false"`
 	ErrorMessage        string    `gorm:"column:error_message;default:''"`
 	AIRequestDurationMs int64     `gorm:"column:ai_request_duration_ms;default:0"`
+	PromptTokens        int       `gorm:"column:prompt_tokens;default:0"`
+	CompletionTokens    int       `gorm:"column:completion_tokens;default:0"`
+	TotalTokens         int       `gorm:"column:total_tokens;default:0"`
 	CreatedAt           time.Time `json:"created_at"`
 }
 
@@ -51,6 +54,9 @@ type DecisionRecord struct {
 	Success             bool               `json:"success"`
 	ErrorMessage        string             `json:"error_message"`
 	AIRequestDurationMs int64              `json:"ai_request_duration_ms"`
+	PromptTokens        int                `json:"prompt_tokens"`
+	CompletionTokens    int                `json:"completion_tokens"`
+	TotalTokens         int                `json:"total_tokens"`
 	AccountState        AccountSnapshot    `json:"account_state"`
 	Positions           []PositionSnapshot `json:"positions"`
 	Decisions           []DecisionAction   `json:"decisions"`
@@ -137,6 +143,9 @@ func (db *DecisionRecordDB) toRecord() *DecisionRecord {
 		Success:             db.Success,
 		ErrorMessage:        db.ErrorMessage,
 		AIRequestDurationMs: db.AIRequestDurationMs,
+		PromptTokens:        db.PromptTokens,
+		CompletionTokens:    db.CompletionTokens,
+		TotalTokens:         db.TotalTokens,
 	}
 	json.Unmarshal([]byte(db.CandidateCoins), &record.CandidateCoins)
 	json.Unmarshal([]byte(db.ExecutionLog), &record.ExecutionLog)
@@ -172,6 +181,9 @@ func (s *DecisionStore) LogDecision(record *DecisionRecord) error {
 		Success:             record.Success,
 		ErrorMessage:        record.ErrorMessage,
 		AIRequestDurationMs: record.AIRequestDurationMs,
+		PromptTokens:        record.PromptTokens,
+		CompletionTokens:    record.CompletionTokens,
+		TotalTokens:         record.TotalTokens,
 	}
 
 	if err := s.db.Create(dbRecord).Error; err != nil {
@@ -294,6 +306,43 @@ func (s *DecisionStore) GetAllStatistics() (*Statistics, error) {
 	s.db.Raw("SELECT COUNT(*) FROM trader_positions WHERE status = 'CLOSED'").Scan(&stats.TotalClosePositions)
 
 	return stats, nil
+}
+
+// GetRecentWaitSymbols returns symbols that were repeatedly "wait"ed in recent cycles.
+// For each of the last `maxCycles` decision records, if a symbol appeared as a candidate
+// but the AI's decision action was "wait", it counts as a wait.
+// Returns a map of symbol → number of recent wait cycles (only symbols with >= threshold waits).
+func (s *DecisionStore) GetRecentWaitSymbols(traderID string, maxCycles, threshold int) map[string]int {
+	if maxCycles <= 0 {
+		maxCycles = 3
+	}
+	if threshold <= 0 {
+		threshold = 3
+	}
+
+	records, err := s.GetLatestRecords(traderID, maxCycles)
+	if err != nil || len(records) == 0 {
+		return nil
+	}
+
+	// Count "wait" decisions per symbol across recent cycles
+	waitCounts := make(map[string]int)
+	for _, rec := range records {
+		for _, d := range rec.Decisions {
+			if d.Action == "wait" && d.Symbol != "" {
+				waitCounts[d.Symbol]++
+			}
+		}
+	}
+
+	// Filter to only symbols meeting the threshold
+	result := make(map[string]int)
+	for sym, count := range waitCounts {
+		if count >= threshold {
+			result[sym] = count
+		}
+	}
+	return result
 }
 
 // GetLastCycleNumber gets the last cycle number for specified trader

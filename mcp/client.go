@@ -79,6 +79,10 @@ type Client struct {
 	// When provider.DeepSeekClient embeds Client, Hooks point to DeepSeekClient
 	// This way methods called in Call() are automatically dispatched to the overridden version
 	Hooks ClientHooks
+
+	// LastUsage stores the most recent token usage from the last API call.
+	// Set automatically after each successful CallWithMessages / Call.
+	LastUsage TokenUsage
 }
 
 // New creates default client (backward compatible)
@@ -290,6 +294,15 @@ func (client *Client) ParseMCPResponseFull(body []byte) (*LLMResponse, error) {
 
 	if len(result.Choices) == 0 {
 		return nil, fmt.Errorf("API returned empty response")
+	}
+
+	// Store last token usage on client for caller inspection
+	client.LastUsage = TokenUsage{
+		Provider:         client.Provider,
+		Model:            client.Model,
+		PromptTokens:     result.Usage.PromptTokens,
+		CompletionTokens: result.Usage.CompletionTokens,
+		TotalTokens:      result.Usage.TotalTokens,
 	}
 
 	// Report token usage if callback is set

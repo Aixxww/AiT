@@ -261,6 +261,16 @@ func (c *ClaudeClient) ParseMCPResponseFull(body []byte) (*mcp.LLMResponse, erro
 	}
 
 	total := raw.Usage.InputTokens + raw.Usage.OutputTokens
+
+	// Store last token usage on client for caller inspection
+	c.LastUsage = mcp.TokenUsage{
+		Provider:         c.Provider,
+		Model:            c.Model,
+		PromptTokens:     raw.Usage.InputTokens,
+		CompletionTokens: raw.Usage.OutputTokens,
+		TotalTokens:      total,
+	}
+
 	if mcp.TokenUsageCallback != nil && total > 0 {
 		mcp.TokenUsageCallback(mcp.TokenUsage{
 			Provider:         c.Provider,

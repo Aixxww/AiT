@@ -132,6 +132,19 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		decision.UserPrompt = userPrompt
 		decision.AIRequestDurationMs = aiCallDuration.Milliseconds()
 		decision.RawResponse = aiResponse
+		// Extract token usage from MCP client
+		if embedder, ok := mcpClient.(mcp.ClientEmbedder); ok {
+			base := embedder.BaseClient()
+			decision.PromptTokens = base.LastUsage.PromptTokens
+			decision.CompletionTokens = base.LastUsage.CompletionTokens
+			decision.TotalTokens = base.LastUsage.TotalTokens
+		}
+		// Fallback: estimate tokens if API didn't return usage data
+		if decision.TotalTokens == 0 {
+			decision.PromptTokens = len(systemPrompt)/4 + len(userPrompt)/4
+			decision.CompletionTokens = len(aiResponse) / 4
+			decision.TotalTokens = decision.PromptTokens + decision.CompletionTokens
+		}
 	}
 
 	if err != nil {
