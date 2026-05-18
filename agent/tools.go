@@ -754,6 +754,7 @@ func (a *Agent) toolManageExchangeConfig(storeUserID, argsJSON string) string {
 			strings.TrimSpace(args.LighterPrivateKey),
 			strings.TrimSpace(args.LighterAPIKeyPrivateKey),
 			lighterIndex,
+			"",
 		)
 		if err != nil {
 			return fmt.Sprintf(`{"error":"failed to create exchange config: %s"}`, err)
@@ -825,6 +826,7 @@ func (a *Agent) toolManageExchangeConfig(storeUserID, argsJSON string) string {
 			strings.TrimSpace(args.LighterPrivateKey),
 			strings.TrimSpace(args.LighterAPIKeyPrivateKey),
 			lighterIndex,
+			"",
 		); err != nil {
 			return fmt.Sprintf(`{"error":"failed to update exchange config: %s"}`, err)
 		}

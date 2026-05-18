@@ -699,6 +699,9 @@ func (tm *TraderManager) addTraderFromStore(traderCfg *store.Trader, aiModelCfg 
 		traderConfig.IndodaxSecretKey = string(exchangeCfg.SecretKey)
 	}
 
+	// Set proxy URL (applicable to all exchange types)
+	traderConfig.ProxyURL = exchangeCfg.ProxyURL
+
 	// Set API keys based on AI model (convert EncryptedString to string)
 	switch aiModelCfg.Provider {
 	case "qwen":

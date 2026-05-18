@@ -445,6 +445,10 @@ export const translations = {
     ipCopied: 'IP Copied',
     copyIPFailed: 'Failed to copy IP address. Please copy manually',
     loadingServerIP: 'Loading server IP...',
+    proxyURL: 'Proxy URL',
+    proxyURLPlaceholder: 'http://host:port or socks5://host:port',
+    proxyURLHelp: 'Set a dedicated network proxy for this exchange. Supports HTTP/HTTPS/SOCKS5',
+    optional: 'optional',
 
     // Error Messages
     createTraderFailed: 'Failed to create trader',
@@ -1777,6 +1781,10 @@ export const translations = {
     ipCopied: 'IP已复制',
     copyIPFailed: 'IP地址复制失败，请手动复制',
     loadingServerIP: '正在加载服务器IP...',
+    proxyURL: '代理地址',
+    proxyURLPlaceholder: 'http://host:port 或 socks5://host:port',
+    proxyURLHelp: '为该交易所设置独立的网络代理，支持 HTTP/HTTPS/SOCKS5 协议',
+    optional: '可选',
 
     // Error Messages
     createTraderFailed: '创建交易员失败',

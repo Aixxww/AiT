@@ -6,7 +6,9 @@ import (
 	"nofx/market"
 	"nofx/store"
 	"nofx/trader/types"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,12 +20,65 @@ var (
 	binanceSyncStateMutex sync.RWMutex
 )
 
+// IP ban tracking — when Binance returns -1003, record the ban expiry and skip sync until then
+var (
+	ipBanExpiry     time.Time // when the current IP ban expires (zero = not banned)
+	ipBanExpiryLock sync.RWMutex
+)
+
+// bannedUntilRe extracts the "banned until TIMESTAMP" from Binance -1003 error messages
+var bannedUntilRe = regexp.MustCompile(`banned until (\d+)`)
+
+// isIPBanned checks if the IP is currently banned
+func isIPBanned() (bool, time.Time) {
+	ipBanExpiryLock.RLock()
+	defer ipBanExpiryLock.RUnlock()
+	if ipBanExpiry.IsZero() {
+		return false, time.Time{}
+	}
+	if time.Now().Before(ipBanExpiry) {
+		return true, ipBanExpiry
+	}
+	return false, time.Time{}
+}
+
+// setIPBan parses a -1003 error and records the ban expiry time
+func setIPBan(err error) {
+	msg := err.Error()
+	if !strings.Contains(msg, "-1003") {
+		return
+	}
+	matches := bannedUntilRe.FindStringSubmatch(msg)
+	if len(matches) < 2 {
+		return
+	}
+	banUntilMs, err := strconv.ParseInt(matches[1], 10, 64)
+	if err != nil {
+		return
+	}
+	banExpiry := time.UnixMilli(banUntilMs).UTC()
+	// Add 10s buffer to avoid hitting the API right at ban lift
+	banExpiry = banExpiry.Add(10 * time.Second)
+
+	ipBanExpiryLock.Lock()
+	ipBanExpiry = banExpiry
+	ipBanExpiryLock.Unlock()
+
+	logger.Infof("🛑 IP banned until %s (UTC), sync paused", banExpiry.Format("2006-01-02 15:04:05"))
+}
+
 // SyncOrdersFromBinance syncs Binance Futures trade history to local database
 // Uses COMMISSION detection + fromId for efficient incremental sync
 // Also creates/updates position records to ensure orders/fills/positions data consistency
 func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string, exchangeType string, st *store.Store) error {
 	if st == nil {
 		return fmt.Errorf("store is nil")
+	}
+
+	// Check if IP is banned — skip sync entirely if so
+	if banned, expiry := isIPBanned(); banned {
+		logger.Infof("⏸ IP ban active until %s (UTC), skipping sync", expiry.Format("15:04:05"))
+		return nil
 	}
 
 	orderStore := st.Order()
@@ -75,6 +130,7 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	// Method 1: COMMISSION income detection
 	commissionSymbols, err := t.GetCommissionSymbols(lastSyncTime)
 	if err != nil {
+		setIPBan(err)
 		logger.Infof("  ⚠️ Failed to get commission symbols: %v", err)
 	} else {
 		logger.Infof("  📋 COMMISSION symbols found: %d - %v", len(commissionSymbols), commissionSymbols)
@@ -103,6 +159,7 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	// because a position might be fully closed (no active position) but have PnL
 	pnlSymbols, err := t.GetPnLSymbols(lastSyncTime)
 	if err != nil {
+		setIPBan(err)
 		logger.Infof("  ⚠️ Failed to get PnL symbols: %v", err)
 	} else {
 		logger.Infof("  📋 REALIZED_PNL symbols found: %d - %v", len(pnlSymbols), pnlSymbols)
@@ -144,6 +201,7 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 		apiCalls++
 
 		if queryErr != nil {
+			setIPBan(queryErr)
 			logger.Infof("  ⚠️ Failed to get trades for %s: %v", symbol, queryErr)
 			failedSymbols = append(failedSymbols, symbol)
 			continue

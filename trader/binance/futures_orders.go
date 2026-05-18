@@ -6,6 +6,7 @@ import (
 	"nofx/logger"
 	"nofx/trader/types"
 	"strconv"
+	"strings"
 
 	"github.com/adshao/go-binance/v2/futures"
 )
@@ -52,7 +53,25 @@ func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) 
 		Do(context.Background())
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to open long position: %w", err)
+		// Auto-retry on TradFi-Perps agreement error (-4411)
+		if strings.Contains(err.Error(), "-4411") {
+			logger.Infof("  ⚠ TradFi-Perps agreement not signed, signing now...")
+			if signErr := t.signTradFiAgreement(); signErr != nil {
+				return nil, fmt.Errorf("failed to open long position (TradFi agreement signing failed): %w", signErr)
+			}
+			// Retry the order after signing agreement
+			order, err = t.client.NewCreateOrderService().
+				Symbol(symbol).
+				Side(futures.SideTypeBuy).
+				PositionSide(futures.PositionSideTypeLong).
+				Type(futures.OrderTypeMarket).
+				Quantity(quantityStr).
+				NewClientOrderID(getBrOrderID()).
+				Do(context.Background())
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open long position: %w", err)
+		}
 	}
 
 	logger.Infof("✓ Opened long position successfully: %s quantity: %s", symbol, quantityStr)
@@ -107,7 +126,25 @@ func (t *FuturesTrader) OpenShort(symbol string, quantity float64, leverage int)
 		Do(context.Background())
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to open short position: %w", err)
+		// Auto-retry on TradFi-Perps agreement error (-4411)
+		if strings.Contains(err.Error(), "-4411") {
+			logger.Infof("  ⚠ TradFi-Perps agreement not signed, signing now...")
+			if signErr := t.signTradFiAgreement(); signErr != nil {
+				return nil, fmt.Errorf("failed to open short position (TradFi agreement signing failed): %w", signErr)
+			}
+			// Retry the order after signing agreement
+			order, err = t.client.NewCreateOrderService().
+				Symbol(symbol).
+				Side(futures.SideTypeSell).
+				PositionSide(futures.PositionSideTypeShort).
+				Type(futures.OrderTypeMarket).
+				Quantity(quantityStr).
+				NewClientOrderID(getBrOrderID()).
+				Do(context.Background())
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open short position: %w", err)
+		}
 	}
 
 	logger.Infof("✓ Opened short position successfully: %s quantity: %s", symbol, quantityStr)

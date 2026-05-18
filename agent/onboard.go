@@ -462,6 +462,7 @@ func (a *Agent) saveSetupExchange(storeUserID string, state *SetupState) (string
 				hlWallet, hlUnified,
 				"", "", "",
 				"", "", "", 0,
+				"",
 			); err != nil {
 				return "", err
 			}
@@ -479,6 +480,7 @@ func (a *Agent) saveSetupExchange(storeUserID string, state *SetupState) (string
 		hlWallet, hlUnified,
 		"", "", "",
 		"", "", "", 0,
+		"",
 	)
 }
 

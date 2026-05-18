@@ -51,7 +51,8 @@ interface ExchangeConfigModalProps {
     lighterWalletAddr?: string,
     lighterPrivateKey?: string,
     lighterApiKeyPrivateKey?: string,
-    lighterApiKeyIndex?: number
+    lighterApiKeyIndex?: number,
+    proxyURL?: string
   ) => Promise<void>
   onDelete: (exchangeId: string) => void
   onClose: () => void
@@ -182,6 +183,7 @@ export function ExchangeConfigModal({
   const [secureInputTarget, setSecureInputTarget] = useState<null | 'hyperliquid' | 'aster' | 'lighter'>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [accountName, setAccountName] = useState('')
+  const [proxyURL, setProxyURL] = useState('')
 
   const selectedExchange = editingExchangeId
     ? allExchanges?.find((e) => e.id === editingExchangeId)
@@ -223,6 +225,7 @@ export function ExchangeConfigModal({
       setLighterWalletAddr(selectedExchange.lighterWalletAddr || '')
       setLighterApiKeyPrivateKey('')
       setLighterApiKeyIndex(selectedExchange.lighterApiKeyIndex || 0)
+      setProxyURL(selectedExchange.proxy_url || '')
     }
   }, [editingExchangeId, selectedExchange])
 
@@ -314,24 +317,25 @@ export function ExchangeConfigModal({
 
     setIsSaving(true)
     try {
+      const proxy = proxyURL.trim() || undefined
       if (currentExchangeType === 'binance' || currentExchangeType === 'bybit' || currentExchangeType === 'indodax') {
         if (!apiKey.trim() || !secretKey.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), '', testnet)
+        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), '', testnet, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, proxy)
       } else if (currentExchangeType === 'okx' || currentExchangeType === 'bitget' || currentExchangeType === 'kucoin') {
         if (!apiKey.trim() || !secretKey.trim() || !passphrase.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), passphrase.trim(), testnet)
+        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), passphrase.trim(), testnet, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, proxy)
       } else if (currentExchangeType === 'hyperliquid') {
         if (!apiKey.trim() || !hyperliquidWalletAddr.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), '', '', testnet, hyperliquidWalletAddr.trim())
+        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), '', '', testnet, hyperliquidWalletAddr.trim(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, proxy)
       } else if (currentExchangeType === 'aster') {
         if (!asterUser.trim() || !asterSigner.trim() || !asterPrivateKey.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, '', '', '', testnet, undefined, asterUser.trim(), asterSigner.trim(), asterPrivateKey.trim())
+        await onSave(exchangeId, exchangeType, trimmedAccountName, '', '', '', testnet, undefined, asterUser.trim(), asterSigner.trim(), asterPrivateKey.trim(), undefined, undefined, undefined, undefined, proxy)
       } else if (currentExchangeType === 'lighter') {
         if (!lighterWalletAddr.trim() || !lighterApiKeyPrivateKey.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, '', '', '', testnet, undefined, undefined, undefined, undefined, lighterWalletAddr.trim(), '', lighterApiKeyPrivateKey.trim(), lighterApiKeyIndex)
+        await onSave(exchangeId, exchangeType, trimmedAccountName, '', '', '', testnet, undefined, undefined, undefined, undefined, lighterWalletAddr.trim(), '', lighterApiKeyPrivateKey.trim(), lighterApiKeyIndex, proxy)
       } else {
         if (!apiKey.trim() || !secretKey.trim()) return
-        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), '', testnet)
+        await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), '', testnet, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, proxy)
       }
     } finally {
       setIsSaving(false)
@@ -754,6 +758,25 @@ export function ExchangeConfigModal({
                   </div>
                 </>
               )}
+
+              {/* Proxy URL (all exchanges) */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: '#EAECEF' }}>
+                  {t('proxyURL', language) || '代理地址'}
+                  <span className="text-xs font-normal" style={{ color: '#848E9C' }}>({t('optional', language) || '可选'})</span>
+                </label>
+                <input
+                  type="text"
+                  value={proxyURL}
+                  onChange={(e) => setProxyURL(e.target.value)}
+                  placeholder={t('proxyURLPlaceholder', language) || 'http://host:port 或 socks5://host:port'}
+                  className="w-full px-4 py-3 rounded-xl"
+                  style={{ background: '#0B0E11', border: '1px solid #2B3139', color: '#EAECEF' }}
+                />
+                <p className="text-xs" style={{ color: '#848E9C' }}>
+                  {t('proxyURLHelp', language) || '为该交易所设置独立的网络代理，支持 HTTP/HTTPS/SOCKS5'}
+                </p>
+              </div>
 
               {/* Buttons */}
               <div className="flex gap-3 pt-4">

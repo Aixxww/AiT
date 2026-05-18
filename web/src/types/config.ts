@@ -47,6 +47,8 @@ export interface Exchange {
   lighterPrivateKey?: string
   lighterApiKeyPrivateKey?: string
   lighterApiKeyIndex?: number
+  // Proxy
+  proxy_url?: string
 }
 
 export type ExchangeAccountStatus =
@@ -89,6 +91,7 @@ export interface CreateExchangeRequest {
   lighter_private_key?: string
   lighter_api_key_private_key?: string
   lighter_api_key_index?: number
+  proxy_url?: string
 }
 
 export interface CreateTraderRequest {
@@ -141,6 +144,7 @@ export interface UpdateExchangeConfigRequest {
       lighter_private_key?: string
       lighter_api_key_private_key?: string
       lighter_api_key_index?: number
+      proxy_url?: string
     }
   }
 }

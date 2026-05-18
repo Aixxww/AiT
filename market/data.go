@@ -188,11 +188,19 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 				continue
 			}
 		} else {
-			// Use CoinAnk for regular crypto assets (default to Binance)
-			klines, err = getKlinesFromCoinAnk(symbol, tf, "binance", 200)
-			if err != nil {
-				logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
-				continue
+			// Try Binance public API first (real-time volume, no empty trailing candle)
+			klines, err = getKlinesFromBinance(symbol, tf, 200)
+			if err != nil || len(klines) == 0 {
+				if err != nil {
+					logger.Infof("⚠️ Binance %s %s kline failed, falling back to CoinAnk: %v", symbol, tf, err)
+				} else {
+					logger.Infof("⚠️ Binance %s %s kline empty, falling back to CoinAnk", symbol, tf)
+				}
+				klines, err = getKlinesFromCoinAnk(symbol, tf, "binance", 200)
+				if err != nil {
+					logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
+					continue
+				}
 			}
 		}
 

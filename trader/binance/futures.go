@@ -2,9 +2,13 @@ package binance
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"nofx/hook"
 	"nofx/logger"
 	"strings"
@@ -61,8 +65,15 @@ type FuturesTrader struct {
 }
 
 // NewFuturesTrader creates futures trader
-func NewFuturesTrader(apiKey, secretKey string, userId string) *FuturesTrader {
+func NewFuturesTrader(apiKey, secretKey string, userId string, proxyURL ...string) *FuturesTrader {
 	client := futures.NewClient(apiKey, secretKey)
+
+	// Configure proxy if provided
+	if len(proxyURL) > 0 && proxyURL[0] != "" {
+		proxy := proxyURL[0]
+		logger.Infof("🌐 Using proxy for Binance: %s", proxy)
+		client = futures.NewProxiedClient(apiKey, secretKey, proxy)
+	}
 
 	hookRes := hook.HookExec[hook.NewBinanceTraderResult](hook.NEW_BINANCE_TRADER, userId, client)
 	if hookRes != nil && hookRes.GetResult() != nil {
@@ -80,6 +91,12 @@ func NewFuturesTrader(apiKey, secretKey string, userId string) *FuturesTrader {
 	// This is required because the code uses PositionSide (LONG/SHORT)
 	if err := trader.setDualSidePosition(); err != nil {
 		logger.Infof("⚠️ Failed to set dual-side position mode: %v (ignore this warning if already in dual-side mode)", err)
+	}
+
+	// Sign TradFi-Perps agreement contract
+	// Required for trading TradFi perpetual futures (error -4411 if not signed)
+	if err := trader.signTradFiAgreement(); err != nil {
+		logger.Infof("⚠️ Failed to sign TradFi-Perps agreement: %v (TradFi-Perps symbols may fail to trade)", err)
 	}
 
 	return trader
@@ -104,6 +121,47 @@ func (t *FuturesTrader) setDualSidePosition() error {
 
 	logger.Infof("  ✓ Account has been switched to dual-side position mode (Hedge Mode)")
 	logger.Infof("  ℹ️  Dual-side position mode allows holding both long and short positions simultaneously")
+	return nil
+}
+
+// signTradFiAgreement signs the TradFi-Perps agreement contract
+// This is required before trading TradFi perpetual futures (error -4411 if not signed)
+// API: POST /fapi/v1/stock/contract
+func (t *FuturesTrader) signTradFiAgreement() error {
+	endpoint := fmt.Sprintf("%s/fapi/v1/stock/contract", t.client.BaseURL)
+
+	timestamp := time.Now().UnixMilli() - t.client.TimeOffset
+	queryString := fmt.Sprintf("timestamp=%d", timestamp)
+
+	mac := hmac.New(sha256.New, []byte(t.client.SecretKey))
+	mac.Write([]byte(queryString))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	fullURL := fmt.Sprintf("%s?%s&signature=%s", endpoint, queryString, signature)
+
+	req, err := http.NewRequest("POST", fullURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create TradFi agreement request: %w", err)
+	}
+	req.Header.Set("X-MBX-APIKEY", t.client.APIKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send TradFi agreement request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		// If the error is that agreement is already signed, treat as success
+		if strings.Contains(string(body), "already") {
+			logger.Infof("  ✓ TradFi-Perps agreement already signed")
+			return nil
+		}
+		return fmt.Errorf("TradFi agreement signing failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	logger.Infof("  ✓ TradFi-Perps agreement signed successfully")
 	return nil
 }
 

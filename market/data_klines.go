@@ -2,7 +2,10 @@ package market
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"nofx/logger"
 	"nofx/provider/coinank/coinank_api"
 	"nofx/provider/coinank/coinank_enum"
@@ -13,6 +16,63 @@ import (
 )
 
 // Note: Kline data now uses free/open API (coinank_api.Kline) which doesn't require authentication
+
+// getKlinesFromBinance fetches klines directly from Binance public Futures API.
+// Returns real-time data including the current (in-progress) candle with live volume.
+func getKlinesFromBinance(symbol, interval string, limit int) ([]Kline, error) {
+	url := fmt.Sprintf("%s?symbol=%s&interval=%s&limit=%d",
+		binanceFuturesKlinesURL, symbol, interval, limit)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("binance klines fetch failed for %s: %w", symbol, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("binance klines read body failed: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("binance klines API returned status %d for %s", resp.StatusCode, symbol)
+	}
+
+	var raw [][]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("binance klines unmarshal failed: %w", err)
+	}
+
+	klines := make([]Kline, 0, len(raw))
+	for _, r := range raw {
+		if len(r) < 6 {
+			continue
+		}
+		klines = append(klines, Kline{
+			OpenTime:  int64(toFloat(r[0])),
+			Open:      toFloat(r[1]),
+			High:      toFloat(r[2]),
+			Low:       toFloat(r[3]),
+			Close:     toFloat(r[4]),
+			Volume:    toFloat(r[5]),
+			CloseTime: int64(toFloat(r[6])),
+		})
+	}
+	return klines, nil
+}
+
+// toFloat converts an interface{} (from JSON number) to float64.
+func toFloat(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case json.Number:
+		f, _ := n.Float64()
+		return f
+	default:
+		return 0
+	}
+}
 
 // getKlinesFromCoinAnk fetches kline data from CoinAnk API (replacement for WSMonitorCli)
 func getKlinesFromCoinAnk(symbol, interval, exchange string, limit int) ([]Kline, error) {
@@ -107,6 +167,11 @@ func getKlinesFromCoinAnk(symbol, interval, exchange string, limit int) ([]Kline
 			Volume:    ck.Volume,
 			CloseTime: ck.EndTime,
 		}
+	}
+
+	// Strip trailing empty candles (CoinAnk returns next not-yet-started candle with Vol=0)
+	for len(klines) > 1 && klines[len(klines)-1].Volume == 0 {
+		klines = klines[:len(klines)-1]
 	}
 
 	return klines, nil

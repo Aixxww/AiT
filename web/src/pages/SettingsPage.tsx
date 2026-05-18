@@ -240,7 +240,8 @@ export function SettingsPage() {
     lighterWalletAddr?: string,
     lighterPrivateKey?: string,
     lighterApiKeyPrivateKey?: string,
-    lighterApiKeyIndex?: number
+    lighterApiKeyIndex?: number,
+    proxyURL?: string
   ) => {
     try {
       if (exchangeId) {
@@ -260,6 +261,7 @@ export function SettingsPage() {
               lighter_private_key: lighterPrivateKey || '',
               lighter_api_key_private_key: lighterApiKeyPrivateKey || '',
               lighter_api_key_index: lighterApiKeyIndex || 0,
+              proxy_url: proxyURL || '',
             },
           },
         }
@@ -282,6 +284,7 @@ export function SettingsPage() {
           lighter_private_key: lighterPrivateKey || '',
           lighter_api_key_private_key: lighterApiKeyPrivateKey || '',
           lighter_api_key_index: lighterApiKeyIndex || 0,
+          proxy_url: proxyURL || '',
         }
         await api.createExchangeEncrypted(createRequest)
         toast.success('Exchange account created')
