@@ -267,12 +267,36 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		return hit.([]nofxos.CoinData), nil
 	}
 
+	// --- Step 1: Try Binance primary source ---
 	url := c.BinanceURL + "/fapi/v1/ticker/24hr"
 	var tickers []binanceTicker
+	var binanceErr error
 	if err := c.fetchJSON(url, &tickers); err != nil {
-		return nil, fmt.Errorf("hunter: fetch tickers failed: %w", err)
+		binanceErr = err
+		log.Printf("⚠️  Hunter: Binance ticker failed (%v), falling back to CoinGecko", err)
 	}
 
+	if binanceErr != nil {
+		// --- Step 2: Build valid Binance symbol pool ---
+		// Try Binance exchangeInfo first (separate rate-limit budget)
+		validSymbols, symErr := c.fetchBinanceUSDTPerpSymbols()
+		if symErr != nil {
+			log.Printf("⚠️  Hunter: Binance exchangeInfo also failed (%v), using CoinGecko symbol list", symErr)
+			validSymbols = nil // fetchCoinGeckoDerivatives will accept all Binance CG entries
+		}
+
+		// --- Step 3: Fetch CoinGecko derivatives, filter to Binance perps ---
+		cgTickers, cgErr := c.fetchCoinGeckoDerivatives(validSymbols, 50)
+		if cgErr != nil {
+			return nil, fmt.Errorf("hunter: both Binance and CoinGecko failed (binance: %v, coingecko: %v)", binanceErr, cgErr)
+		}
+		if len(cgTickers) == 0 {
+			return nil, fmt.Errorf("hunter: CoinGecko returned 0 Binance USDT perp tickers")
+		}
+		tickers = cgTickers
+	}
+
+	// --- Build candidate pool (shared path) ---
 	type candidate struct {
 		ticker binanceTicker
 		score  HunterCoinScore
@@ -365,7 +389,11 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 	}
 
 	c.cache.Set(cacheKey, coins, CacheTTLHunter)
-	log.Printf("🎯 Hunter: scored %d perps, returning top %d", len(pool), topN)
+	source := "Binance"
+	if binanceErr != nil {
+		source = "CoinGecko fallback"
+	}
+	log.Printf("🎯 Hunter (%s): scored %d perps, returning top %d", source, len(pool), topN)
 	return coins, nil
 }
 
