@@ -1,11 +1,15 @@
 package local
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
+	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"nofx/provider/nofxos"
@@ -50,7 +54,16 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 	url := c.BinanceURL + "/fapi/v1/ticker/24hr"
 	var tickers []binanceTicker
 	if err := c.fetchJSON(url, &tickers); err != nil {
-		return nil, fmt.Errorf("local: AI500 fetch tickers failed: %w", err)
+		log.Printf("⚠️  AI500: Binance ticker failed (%v), trying CoinGecko fallback", err)
+		cgTickers, cgErr := c.fetchCoinGeckoDerivatives(nil, 50)
+		if cgErr != nil {
+			return nil, fmt.Errorf("AI500: both Binance and CoinGecko failed (binance: %v, coingecko: %v)", err, cgErr)
+		}
+		if len(cgTickers) == 0 {
+			return nil, fmt.Errorf("AI500: CoinGecko returned 0 tickers")
+		}
+		tickers = cgTickers
+		log.Printf("🔗 AI500: using CoinGecko fallback with %d tickers", len(tickers))
 	}
 
 	// ---- filter to USDT perps ----
@@ -273,70 +286,185 @@ func parseFloat(s string) float64 {
 //   - RSI14 < 30 (oversold bounce setup): +15
 //   - Volume breakout (latest 1h vol > 5-bar avg × 2): +10
 //   - OI increase + price increase (bullish accumulation): +10
+//   - Funding rate negative (shorts paying longs): +8 to +15
+//   - Funding rate overheated (overleveraged longs): -10
 //
-// Rate-limited: 120ms between API calls. For 30 coins with 2 calls each,
-// worst case ~7.2s additional latency.
+// Parallelised: up to 5 concurrent API calls via semaphore.
 func (c *Client) applySignalBonus(coins []nofxos.CoinData) {
 	if len(coins) == 0 {
 		return
 	}
 
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5) // max 5 concurrent API calls
+
 	for i := range coins {
-		coin := &coins[i]
-		symbol := coin.Pair
-		bonus := 0.0
-		var tags []string
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			c.computeSignalBonus(&coins[idx])
+		}(i)
+	}
+	wg.Wait()
+}
 
-		// Fetch 1h klines (20 bars for RSI14 + volume avg)
-		klines, err := c.fetchKlines(symbol, "1h", 20)
-		if err != nil {
-			log.Printf("⚠ Signal bonus: klines fetch failed for %s: %v", symbol, err)
-			continue
-		}
-		if len(klines) < 15 {
-			continue
-		}
+// computeSignalBonus computes signal bonuses for a single coin.
+// Safe for concurrent use (uses fetchJSONParallel which creates its own http.Client).
+func (c *Client) computeSignalBonus(coin *nofxos.CoinData) {
+	symbol := coin.Pair
+	bonus := 0.0
+	var tags []string
 
-		// Signal 1: RSI14 oversold (< 30)
-		rsi14 := computeRSI(klines, 14)
-		if rsi14 > 0 && rsi14 < 30 {
-			bonus += 15
-			tags = append(tags, "rsi_oversold")
-		}
+	// Fetch 1h klines (20 bars for RSI14 + volume avg)
+	klines, err := c.fetchKlinesParallel(symbol, "1h", 20)
+	if err != nil || len(klines) < 15 {
+		return
+	}
 
-		// Signal 2: Volume breakout (latest 1h vol > 5-bar avg × 2)
-		if len(klines) >= 6 {
-			latestVol := klines[len(klines)-1].Volume
-			avgVol := 0.0
-			for _, k := range klines[len(klines)-6 : len(klines)-1] {
-				avgVol += k.Volume
-			}
-			avgVol /= 5
-			if avgVol > 0 && latestVol > avgVol*2 {
-				bonus += 10
-				tags = append(tags, "vol_breakout")
-			}
-		}
+	// Signal 1: RSI14 oversold (< 30)
+	rsi14 := computeRSI(klines, 14)
+	if rsi14 > 0 && rsi14 < 30 {
+		bonus += 15
+		tags = append(tags, "rsi_oversold")
+	}
 
-		// Signal 3: OI increase + price increase (bullish accumulation)
-		// Fetch 1h OI history (last 4 hours)
-		oiDelta, err := c.fetchOIHist(symbol, "1h", 4)
-		if err == nil && oiDelta > 0 {
-			// Price also increasing over same period
-			priceStart := klines[len(klines)-4].Close
-			priceEnd := klines[len(klines)-1].Close
-			if priceStart > 0 && priceEnd > priceStart {
-				bonus += 10
-				tags = append(tags, "oi_up_price_up")
-			}
+	// Signal 2: Volume breakout
+	if len(klines) >= 6 {
+		latestVol := klines[len(klines)-1].Volume
+		avgVol := 0.0
+		for _, k := range klines[len(klines)-6 : len(klines)-1] {
+			avgVol += k.Volume
 		}
-
-		if bonus > 0 {
-			coin.Score += bonus
-			coin.SignalTags = tags
-			log.Printf("🎯 %s signal bonus: +%.0f %v (new score: %.1f)", symbol, bonus, tags, coin.Score)
+		avgVol /= 5
+		if avgVol > 0 && latestVol > avgVol*2 {
+			bonus += 10
+			tags = append(tags, "vol_breakout")
 		}
 	}
+
+	// Signal 3: OI increase + price increase
+	oiDelta, err := c.fetchOIHistParallel(symbol, "1h", 4)
+	if err == nil && oiDelta > 0 {
+		priceStart := klines[len(klines)-4].Close
+		priceEnd := klines[len(klines)-1].Close
+		if priceStart > 0 && priceEnd > priceStart {
+			bonus += 10
+			tags = append(tags, "oi_up_price_up")
+		}
+	}
+
+	// Signal 4: Funding rate signal
+	// Negative funding = shorts paying longs = potential squeeze
+	url := fmt.Sprintf("%s/fapi/v1/premiumIndex?symbol=%s", c.BinanceURL, symbol)
+	var fundingResp struct {
+		LastFundingRate string `json:"lastFundingRate"`
+	}
+	if err := c.fetchJSONParallel(url, &fundingResp); err == nil {
+		fr := parseFloat(fundingResp.LastFundingRate)
+		if fr < -0.0005 { // -0.05%: extreme bearish crowding
+			bonus += 15
+			tags = append(tags, "funding_negative")
+		} else if fr < 0 { // negative: shorts paying
+			bonus += 8
+			tags = append(tags, "funding_bearish")
+		} else if fr > 0.001 { // +0.1%: overleveraged longs
+			bonus -= 10
+			tags = append(tags, "funding_overheated")
+		}
+	}
+
+	if bonus > 0 {
+		coin.Score += bonus
+		coin.SignalTags = tags
+		log.Printf("🎯 %s signal bonus: +%.0f %v (new score: %.1f)", symbol, bonus, tags, coin.Score)
+	}
+}
+
+// fetchJSONParallel is like fetchJSON but without rate limiting.
+// Safe for concurrent use from multiple goroutines (each creates its own http.Client).
+func (c *Client) fetchJSONParallel(url string, target interface{}) error {
+	httpClient := &http.Client{Timeout: c.Timeout}
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return fmt.Errorf("local: GET %s failed: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("local: read body %s failed: %w", url, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("local: %s returned HTTP %d: %s", url, resp.StatusCode, string(body))
+	}
+
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("local: JSON unmarshal failed for %s: %w", url, err)
+	}
+	return nil
+}
+
+// fetchKlinesParallel fetches klines using fetchJSONParallel (no rate limiting).
+// Safe for concurrent use.
+func (c *Client) fetchKlinesParallel(symbol, interval string, limit int) ([]klineBar, error) {
+	url := fmt.Sprintf("%s/fapi/v1/klines?symbol=%s&interval=%s&limit=%d",
+		c.BinanceURL, symbol, interval, limit)
+
+	var raw [][]interface{}
+	if err := c.fetchJSONParallel(url, &raw); err != nil {
+		return nil, err
+	}
+
+	bars := make([]klineBar, 0, len(raw))
+	for _, r := range raw {
+		if len(r) < 8 {
+			continue
+		}
+		bar := klineBar{
+			OpenTime: int64(toFloat(r[0])),
+			Open:     toFloat(r[1]),
+			High:     toFloat(r[2]),
+			Low:      toFloat(r[3]),
+			Close:    toFloat(r[4]),
+			Volume:   toFloat(r[5]),
+			Trades:   int64(toFloat(r[8])),
+		}
+		if len(r) >= 11 {
+			bar.TakerBuyBaseVolume = toFloat(r[9])
+			bar.TakerBuyQuoteVol = toFloat(r[10])
+		}
+		bars = append(bars, bar)
+	}
+	return bars, nil
+}
+
+// fetchOIHistParallel fetches OI history using fetchJSONParallel (no rate limiting).
+// Safe for concurrent use.
+func (c *Client) fetchOIHistParallel(symbol, period string, limit int) (float64, error) {
+	url := fmt.Sprintf("%s/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d",
+		c.BinanceURL, symbol, period, limit)
+
+	type oiEntry struct {
+		SumOpenInterestValue string `json:"sumOpenInterestValue"`
+	}
+
+	var entries []oiEntry
+	if err := c.fetchJSONParallel(url, &entries); err != nil {
+		return 0, err
+	}
+	if len(entries) < 2 {
+		return 0, nil
+	}
+
+	oldest := parseFloat(entries[0].SumOpenInterestValue)
+	newest := parseFloat(entries[len(entries)-1].SumOpenInterestValue)
+	if oldest > 0 {
+		return (newest - oldest) / oldest * 100, nil
+	}
+	return 0, nil
 }
 
 // computeRSI calculates RSI for the given period using Wilder's smoothing method.

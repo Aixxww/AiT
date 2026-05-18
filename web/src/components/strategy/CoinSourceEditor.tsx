@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Database, TrendingUp, TrendingDown, List, Ban, Zap, Shuffle, Flame } from 'lucide-react'
+import { Plus, X, Database, TrendingUp, TrendingDown, List, Ban, Zap, Shuffle, Flame, Crosshair } from 'lucide-react'
 import type { CoinSourceConfig } from '../../types'
 import { coinSource, ts } from '../../i18n/strategy-translations'
 import { NofxSelect } from '../ui/select'
@@ -26,6 +26,7 @@ export function CoinSourceEditor({
     { value: 'oi_top', icon: TrendingUp, color: '#0ECB81' },
     { value: 'oi_low', icon: TrendingDown, color: '#F6465D' },
     { value: 'square_heat', icon: Flame, color: '#FF6A00' },
+    { value: 'hunter', icon: Crosshair, color: '#A855F7' },
   ] as const
 
   // Calculate mixed mode summary
@@ -52,6 +53,10 @@ export function CoinSourceEditor({
     if (config.use_square_heat) {
       sources.push(`🔥SQ(${config.square_heat_limit || 10})`)
       totalLimit += config.square_heat_limit || 10
+    }
+    if (config.use_hunter) {
+      sources.push(`🎯HN(${config.hunter_limit || 10})`)
+      totalLimit += config.hunter_limit || 10
     }
 
     return { sources, totalLimit }
@@ -459,6 +464,225 @@ export function CoinSourceEditor({
         </div>
       )}
 
+      {/* Hunter Options - only for hunter mode */}
+      {config.source_type === 'hunter' && (
+        <div className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Crosshair className="w-4 h-4 text-purple-400" />
+              <span className="text-sm font-medium text-nofx-text">
+                {ts(coinSource.hunter, language)} {ts(coinSource.dataSourceConfig, language)}
+              </span>
+              <NofxOSBadge />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.use_hunter || false}
+                onChange={(e) =>
+                  !disabled && onChange({ ...config, use_hunter: e.target.checked })
+                }
+                disabled={disabled}
+                className="w-5 h-5 rounded accent-purple-500"
+              />
+              <span className="text-nofx-text">{ts(coinSource.useHunter, language)}</span>
+            </label>
+
+            {config.use_hunter && (
+              <div className="flex items-center gap-3 pl-8">
+                <span className="text-sm text-nofx-text-muted">
+                  {ts(coinSource.hunterLimit, language)}:
+                </span>
+                <NofxSelect
+                  value={config.hunter_limit || 10}
+                  onChange={(val) =>
+                    !disabled &&
+                    onChange({ ...config, hunter_limit: parseInt(val) || 10 })
+                  }
+                  disabled={disabled}
+                  options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                  className="px-3 py-1.5 rounded bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                />
+              </div>
+            )}
+
+            {config.use_hunter && (
+              <details className="pl-8 mt-2">
+                <summary className="text-xs cursor-pointer text-nofx-text-muted hover:text-nofx-text select-none">
+                  {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
+                </summary>
+                <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-nofx-bg border border-nofx-border">
+
+                  {/* Min OI Value */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? '最低OI' : 'Min OI'}
+                    </span>
+                    <NofxSelect
+                      value={String(config.hunter_config?.min_oi_value || 5000000)}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), min_oi_value: Number(val) }
+                      })}
+                      disabled={disabled}
+                      options={[
+                        { value: '2000000', label: '$2M' },
+                        { value: '5000000', label: '$5M' },
+                        { value: '10000000', label: '$10M' },
+                        { value: '15000000', label: '$15M' },
+                      ]}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                  {/* RSI Oversold */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
+                    </span>
+                    <NofxSelect
+                      value={String(config.hunter_config?.rsi_oversold_threshold || 30)}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), rsi_oversold_threshold: Number(val) }
+                      })}
+                      disabled={disabled}
+                      options={[20, 25, 30, 35, 40].map(n => ({ value: String(n), label: String(n) }))}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                  {/* RSI Overbought */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
+                    </span>
+                    <NofxSelect
+                      value={String(config.hunter_config?.rsi_overbought_threshold || 70)}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), rsi_overbought_threshold: Number(val) }
+                      })}
+                      disabled={disabled}
+                      options={[60, 65, 70, 75, 80].map(n => ({ value: String(n), label: String(n) }))}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                  {/* Funding Rate Signal toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.hunter_config?.enable_funding_rate_signal !== false}
+                      onChange={(e) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), enable_funding_rate_signal: e.target.checked }
+                      })}
+                      disabled={disabled}
+                      className="w-4 h-4 rounded accent-purple-500"
+                    />
+                    <span className="text-xs text-nofx-text">
+                      {language === 'zh' ? '资金费率信号' : 'Funding Rate Signal'}
+                    </span>
+                  </label>
+
+                  {/* Max 24h Change */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? '最大24h波动' : 'Max 24h Change'}
+                    </span>
+                    <NofxSelect
+                      value={String(config.hunter_config?.max_24h_change || 50)}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), max_24h_change: Number(val) }
+                      })}
+                      disabled={disabled}
+                      options={[
+                        { value: '0', label: language === 'zh' ? '不限' : 'None' },
+                        { value: '20', label: '20%' },
+                        { value: '30', label: '30%' },
+                        { value: '50', label: '50%' },
+                        { value: '100', label: '100%' },
+                      ]}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                  {/* Wash Trade Sensitivity */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
+                    </span>
+                    <NofxSelect
+                      value={config.hunter_config?.wash_trade_sensitivity || 'medium'}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), wash_trade_sensitivity: val as 'low' | 'medium' | 'high' }
+                      })}
+                      disabled={disabled}
+                      options={[
+                        { value: 'low', label: language === 'zh' ? '低' : 'Low' },
+                        { value: 'medium', label: language === 'zh' ? '中' : 'Medium' },
+                        { value: 'high', label: language === 'zh' ? '高' : 'High' },
+                      ]}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                  {/* Cooldown toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.hunter_config?.enable_cooldown !== false}
+                      onChange={(e) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), enable_cooldown: e.target.checked }
+                      })}
+                      disabled={disabled}
+                      className="w-4 h-4 rounded accent-purple-500"
+                    />
+                    <span className="text-xs text-nofx-text">
+                      {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
+                    </span>
+                  </label>
+
+                  {/* Min Trade Count */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-nofx-text-muted">
+                      {language === 'zh' ? '最低笔数' : 'Min Trades'}
+                    </span>
+                    <NofxSelect
+                      value={String(config.hunter_config?.min_trade_count || 10000)}
+                      onChange={(val) => !disabled && onChange({
+                        ...config,
+                        hunter_config: { ...(config.hunter_config || {}), min_trade_count: Number(val) }
+                      })}
+                      disabled={disabled}
+                      options={[
+                        { value: '1000', label: '1K' },
+                        { value: '5000', label: '5K' },
+                        { value: '10000', label: '10K' },
+                        { value: '50000', label: '50K' },
+                      ]}
+                      className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                    />
+                  </div>
+
+                </div>
+              </details>
+            )}
+
+            <p className="text-xs pl-8 text-nofx-text-muted">
+              {ts(coinSource.hunterDesc, language)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Mixed Mode - Unified Card Selector */}
       {config.source_type === 'mixed' && (
         <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
@@ -632,6 +856,212 @@ export function CoinSourceEditor({
                     className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
                   />
                 </div>
+              )}
+            </div>
+
+            {/* Hunter Card */}
+            <div
+              className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                config.use_hunter
+                  ? 'bg-purple-500/10 border-purple-500/50'
+                  : 'bg-nofx-bg border-nofx-border hover:border-purple-500/30'
+              }`}
+              onClick={() => !disabled && onChange({ ...config, use_hunter: !config.use_hunter })}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  checked={config.use_hunter || false}
+                  onChange={(e) => !disabled && onChange({ ...config, use_hunter: e.target.checked })}
+                  disabled={disabled}
+                  className="w-4 h-4 rounded accent-purple-500"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <Crosshair className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-nofx-text">
+                  {ts(coinSource.hunter, language)}
+                </span>
+              </div>
+              <p className="text-xs text-nofx-text-muted pl-6 mb-1">
+                {ts(coinSource.hunterDesc, language)}
+              </p>
+              {config.use_hunter && (
+                <div className="flex items-center gap-2 mt-2 pl-6">
+                  <span className="text-xs text-nofx-text-muted">Limit:</span>
+                  <NofxSelect
+                    value={config.hunter_limit || 10}
+                    onChange={(val) => !disabled && onChange({ ...config, hunter_limit: parseInt(val) || 10 })}
+                    disabled={disabled}
+                    options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                    className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                  />
+                </div>
+              )}
+              {config.use_hunter && (
+                <details className="pl-8 mt-2">
+                  <summary className="text-xs cursor-pointer text-nofx-text-muted hover:text-nofx-text select-none">
+                    {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
+                  </summary>
+                  <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-nofx-bg border border-nofx-border">
+
+                    {/* Min OI Value */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? '最低OI' : 'Min OI'}
+                      </span>
+                      <NofxSelect
+                        value={String(config.hunter_config?.min_oi_value || 5000000)}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), min_oi_value: Number(val) }
+                        })}
+                        disabled={disabled}
+                        options={[
+                          { value: '2000000', label: '$2M' },
+                          { value: '5000000', label: '$5M' },
+                          { value: '10000000', label: '$10M' },
+                          { value: '15000000', label: '$15M' },
+                        ]}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                    {/* RSI Oversold */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
+                      </span>
+                      <NofxSelect
+                        value={String(config.hunter_config?.rsi_oversold_threshold || 30)}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), rsi_oversold_threshold: Number(val) }
+                        })}
+                        disabled={disabled}
+                        options={[20, 25, 30, 35, 40].map(n => ({ value: String(n), label: String(n) }))}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                    {/* RSI Overbought */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
+                      </span>
+                      <NofxSelect
+                        value={String(config.hunter_config?.rsi_overbought_threshold || 70)}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), rsi_overbought_threshold: Number(val) }
+                        })}
+                        disabled={disabled}
+                        options={[60, 65, 70, 75, 80].map(n => ({ value: String(n), label: String(n) }))}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                    {/* Funding Rate Signal toggle */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.hunter_config?.enable_funding_rate_signal !== false}
+                        onChange={(e) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), enable_funding_rate_signal: e.target.checked }
+                        })}
+                        disabled={disabled}
+                        className="w-4 h-4 rounded accent-purple-500"
+                      />
+                      <span className="text-xs text-nofx-text">
+                        {language === 'zh' ? '资金费率信号' : 'Funding Rate Signal'}
+                      </span>
+                    </label>
+
+                    {/* Max 24h Change */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? '最大24h波动' : 'Max 24h Change'}
+                      </span>
+                      <NofxSelect
+                        value={String(config.hunter_config?.max_24h_change || 50)}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), max_24h_change: Number(val) }
+                        })}
+                        disabled={disabled}
+                        options={[
+                          { value: '0', label: language === 'zh' ? '不限' : 'None' },
+                          { value: '20', label: '20%' },
+                          { value: '30', label: '30%' },
+                          { value: '50', label: '50%' },
+                          { value: '100', label: '100%' },
+                        ]}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                    {/* Wash Trade Sensitivity */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
+                      </span>
+                      <NofxSelect
+                        value={config.hunter_config?.wash_trade_sensitivity || 'medium'}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), wash_trade_sensitivity: val as 'low' | 'medium' | 'high' }
+                        })}
+                        disabled={disabled}
+                        options={[
+                          { value: 'low', label: language === 'zh' ? '低' : 'Low' },
+                          { value: 'medium', label: language === 'zh' ? '中' : 'Medium' },
+                          { value: 'high', label: language === 'zh' ? '高' : 'High' },
+                        ]}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                    {/* Cooldown toggle */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.hunter_config?.enable_cooldown !== false}
+                        onChange={(e) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), enable_cooldown: e.target.checked }
+                        })}
+                        disabled={disabled}
+                        className="w-4 h-4 rounded accent-purple-500"
+                      />
+                      <span className="text-xs text-nofx-text">
+                        {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
+                      </span>
+                    </label>
+
+                    {/* Min Trade Count */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-nofx-text-muted">
+                        {language === 'zh' ? '最低笔数' : 'Min Trades'}
+                      </span>
+                      <NofxSelect
+                        value={String(config.hunter_config?.min_trade_count || 10000)}
+                        onChange={(val) => !disabled && onChange({
+                          ...config,
+                          hunter_config: { ...(config.hunter_config || {}), min_trade_count: Number(val) }
+                        })}
+                        disabled={disabled}
+                        options={[
+                          { value: '1000', label: '1K' },
+                          { value: '5000', label: '5K' },
+                          { value: '10000', label: '10K' },
+                          { value: '50000', label: '50K' },
+                        ]}
+                        className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
+                      />
+                    </div>
+
+                  </div>
+                </details>
               )}
             </div>
 

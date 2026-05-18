@@ -199,7 +199,31 @@ type CoinSourceConfig struct {
 	UseHunter bool `json:"use_hunter"`
 	// Hunter coin pool maximum count (default 10)
 	HunterLimit int `json:"hunter_limit,omitempty"`
+	// Hunter algorithm tuning parameters
+	Hunter *HunterConfig `json:"hunter_config,omitempty"`
 	// Note: API URLs are now built automatically using NofxOSAPIKey from IndicatorConfig
+}
+
+// HunterConfig tunable parameters for the Hunter coin selection algorithm
+type HunterConfig struct {
+	// Minimum OI value in USD (default 5000000 = $5M)
+	MinOIValue float64 `json:"min_oi_value,omitempty"`
+	// RSI oversold threshold for signal bonus (default 30)
+	RSIOversoldThreshold float64 `json:"rsi_oversold_threshold,omitempty"`
+	// RSI overbought threshold (coins above get penalty, default 70)
+	RSIOverboughtThreshold float64 `json:"rsi_overbought_threshold,omitempty"`
+	// Enable funding rate as selection signal (default true)
+	EnableFundingRateSignal bool `json:"enable_funding_rate_signal"`
+	// Maximum 24h price change percentage (default 50, 0 = no limit)
+	Max24hChange float64 `json:"max_24h_change,omitempty"`
+	// Wash trade detection sensitivity: "low", "medium", "high" (default "medium")
+	WashTradeSensitivity string `json:"wash_trade_sensitivity,omitempty"`
+	// Enable smart cooldown system (default true)
+	EnableCooldown bool `json:"enable_cooldown"`
+	// Minimum trade count filter (default 10000)
+	MinTradeCount int64 `json:"min_trade_count,omitempty"`
+	// Position score timeframes (default ["1h", "4h", "1d"])
+	PositionTimeframes []string `json:"position_timeframes,omitempty"`
 }
 
 // IndicatorConfig indicator configuration

@@ -88,7 +88,7 @@ export interface GridStrategyConfig {
 }
 
 export interface CoinSourceConfig {
-  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'mixed';
+  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'hunter' | 'mixed';
   static_coins?: string[];
   excluded_coins?: string[];   // 排除的币种列表
   use_ai500: boolean;
@@ -101,7 +101,22 @@ export interface CoinSourceConfig {
   square_heat_limit?: number;
   square_heat_url?: string;
   square_min_score?: number;
+  use_hunter?: boolean;
+  hunter_limit?: number;
+  hunter_config?: HunterConfig;
   // Note: API URLs are now built automatically using Binance public API (local provider)
+}
+
+export interface HunterConfig {
+  min_oi_value?: number;
+  rsi_oversold_threshold?: number;
+  rsi_overbought_threshold?: number;
+  enable_funding_rate_signal?: boolean;
+  max_24h_change?: number;
+  wash_trade_sensitivity?: 'low' | 'medium' | 'high';
+  enable_cooldown?: boolean;
+  min_trade_count?: number;
+  position_timeframes?: string[];
 }
 
 export interface IndicatorConfig {
