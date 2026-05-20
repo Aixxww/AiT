@@ -32,9 +32,35 @@ FAPI_BASE = "https://fapi.binance.com"
 _FUTURES_SYMBOLS_CACHE: dict = {"ts": 0.0, "symbols": set()}
 _CACHE_TTL = 3600  # 1 小时
 
+# ── 速率限制 ──
+# Binance IP 限制: 1200 weight/分钟
+# 平均 ~3 weight/请求 → 安全上限 ~5 req/s → 最小间隔 200ms
+# klines(100 bars) = 10 weight，需要额外余量
+import threading
+_rate_lock = threading.Lock()
+_last_request_ts: float = 0.0
+_MIN_INTERVAL: float = 0.20  # 200ms between requests
+_ban_until: float = 0.0      # IP ban expiry (epoch seconds)
+
 
 def _http_get(url: str, params: dict = None, timeout: int = 15) -> Optional[dict]:
-    """简单 GET 请求，失败返回 None"""
+    """限速 GET 请求，失败返回 None。自动处理 418 IP ban。"""
+    global _last_request_ts, _ban_until
+
+    with _rate_lock:
+        # 如果当前处于 ban 期，等待到解封（最多等 60 秒避免卡死）
+        now = time.time()
+        if _ban_until > now:
+            wait = min(_ban_until - now, 60.0)
+            if wait > 0:
+                time.sleep(wait)
+
+        # 请求间隔限速
+        elapsed = time.time() - _last_request_ts
+        if elapsed < _MIN_INTERVAL:
+            time.sleep(_MIN_INTERVAL - elapsed)
+        _last_request_ts = time.time()
+
     if params:
         url = f"{url}?{urlencode(params)}"
     try:
@@ -42,7 +68,19 @@ def _http_get(url: str, params: dict = None, timeout: int = 15) -> Optional[dict
         with urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
-        # 不打印每个请求的错误，只在上层按需处理
+        # 检查是否是 418 IP ban
+        err_str = str(e)
+        if "418" in err_str or "banned until" in err_str:
+            try:
+                import re
+                m = re.search(r"banned until (\d+)", err_str)
+                if m:
+                    ban_ms = int(m.group(1))
+                    _ban_until = ban_ms / 1000.0
+                    ban_hkt = time.strftime("%H:%M:%S", time.localtime(_ban_until))
+                    print(f"⚠️  IP banned until {ban_hkt} HKT, backing off...")
+            except Exception:
+                pass
         return None
 
 
