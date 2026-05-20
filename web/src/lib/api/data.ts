@@ -174,4 +174,21 @@ export const dataApi = {
       return { items: [], updated_at: null, count: 0 }
     }
   },
+
+  // ── Square Monitor Worker Control ──
+
+  async getSquareMonitorStatus(): Promise<{ running: boolean; pid: number }> {
+    const result = await httpClient.get<any>(`${API_BASE}/square-monitor/status`)
+    return result.data ?? { running: false, pid: 0 }
+  },
+
+  async startSquareMonitor(): Promise<{ message: string; pid: number }> {
+    const result = await httpClient.post<any>(`${API_BASE}/square-monitor/start`)
+    return result.data ?? { message: 'Unknown error', pid: 0 }
+  },
+
+  async stopSquareMonitor(): Promise<{ message: string }> {
+    const result = await httpClient.post<any>(`${API_BASE}/square-monitor/stop`)
+    return result.data ?? { message: 'Unknown error' }
+  },
 }

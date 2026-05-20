@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../lib/api'
 import type { SquareHeatResponse } from '../../lib/api/data'
 import { t, type Language } from '../../i18n/translations'
-import { Flame, RefreshCw } from 'lucide-react'
+import { Flame, RefreshCw, Power } from 'lucide-react'
 
 interface SquareHeatPanelProps {
   language: Language
@@ -35,6 +35,8 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
   const [data, setData] = useState<SquareHeatResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [workerRunning, setWorkerRunning] = useState(false)
+  const [workerToggling, setWorkerToggling] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -48,11 +50,39 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
     }
   }, [])
 
+  const fetchWorkerStatus = useCallback(async () => {
+    try {
+      const status = await api.getSquareMonitorStatus()
+      setWorkerRunning(status.running)
+    } catch {
+      setWorkerRunning(false)
+    }
+  }, [])
+
+  const toggleWorker = useCallback(async () => {
+    setWorkerToggling(true)
+    try {
+      if (workerRunning) {
+        await api.stopSquareMonitor()
+        setWorkerRunning(false)
+      } else {
+        await api.startSquareMonitor()
+        setWorkerRunning(true)
+      }
+    } catch {
+      // re-fetch actual status on error
+      await fetchWorkerStatus()
+    } finally {
+      setWorkerToggling(false)
+    }
+  }, [workerRunning, fetchWorkerStatus])
+
   useEffect(() => {
     fetchData()
+    fetchWorkerStatus()
     const timer = setInterval(fetchData, refreshInterval)
     return () => clearInterval(timer)
-  }, [fetchData, refreshInterval])
+  }, [fetchData, fetchWorkerStatus, refreshInterval])
 
   const items = data?.items ?? []
 
@@ -73,13 +103,31 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
           </span>
           Square Heat
         </h2>
-        <button
-          onClick={() => { setLoading(true); fetchData() }}
-          className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-nofx-text-muted hover:text-white"
-          title="Refresh"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleWorker}
+            disabled={workerToggling}
+            className={`p-1.5 rounded-lg transition-all ${
+              workerRunning
+                ? 'text-green-400 hover:bg-green-500/20'
+                : 'text-nofx-text-muted hover:bg-white/10 hover:text-white'
+            } ${workerToggling ? 'opacity-50' : ''}`}
+            title={workerRunning ? 'Stop Worker' : 'Start Worker'}
+          >
+            {workerToggling ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <Power size={14} />
+            )}
+          </button>
+          <button
+            onClick={() => { setLoading(true); fetchData() }}
+            className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-nofx-text-muted hover:text-white"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Update time */}

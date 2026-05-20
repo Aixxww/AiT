@@ -144,6 +144,11 @@ func (s *Server) setupRoutes() {
 			// Server IP query (requires authentication, for whitelist configuration)
 			s.route(protected, "GET", "/server-ip", "Get server public IP (for exchange whitelist)", s.handleGetServerIP)
 
+			// Square Monitor worker process control
+			s.route(protected, "GET", "/square-monitor/status", "Square Monitor worker status", s.handleSquareMonitorStatus)
+			s.route(protected, "POST", "/square-monitor/start", "Start Square Monitor worker", s.handleSquareMonitorStart)
+			s.route(protected, "POST", "/square-monitor/stop", "Stop Square Monitor worker", s.handleSquareMonitorStop)
+
 			// AI trader management
 			s.routeWithSchema(protected, "GET", "/my-traders", "List user's traders with status",
 				`Returns: [{"trader_id":"<EXACT id — use this as trader_id in all ?trader_id= queries and POST /traders/:id/start|stop>","trader_name":"<string>","is_running":<bool>}]
