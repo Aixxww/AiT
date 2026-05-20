@@ -113,6 +113,9 @@ func (s *Server) setupRoutes() {
 		// Square Heat signal feed (no authentication, reads from Python sidecar)
 		s.route(api, "GET", "/square-heat", "Square Heat leaderboard signals", s.handleSquareHeat)
 
+		// Hunter scored coins (no authentication, Binance public market data)
+		s.route(api, "GET", "/hunter/coins", "Hunter scored coin list (?limit=)", s.handleHunterCoins)
+
 		// Public strategy market (no authentication required)
 		s.route(api, "GET", "/strategies/public", "Public strategy market", s.handlePublicStrategies)
 		s.route(api, "POST", "/strategies/estimate-tokens", "Estimate token usage for a strategy config", s.handleEstimateTokens)
