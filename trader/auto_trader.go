@@ -466,8 +466,8 @@ func (at *AutoTrader) Run() error {
 	// Start Binance order sync if using Binance exchange
 	if at.exchange == "binance" {
 		if binanceTrader, ok := at.trader.(*binance.FuturesTrader); ok && at.store != nil {
-			binanceTrader.StartOrderSync(at.id, at.exchangeID, at.exchange, at.store, 30*time.Second)
-			at.logInfof("🔄 Binance order+position sync enabled (every 30s)")
+			binanceTrader.StartOrderSync(at.id, at.exchangeID, at.exchange, at.store, 60*time.Second)
+			at.logInfof("🔄 Binance order+position sync enabled (every 60s)")
 		}
 	}
 

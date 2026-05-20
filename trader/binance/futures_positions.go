@@ -22,6 +22,20 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 	}
 	t.positionsCacheMutex.RUnlock()
 
+	// Check if IP is banned — if so, return cached positions or empty slice instead of hitting the API
+	if banned, expiry := isIPBanned(); banned {
+		logger.Infof("⏸ IP ban active until %s (UTC), skipping position API call", expiry.Format("15:04:05"))
+		t.positionsCacheMutex.RLock()
+		if t.cachedPositions != nil {
+			cached := t.cachedPositions
+			t.positionsCacheMutex.RUnlock()
+			logger.Infof("✓ Returning stale cached positions during IP ban (%d positions)", len(cached))
+			return cached, nil
+		}
+		t.positionsCacheMutex.RUnlock()
+		return []map[string]interface{}{}, nil
+	}
+
 	// Cache expired or doesn't exist, call API
 	logger.Infof("🔄 Cache expired, calling Binance API to get position information...")
 	positions, err := t.client.NewGetPositionRiskService().Do(context.Background())

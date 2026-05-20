@@ -126,6 +126,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Test / benchmark scripts (临时测试用)
+scripts/coin_test.py
+scripts/coin_test.js
+scripts/coin_selection_test.js
+coinselect_results.json
+
 PR_DESCRIPTION.md
 
 # Go build artifacts

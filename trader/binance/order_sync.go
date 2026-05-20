@@ -67,6 +67,11 @@ func setIPBan(err error) {
 	logger.Infof("🛑 IP banned until %s (UTC), sync paused", banExpiry.Format("2006-01-02 15:04:05"))
 }
 
+// rateLimitDelay adds a 200ms delay between Binance API calls to avoid IP bans
+func rateLimitDelay() {
+	time.Sleep(200 * time.Millisecond)
+}
+
 // SyncOrdersFromBinance syncs Binance Futures trade history to local database
 // Uses COMMISSION detection + fromId for efficient incremental sync
 // Also creates/updates position records to ensure orders/fills/positions data consistency
@@ -139,6 +144,8 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 		}
 	}
 
+	rateLimitDelay() // Rate limit between API calls
+
 	// Method 2: Always include active positions (catches trades that COMMISSION missed)
 	positionSymbols := t.getPositionSymbols()
 	logger.Infof("  📋 Position symbols found: %d - %v", len(positionSymbols), positionSymbols)
@@ -147,11 +154,13 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	}
 
 	// Method 3: Include symbols from recent fills in DB (in case some were partially synced)
-	recentSymbols, _ := orderStore.GetRecentFillSymbolsByExchange(exchangeID, lastSyncTimeMs)
+	recentSymbols, _ := orderStore.GetRecentFillSymbolsByExchange(exchangeID, lastSyncTimeMs) // No rate limit needed — local DB call
 	logger.Infof("  📋 Recent fill symbols found: %d - %v", len(recentSymbols), recentSymbols)
 	for _, s := range recentSymbols {
 		symbolMap[s] = true
 	}
+
+	rateLimitDelay() // Rate limit between API calls
 
 	// Method 4: ALWAYS query REALIZED_PNL income to find symbols with closed trades
 	// This catches trades that COMMISSION missed (VIP users, BNB fee discount)
@@ -188,6 +197,8 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	var failedSymbols []string
 	apiCalls := 0
 	for _, symbol := range changedSymbols {
+		rateLimitDelay() // Rate limit between per-symbol trade queries
+
 		var trades []types.TradeRecord
 		var queryErr error
 
@@ -416,10 +427,19 @@ func (t *FuturesTrader) StartOrderSync(traderID string, exchangeID string, excha
 		}
 	}()
 
-	// Then run periodically
+	// Then run periodically with ban-aware backoff
 	ticker := time.NewTicker(interval)
 	go func() {
 		for range ticker.C {
+			// If IP is banned, sleep until ban expires instead of firing the sync
+			if banned, expiry := isIPBanned(); banned {
+				waitDuration := time.Until(expiry)
+				if waitDuration > 0 {
+					logger.Infof("⏸ IP banned, sleeping %v until ban expires at %s (UTC)", waitDuration.Round(time.Second), expiry.Format("15:04:05"))
+					time.Sleep(waitDuration)
+					logger.Infof("🔄 IP ban expired, resuming order sync")
+				}
+			}
 			if err := t.SyncOrdersFromBinance(traderID, exchangeID, exchangeType, st); err != nil {
 				logger.Infof("⚠️  Binance order sync failed: %v", err)
 			}

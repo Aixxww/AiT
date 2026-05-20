@@ -1,6 +1,8 @@
 # Changelog
 
-All notable changes to the NOFX project will be documented in this file.
+All notable changes to the AiT project will be documented in this file.
+
+> **Note:** AiT was formerly known as NOFX. Entries before v4.0.0 are preserved under their original naming.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -21,6 +23,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Reorganized documentation structure into logical categories
 - Updated all README files with proper navigation links
+
+---
+
+## [4.0.0] - 2026-05-20
+
+### Added — AiT Platform: Multi-AI, Multi-Exchange, Social Trading
+
+**Complete rebrand from NOFX to AiT with major feature additions.**
+
+#### Brand & Identity
+- Renamed project from NOFX to AiT across all code, configs, and UI
+- New logo and branding assets
+- Removed nofxos.ai dependency
+
+#### Hunter Coin Selection Module (`provider/hunter/`)
+- Smart money flow detection with multi-timeframe analysis
+- CoinGecko fallback when Binance API is unavailable
+- Cooldown persistence across restarts
+- Open interest deduplication logic
+- Backtest & optimization toolkit (`Hunter Validator`)
+
+#### AI500 Scoring Engine (`provider/local/`)
+- Momentum-based coin ranking across 500+ pairs
+- Scoring algorithm emphasises volatility over raw volume
+- CoinAnk data fallback with funding rate integration
+- Parallelised data fetching for faster response
+
+#### Binance Klines Direct Integration (`market/data_klines.go`)
+- Direct Binance public API for real-time candlestick data
+- Dual-source strategy: Binance primary → CoinAnk fallback
+- No trailing empty candles, real-time volume data
+
+#### Social Sentiment (`provider/square/` + `scripts/square-monitor/`)
+- Square Monitor Python service with Playwright scraping
+- 6-minute refresh interval for heat signals
+- Composite score filtering for trade signal generation
+
+#### Full-Chain Token Usage Tracking
+- Token consumption tracking across all AI providers
+- Anti-repeat filter to avoid duplicate AI calls
+- Frontend usage display per trader
+
+#### One-Click Install & Start Scripts
+- `scripts/install.sh` — auto-detect OS, install Go/Node/TA-Lib
+- `scripts/start.sh` — background start backend + frontend + square-monitor
+- Docker mode and minimal install options
+
+#### Frontend Strategy Studio Enhancements
+- 8-parameter coin selection panel with real-time tuning
+- Hunter/AI500 source type support in strategy editor
+- CoinSourceEditor component for coin source configuration
+- i18n support for new strategy types
+
+#### Exchange Improvements
+- Improved futures position tracking (Binance)
+- Enhanced order sync logic (Binance)
+- Auto-trader refinement
+
+### Changed
+- MiMo AI model timeout extended to 8 minutes
+- Square Heat refresh interval reduced to 6 minutes
+- Go dependency cleanup and module optimization
 
 ---
 
@@ -196,8 +260,8 @@ When releasing a new version, move [Unreleased] items to a new version section w
 - [Documentation](docs/README.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
-- [GitHub Repository](https://github.com/NoFxAiOS/nofx)
+- [GitHub Repository](https://github.com/Aixxww/AiT)
 
 ---
 
-**Last Updated:** 2025-11-01
+**Last Updated:** 2026-05-20

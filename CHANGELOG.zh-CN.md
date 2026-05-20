@@ -1,6 +1,8 @@
 # 更新日志
 
-NOFX 项目的所有重要更改都将记录在此文件中。
+AiT 项目的所有重要更改都将记录在此文件中。
+
+> **说明：** AiT 前身为 NOFX。v4.0.0 之前的条目保留原始命名。
 
 本文件格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
@@ -21,6 +23,68 @@ NOFX 项目的所有重要更改都将记录在此文件中。
 ### 变更
 - 重组文档结构为逻辑分类
 - 更新所有 README 文件，添加适当的导航链接
+
+---
+
+## [4.0.0] - 2026-05-20
+
+### 新增 — AiT 平台：多AI、多交易所、社交交易
+
+**从 NOFX 完全更名为 AiT，新增大量核心功能。**
+
+#### 品牌与标识
+- 项目从 NOFX 更名为 AiT，覆盖所有代码、配置和界面
+- 全新 Logo 和品牌资产
+- 移除 nofxos.ai 依赖
+
+#### Hunter 猎手选币模块 (`provider/hunter/`)
+- 聪明钱流动检测，支持多时间框架分析
+- Binance API 不可用时自动降级到 CoinGecko
+- 冷却时间跨重启持久化
+- 持仓量（OI）去重逻辑
+- 回测与优化工具集（Hunter Validator）
+
+#### AI500 智能评分引擎 (`provider/local/`)
+- 基于动量的 500+ 交易对排名
+- 评分算法强调波动率优于原始成交量
+- CoinAnk 数据回退，集成资金费率
+- 并行化数据获取，提升响应速度
+
+#### Binance K线直连 (`market/data_klines.go`)
+- 直接调用 Binance 公共 API 获取实时 K 线数据
+- 双源策略：Binance 优先 → CoinAnk 回退
+- 无空尾烛，实时成交量数据
+
+#### 社交热度信号 (`provider/square/` + `scripts/square-monitor/`)
+- Square Monitor Python 服务，Playwright 抓取
+- 6 分钟刷新热帖信号
+- 综合评分过滤，生成交易信号
+
+#### 全链路 Token 用量追踪
+- 跨所有 AI 提供商的 Token 消耗追踪
+- 去重过滤器，避免重复 AI 调用
+- 前端每个交易员的用量展示
+
+#### 一键安装与启动脚本
+- `scripts/install.sh` — 自动检测系统，安装 Go/Node/TA-Lib
+- `scripts/start.sh` — 后台启动 backend + frontend + square-monitor
+- Docker 模式和最小安装选项
+
+#### 前端策略工作室增强
+- 8 参数选币面板，支持实时调参
+- 策略编辑器支持 Hunter/AI500 来源类型
+- CoinSourceEditor 币种来源配置组件
+- 新策略类型的国际化支持
+
+#### 交易所改进
+- 改进合约持仓追踪（Binance）
+- 增强订单同步逻辑（Binance）
+- 自动交易器优化
+
+### 变更
+- MiMo AI 模型超时延长至 8 分钟
+- Square Heat 刷新间隔缩短至 6 分钟
+- Go 依赖清理和模块优化
 
 ---
 
