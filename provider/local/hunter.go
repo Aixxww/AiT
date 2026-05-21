@@ -173,7 +173,7 @@ func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, curren
 			tags = append(tags, "oi_price_aligned")
 		}
 		if oiDelta4h > 0 && priceDir < 0 {
-			score += 25
+			score += 40 // v3: increased from 25 — Round2 data shows 56.3% win rate, strongest signal
 			tags = append(tags, "oi_accumulation")
 		}
 	} else if math.Abs(oiDelta4h) > 5 {
@@ -252,7 +252,7 @@ func (c *Client) computeSmartMoneyScore(symbol string, klines []klineBar) (float
 				}
 			}
 			if strongBars >= 3 {
-				score += 15
+				score += 20 // v3: increased from 15 — aligned with Go taker_strong_bonus
 				tags = append(tags, "taker_sustained_buying")
 			}
 		}
@@ -420,6 +420,35 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			baseScore25 := smScore * 0.65
 
 			composite := clamp(baseScore50+baseScore25, 0, 75)
+
+			// v3 Signal Confirmation Filter: near_support without confirming signals → 0.5x penalty
+			// Round 2 data: near_support alone = 37.9% win rate / -3.03% avg return
+			// near_support + OI/LSR confirmation = ~72.9% win rate
+			allTags := append(append(append([]string{}, posTags...), oiTags...), smTags...)
+			hasNearSupport := false
+			for _, t := range allTags {
+				if t == "near_support_4h" || t == "near_support_1d" || t == "near_support_1h" {
+					hasNearSupport = true
+					break
+				}
+			}
+			if hasNearSupport {
+				confirmingSignals := map[string]bool{
+					"oi_accumulation": true, "oi_price_aligned": true, "oi_moderate": true,
+					"lsr_reversal": true, "lsr_bullish": true,
+					"taker_buy_strong": true, "taker_sustained_buying": true,
+				}
+				hasConfirmation := false
+				for _, t := range allTags {
+					if confirmingSignals[t] {
+						hasConfirmation = true
+						break
+					}
+				}
+				if !hasConfirmation {
+					composite *= 0.5
+				}
+			}
 
 			// Pillar C': Smart Cooldown
 			p.score.CooldownMod = globalCooldown.getCooldownMultiplier(sym)
