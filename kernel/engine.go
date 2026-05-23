@@ -52,8 +52,11 @@ type AccountInfo struct {
 
 // CandidateCoin candidate coin (from coin pool)
 type CandidateCoin struct {
-	Symbol  string   `json:"symbol"`
-	Sources []string `json:"sources"` // Sources: "ai500" and/or "oi_top"
+	Symbol         string                 `json:"symbol"`
+	Sources        []string               `json:"sources"` // Sources: "ai500" and/or "oi_top"
+	PreFetchedData *market.PreFetchedData `json:"-"`       // Hunter pre-fetched klines, not serialized
+	Direction      string                 `json:"-"`       // Hunter direction: "LONG" or "SHORT"
+	SignalTags     []string               `json:"-"`       // Hunter signal tags for AI context
 }
 
 // OITopData open interest growth top data (for AI decision reference)
@@ -405,7 +408,7 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 		return e.filterExcludedCoins(candidates), nil
 
 	case "hunter":
-		coins, err := e.getHunterCoins(coinSource.HunterLimit)
+		coins, err := e.getHunterCoins(coinSource.HunterLimit, coinSource.HunterDirection)
 		if err != nil {
 			return nil, err
 		}
@@ -568,7 +571,7 @@ func (e *StrategyEngine) getAI500Coins(limit int) ([]CandidateCoin, error) {
 	return candidates, nil
 }
 
-func (e *StrategyEngine) getHunterCoins(limit int) ([]CandidateCoin, error) {
+func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]CandidateCoin, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -576,16 +579,26 @@ func (e *StrategyEngine) getHunterCoins(limit int) ([]CandidateCoin, error) {
 	if !ok {
 		return nil, fmt.Errorf("hunter source requires local.Client, got %T", e.nofxosClient)
 	}
-	symbols, err := localClient.GetHunterTopRatedCoins(limit)
+	symbols, preFetched, coinMeta, err := localClient.GetHunterCoinsWithData(limit)
 	if err != nil {
 		return nil, err
 	}
 	var candidates []CandidateCoin
 	for _, symbol := range symbols {
-		candidates = append(candidates, CandidateCoin{
-			Symbol:  symbol,
-			Sources: []string{"hunter"},
-		})
+		cc := CandidateCoin{
+			Symbol:         symbol,
+			Sources:        []string{"hunter"},
+			PreFetchedData: preFetched[symbol],
+		}
+		if meta, ok := coinMeta[symbol]; ok {
+			cc.Direction = meta.Direction
+			cc.SignalTags = meta.SignalTags
+		}
+		// Filter by direction if specified (LONG or SHORT)
+		if direction != "" && direction != "BOTH" && cc.Direction != direction {
+			continue
+		}
+		candidates = append(candidates, cc)
 	}
 	return candidates, nil
 }

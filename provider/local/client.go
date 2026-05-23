@@ -256,3 +256,20 @@ var excludedMainstreamCoins = map[string]bool{
 	"APTUSDT": true, "ARBUSDT": true, "OPUSDT": true,
 	"SUIUSDT": true, "INJUSDT": true, "TIAUSDT": true,
 }
+
+// v6: excludedTokenizedAssets filters out tokenized commodities/stocks
+// that behave differently from crypto and shouldn't be scored by Hunter.
+var excludedTokenizedAssets = map[string]bool{
+	"CLUSDT": true,    // 原油
+	"XAUUSDT": true,   // 黄金
+	"XAGUSDT": true,   // 白银
+	"EWYUSDT": true,   // 韩国ETF
+	"NVDAUSDT": true,  // 英伟达
+	"MUUSDT": true,    // 美光
+	"INTCUSDT": true,  // 英特尔
+	"PAXGUSDT": true,  // Pax Gold
+	"SPCXUSDT": true,  // S&P 500
+	"BABAUSDT": true,  // 阿里巴巴
+	"TSLAUSDT": true,  // 特斯拉
+	"NATGASUSDT": true, // 天然气
+}

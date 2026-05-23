@@ -201,6 +201,18 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 					logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
 					continue
 				}
+			} else if isStaleData(klines, symbol) {
+				// Binance returned stale data (price freeze + zero volume), fall back to CoinAnk
+				logger.Infof("⚠️ Binance %s %s kline stale (price freeze + zero volume), falling back to CoinAnk", symbol, tf)
+				klines, err = getKlinesFromCoinAnk(symbol, tf, "binance", 200)
+				if err != nil {
+					logger.Infof("⚠️ Failed to get %s %s K-line from CoinAnk: %v", symbol, tf, err)
+					continue
+				}
+				if len(klines) == 0 {
+					logger.Infof("⚠️ CoinAnk %s %s K-line also empty after Binance stale fallback", symbol, tf)
+					continue
+				}
 			}
 		}
 
@@ -261,6 +273,70 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 		FundingRate:   fundingRate,
 		TimeframeData: timeframeData,
 	}, nil
+}
+
+// BuildDataFromPreFetched constructs market.Data from pre-fetched klines (e.g. from Hunter).
+// This avoids duplicate Binance API calls when the coin selection phase already fetched kline data.
+// OI and FundingRate are NOT fetched here — the caller should set them after calling this function.
+func BuildDataFromPreFetched(symbol string, pre *PreFetchedData, timeframes []string, primaryTimeframe string, count int) (*Data, error) {
+	symbol = Normalize(symbol)
+
+	if pre == nil || len(pre.TimeframeKlines) == 0 {
+		return nil, fmt.Errorf("no pre-fetched klines available for %s", symbol)
+	}
+
+	if primaryTimeframe == "" && len(timeframes) > 0 {
+		primaryTimeframe = timeframes[0]
+	}
+
+	timeframeData := make(map[string]*TimeframeSeriesData)
+	var primaryKlines []Kline
+
+	for _, tf := range timeframes {
+		klines, ok := pre.TimeframeKlines[tf]
+		if !ok || len(klines) == 0 {
+			logger.Infof("⚠️ Pre-fetched klines missing for %s %s, skipping timeframe", symbol, tf)
+			continue
+		}
+
+		if tf == primaryTimeframe {
+			primaryKlines = klines
+		}
+
+		seriesData := calculateTimeframeSeries(klines, tf, count)
+		timeframeData[tf] = seriesData
+	}
+
+	if len(primaryKlines) == 0 {
+		return nil, fmt.Errorf("primary timeframe %s klines not available in pre-fetched data for %s", primaryTimeframe, symbol)
+	}
+
+	// Data staleness safety check
+	if isStaleData(primaryKlines, symbol) {
+		return nil, fmt.Errorf("pre-fetched data for %s is stale", symbol)
+	}
+
+	currentPrice := primaryKlines[len(primaryKlines)-1].Close
+	currentEMA20 := calculateEMA(primaryKlines, 20)
+	currentMACD := calculateMACD(primaryKlines)
+	currentRSI7 := calculateRSI(primaryKlines, 7)
+	priceChange1h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60)
+	priceChange4h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 240)
+
+	data := &Data{
+		Symbol:        symbol,
+		CurrentPrice:  currentPrice,
+		PriceChange1h: priceChange1h,
+		PriceChange4h: priceChange4h,
+		CurrentEMA20:  currentEMA20,
+		CurrentMACD:   currentMACD,
+		CurrentRSI7:   currentRSI7,
+		OpenInterest:  &OIData{Latest: 0, Average: 0},
+		FundingRate:   0,
+		TimeframeData: timeframeData,
+	}
+
+	return data, nil
 }
 
 // getOpenInterestData retrieves OI data
@@ -347,6 +423,16 @@ func getFundingRate(symbol string) (float64, error) {
 	})
 
 	return rate, nil
+}
+
+// GetOIFromBinance is an exported wrapper around getOpenInterestData for use by engine pre-fetched data path.
+func GetOIFromBinance(symbol string) (*OIData, error) {
+	return getOpenInterestData(symbol)
+}
+
+// GetFRFromBinance is an exported wrapper around getFundingRate for use by engine pre-fetched data path.
+func GetFRFromBinance(symbol string) (float64, error) {
+	return getFundingRate(symbol)
 }
 
 // Format formats and outputs market data

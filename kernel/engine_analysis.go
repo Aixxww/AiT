@@ -210,10 +210,36 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 			continue
 		}
 
-		data, err := market.GetWithTimeframes(coin.Symbol, timeframes, primaryTimeframe, klineCount)
-		if err != nil {
-			logger.Infof("⚠️  Failed to fetch market data for %s: %v", coin.Symbol, err)
-			continue
+		var data *market.Data
+		var err error
+
+		// Try Hunter pre-fetched klines first (avoids duplicate Binance API calls)
+		if coin.PreFetchedData != nil && len(coin.PreFetchedData.TimeframeKlines) > 0 {
+			data, err = market.BuildDataFromPreFetched(coin.Symbol, coin.PreFetchedData, timeframes, primaryTimeframe, klineCount)
+			if err != nil {
+				logger.Infof("⚠️  Pre-fetched data failed for %s, falling back to Binance: %v", coin.Symbol, err)
+				data = nil
+			} else {
+				// Supplement OI and FundingRate (not included in pre-fetched data)
+				oiData, oiErr := market.GetOIFromBinance(coin.Symbol)
+				if oiErr == nil && oiData != nil {
+					data.OpenInterest = oiData
+				}
+				fr, frErr := market.GetFRFromBinance(coin.Symbol)
+				if frErr == nil {
+					data.FundingRate = fr
+				}
+				logger.Infof("✅ %s: using Hunter pre-fetched klines (saved %d Binance calls)", coin.Symbol, len(timeframes))
+			}
+		}
+
+		// Fallback: fetch from Binance/CoinAnk
+		if data == nil {
+			data, err = market.GetWithTimeframes(coin.Symbol, timeframes, primaryTimeframe, klineCount)
+			if err != nil {
+				logger.Infof("⚠️  Failed to fetch market data for %s: %v", coin.Symbol, err)
+				continue
+			}
 		}
 
 		// Liquidity filter (skip for xyz dex assets - they don't have OI data from Binance)
@@ -381,8 +407,8 @@ func validateJSONFormat(jsonStr string) error {
 		return fmt.Errorf("JSON must start with [{ (whitespace allowed), actual: %s", trimmed[:min(20, len(trimmed))])
 	}
 
-	if strings.Contains(jsonStr, "~") {
-		return fmt.Errorf("JSON cannot contain range symbol ~, all numbers must be precise single values")
+	if containsUnquotedTilde(jsonStr) {
+		return fmt.Errorf("JSON cannot contain range symbol ~ outside of string values, all numbers must be precise single values")
 	}
 
 	for i := 0; i < len(jsonStr)-4; i++ {
@@ -396,6 +422,32 @@ func validateJSONFormat(jsonStr string) error {
 	}
 
 	return nil
+}
+
+// containsUnquotedTilde checks if ~ appears outside of JSON string values.
+// This prevents false positives where ~ in reason text (e.g., "range ~0.5")
+// incorrectly triggers the range-symbol validation.
+func containsUnquotedTilde(s string) bool {
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if s[i] == '\\' {
+			escaped = true
+			continue
+		}
+		if s[i] == '"' {
+			inString = !inString
+			continue
+		}
+		if !inString && s[i] == '~' {
+			return true
+		}
+	}
+	return false
 }
 
 func min(a, b int) int {

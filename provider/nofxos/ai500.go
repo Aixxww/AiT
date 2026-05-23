@@ -20,6 +20,7 @@ type CoinData struct {
 	IncreasePercent float64  `json:"increase_percent"` // Increase percentage (already x100)
 	IsAvailable     bool     `json:"-"`                // Whether tradable (internal use)
 	SignalTags      []string `json:"signal_tags,omitempty"` // Trading signal tags (e.g. "rsi_oversold", "vol_breakout", "oi_up_price_up")
+	Direction       string   `json:"direction,omitempty"`   // "LONG" or "SHORT" — dominant direction from Hunter scoring
 }
 
 // AI500Response is the API response structure

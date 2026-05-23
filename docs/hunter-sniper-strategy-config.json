@@ -1,0 +1,57 @@
+{
+  "strategy_type": "ai_trading",
+  "language": "zh",
+  "coin_source": {
+    "source_type": "hunter",
+    "use_hunter": true,
+    "hunter_limit": 2,
+    "hunter_config": {
+      "min_oi_value": 5000000,
+      "enable_funding_rate_signal": true,
+      "max_24h_change": 10,
+      "wash_trade_sensitivity": "high",
+      "enable_cooldown": true,
+      "min_trade_count": 10000,
+      "position_timeframes": ["1h", "4h"]
+    },
+    "excluded_coins": [
+      "CLUSDT", "XAUUSDT", "XAGUSDT", "NATGASUSDT",
+      "EWYUSDT", "NVDAUSDT", "MUUSDT", "INTCUSDT",
+      "PAXGUSDT", "SPCXUSDT", "BABAUSDT", "TSLAUSDT"
+    ]
+  },
+  "indicators": {
+    "klines": {
+      "interval": "4h",
+      "count": 20
+    },
+    "enable_raw_klines": true,
+    "enable_ema": false,
+    "enable_macd": false,
+    "enable_rsi": true,
+    "enable_atr": true,
+    "enable_boll": false,
+    "enable_volume": true,
+    "enable_oi": true,
+    "enable_funding_rate": true,
+    "enable_quant_data": false
+  },
+  "risk_control": {
+    "max_positions": 2,
+    "btc_eth_max_leverage": 3,
+    "altcoin_max_leverage": 3,
+    "btc_eth_max_position_value_ratio": 1.5,
+    "altcoin_max_position_value_ratio": 1.0,
+    "max_margin_usage": 0.6,
+    "min_position_size": 12,
+    "min_risk_reward_ratio": 3.0,
+    "min_confidence": 80
+  },
+  "prompt_sections": {
+    "role_definition": "你是 Hunter Sniper — 精准猎杀手。你只做一种交易: 主力吸筹后的做多。你不追涨、不猜底、不赌博。每次出手都经过 Hunter 信号系统的量化确认，目标是 52%+ 胜率和 3:1 风险回报比。",
+    "trading_frequency": "低频精准: 每 4 小时扫描一次，只在 oi_accumulation 信号触发时入场。预期 1-2 笔/天。宁可错过，不可做错。没有信号时坚决观望。",
+    "entry_standards": "唯一入场信号: oi_accumulation (OI 4h变动>15% 且 OI↑ 但价格↓，含义: 主力吸筹散户抛售)\n\n辅助确认 (加分项，不单独触发):\n- lsr_reversal: 多空比从空翻多 (+20分)\n- lsr_bullish: 多头力量增强 (+10分)\n- lsr_extreme_bearish: 空头极度拥挤 (+15分)\n\n禁止入场:\n- oi_short_squeeze: 信号滞后，回测9%胜率 (即使看起来很强如FIDA+17%)\n- near_support 单信号: 28%胜率，需强确认\n- vol_oi_high: 仅作门控条件\n- taker_trending_up: 43%胜率，噪声\n\n最低门槛: FinalScore > 15, OI > $5M, 24h涨幅 < 10%",
+    "decision_process": "1. 检查 Hunter Top-30 标的\n2. 过滤: 仅保留携带 oi_accumulation 标签的标的\n3. 二次过滤: FinalScore > 15 且 OI > $5M 且 24h涨幅 < 10%\n4. 取 Top-2 最高分标的\n5. 检查 4h K 线: RSI < 40 (超卖), 价格在布林下轨附近\n6. 确认入场 → 开多 3x 杠杆\n7. 设置止损: 入场价 - 1×ATR(4h) (交易所端 stop-market)\n8. 设置止盈: 入场价 + 3×ATR(4h) (交易所端 take-profit)\n9. 持仓监控: 每 1 分钟检查回撤，>40%峰值回撤强制平仓\n10. 时间止损: 持仓超过 4h 强制平仓\n\n风险回报比: ≥3:1\n最大同时持仓: 2 个\n单笔仓位: 总资金 × 50%"
+  },
+  "custom_prompt": "核心纪律:\n1. 只做 oi_accumulation 信号，其他信号一律忽略\n2. 止损必须设在交易所端，不可手动执行\n3. 连亏 3 次暂停交易 24h\n4. 日亏 >10% 停止当日交易\n5. 遇到 oi_short_squeeze 信号不要入场 — 这是最大陷阱，回测 9% 胜率\n6. 持仓超过 4h 必须平仓 — 回测显示 4h 后收益转负\n7. 不追涨: 24h 已涨 >10% 的标的不入场"
+}

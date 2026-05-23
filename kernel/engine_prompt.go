@@ -360,7 +360,15 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 		displayedCount++
 
 		sourceTags := e.formatCoinSourceTag(coin.Sources)
-		sb.WriteString(fmt.Sprintf("### %d. %s%s\n\n", displayedCount, coin.Symbol, sourceTags))
+		directionTag := ""
+		if coin.Direction == "LONG" || coin.Direction == "SHORT" {
+			directionTag = fmt.Sprintf(" [%s]", coin.Direction)
+		}
+		sb.WriteString(fmt.Sprintf("### %d. %s%s%s\n\n", displayedCount, coin.Symbol, directionTag, sourceTags))
+		// Show Hunter signal tags for AI context
+		if len(coin.SignalTags) > 0 && coin.Direction != "" {
+			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
+		}
 		sb.WriteString(e.formatMarketData(marketData))
 
 		if ctx.QuantDataMap != nil {

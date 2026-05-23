@@ -260,3 +260,9 @@ func (d GridDirection) GetBuySellRatio(biasRatio float64) (buyRatio, sellRatio f
 		return 0.5, 0.5
 	}
 }
+
+// PreFetchedData holds kline data pre-fetched by Hunter to avoid duplicate Binance API calls.
+// Used to pass data from the coin selection phase to the engine analysis phase.
+type PreFetchedData struct {
+	TimeframeKlines map[string][]Kline // key: timeframe ("5m","1h","4h"), value: klines
+}

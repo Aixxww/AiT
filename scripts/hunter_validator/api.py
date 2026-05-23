@@ -159,11 +159,45 @@ class BinanceAPI:
             "timestamp": e["timestamp"],
         } for e in raw]
 
+    def get_funding_rate_history(self, symbol: str, limit: int = 8) -> list[dict]:
+        """获取资金费率历史。每8h一次，limit=8 = 最近64小时。"""
+        url = (f"{BINANCE_FAPI}/fapi/v1/fundingRate"
+               f"?symbol={symbol}&limit={limit}")
+        raw = self.fetch_json(url, use_cache=False)
+        if not raw:
+            return []
+        return [{
+            "symbol": e["symbol"],
+            "fundingRate": float(e["fundingRate"]),
+            "fundingTime": e["fundingTime"],
+        } for e in raw]
+
+    # v6: 剔除代币化商品/股票 — 它们的行为模式与加密资产不同
+    EXCLUDED_TOKENIZED = {
+        "CL",      # 原油
+        "XAU",     # 黄金
+        "XAG",     # 白银
+        "EWY",     # 韩国ETF
+        "NVDA",    # 英伟达
+        "MU",      # 美光
+        "INTC",    # 英特尔
+        "PAXG",    # Pax Gold
+        "SPCX",    # S&P 500
+        "BABA",    # 阿里巴巴
+        "TSLA",    # 特斯拉
+        "NATGAS",  # 天然气
+    }
+
     def is_usdt_perp(self, symbol: str) -> bool:
-        """判断是否为 USDT 永续合约。"""
-        return symbol.endswith("USDT") and not any(
-            symbol.endswith(s) for s in ["BULL", "BEAR", "UP", "DOWN"]
-        )
+        """判断是否为 USDT 永续合约 (排除杠杆币和代币化商品/股票)。"""
+        if not symbol.endswith("USDT"):
+            return False
+        if any(symbol.endswith(s) for s in ["BULL", "BEAR", "UP", "DOWN"]):
+            return False
+        base = symbol.removesuffix("USDT")
+        if base in self.EXCLUDED_TOKENIZED:
+            return False
+        return True
 
     def get_usdt_perp_tickers(self) -> list[dict]:
         """获取所有 USDT 永续合约 ticker，按成交额排序取 Top-50。"""

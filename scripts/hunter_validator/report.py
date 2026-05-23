@@ -69,7 +69,7 @@ def print_live_report(scored_coins: list, config=None):
     for i, sc in enumerate(scored_coins[:10], 1):
         s = sc.score
         pct24h = float(sc.ticker.get("priceChangePercent", 0))
-        tags_str = ", ".join(s.tags[:3]) if s.tags else "-"
+        tags_str = ", ".join(s.tags[:5]) if s.tags else "-"
 
         composite = (s.position_score + s.oi_smart_score) / 2
         composite = max(0, min(50, composite))

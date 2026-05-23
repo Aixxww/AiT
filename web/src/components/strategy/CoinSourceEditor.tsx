@@ -55,7 +55,8 @@ export function CoinSourceEditor({
       totalLimit += config.square_heat_limit || 10
     }
     if (config.use_hunter) {
-      sources.push(`🎯HN(${config.hunter_limit || 10})`)
+      const dirBadge = config.hunter_direction === 'LONG' ? '↑' : config.hunter_direction === 'SHORT' ? '↓' : ''
+      sources.push(`🎯HN${dirBadge}(${config.hunter_limit || 10})`)
       totalLimit += config.hunter_limit || 10
     }
 
@@ -509,6 +510,59 @@ export function CoinSourceEditor({
               </div>
             )}
 
+            {/* Hunter Direction Badge — multi-select: LONG / SHORT / BOTH */}
+            {config.use_hunter && (
+              <div className="flex items-center gap-3 pl-8">
+                <span className="text-sm text-nofx-text-muted">
+                  {ts(coinSource.hunterDirection, language)}:
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (disabled) return
+                      const d = config.hunter_direction
+                      const hasLong = d === 'LONG' || d === 'BOTH'
+                      const hasShort = d === 'SHORT' || d === 'BOTH'
+                      const nextLong = !hasLong
+                      if (nextLong && hasShort) onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      else if (hasShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      else onChange({ ...config, hunter_direction: undefined })
+                    }}
+                    disabled={disabled}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                      config.hunter_direction === 'LONG' || config.hunter_direction === 'BOTH'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                        : 'bg-nofx-bg text-nofx-text-muted border border-nofx-border hover:border-green-500/30'
+                    }`}
+                  >
+                    ▲ {ts(coinSource.hunterDirectionLong, language)}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (disabled) return
+                      const d = config.hunter_direction
+                      const hasLong = d === 'LONG' || d === 'BOTH'
+                      const hasShort = d === 'SHORT' || d === 'BOTH'
+                      const nextShort = !hasShort
+                      if (nextShort && hasLong) onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      else if (hasLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      else onChange({ ...config, hunter_direction: undefined })
+                    }}
+                    disabled={disabled}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                      config.hunter_direction === 'SHORT' || config.hunter_direction === 'BOTH'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : 'bg-nofx-bg text-nofx-text-muted border border-nofx-border hover:border-red-500/30'
+                    }`}
+                  >
+                    ▼ {ts(coinSource.hunterDirectionShort, language)}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {config.use_hunter && (
               <details className="pl-8 mt-2">
                 <summary className="text-xs cursor-pointer text-nofx-text-muted hover:text-nofx-text select-none">
@@ -895,6 +949,55 @@ export function CoinSourceEditor({
                     options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
                     className="px-2 py-1 rounded text-xs bg-nofx-bg border border-nofx-gold/20 text-nofx-text"
                   />
+                </div>
+              )}
+              {config.use_hunter && (
+                <div className="flex items-center gap-2 mt-2 pl-6">
+                  <span className="text-xs text-nofx-text-muted">{ts(coinSource.hunterDirection, language)}:</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (disabled) return
+                      const d = config.hunter_direction
+                      const hasLong = d === 'LONG' || d === 'BOTH'
+                      const hasShort = d === 'SHORT' || d === 'BOTH'
+                      const nextLong = !hasLong
+                      if (nextLong && hasShort) onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      else if (hasShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      else onChange({ ...config, hunter_direction: undefined })
+                    }}
+                    disabled={disabled}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                      config.hunter_direction === 'LONG' || config.hunter_direction === 'BOTH'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                        : 'bg-nofx-bg text-nofx-text-muted border border-nofx-border hover:border-green-500/30'
+                    }`}
+                  >
+                    ▲ {ts(coinSource.hunterDirectionLong, language)}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (disabled) return
+                      const d = config.hunter_direction
+                      const hasLong = d === 'LONG' || d === 'BOTH'
+                      const hasShort = d === 'SHORT' || d === 'BOTH'
+                      const nextShort = !hasShort
+                      if (nextShort && hasLong) onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      else if (hasLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      else onChange({ ...config, hunter_direction: undefined })
+                    }}
+                    disabled={disabled}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                      config.hunter_direction === 'SHORT' || config.hunter_direction === 'BOTH'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : 'bg-nofx-bg text-nofx-text-muted border border-nofx-border hover:border-red-500/30'
+                    }`}
+                  >
+                    ▼ {ts(coinSource.hunterDirectionShort, language)}
+                  </button>
                 </div>
               )}
               {config.use_hunter && (

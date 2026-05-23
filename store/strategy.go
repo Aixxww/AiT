@@ -199,6 +199,8 @@ type CoinSourceConfig struct {
 	UseHunter bool `json:"use_hunter"`
 	// Hunter coin pool maximum count (default 10)
 	HunterLimit int `json:"hunter_limit,omitempty"`
+	// Hunter signal direction: "LONG" or "SHORT" (default: best direction per coin)
+	HunterDirection string `json:"hunter_direction,omitempty"`
 	// Hunter algorithm tuning parameters
 	Hunter *HunterConfig `json:"hunter_config,omitempty"`
 	// Note: API URLs are now built automatically using NofxOSAPIKey from IndicatorConfig

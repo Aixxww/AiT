@@ -58,6 +58,22 @@ func getKlinesFromBinance(symbol, interval string, limit int) ([]Kline, error) {
 			CloseTime: int64(toFloat(r[6])),
 		})
 	}
+
+	// Diagnostic: detect obviously stale Binance data (last 3 klines all zero volume)
+	if len(klines) >= 3 {
+		allZeroVol := true
+		for _, k := range klines[len(klines)-3:] {
+			if k.Volume > 0 {
+				allZeroVol = false
+				break
+			}
+		}
+		if allZeroVol {
+			logger.Infof("⚠️  Binance %s %s: last 3 klines ALL zero volume! total=%d, sample_close=%.6f, body_bytes=%d",
+				symbol, interval, len(klines), klines[len(klines)-1].Close, len(body))
+		}
+	}
+
 	return klines, nil
 }
 

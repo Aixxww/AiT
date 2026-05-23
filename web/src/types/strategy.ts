@@ -104,6 +104,7 @@ export interface CoinSourceConfig {
   use_hunter?: boolean;
   hunter_limit?: number;
   hunter_config?: HunterConfig;
+  hunter_direction?: 'LONG' | 'SHORT'; // Hunter signal direction: LONG or SHORT
   // Note: API URLs are now built automatically using Binance public API (local provider)
 }
 

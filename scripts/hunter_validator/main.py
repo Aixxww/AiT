@@ -99,6 +99,23 @@ def cmd_live(args):
     # 排序
     scored_coins.sort(key=lambda x: x.score.final_score, reverse=True)
 
+    # v6: 宁缺勿滥门控 — Top-10 中强信号标的不足则观望
+    top_10 = scored_coins[:10]
+    strong_count = sum(1 for sc in top_10 if sc.score.has_strong_signal)
+    if strong_count < cfg.strong_signal_min:
+        print(f"\n  ⚠️  宁缺勿滥: Top-10 中仅 {strong_count} 个强信号标的 (需≥{cfg.strong_signal_min})")
+        print(f"  市场缺乏 OI/LSR 强信号, 观望不选币")
+        # 保存空报告
+        report_path = os.path.expanduser("~/.gstack/hunter_validator_cache/live_report.json")
+        report_data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": "observe_mode",
+            "reason": f"strong_signal_count={strong_count} < min={cfg.strong_signal_min}",
+            "top_10": [],
+        }
+        save_report(report_data, report_path)
+        return []
+
     # 输出报告
     print_live_report(scored_coins, cfg)
 
@@ -106,6 +123,7 @@ def cmd_live(args):
     report_path = os.path.expanduser("~/.gstack/hunter_validator_cache/live_report.json")
     report_data = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "config_version": "v6",
         "top_10": [
             {
                 "rank": i + 1,
@@ -117,6 +135,7 @@ def cmd_live(args):
                 "cooldown_mod": sc.score.cooldown_mod,
                 "wash_mod": sc.score.wash_mod,
                 "tags": sc.score.tags,
+                "has_strong_signal": sc.score.has_strong_signal,
                 "details": {
                     "atr": sc.score.atr,
                     "high20": sc.score.high20,

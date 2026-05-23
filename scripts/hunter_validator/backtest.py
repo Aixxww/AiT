@@ -85,6 +85,21 @@ class BacktestEngine:
                 # LSR 无法回测 (无历史API) → 用空数据
                 lsr_data = []
 
+                # 妖币信号: 用1h K线近似 OI 1h变动 和 价格变动
+                klines_1h = self._fetch_klines_at(symbol, "1h", 5, end_time_ms)
+                oi_delta_1h = 0.0
+                price_change_1h = 0.0
+                if len(klines_1h) >= 2:
+                    if klines_1h[-2]["volume"] > 0:
+                        oi_delta_1h = ((klines_1h[-1]["volume"] - klines_1h[-2]["volume"])
+                                       / klines_1h[-2]["volume"]) * 100
+                    if klines_1h[-2]["close"] > 0:
+                        price_change_1h = ((klines_1h[-1]["close"] - klines_1h[-2]["close"])
+                                           / klines_1h[-2]["close"]) * 100
+
+                # 资金费率: 回测无法获取历史费率 → 空数据
+                funding_data = []
+
                 result = score_coin(
                     symbol=symbol,
                     ticker=t,
@@ -93,6 +108,9 @@ class BacktestEngine:
                     oi_delta_4h=oi_delta,
                     oi_value_usd=oi_value,
                     cfg=self.cfg,
+                    oi_delta_1h=oi_delta_1h,
+                    price_change_1h=price_change_1h,
+                    funding_data=funding_data,
                 )
                 if result.score.final_score > 0:
                     scored.append(result)
@@ -108,13 +126,17 @@ class BacktestEngine:
         for sc in hunter_picks:
             entry_price = float(sc.ticker["lastPrice"])
             ret_1h = self._fetch_forward_return(sc.symbol, entry_price, end_time_ms, 1)
+            ret_2h = self._fetch_forward_return(sc.symbol, entry_price, end_time_ms, 2)
             ret_4h = self._fetch_forward_return(sc.symbol, entry_price, end_time_ms, 4)
+            ret_24h = self._fetch_forward_return(sc.symbol, entry_price, end_time_ms, 24)
             picks_with_returns.append({
                 "symbol": sc.symbol,
                 "score": sc.score.final_score,
                 "entry_price": entry_price,
                 "return_1h": ret_1h,
+                "return_2h": ret_2h,
                 "return_4h": ret_4h,
+                "return_24h": ret_24h,
                 "tags": sc.score.tags,
             })
 
@@ -185,16 +207,29 @@ class BacktestEngine:
                            top_k: int) -> dict:
         """汇总所有检查点的结果。"""
         hunter_returns_1h = []
+        hunter_returns_2h = []
         hunter_returns_4h = []
+        hunter_returns_24h = []
         random_returns_1h = []
         volume_returns_1h = []
         freq = defaultdict(int)
+        tag_returns = defaultdict(list)  # tag → list of 1h returns
+        tag_hit_counts = defaultdict(int)
+        tag_total_counts = defaultdict(int)
 
         for cp in checkpoints:
             for pick in cp["hunter_picks"]:
                 hunter_returns_1h.append(pick["return_1h"])
+                hunter_returns_2h.append(pick.get("return_2h", 0))
                 hunter_returns_4h.append(pick["return_4h"])
+                hunter_returns_24h.append(pick.get("return_24h", 0))
                 freq[pick["symbol"]] += 1
+                # Per-tag analysis
+                for tag in pick.get("tags", []):
+                    tag_returns[tag].append(pick["return_1h"])
+                    tag_total_counts[tag] += 1
+                    if pick["return_1h"] > 0:
+                        tag_hit_counts[tag] += 1
             for pick in cp["random_picks"]:
                 random_returns_1h.append(pick["return_1h"])
             for pick in cp["volume_picks"]:
@@ -212,12 +247,17 @@ class BacktestEngine:
             return {"mean": mean, "std": std, "hit_rate": hit, "sharpe": sharpe}
 
         h_stats = safe_stats(hunter_returns_1h)
+        h2_stats = safe_stats(hunter_returns_2h)
         r_stats = safe_stats(random_returns_1h)
         v_stats = safe_stats(volume_returns_1h)
         h4_stats = safe_stats(hunter_returns_4h)
+        h24_stats = safe_stats(hunter_returns_24h)
 
         # 方向准确率
         dir_acc = sum(1 for r in hunter_returns_1h if r > 0) / max(len(hunter_returns_1h), 1)
+        dir_acc_2h = sum(1 for r in hunter_returns_2h if r > 0) / max(len(hunter_returns_2h), 1)
+        dir_acc_4h = sum(1 for r in hunter_returns_4h if r > 0) / max(len(hunter_returns_4h), 1)
+        dir_acc_24h = sum(1 for r in hunter_returns_24h if r > 0) / max(len(hunter_returns_24h), 1)
 
         # t-检验 (简化)
         t_stat = 0.0
@@ -232,19 +272,69 @@ class BacktestEngine:
             # 近似 p-value (用正态近似)
             p_value = max(0.001, 1.0 - min(abs(t_stat) / 3, 0.999))
 
+        # Tag analysis
+        tag_analysis = {}
+        for tag in tag_total_counts:
+            returns = tag_returns[tag]
+            n = len(returns)
+            if n >= 3:
+                tag_analysis[tag] = {
+                    "count": n,
+                    "hit_rate": tag_hit_counts[tag] / n,
+                    "avg_return": sum(returns) / n,
+                    "win_rate": sum(1 for r in returns if r > 0) / n,
+                }
+
+        # Profit factor & drawdown
+        wins = [r for r in hunter_returns_1h if r > 0]
+        losses = [r for r in hunter_returns_1h if r < 0]
+        gross_profit = sum(wins) if wins else 0
+        gross_loss = abs(sum(losses)) if losses else 1
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else 999
+        max_dd = min(hunter_returns_1h) if hunter_returns_1h else 0
+
+        # Cumulative P&L drawdown
+        cum_pnl = 0
+        peak_pnl = 0
+        max_drawdown_pct = 0
+        for r in hunter_returns_1h:
+            cum_pnl += r
+            if cum_pnl > peak_pnl:
+                peak_pnl = cum_pnl
+            dd = peak_pnl - cum_pnl
+            if dd > max_drawdown_pct:
+                max_drawdown_pct = dd
+
         return {
             "checkpoints": len(checkpoints),
             "total_picks": len(hunter_returns_1h),
             "days": days,
             "hunter": {
                 "hit_rate_1h": h_stats["hit_rate"],
+                "hit_rate_2h": h2_stats["hit_rate"],
                 "hit_rate_4h": h4_stats["hit_rate"],
-                "hit_rate_24h": 0,  # 需要 24h 数据
+                "hit_rate_24h": h24_stats["hit_rate"],
                 "avg_return_1h": h_stats["mean"],
+                "avg_return_2h": h2_stats["mean"],
                 "avg_return_4h": h4_stats["mean"],
-                "avg_return_24h": 0,
+                "avg_return_24h": h24_stats["mean"],
+                "std_1h": h_stats["std"],
+                "std_2h": h2_stats["std"],
+                "std_4h": h4_stats["std"],
                 "sharpe_1h": h_stats["sharpe"],
+                "sharpe_2h": h2_stats["sharpe"],
+                "sharpe_4h": h4_stats["sharpe"],
                 "directional_accuracy": dir_acc,
+                "directional_accuracy_2h": dir_acc_2h,
+                "directional_accuracy_4h": dir_acc_4h,
+                "directional_accuracy_24h": dir_acc_24h,
+                "profit_factor": profit_factor,
+                "max_single_loss": max_dd,
+                "max_cumulative_drawdown": max_drawdown_pct,
+                "avg_win": sum(wins) / len(wins) if wins else 0,
+                "avg_loss": sum(losses) / len(losses) if losses else 0,
+                "win_count": len(wins),
+                "loss_count": len(losses),
             },
             "random_baseline": {
                 "hit_rate_1h": r_stats["hit_rate"],
@@ -262,9 +352,13 @@ class BacktestEngine:
                 "t_stat": t_stat,
                 "p_value": p_value,
             },
+            "tag_analysis": tag_analysis,
             "selection_frequency": dict(freq),
             "raw_returns": {
                 "hunter_1h": hunter_returns_1h,
+                "hunter_2h": hunter_returns_2h,
+                "hunter_4h": hunter_returns_4h,
+                "hunter_24h": hunter_returns_24h,
                 "random_1h": random_returns_1h,
             },
         }
