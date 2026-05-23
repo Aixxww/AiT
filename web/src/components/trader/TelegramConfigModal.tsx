@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { api } from '../../lib/api'
 import type { TelegramConfig, AIModel } from '../../types'
 import { t, type Language } from '../../i18n/translations'
-import { NofxSelect } from '../ui/select'
+import { AiTSelect } from '../ui/select'
 
 // Step indicator (reused pattern from ExchangeConfigModal)
 function StepIndicator({ currentStep, labels }: { currentStep: number; labels: string[] }) {
@@ -134,7 +134,7 @@ export function TelegramConfigModal({ onClose, language }: TelegramConfigModalPr
           {t('telegram.noEnabledModels', language)}
         </div>
       ) : (
-        <NofxSelect
+        <AiTSelect
           value={selectedModelId}
           onChange={(val) => setSelectedModelId(val)}
           options={[
@@ -487,7 +487,7 @@ function BoundModelSelector({
         {t('telegram.aiModelLabel', language)}
       </label>
       <div className="flex gap-2">
-        <NofxSelect
+        <AiTSelect
           value={modelId}
           onChange={(val) => setModelId(val)}
           options={[

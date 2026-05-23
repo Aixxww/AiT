@@ -559,7 +559,7 @@ export const translations = {
 
     // Features Section
     coreFeatures: 'Core Features',
-    whyChooseNofx: 'Why Choose AiT?',
+    whyChooseAiT: 'Why Choose AiT?',
     openCommunityDriven:
       'Open source, transparent, community-driven AI trading OS',
     openSourceSelfHosted: '100% Open Source & Self-Hosted',
@@ -585,19 +585,19 @@ export const translations = {
     secureFeatures4: 'Trading log auditing',
 
     // About Section
-    aboutNofx: 'About AiT',
-    whatIsNofx: 'What is AiT?',
-    nofxNotAnotherBot:
+    aboutAiT: 'About AiT',
+    whatIsAiT: 'What is AiT?',
+    aitNotAnotherBot:
       "AiT is not another trading bot, but the 'Linux' of AI trading —",
-    nofxDescription1:
+    aitDescription1:
       'a transparent, trustworthy open source OS that provides a unified',
-    nofxDescription2:
+    aitDescription2:
       "'decision-risk-execution' layer, supporting all asset classes.",
-    nofxDescription3:
+    aitDescription3:
       'Starting with crypto markets (24/7, high volatility perfect testing ground), future expansion to stocks, futures, forex. Core: open architecture, AI',
-    nofxDescription4:
+    aitDescription4:
       'Darwinism (multi-agent self-competition, strategy evolution), CodeFi',
-    nofxDescription5:
+    aitDescription5:
       'flywheel (developers get point rewards for PR contributions).',
     youFullControl: 'You 100% Control',
     fullControlDesc: 'Complete control over AI prompts and funds',
@@ -611,7 +611,7 @@ export const translations = {
       'Four simple steps to start your AI automated trading journey',
     step1Title: 'Clone GitHub Repository',
     step1Desc:
-      'git clone https://github.com/AiTAiOS/nofx and switch to dev branch to test new features.',
+      'git clone https://github.com/Aixxww/AiT and switch to dev branch to test new features.',
     step2Title: 'Configure Environment',
     step2Desc:
       'Frontend setup for exchange APIs (like Binance, Hyperliquid), AI models and custom prompts.',
@@ -636,7 +636,7 @@ export const translations = {
     strategicInvestment: '(Strategic Investment)',
 
     // Login Modal
-    accessNofxPlatform: 'Access AiT Platform',
+    accessAiTPlatform: 'Access AiT Platform',
     loginRegisterPrompt:
       'Please login or register to access the full AI trading platform',
     registerNewAccount: 'Register New Account',
@@ -705,7 +705,7 @@ export const translations = {
     // ===== INSTALLATION =====
     faqHowToInstall: 'How do I install AiT?',
     faqHowToInstallAnswer:
-      'Easiest method (Linux/macOS): Run "curl -fsSL https://raw.githubusercontent.com/AiTAiOS/nofx/main/install.sh | bash" - this installs Docker containers automatically. Then open http://127.0.0.1:3000 in your browser. For manual installation or development, clone the repository and follow the README instructions.',
+      'Easiest method (Linux/macOS): Run "curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash" - this installs Docker containers automatically. Then open http://127.0.0.1:3000 in your browser. For manual installation or development, clone the repository and follow the README instructions.',
 
     faqWindowsInstallation: 'How do I install on Windows?',
     faqWindowsInstallationAnswer:
@@ -717,7 +717,7 @@ export const translations = {
 
     faqManualInstallation: 'How do I install manually for development?',
     faqManualInstallationAnswer:
-      'Prerequisites: Go 1.21+, Node.js 18+, TA-Lib. Steps: 1) Clone repo: "git clone https://github.com/AiTAiOS/nofx.git"; 2) Install backend deps: "go mod download"; 3) Install frontend deps: "cd web && npm install"; 4) Build backend: "go build -o nofx"; 5) Run backend: "./nofx"; 6) Run frontend (new terminal): "cd web && npm run dev". Access at http://127.0.0.1:3000',
+      'Prerequisites: Go 1.21+, Node.js 18+, TA-Lib. Steps: 1) Clone repo: "git clone https://github.com/Aixxww/AiT.git"; 2) Install backend deps: "go mod download"; 3) Install frontend deps: "cd web && npm install"; 4) Build backend: "go build -o ait"; 5) Run backend: "./ait"; 6) Run frontend (new terminal): "cd web && npm run dev". Access at http://127.0.0.1:3000',
 
     faqServerDeployment: 'How do I deploy to a remote server?',
     faqServerDeploymentAnswer:
@@ -725,7 +725,7 @@ export const translations = {
 
     faqUpdateAiT: 'How do I update AiT?',
     faqUpdateAiTAnswer:
-      'For Docker: Run "docker compose pull && docker compose up -d" to pull latest images and restart. For manual installation: "git pull && go build -o nofx" for backend, "cd web && npm install && npm run build" for frontend. Your configurations in data.db are preserved during updates.',
+      'For Docker: Run "docker compose pull && docker compose up -d" to pull latest images and restart. For manual installation: "git pull && go build -o ait" for backend, "cd web && npm install && npm run build" for frontend. Your configurations in data.db are preserved during updates.',
 
     // ===== CONFIGURATION =====
     faqConfigureAIModels: 'How do I configure AI models?',
@@ -792,15 +792,15 @@ export const translations = {
 
     faqFrontendNotLoading: 'Frontend shows "Loading..." forever',
     faqFrontendNotLoadingAnswer:
-      'Backend may not be running or reachable. Check: 1) "curl http://127.0.0.1:8080/api/health" should return {"status":"ok"}; 2) "docker compose ps" to verify containers are running; 3) Check backend logs: "docker compose logs nofx-backend"; 4) Ensure firewall allows port 8080.',
+      'Backend may not be running or reachable. Check: 1) "curl http://127.0.0.1:8080/api/health" should return {"status":"ok"}; 2) "docker compose ps" to verify containers are running; 3) Check backend logs: "docker compose logs ait-backend"; 4) Ensure firewall allows port 8080.',
 
     faqDatabaseLocked: 'Database locked error',
     faqDatabaseLockedAnswer:
-      'Multiple processes accessing SQLite simultaneously. Solution: 1) Stop all processes: "docker compose down" or "pkill nofx"; 2) Remove lock files if present: "rm -f data/data.db-wal data/data.db-shm"; 3) Restart: "docker compose up -d". Only one backend instance should access the database.',
+      'Multiple processes accessing SQLite simultaneously. Solution: 1) Stop all processes: "docker compose down" or "pkill ait"; 2) Remove lock files if present: "rm -f data/data.db-wal data/data.db-shm"; 3) Restart: "docker compose up -d". Only one backend instance should access the database.',
 
     faqTALibNotFound: 'TA-Lib not found during build',
     faqTALibNotFoundAnswer:
-      'TA-Lib is required for technical indicators. Install: macOS: "brew install ta-lib"; Ubuntu/Debian: "sudo apt-get install libta-lib0-dev"; CentOS: "yum install ta-lib-devel". After installing, rebuild: "go build -o nofx". Docker images include TA-Lib pre-installed.',
+      'TA-Lib is required for technical indicators. Install: macOS: "brew install ta-lib"; Ubuntu/Debian: "sudo apt-get install libta-lib0-dev"; CentOS: "yum install ta-lib-devel". After installing, rebuild: "go build -o ait". Docker images include TA-Lib pre-installed.',
 
     faqAIAPITimeout: 'AI API timeout or connection refused',
     faqAIAPITimeoutAnswer:
@@ -872,7 +872,7 @@ export const translations = {
 
     faqPRGuidelines: 'What are the PR guidelines?',
     faqPRGuidelinesAnswer:
-      'PR Process: 1) Fork repo to your account; 2) Create feature branch from dev: "git checkout -b feat/your-feature"; 3) Make changes, run lint: "npm --prefix web run lint"; 4) Commit with Conventional Commits format; 5) Push and create PR to AiTAiOS/nofx:dev; 6) Reference related issue (Closes #123); 7) Wait for review. Keep PRs small and focused.',
+      'PR Process: 1) Fork repo to your account; 2) Create feature branch from dev: "git checkout -b feat/your-feature"; 3) Make changes, run lint: "npm --prefix web run lint"; 4) Commit with Conventional Commits format; 5) Push and create PR to Aixxww/AiT:dev; 6) Reference related issue (Closes #123); 7) Wait for review. Keep PRs small and focused.',
 
     faqBountyProgram: 'Is there a bounty program?',
     faqBountyProgramAnswer:
@@ -1891,7 +1891,7 @@ export const translations = {
 
     // Features Section
     coreFeatures: '核心功能',
-    whyChooseNofx: '为什么选择 AiT？',
+    whyChooseAiT: '为什么选择 AiT？',
     openCommunityDriven: '开源、透明、社区驱动的 AI 交易操作系统',
     openSourceSelfHosted: '100% 开源与自托管',
     openSourceDesc: '你的框架，你的规则。非黑箱，支持自定义提示词和多模型。',
@@ -1913,16 +1913,16 @@ export const translations = {
     secureFeatures4: '交易日志审计',
 
     // About Section
-    aboutNofx: '关于 AiT',
-    whatIsNofx: '什么是 AiT？',
-    nofxNotAnotherBot: "AiT 不是另一个交易机器人，而是 AI 交易的 'Linux' ——",
-    nofxDescription1: "一个透明、可信任的开源 OS，提供统一的 '决策-风险-执行'",
-    nofxDescription2: '层，支持所有资产类别。',
-    nofxDescription3:
+    aboutAiT: '关于 AiT',
+    whatIsAiT: '什么是 AiT？',
+    aitNotAnotherBot: "AiT 不是另一个交易机器人，而是 AI 交易的 'Linux' ——",
+    aitDescription1: "一个透明、可信任的开源 OS，提供统一的 '决策-风险-执行'",
+    aitDescription2: '层，支持所有资产类别。',
+    aitDescription3:
       '从加密市场起步（24/7、高波动性完美测试场），未来扩展到股票、期货、外汇。核心：开放架构、AI',
-    nofxDescription4:
+    aitDescription4:
       '达尔文主义（多代理自竞争、策略进化）、CodeFi 飞轮（开发者 PR',
-    nofxDescription5: '贡献获积分奖励）。',
+    aitDescription5: '贡献获积分奖励）。',
     youFullControl: '你 100% 掌控',
     fullControlDesc: '完全掌控 AI 提示词和资金',
     startupMessages1: '启动自动交易系统...',
@@ -1934,7 +1934,7 @@ export const translations = {
     fourSimpleSteps: '四个简单步骤，开启 AI 自动交易之旅',
     step1Title: '拉取 GitHub 仓库',
     step1Desc:
-      'git clone https://github.com/AiTAiOS/nofx 并切换到 dev 分支测试新功能。',
+      'git clone https://github.com/Aixxww/AiT 并切换到 dev 分支测试新功能。',
     step2Title: '配置环境',
     step2Desc:
       '前端设置交易所 API（如 Binance、Hyperliquid）、AI 模型和自定义提示词。',
@@ -1958,7 +1958,7 @@ export const translations = {
     strategicInvestment: '(战略投资)',
 
     // Login Modal
-    accessNofxPlatform: '访问 AiT 平台',
+    accessAiTPlatform: '访问 AiT 平台',
     loginRegisterPrompt: '请选择登录或注册以访问完整的 AI 交易平台',
     registerNewAccount: '注册新账号',
 
@@ -2024,7 +2024,7 @@ export const translations = {
     // ===== 安装部署 =====
     faqHowToInstall: '如何安装 AiT？',
     faqHowToInstallAnswer:
-      '最简单的方法（Linux/macOS）：运行 "curl -fsSL https://raw.githubusercontent.com/AiTAiOS/nofx/main/install.sh | bash" - 这会自动安装 Docker 容器。然后在浏览器中打开 http://127.0.0.1:3000。手动安装或开发请克隆仓库并按照 README 说明操作。',
+      '最简单的方法（Linux/macOS）：运行 "curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash" - 这会自动安装 Docker 容器。然后在浏览器中打开 http://127.0.0.1:3000。手动安装或开发请克隆仓库并按照 README 说明操作。',
 
     faqWindowsInstallation: 'Windows 如何安装？',
     faqWindowsInstallationAnswer:
@@ -2036,7 +2036,7 @@ export const translations = {
 
     faqManualInstallation: '如何手动安装用于开发？',
     faqManualInstallationAnswer:
-      '前置条件：Go 1.21+、Node.js 18+、TA-Lib。步骤：1）克隆仓库："git clone https://github.com/AiTAiOS/nofx.git"；2）安装后端依赖："go mod download"；3）安装前端依赖："cd web && npm install"；4）构建后端："go build -o nofx"；5）运行后端："./nofx"；6）运行前端（新终端）："cd web && npm run dev"。访问 http://127.0.0.1:3000',
+      '前置条件：Go 1.21+、Node.js 18+、TA-Lib。步骤：1）克隆仓库："git clone https://github.com/Aixxww/AiT.git"；2）安装后端依赖："go mod download"；3）安装前端依赖："cd web && npm install"；4）构建后端："go build -o ait"；5）运行后端："./ait"；6）运行前端（新终端）："cd web && npm run dev"。访问 http://127.0.0.1:3000',
 
     faqServerDeployment: '如何部署到远程服务器？',
     faqServerDeploymentAnswer:
@@ -2044,7 +2044,7 @@ export const translations = {
 
     faqUpdateAiT: '如何更新 AiT？',
     faqUpdateAiTAnswer:
-      'Docker 方式：运行 "docker compose pull && docker compose up -d" 拉取最新镜像并重启。手动安装：后端 "git pull && go build -o nofx"，前端 "cd web && npm install && npm run build"。data.db 中的配置在更新时会保留。',
+      'Docker 方式：运行 "docker compose pull && docker compose up -d" 拉取最新镜像并重启。手动安装：后端 "git pull && go build -o ait"，前端 "cd web && npm install && npm run build"。data.db 中的配置在更新时会保留。',
 
     // ===== 配置设置 =====
     faqConfigureAIModels: '如何配置 AI 模型？',
@@ -2111,15 +2111,15 @@ export const translations = {
 
     faqFrontendNotLoading: '前端一直显示"加载中..."',
     faqFrontendNotLoadingAnswer:
-      '后端可能未运行或无法访问。检查：1）"curl http://127.0.0.1:8080/api/health" 应返回 {"status":"ok"}；2）"docker compose ps" 验证容器运行中；3）查看后端日志："docker compose logs nofx-backend"；4）确保防火墙允许 8080 端口。',
+      '后端可能未运行或无法访问。检查：1）"curl http://127.0.0.1:8080/api/health" 应返回 {"status":"ok"}；2）"docker compose ps" 验证容器运行中；3）查看后端日志："docker compose logs ait-backend"；4）确保防火墙允许 8080 端口。',
 
     faqDatabaseLocked: '数据库锁定错误',
     faqDatabaseLockedAnswer:
-      '多个进程同时访问 SQLite 导致。解决方案：1）停止所有进程："docker compose down" 或 "pkill nofx"；2）如有锁文件删除："rm -f data/data.db-wal data/data.db-shm"；3）重启："docker compose up -d"。只能有一个后端实例访问数据库。',
+      '多个进程同时访问 SQLite 导致。解决方案：1）停止所有进程："docker compose down" 或 "pkill ait"；2）如有锁文件删除："rm -f data/data.db-wal data/data.db-shm"；3）重启："docker compose up -d"。只能有一个后端实例访问数据库。',
 
     faqTALibNotFound: '构建时找不到 TA-Lib',
     faqTALibNotFoundAnswer:
-      'TA-Lib 是技术指标所需。安装：macOS："brew install ta-lib"；Ubuntu/Debian："sudo apt-get install libta-lib0-dev"；CentOS："yum install ta-lib-devel"。安装后重新构建："go build -o nofx"。Docker 镜像已预装 TA-Lib。',
+      'TA-Lib 是技术指标所需。安装：macOS："brew install ta-lib"；Ubuntu/Debian："sudo apt-get install libta-lib0-dev"；CentOS："yum install ta-lib-devel"。安装后重新构建："go build -o ait"。Docker 镜像已预装 TA-Lib。',
 
     faqAIAPITimeout: 'AI API 超时或连接被拒绝',
     faqAIAPITimeoutAnswer:
@@ -2191,7 +2191,7 @@ export const translations = {
 
     faqPRGuidelines: 'PR 指南是什么？',
     faqPRGuidelinesAnswer:
-      'PR 流程：1）Fork 仓库到您的账户；2）从 dev 创建功能分支："git checkout -b feat/your-feature"；3）修改代码，运行 lint："npm --prefix web run lint"；4）使用 Conventional Commits 格式提交；5）推送并创建 PR 到 AiTAiOS/nofx:dev；6）关联相关 issue（Closes #123）；7）等待审核。保持 PR 小而聚焦。',
+      'PR 流程：1）Fork 仓库到您的账户；2）从 dev 创建功能分支："git checkout -b feat/your-feature"；3）修改代码，运行 lint："npm --prefix web run lint"；4）使用 Conventional Commits 格式提交；5）推送并创建 PR 到 Aixxww/AiT:dev；6）关联相关 issue（Closes #123）；7）等待审核。保持 PR 小而聚焦。',
 
     faqBountyProgram: '有赏金计划吗？',
     faqBountyProgramAnswer:
@@ -3147,7 +3147,7 @@ export const translations = {
     getStartedNow: 'Mulai Sekarang',
     viewSourceCode: 'Lihat Kode Sumber',
     coreFeatures: 'Fitur Inti',
-    whyChooseNofx: 'Mengapa Memilih AiT?',
+    whyChooseAiT: 'Mengapa Memilih AiT?',
     openCommunityDriven: 'Open source, transparan, OS trading AI yang didorong komunitas',
     openSourceSelfHosted: '100% Open Source & Self-Hosted',
     openSourceDesc: 'Framework Anda, aturan Anda. Non-black box, mendukung prompt kustom dan multi-model.',
@@ -3167,14 +3167,14 @@ export const translations = {
     secureFeatures2: 'Kontrol izin API granular',
     secureFeatures3: 'Pemantauan risiko realtime',
     secureFeatures4: 'Audit log trading',
-    aboutNofx: 'Tentang AiT',
-    whatIsNofx: 'Apa itu AiT?',
-    nofxNotAnotherBot: "AiT bukan bot trading biasa, melainkan 'Linux' dari trading AI —",
-    nofxDescription1: "OS open source yang transparan dan terpercaya yang menyediakan lapisan",
-    nofxDescription2: "'keputusan-risiko-eksekusi' terpadu, mendukung semua kelas aset.",
-    nofxDescription3: 'Dimulai dari pasar kripto (24/7, volatilitas tinggi sebagai tempat uji sempurna), ekspansi masa depan ke saham, futures, forex. Inti: arsitektur terbuka, AI',
-    nofxDescription4: 'Darwinisme (kompetisi mandiri multi-agen, evolusi strategi), flywheel CodeFi',
-    nofxDescription5: '(pengembang mendapat reward poin untuk kontribusi PR).',
+    aboutAiT: 'Tentang AiT',
+    whatIsAiT: 'Apa itu AiT?',
+    aitNotAnotherBot: "AiT bukan bot trading biasa, melainkan 'Linux' dari trading AI —",
+    aitDescription1: "OS open source yang transparan dan terpercaya yang menyediakan lapisan",
+    aitDescription2: "'keputusan-risiko-eksekusi' terpadu, mendukung semua kelas aset.",
+    aitDescription3: 'Dimulai dari pasar kripto (24/7, volatilitas tinggi sebagai tempat uji sempurna), ekspansi masa depan ke saham, futures, forex. Inti: arsitektur terbuka, AI',
+    aitDescription4: 'Darwinisme (kompetisi mandiri multi-agen, evolusi strategi), flywheel CodeFi',
+    aitDescription5: '(pengembang mendapat reward poin untuk kontribusi PR).',
     youFullControl: 'Anda 100% Mengendalikan',
     fullControlDesc: 'Kontrol penuh atas prompt AI dan dana',
     startupMessages1: 'Memulai sistem trading otomatis...',
@@ -3183,7 +3183,7 @@ export const translations = {
     howToStart: 'Cara Memulai AiT',
     fourSimpleSteps: 'Empat langkah sederhana untuk memulai perjalanan trading AI otomatis Anda',
     step1Title: 'Clone Repository GitHub',
-    step1Desc: 'git clone https://github.com/AiTAiOS/nofx dan beralih ke branch dev untuk menguji fitur baru.',
+    step1Desc: 'git clone https://github.com/Aixxww/AiT dan beralih ke branch dev untuk menguji fitur baru.',
     step2Title: 'Konfigurasi Lingkungan',
     step2Desc: 'Setup frontend untuk API bursa (seperti Binance, Hyperliquid), model AI dan prompt kustom.',
     step3Title: 'Deploy & Jalankan',
@@ -3198,7 +3198,7 @@ export const translations = {
     documentation: 'Dokumentasi',
     supporters: 'Pendukung',
     strategicInvestment: '(Investasi Strategis)',
-    accessNofxPlatform: 'Akses Platform AiT',
+    accessAiTPlatform: 'Akses Platform AiT',
     loginRegisterPrompt: 'Silakan masuk atau daftar untuk mengakses platform trading AI lengkap',
     registerNewAccount: 'Daftar Akun Baru',
     candidateCoins: 'Koin Kandidat',
@@ -3242,17 +3242,17 @@ export const translations = {
     faqSystemRequirements: 'Apa persyaratan sistem?',
     faqSystemRequirementsAnswer: 'Minimum: 2 core CPU, 2GB RAM, 1GB disk, internet stabil. Direkomendasikan: 4GB RAM untuk menjalankan beberapa trader. OS yang didukung: Linux, macOS, atau Windows (via Docker atau WSL2).',
     faqHowToInstall: 'Bagaimana cara menginstal AiT?',
-    faqHowToInstallAnswer: 'Metode termudah (Linux/macOS): Jalankan "curl -fsSL https://raw.githubusercontent.com/AiTAiOS/nofx/main/install.sh | bash" - ini menginstal kontainer Docker secara otomatis. Lalu buka http://127.0.0.1:3000 di browser Anda.',
+    faqHowToInstallAnswer: 'Metode termudah (Linux/macOS): Jalankan "curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/scripts/install.sh | bash" - ini menginstal kontainer Docker secara otomatis. Lalu buka http://127.0.0.1:3000 di browser Anda.',
     faqWindowsInstallation: 'Bagaimana cara menginstal di Windows?',
     faqWindowsInstallationAnswer: 'Tiga opsi: 1) Docker Desktop (Direkomendasikan); 2) WSL2 - Instal Windows Subsystem for Linux; 3) Docker di WSL2. Akses via http://127.0.0.1:3000',
     faqDockerDeployment: 'Deployment Docker terus gagal',
     faqDockerDeploymentAnswer: 'Solusi umum: 1) Periksa Docker berjalan: "docker info"; 2) Pastikan memori cukup (minimal 2GB); 3) Periksa log: "docker compose logs -f".',
     faqManualInstallation: 'Bagaimana cara menginstal manual untuk pengembangan?',
-    faqManualInstallationAnswer: 'Prasyarat: Go 1.21+, Node.js 18+, TA-Lib. Langkah: 1) Clone repo; 2) "go mod download"; 3) "cd web && npm install"; 4) "go build -o nofx"; 5) "./nofx"; 6) "cd web && npm run dev".',
+    faqManualInstallationAnswer: 'Prasyarat: Go 1.21+, Node.js 18+, TA-Lib. Langkah: 1) Clone repo; 2) "go mod download"; 3) "cd web && npm install"; 4) "go build -o ait"; 5) "./ait"; 6) "cd web && npm run dev".',
     faqServerDeployment: 'Bagaimana cara deploy ke server remote?',
     faqServerDeploymentAnswer: 'Jalankan skrip instal di server Anda. Akses via http://IP_SERVER:3000. Untuk HTTPS: Gunakan Cloudflare (gratis) dan aktifkan TRANSPORT_ENCRYPTION=true di .env.',
     faqUpdateAiT: 'Bagaimana cara memperbarui AiT?',
-    faqUpdateAiTAnswer: 'Docker: "docker compose pull && docker compose up -d". Manual: "git pull && go build -o nofx" untuk backend, "cd web && npm install && npm run build" untuk frontend.',
+    faqUpdateAiTAnswer: 'Docker: "docker compose pull && docker compose up -d". Manual: "git pull && go build -o ait" untuk backend, "cd web && npm install && npm run build" untuk frontend.',
     faqConfigureAIModels: 'Bagaimana cara mengonfigurasi model AI?',
     faqConfigureAIModelsAnswer: 'Buka halaman Konfigurasi → bagian Model AI. Untuk setiap model: 1) Dapatkan API key dari penyedia; 2) Masukkan API key; 3) Opsional kustomisasi base URL dan nama model; 4) Simpan.',
     faqConfigureExchanges: 'Bagaimana cara mengonfigurasi koneksi bursa?',
@@ -3322,7 +3322,7 @@ export const translations = {
     faqHowToContribute: 'Bagaimana cara berkontribusi ke AiT?',
     faqHowToContributeAnswer: 'AiT open-source dan menyambut kontribusi! Cara: 1) Kode - perbaiki bug, tambah fitur; 2) Dokumentasi; 3) Laporan Bug; 4) Ide Fitur. Semua kontributor mungkin mendapat reward airdrop.',
     faqPRGuidelines: 'Apa panduan PR?',
-    faqPRGuidelinesAnswer: 'Proses PR: 1) Fork repo; 2) Buat branch fitur dari dev; 3) Buat perubahan, jalankan lint; 4) Commit dengan format Conventional Commits; 5) Push dan buat PR ke AiTAiOS/nofx:dev.',
+    faqPRGuidelinesAnswer: 'Proses PR: 1) Fork repo; 2) Buat branch fitur dari dev; 3) Buat perubahan, jalankan lint; 4) Commit dengan format Conventional Commits; 5) Push dan buat PR ke Aixxww/AiT:dev.',
     faqBountyProgram: 'Apakah ada program bounty?',
     faqBountyProgramAnswer: 'Ya! Kontributor mendapat reward airdrop berdasarkan kontribusi. Issue dengan label "bounty" memiliki reward uang tunai.',
     faqReportBugs: 'Bagaimana cara melaporkan bug?',

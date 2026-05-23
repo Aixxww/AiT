@@ -333,7 +333,7 @@ export function SettingsPage() {
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
                 ${
                   activeTab === tab.key
-                    ? 'bg-nofx-gold text-black'
+                    ? 'bg-ait-gold text-black'
                     : 'text-zinc-400 hover:text-white'
                 }`}
             >
@@ -365,7 +365,7 @@ export function SettingsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-nofx-gold/60 focus:ring-1 focus:ring-nofx-gold/30 transition-all"
+                        className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
                         placeholder="At least 8 characters"
                         required
                       />
@@ -385,7 +385,7 @@ export function SettingsPage() {
                   <button
                     type="submit"
                     disabled={changingPassword || newPassword.length < 8}
-                    className="w-full bg-nofx-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-ait-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {changingPassword ? 'Updating...' : 'Update Password'}
                   </button>
@@ -407,7 +407,7 @@ export function SettingsPage() {
                     setEditingModel(null)
                     setShowModelModal(true)
                   }}
-                  className="flex items-center gap-1.5 text-xs font-medium bg-nofx-gold/10 hover:bg-nofx-gold/20 text-nofx-gold px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium bg-ait-gold/10 hover:bg-ait-gold/20 text-ait-gold px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
                   Add Model
@@ -474,7 +474,7 @@ export function SettingsPage() {
                     setEditingExchange(null)
                     setShowExchangeModal(true)
                   }}
-                  className="flex items-center gap-1.5 text-xs font-medium bg-nofx-gold/10 hover:bg-nofx-gold/20 text-nofx-gold px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium bg-ait-gold/10 hover:bg-ait-gold/20 text-ait-gold px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
                   Add Exchange

@@ -24,10 +24,10 @@ export default function FooterSection({ language }: FooterSectionProps) {
     resources: [
       {
         name: language === 'zh' ? '文档' : 'Documentation',
-        href: 'https://github.com/AiTAiOS/nofx/blob/main/README.md',
+        href: 'https://github.com/Aixxww/AiT/blob/main/README.md',
       },
-      { name: 'Issues', href: 'https://github.com/AiTAiOS/nofx/issues' },
-      { name: 'Pull Requests', href: 'https://github.com/AiTAiOS/nofx/pulls' },
+      { name: 'Issues', href: 'https://github.com/Aixxww/AiT/issues' },
+      { name: 'Pull Requests', href: 'https://github.com/Aixxww/AiT/pulls' },
     ],
   }
 

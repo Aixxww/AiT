@@ -3,7 +3,7 @@
 export const OFFICIAL_LINKS = {
   twitter: 'https://x.com/nofx_official',
   telegram: 'https://t.me/nofx_dev_community',
-  github: 'https://github.com/NoFxAiOS/nofx',
+  github: 'https://github.com/Aixxww/AiT',
 } as const
 
 export const BRAND_INFO = {

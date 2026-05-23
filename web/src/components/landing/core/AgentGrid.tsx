@@ -13,8 +13,8 @@ const agents = [
     apy: '142%',
     winRate: '68%',
     risk: 'HIGH',
-    color: 'text-nofx-gold',
-    border: 'border-nofx-gold/50',
+    color: 'text-ait-gold',
+    border: 'border-ait-gold/50',
     bg_glow: 'shadow-[0_0_30px_rgba(240,185,11,0.1)]',
     icon: Zap,
   },
@@ -59,7 +59,7 @@ export default function AgentGrid() {
   return (
     <section
       id="market-scanner"
-      className="py-16 md:py-24 bg-nofx-bg relative overflow-hidden"
+      className="py-16 md:py-24 bg-ait-bg relative overflow-hidden"
     >
       {/* Background Details */}
       <div className="absolute top-0 right-0 p-10 opacity-20 pointer-events-none">
@@ -69,12 +69,12 @@ export default function AgentGrid() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end mb-10 md:mb-16 gap-6">
           <div>
-            <div className="flex items-center gap-2 text-nofx-gold font-mono text-xs mb-2 tracking-widest uppercase">
+            <div className="flex items-center gap-2 text-ait-gold font-mono text-xs mb-2 tracking-widest uppercase">
               <Crosshair className="w-4 h-4" /> MARKET SELECT
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">
               STRATEGY{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-nofx-gold to-white">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold to-white">
                 UNITS
               </span>
             </h2>
@@ -120,7 +120,7 @@ export default function AgentGrid() {
                   </div>
 
                   {/* Name & Desc */}
-                  <h3 className="text-3xl font-bold text-white mb-2 tracking-tight group-hover:text-nofx-accent transition-colors">
+                  <h3 className="text-3xl font-bold text-white mb-2 tracking-tight group-hover:text-ait-accent transition-colors">
                     {agent.name}
                   </h3>
                   <p className="text-zinc-500 text-sm mb-8 leading-relaxed h-10">
@@ -158,7 +158,7 @@ export default function AgentGrid() {
                   {/* Action Btn */}
                   <button
                     onClick={handleInitialize}
-                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-zinc-700 hover:border-${agent.color === 'text-nofx-gold' ? 'nofx-gold' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-white cursor-pointer`}
+                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-zinc-700 hover:border-${agent.color === 'text-ait-gold' ? 'ait-gold' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-white cursor-pointer`}
                   >
                     <span className={agent.color}>[</span> INITIALIZE{' '}
                     <span className={agent.color}>]</span>

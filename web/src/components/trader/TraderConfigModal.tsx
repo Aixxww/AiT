@@ -5,7 +5,7 @@ import { t } from '../../i18n/translations'
 import { toast } from 'sonner'
 import { Pencil, Plus, X as IconX, Sparkles, ExternalLink, UserPlus } from 'lucide-react'
 import { httpClient } from '../../lib/httpClient'
-import { NofxSelect } from '../ui/select'
+import { AiTSelect } from '../ui/select'
 
 // 提取下划线后面的名称部分
 function getShortName(fullName: string): string {
@@ -279,7 +279,7 @@ export function TraderConfigModal({
                   <label className="text-sm text-[#EAECEF] block mb-2">
                   {t('aiModelRequired', language)}
                   </label>
-                  <NofxSelect
+                  <AiTSelect
                     value={formData.ai_model}
                     onChange={(val) =>
                       handleInputChange('ai_model', val)
@@ -295,7 +295,7 @@ export function TraderConfigModal({
                   <label className="text-sm text-[#EAECEF] block mb-2">
                   {t('exchangeRequired', language)}
                   </label>
-                  <NofxSelect
+                  <AiTSelect
                     value={formData.exchange_id}
                     onChange={handleExchangeChange}
                     className="w-full px-3 py-2 bg-[#0B0E11] border border-[#2B3139] rounded text-[#EAECEF]"
@@ -346,7 +346,7 @@ export function TraderConfigModal({
                 <label className="text-sm text-[#EAECEF] block mb-2">
                   {t('useStrategy', language)}
                 </label>
-                <NofxSelect
+                <AiTSelect
                   value={formData.strategy_id}
                   onChange={(val) =>
                     handleInputChange('strategy_id', val)

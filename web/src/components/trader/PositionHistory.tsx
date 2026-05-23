@@ -4,7 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { t, type Language } from '../../i18n/translations'
 import { MetricTooltip } from '../common/MetricTooltip'
 import { formatPrice, formatQuantity } from '../../utils/format'
-import { NofxSelect } from '../ui/select'
+import { AiTSelect } from '../ui/select'
 import type {
   HistoricalPosition,
   TraderStats,
@@ -669,7 +669,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             <span className="text-sm" style={{ color: '#848E9C' }}>
               {t('positionHistory.symbol', language)}:
             </span>
-            <NofxSelect
+            <AiTSelect
               value={filterSymbol}
               onChange={(val) => setFilterSymbol(val)}
               options={[
@@ -710,7 +710,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             <span className="text-sm" style={{ color: '#848E9C' }}>
               {t('positionHistory.sort', language)}:
             </span>
-            <NofxSelect
+            <AiTSelect
               value={`${sortBy}-${sortOrder}`}
               onChange={(val) => {
                 const [by, order] = val.split('-') as ['time' | 'pnl' | 'pnl_pct', 'asc' | 'desc']
@@ -841,7 +841,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               <span className="text-xs" style={{ color: '#848E9C' }}>
                 {language === 'zh' ? '每页' : 'Per page'}:
               </span>
-              <NofxSelect
+              <AiTSelect
                 value={pageSize}
                 onChange={(val) => setPageSize(Number(val))}
                 options={[

@@ -208,8 +208,8 @@ export function StrategyMarketPage() {
 
             <div className="flex items-center gap-4 mb-4">
               <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-none relative group overflow-hidden">
-                <div className="absolute inset-0 bg-nofx-gold/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <Database className="w-8 h-8 text-nofx-gold relative z-10" />
+                <div className="absolute inset-0 bg-ait-gold/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <Database className="w-8 h-8 text-ait-gold relative z-10" />
               </div>
               <div>
                 <h1
@@ -218,7 +218,7 @@ export function StrategyMarketPage() {
                 >
                   {tr('title')}
                 </h1>
-                <p className="text-xs text-nofx-gold tracking-[0.3em] font-bold mt-1">
+                <p className="text-xs text-ait-gold tracking-[0.3em] font-bold mt-1">
                   {'// '}
                   {tr('subtitle')}
                 </p>
@@ -233,9 +233,9 @@ export function StrategyMarketPage() {
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             {/* Search */}
             <div className="relative flex-1 group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-nofx-gold/20 to-zinc-800/20 rounded opacity-0 group-hover:opacity-100 transition duration-500 blur"></div>
-              <div className="relative bg-black flex items-center border border-zinc-800 group-hover:border-nofx-gold/50 transition-colors">
-                <div className="pl-4 pr-3 text-zinc-500 group-hover:text-nofx-gold transition-colors">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-ait-gold/20 to-zinc-800/20 rounded opacity-0 group-hover:opacity-100 transition duration-500 blur"></div>
+              <div className="relative bg-black flex items-center border border-zinc-800 group-hover:border-ait-gold/50 transition-colors">
+                <div className="pl-4 pr-3 text-zinc-500 group-hover:text-ait-gold transition-colors">
                   <Terminal size={16} />
                 </div>
                 <input
@@ -243,10 +243,10 @@ export function StrategyMarketPage() {
                   placeholder={tr('search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent py-3 text-sm focus:outline-none placeholder-zinc-700 text-nofx-gold font-mono"
+                  className="w-full bg-transparent py-3 text-sm focus:outline-none placeholder-zinc-700 text-ait-gold font-mono"
                 />
                 <div className="pr-4">
-                  <div className="w-2 h-4 bg-nofx-gold animate-pulse"></div>
+                  <div className="w-2 h-4 bg-ait-gold animate-pulse"></div>
                 </div>
               </div>
             </div>
@@ -266,7 +266,7 @@ export function StrategyMarketPage() {
                   {selectedCategory === cat && (
                     <motion.div
                       layoutId="filter-highlight"
-                      className="absolute inset-0 bg-nofx-gold"
+                      className="absolute inset-0 bg-ait-gold"
                       transition={{
                         type: 'spring',
                         bounce: 0.2,
@@ -285,25 +285,25 @@ export function StrategyMarketPage() {
             <div className="flex flex-col items-center justify-center py-32 space-y-4">
               <div className="relative w-16 h-16">
                 <div className="absolute inset-0 border-2 border-zinc-800 rounded-full"></div>
-                <div className="absolute inset-0 border-2 border-nofx-gold rounded-full border-t-transparent animate-spin"></div>
+                <div className="absolute inset-0 border-2 border-ait-gold rounded-full border-t-transparent animate-spin"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Cpu size={24} className="text-nofx-gold/50" />
+                  <Cpu size={24} className="text-ait-gold/50" />
                 </div>
               </div>
-              <p className="text-nofx-gold text-xs tracking-widest animate-pulse">
+              <p className="text-ait-gold text-xs tracking-widest animate-pulse">
                 {tr('loading')}
               </p>
               <div className="flex gap-1">
                 <div
-                  className="w-1 h-1 bg-nofx-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
                   style={{ animationDelay: '0s' }}
                 ></div>
                 <div
-                  className="w-1 h-1 bg-nofx-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
                   style={{ animationDelay: '0.2s' }}
                 ></div>
                 <div
-                  className="w-1 h-1 bg-nofx-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
                   style={{ animationDelay: '0.4s' }}
                 ></div>
               </div>
@@ -388,7 +388,7 @@ export function StrategyMarketPage() {
                           className={`text-lg font-bold mb-2 tracking-tight group-hover:${style.color} transition-colors uppercase truncate relative`}
                         >
                           {strategy.name}
-                          <span className="absolute -bottom-1 left-0 w-8 h-[2px] bg-zinc-800 group-hover:bg-nofx-gold transition-colors"></span>
+                          <span className="absolute -bottom-1 left-0 w-8 h-[2px] bg-zinc-800 group-hover:bg-ait-gold transition-colors"></span>
                         </h3>
                         <p className="text-xs text-zinc-500 mb-6 line-clamp-2 h-8 leading-relaxed font-sans">
                           {strategy.description || 'NO_DESCRIPTION_AVAILABLE'}
@@ -484,7 +484,7 @@ export function StrategyMarketPage() {
                           {strategy.config_visible && strategy.config ? (
                             <button
                               onClick={() => handleCopyConfig(strategy)}
-                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-zinc-700 bg-black hover:bg-zinc-900 text-zinc-300 hover:text-nofx-gold hover:border-nofx-gold transition-all flex items-center justify-center gap-2 group/btn"
+                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-zinc-700 bg-black hover:bg-zinc-900 text-zinc-300 hover:text-ait-gold hover:border-ait-gold transition-all flex items-center justify-center gap-2 group/btn"
                             >
                               {copiedId === strategy.id ? (
                                 <>
@@ -530,14 +530,14 @@ export function StrategyMarketPage() {
                 className="relative group cursor-pointer"
                 onClick={() => navigate('/strategy')}
               >
-                <div className="absolute -inset-1 bg-gradient-to-r from-nofx-gold to-yellow-600 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                <div className="relative px-8 py-4 bg-black border border-zinc-800 hover:border-nofx-gold/50 flex items-center gap-4 transition-all">
+                <div className="absolute -inset-1 bg-gradient-to-r from-ait-gold to-yellow-600 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative px-8 py-4 bg-black border border-zinc-800 hover:border-ait-gold/50 flex items-center gap-4 transition-all">
                   <Hexagon
-                    className="text-nofx-gold animate-spin-slow"
+                    className="text-ait-gold animate-spin-slow"
                     size={24}
                   />
                   <div className="text-left">
-                    <div className="text-sm font-bold text-white uppercase tracking-wider group-hover:text-nofx-gold transition-colors">
+                    <div className="text-sm font-bold text-white uppercase tracking-wider group-hover:text-ait-gold transition-colors">
                       {tr('shareYours')}
                     </div>
                     <div className="text-[10px] text-zinc-500 font-mono">

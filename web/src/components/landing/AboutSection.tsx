@@ -51,16 +51,16 @@ export default function AboutSection({ language }: AboutSectionProps) {
             >
               <Terminal className="w-4 h-4" style={{ color: '#F0B90B' }} />
               <span className="text-xs font-medium" style={{ color: '#F0B90B' }}>
-                {t('aboutNofx', language)}
+                {t('aboutAiT', language)}
               </span>
             </motion.div>
 
             <h2 className="text-4xl lg:text-5xl font-bold mb-6" style={{ color: '#EAECEF' }}>
-              {t('whatIsNofx', language)}
+              {t('whatIsAiT', language)}
             </h2>
 
             <p className="text-lg mb-8 leading-relaxed" style={{ color: '#848E9C' }}>
-              {t('nofxNotAnotherBot', language)} {t('nofxDescription1', language)}
+              {t('aitNotAnotherBot', language)} {t('aitDescription1', language)}
             </p>
 
             {/* Feature Pills */}
@@ -127,8 +127,8 @@ export default function AboutSection({ language }: AboutSectionProps) {
 
               {/* Terminal Content */}
               <div className="p-6 font-mono text-sm space-y-2">
-                <div style={{ color: '#5E6673' }}>$ git clone https://github.com/AiTAiOS/nofx.git</div>
-                <div style={{ color: '#5E6673' }}>$ cd nofx && chmod +x start.sh</div>
+                <div style={{ color: '#5E6673' }}>$ git clone https://github.com/Aixxww/AiT.git</div>
+                <div style={{ color: '#5E6673' }}>$ cd AiT && chmod +x start.sh</div>
                 <div style={{ color: '#5E6673' }}>$ ./start.sh start --build</div>
                 <div className="pt-2" style={{ color: '#F0B90B' }}>
                   ✓ {t('startupMessages1', language)}

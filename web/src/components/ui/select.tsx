@@ -8,7 +8,7 @@ export interface SelectOption {
   label: string
 }
 
-interface NofxSelectProps {
+interface AiTSelectProps {
   value: string | number
   onChange: (value: string) => void
   options: SelectOption[]
@@ -17,7 +17,7 @@ interface NofxSelectProps {
   style?: React.CSSProperties
 }
 
-export function NofxSelect({ value, onChange, options, disabled, className, style }: NofxSelectProps) {
+export function AiTSelect({ value, onChange, options, disabled, className, style }: AiTSelectProps) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)

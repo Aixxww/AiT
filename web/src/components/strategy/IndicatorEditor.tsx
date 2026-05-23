@@ -1,7 +1,7 @@
 import { Clock, Activity, TrendingUp, BarChart2, Info, Lock, ExternalLink, Zap, Check, AlertCircle, Key } from 'lucide-react'
 import type { IndicatorConfig } from '../../types'
 import { indicator, ts } from '../../i18n/strategy-translations'
-import { NofxSelect } from '../ui/select'
+import { AiTSelect } from '../ui/select'
 
 // Default API Key
 const DEFAULT_API_KEY = 'cm_568c67eae410d912c54c'
@@ -114,14 +114,14 @@ export function IndicatorEditor({
     ensureRawKlines()
   }
 
-  // Check if any NofxOS feature is enabled
-  const hasNofxosEnabled = config.enable_quant_data || config.enable_oi_ranking || config.enable_netflow_ranking || config.enable_price_ranking
+  // Check if any Binance feature is enabled
+  const hasBinanceEnabled = config.enable_quant_data || config.enable_oi_ranking || config.enable_netflow_ranking || config.enable_price_ranking
   const hasApiKey = !!config.nofxos_api_key
 
   return (
     <div className="space-y-5">
       {/* ============================================ */}
-      {/* NofxOS Data Provider - Top Configuration    */}
+      {/* Binance Data Provider - Top Configuration    */}
       {/* ============================================ */}
       <div
         className="rounded-lg overflow-hidden relative"
@@ -148,10 +148,10 @@ export function IndicatorEditor({
               </div>
               <div>
                 <h3 className="text-sm font-semibold" style={{ color: '#EAECEF' }}>
-                  {ts(indicator.nofxosTitle, language)}
+                  {ts(indicator.binanceTitle, language)}
                 </h3>
                 <span className="text-[10px]" style={{ color: '#848E9C' }}>
-                  {ts(indicator.nofxosFeatures, language)}
+                  {ts(indicator.binanceFeatures, language)}
                 </span>
               </div>
             </div>
@@ -218,10 +218,10 @@ export function IndicatorEditor({
             )}
           </div>
 
-          {/* NofxOS Data Sources Grid */}
+          {/* Binance Data Sources Grid */}
           <div className="mt-4">
             <div className="text-[10px] font-medium mb-2" style={{ color: '#848E9C' }}>
-              {ts(indicator.nofxosDataSources, language)}
+              {ts(indicator.binanceDataSources, language)}
             </div>
             <div className="grid grid-cols-2 gap-2">
               {/* Quant Data */}
@@ -310,7 +310,7 @@ export function IndicatorEditor({
                 <p className="text-[10px] mt-1" style={{ color: '#5E6673' }}>{ts(indicator.oiRankingDesc, language)}</p>
                 {config.enable_oi_ranking && (
                   <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                    <NofxSelect
+                    <AiTSelect
                       value={config.oi_ranking_duration || '1h'}
                       onChange={(val) => !disabled && onChange({ ...config, oi_ranking_duration: val })}
                       disabled={disabled}
@@ -318,7 +318,7 @@ export function IndicatorEditor({
                       style={{ background: '#1E2329', border: '1px solid #2B3139', color: '#EAECEF' }}
                       options={[{ value: '1h', label: '1h' }, { value: '4h', label: '4h' }, { value: '24h', label: '24h' }]}
                     />
-                    <NofxSelect
+                    <AiTSelect
                       value={config.oi_ranking_limit || 10}
                       onChange={(val) => !disabled && onChange({ ...config, oi_ranking_limit: parseInt(val) })}
                       disabled={disabled}
@@ -366,7 +366,7 @@ export function IndicatorEditor({
                 <p className="text-[10px] mt-1" style={{ color: '#5E6673' }}>{ts(indicator.netflowRankingDesc, language)}</p>
                 {config.enable_netflow_ranking && (
                   <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                    <NofxSelect
+                    <AiTSelect
                       value={config.netflow_ranking_duration || '1h'}
                       onChange={(val) => !disabled && onChange({ ...config, netflow_ranking_duration: val })}
                       disabled={disabled}
@@ -374,7 +374,7 @@ export function IndicatorEditor({
                       style={{ background: '#1E2329', border: '1px solid #2B3139', color: '#EAECEF' }}
                       options={[{ value: '1h', label: '1h' }, { value: '4h', label: '4h' }, { value: '24h', label: '24h' }]}
                     />
-                    <NofxSelect
+                    <AiTSelect
                       value={config.netflow_ranking_limit || 10}
                       onChange={(val) => !disabled && onChange({ ...config, netflow_ranking_limit: parseInt(val) })}
                       disabled={disabled}
@@ -422,7 +422,7 @@ export function IndicatorEditor({
                 <p className="text-[10px] mt-1" style={{ color: '#5E6673' }}>{ts(indicator.priceRankingDesc, language)}</p>
                 {config.enable_price_ranking && (
                   <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-                    <NofxSelect
+                    <AiTSelect
                       value={config.price_ranking_duration || '1h,4h,24h'}
                       onChange={(val) => !disabled && onChange({ ...config, price_ranking_duration: val })}
                       disabled={disabled}
@@ -435,7 +435,7 @@ export function IndicatorEditor({
                         { value: '1h,4h,24h', label: ts(indicator.priceRankingMulti, language) },
                       ]}
                     />
-                    <NofxSelect
+                    <AiTSelect
                       value={config.price_ranking_limit || 10}
                       onChange={(val) => !disabled && onChange({ ...config, price_ranking_limit: parseInt(val) })}
                       disabled={disabled}
@@ -449,7 +449,7 @@ export function IndicatorEditor({
             </div>
 
             {/* Warning if features enabled but no API key */}
-            {hasNofxosEnabled && !hasApiKey && (
+            {hasBinanceEnabled && !hasApiKey && (
               <div className="flex items-center gap-2 mt-3 p-2 rounded-lg" style={{ background: 'rgba(246, 70, 93, 0.1)', border: '1px solid rgba(246, 70, 93, 0.2)' }}>
                 <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F6465D' }} />
                 <span className="text-[10px]" style={{ color: '#F6465D' }}>

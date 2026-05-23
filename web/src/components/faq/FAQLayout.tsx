@@ -63,14 +63,14 @@ export function FAQLayout({ language }: FAQLayoutProps) {
         {/* Page Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-nofx-gold to-[#FCD535] shadow-[0_8px_24px_rgba(240,185,11,0.4)]">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-ait-gold to-[#FCD535] shadow-[0_8px_24px_rgba(240,185,11,0.4)]">
               <HelpCircle className="w-8 h-8 text-[#0B0E11]" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold mb-4 text-nofx-text-main">
+          <h1 className="text-4xl font-bold mb-4 text-ait-text-main">
             {t('faqTitle', language)}
           </h1>
-          <p className="text-lg mb-8 text-nofx-text-muted">
+          <p className="text-lg mb-8 text-ait-text-muted">
             {t('faqSubtitle', language)}
           </p>
 
@@ -146,7 +146,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
           </p>
           <div className="flex items-center justify-center gap-4">
             <a
-              href="https://github.com/AiTAiOS/nofx"
+              href="https://github.com/Aixxww/AiT"
               target="_blank"
               rel="noopener noreferrer"
               className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"

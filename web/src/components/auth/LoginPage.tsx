@@ -64,7 +64,7 @@ export function LoginPage() {
           <div className="text-center mb-10">
             <div className="flex justify-center mb-5">
               <div className="relative">
-                <div className="absolute -inset-3 bg-nofx-gold/15 rounded-full blur-2xl" />
+                <div className="absolute -inset-3 bg-ait-gold/15 rounded-full blur-2xl" />
                 <img
                   src="/icons/ait.svg"
                   alt="AiT"
@@ -90,7 +90,7 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-nofx-gold/60 focus:ring-1 focus:ring-nofx-gold/30 transition-all"
+                  className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
                   placeholder="you@example.com"
                   required
                   autoFocus
@@ -106,7 +106,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => navigate('/reset-password')}
-                    className="text-xs text-zinc-500 hover:text-nofx-gold transition-colors"
+                    className="text-xs text-zinc-500 hover:text-ait-gold transition-colors"
                   >
                     {t('forgotPassword', language)}
                   </button>
@@ -116,7 +116,7 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-nofx-gold/60 focus:ring-1 focus:ring-nofx-gold/30 transition-all"
+                    className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
                     placeholder="••••••••"
                     required
                   />
@@ -141,7 +141,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-nofx-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-ait-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading
                   ? t('loggingIn', language) || 'Signing in...'

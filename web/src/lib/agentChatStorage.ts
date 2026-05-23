@@ -1,4 +1,4 @@
-export const LEGACY_AGENT_CHAT_STORAGE_KEY = 'nofxi-agent-chat'
+export const LEGACY_AGENT_CHAT_STORAGE_KEY = 'ait-agent-chat'
 
 export function normalizeStorageUserId(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -12,7 +12,7 @@ export function normalizeStorageUserId(value: unknown): string | undefined {
 }
 
 export function chatStorageKey(userId?: string) {
-  return `nofxi-agent-chat:${userId || 'guest'}`
+  return `ait-agent-chat:${userId || 'guest'}`
 }
 
 export function getStoredAuthUserId(storage: Storage = window.localStorage) {

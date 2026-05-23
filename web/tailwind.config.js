@@ -7,25 +7,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        'nofx-gold': {
+        'ait-gold': {
           DEFAULT: '#F0B90B',
           dim: 'rgba(240, 185, 11, 0.1)',
           glow: 'rgba(240, 185, 11, 0.5)',
           highlight: '#FFD700',
         },
-        'nofx-bg': {
+        'ait-bg': {
           DEFAULT: '#05070A', // Deep Void
           deeper: '#020304',  // Abyssal
           lighter: '#0E1217', // Surface
         },
-        'nofx-accent': '#00F0FF', // Cyan Cyber
-        'nofx-text': {
+        'ait-accent': '#00F0FF', // Cyan Cyber
+        'ait-text': {
           DEFAULT: '#EAECEF',
           main: '#EAECEF',
           muted: '#848E9C',
         },
-        'nofx-success': '#0ECB81',
-        'nofx-danger': '#F6465D',
+        'ait-success': '#0ECB81',
+        'ait-danger': '#F6465D',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],
@@ -68,8 +68,8 @@ export default {
         },
       },
       boxShadow: {
-        'neon': '0 0 5px theme("colors.nofx-gold.DEFAULT"), 0 0 20px theme("colors.nofx-gold.dim")',
-        'neon-blue': '0 0 5px theme("colors.nofx-accent"), 0 0 20px rgba(0, 240, 255, 0.2)',
+        'neon': '0 0 5px theme("colors.ait-gold.DEFAULT"), 0 0 20px theme("colors.ait-gold.dim")',
+        'neon-blue': '0 0 5px theme("colors.ait-accent"), 0 0 20px rgba(0, 240, 255, 0.2)',
       },
     },
   },

@@ -1,7 +1,7 @@
 import { Grid, DollarSign, TrendingUp, Shield, Compass } from 'lucide-react'
 import type { GridStrategyConfig } from '../../types'
 import { gridConfig, ts } from '../../i18n/strategy-translations'
-import { NofxSelect } from '../ui/select'
+import { AiTSelect } from '../ui/select'
 
 interface GridConfigEditorProps {
   config: GridStrategyConfig
@@ -75,7 +75,7 @@ export function GridConfigEditor({
             <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
               {ts(gridConfig.symbolDesc, language)}
             </p>
-            <NofxSelect
+            <AiTSelect
               value={config.symbol}
               onChange={(val) => updateField('symbol', val)}
               disabled={disabled}
@@ -172,7 +172,7 @@ export function GridConfigEditor({
             <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
               {ts(gridConfig.distributionDesc, language)}
             </p>
-            <NofxSelect
+            <AiTSelect
               value={config.distribution}
               onChange={(val) => updateField('distribution', val as 'uniform' | 'gaussian' | 'pyramid')}
               disabled={disabled}

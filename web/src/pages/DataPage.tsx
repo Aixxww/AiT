@@ -13,7 +13,7 @@ export function DataPage() {
     <div className="w-full min-h-[calc(100vh-64px)] flex flex-col">
       {/* Header */}
       <div className="px-4 sm:px-6 py-4 border-b border-white/5 flex items-center gap-4 flex-wrap">
-        <h2 className="text-lg font-bold text-nofx-text-main">
+        <h2 className="text-lg font-bold text-ait-text-main">
           {t('dataCenter', language)}
         </h2>
         <div className="flex items-center gap-2">
@@ -27,8 +27,8 @@ export function DataPage() {
                 key={item.key}
                 onClick={() => setActiveWidget(item.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${activeWidget === item.key
-                  ? 'bg-nofx-gold/10 text-nofx-gold border-nofx-gold/20'
-                  : 'text-nofx-text-muted border-transparent hover:text-white hover:bg-white/5'
+                  ? 'bg-ait-gold/10 text-ait-gold border-ait-gold/20'
+                  : 'text-ait-text-muted border-transparent hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Icon className="w-3.5 h-3.5 inline mr-1.5" />
@@ -61,14 +61,14 @@ export function DataPage() {
 
       {/* Footer bar */}
       <div className="px-6 py-2 border-t border-white/5 flex items-center justify-between">
-        <span className="text-[10px] text-nofx-text-muted/50">
+        <span className="text-[10px] text-ait-text-muted/50">
           {language === 'zh' ? '数据来自 TradingView（免费嵌入）' : 'Data via TradingView (free embed)'}
         </span>
         <a
           href="https://www.tradingview.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-nofx-text-muted/50 hover:text-nofx-gold flex items-center gap-1 transition-colors"
+          className="text-[10px] text-ait-text-muted/50 hover:text-ait-gold flex items-center gap-1 transition-colors"
         >
           TradingView <ExternalLink className="w-2.5 h-2.5" />
         </a>
