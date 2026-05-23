@@ -29,7 +29,12 @@ type HunterCoinScore struct {
 	ShortSmartMoneyScore float64 // Short smart money score [0, 65]
 	ShortFinalScore      float64
 	ShortTags            []string
-	Direction            string // "LONG" or "SHORT"
+
+	// Saved LONG scores (before direction picking overwrites FinalScore)
+	LongFinalScore float64
+	LongTags       []string
+
+	Direction string // "LONG" or "SHORT"
 }
 
 // computeATR computes Average True Range using Wilder's smoothing.
@@ -54,6 +59,154 @@ func computeATR(klines []klineBar, period int) float64 {
 		atr = (atr*float64(period-1) + tr) / float64(period)
 	}
 	return atr
+}
+
+// computeBBWidth calculates Bollinger Band Width as a percentage of the middle band.
+// Returns (widthPct, upper, middle, lower). widthPct = (upper-lower)/middle * 100.
+// Adapted from market/data_indicators.go:calculateBOLL() for klineBar.
+func computeBBWidth(klines []klineBar, period int, multiplier float64) (widthPct, upper, middle, lower float64) {
+	if len(klines) < period {
+		return 0, 0, 0, 0
+	}
+	sum := 0.0
+	start := len(klines) - period
+	for i := start; i < len(klines); i++ {
+		sum += klines[i].Close
+	}
+	middle = sum / float64(period)
+	if middle == 0 {
+		return 0, 0, 0, 0
+	}
+	variance := 0.0
+	for i := start; i < len(klines); i++ {
+		diff := klines[i].Close - middle
+		variance += diff * diff
+	}
+	stdDev := math.Sqrt(variance / float64(period))
+	upper = middle + multiplier*stdDev
+	lower = middle - multiplier*stdDev
+	widthPct = (upper - lower) / middle * 100
+	return widthPct, upper, middle, lower
+}
+
+// computeBBWidthSqueeze detects if current BB Width is at a rolling low (squeeze).
+// Uses 15m klines (50 bars = 12.5h) for 24h context, falls back to 5m (50 bars = ~4h).
+// Returns: (score [0-15], tags).
+func (c *Client) computeBBWidthSqueeze(symbol string) (float64, []string) {
+	// Try 15m first (50 bars = 12.5h, better for 24h context)
+	klines15m, err := c.fetchKlines(symbol, "15m", 50)
+	if err == nil && len(klines15m) >= 25 {
+		widthPct, _, _, _ := computeBBWidth(klines15m, 20, 2.0)
+		if widthPct > 0 {
+			minWidth := math.MaxFloat64
+			for i := 20; i <= len(klines15m); i++ {
+				w, _, _, _ := computeBBWidth(klines15m[:i], 20, 2.0)
+				if w > 0 && w < minWidth {
+					minWidth = w
+				}
+			}
+			// Current width within 10% of rolling minimum → squeeze
+			if minWidth > 0 && widthPct <= minWidth*1.10 {
+				return 15, []string{"bb_squeeze_15m"}
+			}
+		}
+	}
+	// Fallback: 5m klines (50 bars = ~4.2h)
+	klines5m, err := c.fetchKlines(symbol, "5m", 50)
+	if err == nil && len(klines5m) >= 25 {
+		widthPct, _, _, _ := computeBBWidth(klines5m, 20, 2.0)
+		if widthPct > 0 {
+			minWidth := math.MaxFloat64
+			for i := 20; i <= len(klines5m); i++ {
+				w, _, _, _ := computeBBWidth(klines5m[:i], 20, 2.0)
+				if w > 0 && w < minWidth {
+					minWidth = w
+				}
+			}
+			if minWidth > 0 && widthPct <= minWidth*1.10 {
+				return 10, []string{"bb_squeeze_5m"}
+			}
+		}
+	}
+	return 0, nil
+}
+
+// computeOISpike detects abnormal OI increase in the last 1 hour.
+// Uses Binance openInterestHist with 1h period, 13 data points (12 hours).
+// Computes mean and stddev of 1h OI changes, flags if latest change > 2σ AND > 3%.
+// Returns: (score [0-15], tags).
+func (c *Client) computeOISpike(symbol string) (float64, []string) {
+	url := fmt.Sprintf("%s/futures/data/openInterestHist?symbol=%s&period=1h&limit=13",
+		c.BinanceURL, symbol)
+
+	type oiEntry struct {
+		SumOpenInterestValue string `json:"sumOpenInterestValue"`
+		Timestamp            int64  `json:"timestamp"`
+	}
+
+	var entries []oiEntry
+	if err := c.fetchJSON(url, &entries); err != nil || len(entries) < 4 {
+		return 0, nil
+	}
+
+	// Compute period-over-period % changes
+	var changes []float64
+	for i := 1; i < len(entries); i++ {
+		prev := parseFloat(entries[i-1].SumOpenInterestValue)
+		curr := parseFloat(entries[i].SumOpenInterestValue)
+		if prev > 0 {
+			changes = append(changes, (curr-prev)/prev*100)
+		}
+	}
+	if len(changes) < 3 {
+		return 0, nil
+	}
+
+	latestChange := changes[len(changes)-1]
+	// Compute mean and stddev of historical changes (excluding latest)
+	histChanges := changes[:len(changes)-1]
+	mean := 0.0
+	for _, ch := range histChanges {
+		mean += ch
+	}
+	mean /= float64(len(histChanges))
+	variance := 0.0
+	for _, ch := range histChanges {
+		d := ch - mean
+		variance += d * d
+	}
+	stddev := math.Sqrt(variance / float64(len(histChanges)))
+
+	// Spike detection: latest change > mean + 2σ AND absolute change > 3%
+	if stddev > 0 && latestChange > mean+2*stddev && latestChange > 3.0 {
+		return 15, []string{"oi_spike_1h"}
+	} else if latestChange > 5.0 {
+		// Fallback: absolute threshold (>5% in 1h is notable)
+		return 8, []string{"oi_surge_1h"}
+	}
+	return 0, nil
+}
+
+// computeSqueezeExplosionPillar combines BB Width squeeze and OI spike into Pillar E'.
+// Synergy bonus: if both signals fire, extra +5 points.
+// Returns: (score [0-25], tags).
+func (c *Client) computeSqueezeExplosionPillar(symbol string) (float64, []string) {
+	bbScore, bbTags := c.computeBBWidthSqueeze(symbol)
+	oiScore, oiTags := c.computeOISpike(symbol)
+
+	totalScore := bbScore + oiScore
+	allTags := append(append([]string{}, bbTags...), oiTags...)
+
+	// Synergy bonus: both squeeze + OI spike present
+	if bbScore > 0 && oiScore > 0 {
+		totalScore += 5
+		allTags = append(allTags, "squeeze_explosion_synergy")
+	}
+
+	if totalScore > 25 {
+		totalScore = 25
+	}
+	return totalScore, allTags
 }
 
 // findHighLow scans a kline slice and returns the highest high and lowest low.
@@ -823,6 +976,17 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			p.score.ShortFinalScore = shortComposite * p.score.CooldownMod * p.score.WashMod
 			p.score.ShortTags = append(append(append(append(shortPosTags, shortOITags...), shortSMTags...), shortELPTags...), washTags...)
 
+			// ===== PILLAR E': Squeeze & Explosion Potential (direction-agnostic) =====
+			squeezeScore, squeezeTags := c.computeSqueezeExplosionPillar(sym)
+			p.score.FinalScore += squeezeScore
+			p.score.Tags = append(p.score.Tags, squeezeTags...)
+			p.score.ShortFinalScore += squeezeScore
+			p.score.ShortTags = append(p.score.ShortTags, squeezeTags...)
+
+			// ===== SAVE BIDIRECTIONAL SCORES BEFORE PICKING =====
+			p.score.LongFinalScore = p.score.FinalScore
+			p.score.LongTags = append([]string{}, p.score.Tags...) // deep copy
+
 			// ===== PICK DOMINANT DIRECTION =====
 			if p.score.ShortFinalScore > p.score.FinalScore {
 				p.score.FinalScore = p.score.ShortFinalScore
@@ -842,6 +1006,18 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		}
 	}
 
+	// Hard floor: below this threshold, coin doesn't qualify for AI analysis
+	const minHunterScore = 15.0
+	var thresholdFiltered []candidate
+	for _, p := range filtered {
+		if p.score.FinalScore >= minHunterScore {
+			thresholdFiltered = append(thresholdFiltered, p)
+		} else {
+			log.Printf("🔽 Hunter: %s score %.1f < %.1f threshold, dropped", p.score.Symbol, p.score.FinalScore, minHunterScore)
+		}
+	}
+	filtered = thresholdFiltered
+
 	sort.SliceStable(filtered, func(i, j int) bool {
 		return filtered[i].score.FinalScore > filtered[j].score.FinalScore
 	})
@@ -852,12 +1028,16 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		"oi_accumulation": true, "oi_price_aligned": true, "oi_moderate": true,
 		"oi_short_squeeze": true, "oi_squeeze_moderate": true,
 		"lsr_reversal": true, "lsr_bullish": true,
+		"bb_squeeze_15m": true, "bb_squeeze_5m": true,
+		"oi_spike_1h": true, "squeeze_explosion_synergy": true,
 	}
 	// Short strong signals
 	shortStrongSignals := map[string]bool{
 		"oi_distribution": true, "oi_price_aligned_short": true, "oi_moderate_short": true,
 		"oi_long_squeeze": true, "oi_long_squeeze_moderate": true,
 		"lsr_bearish_reversal": true, "lsr_bearish_strong": true,
+		"bb_squeeze_15m": true, "bb_squeeze_5m": true,
+		"oi_spike_1h": true, "squeeze_explosion_synergy": true,
 	}
 	// v7: 宁缺勿滥分离 — 双方向各自独立≥2个强信号，避免单方向占满
 	checkTop := 10
@@ -916,6 +1096,10 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			IsAvailable:     true,
 			SignalTags:      p.score.Tags,
 			Direction:       p.score.Direction,
+			LongScore:       p.score.LongFinalScore,
+			ShortScore:      p.score.ShortFinalScore,
+			LongTags:        p.score.LongTags,
+			ShortTags:       p.score.ShortTags,
 		})
 	}
 
@@ -947,10 +1131,14 @@ func (c *Client) GetHunterTopRatedCoins(limit int) ([]string, error) {
 	return symbols, nil
 }
 
-// HunterCoinMeta carries direction and signal tags for each Hunter coin.
+// HunterCoinMeta carries direction, signal tags, and bidirectional scores for each Hunter coin.
 type HunterCoinMeta struct {
 	Direction  string
 	SignalTags []string
+	LongScore  float64
+	ShortScore float64
+	LongTags   []string
+	ShortTags  []string
 }
 
 // GetHunterCoinsWithData returns top N symbols, pre-fetched kline data, and direction metadata.
@@ -975,6 +1163,10 @@ func (c *Client) GetHunterCoinsWithData(limit int) ([]string, map[string]*market
 		coinMeta[sym] = &HunterCoinMeta{
 			Direction:  coins[i].Direction,
 			SignalTags: coins[i].SignalTags,
+			LongScore:  coins[i].LongScore,
+			ShortScore: coins[i].ShortScore,
+			LongTags:   coins[i].LongTags,
+			ShortTags:  coins[i].ShortTags,
 		}
 		symbols = append(symbols, sym)
 

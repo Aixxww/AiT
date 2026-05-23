@@ -39,11 +39,11 @@ After creation, save these **immediately**:
 
 ⚠️ **Important**: The private key is only shown once! Save it securely.
 
-## Step 4: Configure in NOFX
+## Step 4: Configure in AiT
 
-Add your API wallet through the NOFX web interface:
+Add your API wallet through the AiT web interface:
 
-1. Open NOFX dashboard (http://localhost:3000)
+1. Open AiT dashboard (http://localhost:3000)
 2. Go to **Exchange Configuration**
 3. Enable **Aster DEX**
 4. Enter:

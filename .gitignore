@@ -13,6 +13,8 @@ nofx-auto
 nofx
 ait
 nofx_test
+coinselect
+--help
 
 # Go 相关
 *.test

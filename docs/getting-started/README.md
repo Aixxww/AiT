@@ -1,8 +1,8 @@
-# 🚀 Getting Started with NOFX
+# 🚀 Getting Started with AiT
 
 **Language:** [English](README.md) | [中文](README.zh-CN.md)
 
-This section contains all the documentation you need to get NOFX up and running.
+This section contains all the documentation you need to get AiT up and running.
 
 ## 📋 Deployment Options
 
@@ -115,7 +115,7 @@ For single-tenant/self-hosted usage, you can enable strict admin-only access:
 **Need more help?**
 - 📖 [FAQ](../guides/faq.zh-CN.md)
 - 💬 [Telegram Community](https://t.me/nofx_dev_community)
-- 🐛 [GitHub Issues](https://github.com/NoFxAiOS/nofx/issues)
+- 🐛 [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 
 ---
 

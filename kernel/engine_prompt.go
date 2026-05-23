@@ -369,6 +369,24 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 		if len(coin.SignalTags) > 0 && coin.Direction != "" {
 			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
 		}
+		// Show Hunter bidirectional scores for AI decision context
+		if coin.LongScore > 0 || coin.ShortScore > 0 {
+			selectedScore := coin.LongScore
+			if coin.Direction == "SHORT" {
+				selectedScore = coin.ShortScore
+			}
+			sb.WriteString(fmt.Sprintf("Hunter Score: LONG %.1f | SHORT %.1f | Selected: %s (%.1f)\n", coin.LongScore, coin.ShortScore, coin.Direction, selectedScore))
+			// Warn if Hunter recommends opposite direction or score is low
+			if coin.Direction == "SHORT" && coin.LongScore > coin.ShortScore {
+				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: LONG score (%.1f) > SHORT score (%.1f). Consider switching direction or reducing confidence.\n", coin.LongScore, coin.ShortScore))
+			} else if coin.Direction == "LONG" && coin.ShortScore > coin.LongScore {
+				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: SHORT score (%.1f) > LONG score (%.1f). Consider switching direction or reducing confidence.\n", coin.ShortScore, coin.LongScore))
+			}
+			if selectedScore < 30 {
+				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: Selected direction score (%.1f) is below 30. High risk — consider WAIT.\n", selectedScore))
+			}
+			sb.WriteString("\n")
+		}
 		sb.WriteString(e.formatMarketData(marketData))
 
 		if ctx.QuantDataMap != nil {

@@ -1,4 +1,4 @@
-<h1 align="center">NOFX</h1>
+<h1 align="center">AiT</h1>
 
 <p align="center">
   <strong>당신만의 AI 트레이딩 어시스턴트.</strong><br/>
@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NoFxAiOS/nofx/stargazers"><img src="https://img.shields.io/github/stars/NoFxAiOS/nofx?style=for-the-badge" alt="Stars"></a>
-  <a href="https://github.com/NoFxAiOS/nofx/releases"><img src="https://img.shields.io/github/v/release/NoFxAiOS/nofx?style=for-the-badge" alt="Release"></a>
-  <a href="https://github.com/NoFxAiOS/nofx/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/Aixxww/AiT/stargazers"><img src="https://img.shields.io/github/stars/Aixxww/AiT?style=for-the-badge" alt="Stars"></a>
+  <a href="https://github.com/Aixxww/AiT/releases"><img src="https://img.shields.io/github/v/release/Aixxww/AiT?style=for-the-badge" alt="Release"></a>
+  <a href="https://github.com/Aixxww/AiT/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <a href="https://t.me/nofx_dev_community"><img src="https://img.shields.io/badge/Telegram-Community-blue?style=for-the-badge&logo=telegram" alt="Telegram"></a>
 </p>
 
@@ -31,14 +31,14 @@
 
 ---
 
-NOFX는 오픈소스 **자율형** AI 트레이딩 어시스턴트입니다. 수동으로 모델을 설정하고, API 키를 관리하고, 데이터 소스를 연결해야 하는 기존 AI 도구와 달리 — NOFX의 AI는 **시장을 스스로 인식하고, 모델을 스스로 선택하고, 데이터를 스스로 가져옵니다**. 인간 개입 제로. 전략만 설정하면 나머지는 AI가 처리합니다.
+AiT는 오픈소스 **자율형** AI 트레이딩 어시스턴트입니다. 수동으로 모델을 설정하고, API 키를 관리하고, 데이터 소스를 연결해야 하는 기존 AI 도구와 달리 — AiT의 AI는 **시장을 스스로 인식하고, 모델을 스스로 선택하고, 데이터를 스스로 가져옵니다**. 인간 개입 제로. 전략만 설정하면 나머지는 AI가 처리합니다.
 
 **완전 자율**: AI가 어떤 모델을 사용할지, 어떤 시장 데이터를 가져올지, 언제 거래할지를 스스로 결정합니다. 수동 모델 설정 불필요. 여러 서비스의 API 키 관리 불필요. USDC 지갑에 충전하고 실행하기만 하면 됩니다.
 
 차별점: **[x402](https://x402.org) 마이크로 결제 내장**. API 키 불필요. USDC 지갑에 충전하고 요청마다 결제. 지갑이 곧 신원.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/install.sh | bash
 ```
 
 **http://127.0.0.1:3000** 을 열면 완료.
@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bas
 
 <p align="center">
   <a href="https://drive.google.com/file/d/1frzw-HDZ3viQvLOQKsAJGc9bT0dXs68D/view">
-    <img src="../../../screenshots/demo-cover.png" alt="NOFX 빠른 데모 영상" width="900"/>
+    <img src="../../../screenshots/demo-cover.png" alt="AiT 빠른 데모 영상" width="900"/>
   </a>
 </p>
 
@@ -139,7 +139,7 @@ x402 플로우:
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/install.sh | bash
 ```
 
 ### Railway (클라우드)
@@ -149,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bas
 ### Docker
 
 ```bash
-curl -O https://raw.githubusercontent.com/NoFxAiOS/nofx/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/Aixxww/AiT/main/docker-compose.prod.yml
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -159,7 +159,7 @@ docker compose -f docker-compose.prod.yml up -d
 # 필수 조건: Go 1.21+, Node.js 18+, TA-Lib
 # macOS: brew install ta-lib
 
-git clone https://github.com/NoFxAiOS/nofx.git && cd nofx
+git clone https://github.com/Aixxww/AiT.git && cd nofx
 go build -o nofx && ./nofx          # 백엔드
 cd web && npm install && npm run dev  # 프론트엔드 (새 터미널)
 ```
@@ -184,4 +184,4 @@ cd web && npm install && npm run dev  # 프론트엔드 (새 터미널)
 
 [AGPL-3.0](../../../LICENSE)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=NoFxAiOS/nofx&type=Date)](https://star-history.com/#NoFxAiOS/nofx&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Aixxww/AiT&type=Date)](https://star-history.com/#Aixxww/AiT&Date)

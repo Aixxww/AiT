@@ -1,8 +1,8 @@
-# NOFXi Agent Memory And Planning Design
+# AiTi Agent Memory And Planning Design
 
 ## Purpose
 
-This document explains how the current NOFXi agent handles:
+This document explains how the current AiTi agent handles:
 
 - short-term conversation memory
 - durable task memory

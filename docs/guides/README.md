@@ -1,8 +1,8 @@
-# 📘 NOFX User Guides
+# 📘 AiT User Guides
 
 **Language:** [English](README.md) | [中文](README.zh-CN.md)
 
-Comprehensive guides to help you use NOFX effectively.
+Comprehensive guides to help you use AiT effectively.
 
 ---
 
@@ -130,7 +130,7 @@ Run multiple AI models simultaneously:
 
 **Can't find what you need?**
 - 💬 [Telegram Community](https://t.me/nofx_dev_community)
-- 🐛 [GitHub Issues](https://github.com/NoFxAiOS/nofx/issues)
+- 🐛 [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 - 🐦 [Twitter @nofx_official](https://x.com/nofx_official)
 
 ---

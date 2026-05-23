@@ -1,8 +1,8 @@
-# NOFXi Agent 当前设计说明
+# AiTi Agent 当前设计说明
 
 ## 目的
 
-本文描述当前 NOFXi Agent 的实际设计，而不是早期版本的理想设计。重点回答这些问题：
+本文描述当前 AiTi Agent 的实际设计，而不是早期版本的理想设计。重点回答这些问题：
 
 - 用户消息从哪里进入
 - 什么请求会进入 planner
@@ -610,4 +610,4 @@ trader 资源：
 - `planner` 决定步骤
 - `tools` 执行落地动作
 
-这就是当前 NOFXi Agent 的实际运行设计。
+这就是当前 AiTi Agent 的实际运行设计。

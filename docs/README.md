@@ -1,14 +1,14 @@
-# 📚 NOFX Documentation Center / 文档中心
+# 📚 AiT Documentation Center / 文档中心
 
-Welcome to the NOFX documentation! This page helps you find the right documentation quickly.
+Welcome to the AiT documentation! This page helps you find the right documentation quickly.
 
-欢迎来到 NOFX 文档中心！本页面帮助您快速找到所需文档。
+欢迎来到 AiT 文档中心！本页面帮助您快速找到所需文档。
 
 ---
 
 ## 🚀 Getting Started / 快速开始
 
-**New to NOFX? Start here!**
+**New to AiT? Start here!**
 
 | Document | Description | 描述 |
 |----------|-------------|------|
@@ -29,7 +29,7 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 
 ## 📘 User Guides / 使用指南
 
-**Learn how to use NOFX effectively**
+**Learn how to use AiT effectively**
 
 | Document | Description | 描述 |
 |----------|-------------|------|
@@ -58,7 +58,7 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 **Get Involved:**
 - 💬 [Telegram Community](https://t.me/nofx_dev_community)
 - 🐦 [Twitter @nofx_official](https://x.com/nofx_official)
-- 🐛 [Report Issues](https://github.com/NoFxAiOS/nofx/issues)
+- 🐛 [Report Issues](https://github.com/Aixxww/AiT/issues)
 
 ---
 
@@ -71,6 +71,9 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 | 🇨🇳 Chinese (中文) | [README.md](i18n/zh-CN/README.md) | ✅ Complete |
 | 🇷🇺 Russian (Русский) | [README.md](i18n/ru/README.md) | ✅ Complete |
 | 🇺🇦 Ukrainian (Українська) | [README.md](i18n/uk/README.md) | ✅ Complete |
+| 🇯🇵 Japanese | [README.md](i18n/ja/README.md) | ✅ Complete |
+| 🇻🇳 Vietnamese | [README.md](i18n/vi/README.md) | ✅ Complete |
+| 🇰🇷 Korean | [README.md](i18n/ko/README.md) | ✅ Complete |
 | 🇬🇧 English | [README.md](../README.md) | ✅ Complete |
 
 ---
@@ -89,9 +92,25 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 
 ---
 
+## 🎯 Hunter 选币模块 / Hunter Coin Selection
+
+**智能选币系统 — 基于资金流向、持仓异动、多空比的双向信号**
+
+| Document | Description | 描述 |
+|----------|-------------|------|
+| [R7 实测报告](hunter-r7-live-analysis-20260523.md) | 双向选币首次实测 (LONG+SHORT) | 首轮双向信号分析 |
+| [R6 实测报告](hunter-r6-live-analysis-20260522.md) | v6 宁缺勿滥 + OI 门控 | 增强过滤逻辑 |
+| [R5 实测报告](hunter-r5-live-analysis-20260522.md) | v4 回测优化后首次实测 | 优化后效果验证 |
+| [回测报告](hunter-backtest-report-20260521.md) | 7天420样本回测 | t=6.367, p=0.001 |
+| [主策略文档](hunter-master-strategy.md) | 策略设计总览 | 信号体系与权重 |
+| [Agent 可行性分析](hunter-agent-feasibility.md) | 自进化 Agent 方案 | 技术路线评估 |
+| [Sniper 策略配置](hunter-sniper-strategy-v1.md) | 狙击策略 v1 | 精确入场方案 |
+
+---
+
 ## 🗺️ Roadmap / 路线图
 
-**NOFX's strategic development plan and market expansion**
+**AiT's strategic development plan and market expansion**
 
 | Document | Description | 描述 |
 |----------|-------------|------|
@@ -99,8 +118,9 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 | [Roadmap (中文)](roadmap/README.zh-CN.md) | 短期和长期路线图、功能时间表 | Strategic development plan |
 
 **Roadmap Highlights:**
-- 📈 **Short-term (Q2-Q3 2025)**: Advanced risk management, multi-AI ensemble, new exchange integrations
-- 🚀 **Long-term (2026)**: Universal market expansion (stocks, futures, options, forex), reinforcement learning, enterprise features
+- 📈 **Short-term (Q2 2026)**: Hunter 双向选币、AI500 增强、更多交易所集成
+- 🚀 **Mid-term (Q3-Q4 2026)**: 策略回测引擎、多 AI 模型集成决策、强化学习
+- 🌍 **Long-term (2027)**: 全市场扩展（股票、期货、期权、外汇）、企业级功能
 
 ---
 
@@ -108,7 +128,7 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 
 | Document | Description | 描述 |
 |----------|-------------|------|
-| [License (MIT)](../LICENSE) | Open source license | 开源许可证 |
+| [License (AGPL-3.0)](../LICENSE) | Open source license | 开源许可证 |
 | [Changelog (EN)](../CHANGELOG.md) | Version history and updates | 版本历史和更新 |
 | [Changelog (中文)](../CHANGELOG.zh-CN.md) | 版本历史和更新 | Version history and updates |
 | [Security Policy](../SECURITY.md) | Vulnerability disclosure | 漏洞披露政策 |
@@ -122,12 +142,13 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 
 ### I want to...
 - 🚀 **Get started quickly** → [Getting Started](getting-started/README.md) / [快速开始](getting-started/README.zh-CN.md)
-- 🐛 **Report a bug** → [GitHub Issues](https://github.com/NoFxAiOS/nofx/issues/new)
-- 💡 **Suggest a feature** → [Feature Request](https://github.com/NoFxAiOS/nofx/issues/new?template=feature_request.md)
+- 🐛 **Report a bug** → [GitHub Issues](https://github.com/Aixxww/AiT/issues/new)
+- 💡 **Suggest a feature** → [Feature Request](https://github.com/Aixxww/AiT/issues/new?template=feature_request.md)
 - 🔒 **Report security issue** → [Security Policy](../SECURITY.md)
 - 💰 **Claim a bounty** → [Bounty Guide](community/bounty-guide.md)
 - 🤝 **Contribute code** → [Contributing Guide](../CONTRIBUTING.md)
 - 💬 **Ask questions** → [Telegram Community](https://t.me/nofx_dev_community)
+- 🔍 **Hunter 分析报告** → [Hunter 实测分析](hunter-r7-live-analysis-20260523.md)
 
 ### I'm looking for...
 - 🏗️ **System architecture** → [Architecture (EN)](architecture/README.md) / [架构文档](architecture/README.zh-CN.md)
@@ -143,11 +164,12 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 
 | Category | Status | Last Updated |
 |----------|--------|--------------|
-| Getting Started | ✅ Complete | 2025-11-01 |
-| User Guides | ✅ Complete | 2025-11-01 |
-| Community | ✅ Complete | 2025-11-01 |
-| Architecture | ✅ Complete | 2025-11-01 |
-| Roadmap | ✅ Complete | 2025-11-01 |
+| Getting Started | ✅ Complete | 2026-05-23 |
+| User Guides | ✅ Complete | 2026-05-23 |
+| Community | ✅ Complete | 2026-05-23 |
+| Architecture | ✅ Complete | 2026-05-23 |
+| Roadmap | ✅ Complete | 2026-05-23 |
+| Hunter Docs | ✅ Complete | 2026-05-23 |
 | API Reference | 📋 Planned | - |
 
 **Legend:**
@@ -163,9 +185,9 @@ Welcome to the NOFX documentation! This page helps you find the right documentat
 **Can't find what you're looking for?**
 
 1. **Search GitHub Issues** - Someone might have asked already
-2. **Join Telegram** - [NOFX Developer Community](https://t.me/nofx_dev_community)
+2. **Join Telegram** - [AiT Developer Community](https://t.me/nofx_dev_community)
 3. **Ask on Twitter** - Mention [@nofx_official](https://x.com/nofx_official)
-4. **Create an Issue** - [New Issue](https://github.com/NoFxAiOS/nofx/issues/new)
+4. **Create an Issue** - [New Issue](https://github.com/Aixxww/AiT/issues/new)
 
 ---
 
@@ -185,5 +207,5 @@ Found an error or want to improve the docs?
 
 ---
 
-**Last Updated:** 2025-11-01
-**Maintained by:** [NOFX Community](https://github.com/NoFxAiOS)
+**Last Updated:** 2026-05-23
+**Maintained by:** [AiT Community](https://github.com/Aixxww/AiT)

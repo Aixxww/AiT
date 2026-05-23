@@ -74,6 +74,24 @@ func getKlinesFromBinance(symbol, interval string, limit int) ([]Kline, error) {
 		}
 	}
 
+	// Reject all-zero klines: Binance sometimes returns zeroed data for low-price coins
+	// Filter out klines where close=0 AND volume=0 (invalid data points)
+	var validKlines []Kline
+	for _, k := range klines {
+		if k.Close == 0 && k.Volume == 0 {
+			continue // skip zeroed-out bars
+		}
+		validKlines = append(validKlines, k)
+	}
+	// If more than 50% of bars were zeroed, reject the entire batch
+	if len(klines) > 3 && len(validKlines) < len(klines)/2 {
+		logger.Infof("⚠️  Binance %s %s: %d/%d klines are zeroed — rejecting batch",
+			symbol, interval, len(klines)-len(validKlines), len(klines))
+		return nil, fmt.Errorf("binance %s %s: too many zeroed klines (%d/%d)",
+			symbol, interval, len(klines)-len(validKlines), len(klines))
+	}
+	klines = validKlines
+
 	return klines, nil
 }
 

@@ -117,6 +117,17 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	}
 
 	// 5. Parse AI response
+	// Build Hunter score map for cross-validation
+	hunterScoreMap := make(map[string]HunterScoreInfo)
+	for _, coin := range ctx.CandidateCoins {
+		normalizedSym := market.Normalize(coin.Symbol)
+		hunterScoreMap[normalizedSym] = HunterScoreInfo{
+			LongScore:  coin.LongScore,
+			ShortScore: coin.ShortScore,
+			Direction:  coin.Direction,
+		}
+	}
+
 	decision, err := parseFullDecisionResponse(
 		aiResponse,
 		ctx.Account.TotalEquity,
@@ -124,6 +135,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		riskConfig.AltcoinMaxLeverage,
 		riskConfig.BTCETHMaxPositionValueRatio,
 		riskConfig.AltcoinMaxPositionValueRatio,
+		hunterScoreMap,
 	)
 
 	if decision != nil {
@@ -255,6 +267,20 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 			}
 		}
 
+		// Pre-filter: skip coins with very low Hunter scores to save AI tokens (~2600 tokens per coin)
+		if !isExistingPosition {
+			selectedScore := coin.LongScore
+			if coin.Direction == "SHORT" {
+				selectedScore = coin.ShortScore
+			}
+			const preFilterThreshold = 20.0
+			if selectedScore > 0 && selectedScore < preFilterThreshold {
+				logger.Infof("🔽 Pre-filter: %s Hunter score %.1f < %.1f, skipping AI analysis (saves ~2600 tokens)",
+					coin.Symbol, selectedScore, preFilterThreshold)
+				continue
+			}
+		}
+
 		ctx.MarketDataMap[coin.Symbol] = data
 	}
 
@@ -266,7 +292,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 // AI Response Parsing
 // ============================================================================
 
-func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64) (*FullDecision, error) {
+func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -277,7 +303,7 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 		}, fmt.Errorf("failed to extract decisions: %w", err)
 	}
 
-	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio); err != nil {
+	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap); err != nil {
 		return &FullDecision{
 			CoTTrace:  cotTrace,
 			Decisions: decisions,

@@ -2,7 +2,7 @@
 
 **语言：** [English](PROJECT_MANAGEMENT.md) | [中文](PROJECT_MANAGEMENT.zh-CN.md)
 
-本指南解释了我们如何管理 NOFX 项目、跟踪进度和优先级排序。
+本指南解释了我们如何管理 AiT 项目、跟踪进度和优先级排序。
 
 ---
 
@@ -12,7 +12,7 @@
 
 我们使用 **GitHub Projects (Beta)** 和以下看板：
 
-#### 1. **NOFX 开发看板**
+#### 1. **AiT 开发看板**
 
 **列：**
 ```

@@ -1,8 +1,8 @@
 # 🌍 International Documentation / 国际化文档
 
-NOFX documentation is available in multiple languages.
+AiT documentation is available in multiple languages.
 
-NOFX 文档提供多种语言版本。
+AiT 文档提供多种语言版本。
 
 ---
 
@@ -130,7 +130,7 @@ faq.zh-CN.md                 → Chinese FAQ
 
 ## 🌐 Request a New Language / 请求新语言
 
-### Want NOFX in your language? / 希望 NOFX 支持你的语言？
+### Want AiT in your language? / 希望 AiT 支持你的语言？
 
 **Steps / 步骤:**
 
@@ -219,7 +219,7 @@ faq.zh-CN.md                 → Chinese FAQ
 
 **Questions? / 有问题？**
 - 💬 Ask in [Telegram Community](https://t.me/nofx_dev_community)
-- 🐙 Open a [GitHub Issue](https://github.com/NoFxAiOS/nofx/issues)
+- 🐙 Open a [GitHub Issue](https://github.com/Aixxww/AiT/issues)
 - 📧 Contact maintainers
 
 **Resources / 资源:**

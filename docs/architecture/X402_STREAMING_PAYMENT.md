@@ -2,14 +2,14 @@
 
 ## Overview
 
-NOFX calls AI models (DeepSeek, GPT, Claude, etc.) through the claw402 gateway, using the [x402 protocol](https://github.com/coinbase/x402) to pay per request with USDC on Base L2.
+AiT calls AI models (DeepSeek, GPT, Claude, etc.) through the claw402 gateway, using the [x402 protocol](https://github.com/coinbase/x402) to pay per request with USDC on Base L2.
 
 This document describes the full implementation of the SSE streaming call mode, including client, server, and billing logic.
 
 ## Why Streaming Is Needed
 
 ```
-NOFX (client)  ──→  Cloudflare (100s idle limit)  ──→  claw402 (gateway)  ──→  AI upstream
+AiT (client)  ──→  Cloudflare (100s idle limit)  ──→  claw402 (gateway)  ──→  AI upstream
 ```
 
 - DeepSeek inference takes 60–180 seconds (up to 5 minutes)
@@ -20,7 +20,7 @@ NOFX (client)  ──→  Cloudflare (100s idle limit)  ──→  claw402 (gate
 ## End-to-End Request Flow
 
 ```
-                       NOFX Client                           claw402 Gateway                    AI Upstream
+                       AiT Client                           claw402 Gateway                    AI Upstream
                             │                                    │                                │
   ── Phase 1: Payment ──────────────────────────────────────────────────────────────────────────────
                             │                                    │                                │
@@ -47,7 +47,7 @@ NOFX (client)  ──→  Cloudflare (100s idle limit)  ──→  claw402 (gate
                             │ ←── data: [DONE] ──────────────── │ ←── data: [DONE] ────────────── │
 ```
 
-## Client Implementation (NOFX)
+## Client Implementation (AiT)
 
 ### File Structure
 
@@ -163,7 +163,7 @@ Key differences:
 x402 is an HTTP 402 payment protocol proposed by Coinbase. Core roles:
 
 - **Resource Server** (claw402) — provides paid APIs
-- **Client** (NOFX) — consumer, holds an EVM wallet
+- **Client** (AiT) — consumer, holds an EVM wallet
 - **Facilitator** (Coinbase CDP) — verifies signatures, executes on-chain settlement
 
 ### Payment Signing (EIP-712)
@@ -226,9 +226,9 @@ const X402RetryBaseWait     = 3 * time.Second
 
 | Location | Timeout | Purpose |
 |----------|---------|---------|
-| NOFX `X402Timeout` | 5 min | HTTP client overall timeout |
-| NOFX `x402StreamIdleTimeout` | 90s | SSE idle disconnect (prevent hangs) |
-| NOFX `CallWithRequestStream` idle | 60s | Idle timeout for non-x402 streaming |
+| AiT `X402Timeout` | 5 min | HTTP client overall timeout |
+| AiT `x402StreamIdleTimeout` | 90s | SSE idle disconnect (prevent hangs) |
+| AiT `CallWithRequestStream` idle | 60s | Idle timeout for non-x402 streaming |
 | claw402 `ResponseHeaderTimeout` | 120s | Wait for first byte from AI upstream |
 | claw402 `streamingHTTP.Timeout` | 0 (unlimited) | SSE stream can last indefinitely |
 | claw402 `standardMW WithTimeout` | 10 min | Non-streaming ginmw overall timeout |
@@ -270,7 +270,7 @@ Every incoming SSE line resets the timer. If no data arrives for 90 seconds, the
 
 ## Related Files
 
-### NOFX (Client)
+### AiT (Client)
 - `mcp/payment/claw402.go` — Claw402Client entry point
 - `mcp/payment/x402.go` — x402 payment flow (DoX402Request, DoX402RequestStream, X402CallStream)
 - `mcp/payment/x402_sign.go` — EIP-712 signing implementation

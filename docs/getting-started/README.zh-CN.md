@@ -1,6 +1,6 @@
-# 🚀 NOFX 快速开始
+# 🚀 AiT 快速开始
 
-本节包含让 NOFX 运行起来所需的所有文档。
+本节包含让 AiT 运行起来所需的所有文档。
 
 ## 📋 部署选项
 
@@ -96,7 +96,7 @@ cp config.json.example config.json
 **需要更多帮助？**
 - 📖 [常见问题](../guides/faq.zh-CN.md)
 - 💬 [Telegram 社区](https://t.me/nofx_dev_community)
-- 🐛 [GitHub Issues](https://github.com/NoFxAiOS/nofx/issues)
+- 🐛 [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 
 ---
 

@@ -226,7 +226,7 @@ docker info | grep -A 10 "Registry Mirrors"
 # 应该显示你配置的镜像源
 ```
 
-**相关 Issue:** [#168](https://github.com/NoFxAiOS/nofx/issues/168)
+**相关 Issue:** [#168](https://github.com/Aixxww/AiT/issues/168)
 
 ---
 
@@ -330,7 +330,7 @@ environment:
    - 登录币安 → API 管理
    - 删除旧密钥
    - 创建新密钥
-   - 更新 NOFX 配置
+   - 更新 AiT 配置
 
 **解决方案 3: 检查速率限制**
 
@@ -340,7 +340,7 @@ environment:
 - 减少交易员数量
 - 增加决策间隔时间（例如从 1 分钟改为 3-5 分钟）
 
-**相关 Issue:** [#60](https://github.com/NoFxAiOS/nofx/issues/60)
+**相关 Issue:** [#60](https://github.com/Aixxww/AiT/issues/60)
 
 ---
 
@@ -387,7 +387,7 @@ environment:
 
 **解决方案:**
 ```bash
-# 停止所有 NOFX 进程
+# 停止所有 AiT 进程
 docker compose down
 # 或
 pkill nofx
@@ -559,7 +559,7 @@ docker compose exec postgres \
 
 3. **加入社区:**
    - [Telegram 开发者社区](https://t.me/nofx_dev_community)
-   - [GitHub Discussions](https://github.com/NoFxAiOS/nofx/discussions)
+   - [GitHub Discussions](https://github.com/Aixxww/AiT/discussions)
 
 ---
 

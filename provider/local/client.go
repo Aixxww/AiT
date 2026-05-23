@@ -197,7 +197,21 @@ func (c *Client) fetchKlines(symbol, interval string, limit int) ([]klineBar, er
 		}
 		bars = append(bars, bar)
 	}
-	return bars, nil
+
+	// Reject all-zero klines: Binance sometimes returns zeroed data for low-price coins
+	var validBars []klineBar
+	for _, b := range bars {
+		if b.Close == 0 && b.Volume == 0 {
+			continue
+		}
+		validBars = append(validBars, b)
+	}
+	if len(bars) > 3 && len(validBars) < len(bars)/2 {
+		return nil, fmt.Errorf("local: %s %s too many zeroed klines (%d/%d)",
+			symbol, interval, len(bars)-len(validBars), len(bars))
+	}
+
+	return validBars, nil
 }
 
 // toFloat converts an interface{} (from JSON number) to float64.

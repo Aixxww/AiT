@@ -14,15 +14,24 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
-- 多语言文档系统（英文/中文/俄语/乌克兰语）
-- 完整的快速开始指南（Docker、自定义 API）
+- Hunter 双向选币：同时输出 LONG 和 SHORT 信号标的
+- Hunter R7 实测报告（2026-05-23），BOTH 方向首次实测
+- Hunter UNIUSDT 评估报告（2026-05-23）
+- 多语言文档系统（英文/中文/俄语/乌克兰语/日语/越南语/韩语）
+- 完整的快速开始指南（Docker、自定义 API、Binance、OKX、Bybit、Hyperliquid、Aster、Lighter）
 - 架构文档，包含系统设计细节
 - 用户指南，包含 FAQ 和故障排除
 - 社区文档，包含悬赏计划
+- 文档中心新增 Hunter 选币模块专区
 
 ### 变更
 - 重组文档结构为逻辑分类
 - 更新所有 README 文件，添加适当的导航链接
+- 全面替换文档中 NOFX 品牌为 AiT（50+ 文件）
+- 更新 GitHub 仓库地址为 Aixxww/AiT
+- 内核引擎优化（engine.go、engine_analysis.go、engine_position.go、engine_prompt.go）
+- 市场数据层改进（data.go、data_klines.go）
+- Provider 模块优化（local/client.go、local/hunter.go、nofxos/ai500.go）
 
 ---
 

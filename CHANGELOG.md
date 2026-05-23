@@ -14,15 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Documentation system with multi-language support (EN/CN/RU/UK)
-- Complete getting-started guides (Docker, Custom API)
+- Hunter bidirectional coin selection: simultaneous LONG and SHORT signal output
+- Hunter R7 live analysis report (2026-05-23) with BOTH direction scoring
+- Hunter evaluation report for UNIUSDT (2026-05-23)
+- Documentation system with multi-language support (EN/CN/RU/UK/JP/VN/KR)
+- Complete getting-started guides (Docker, Custom API, Binance, OKX, Bybit, Hyperliquid, Aster, Lighter)
 - Architecture documentation with system design details
 - User guides with FAQ and troubleshooting
 - Community documentation with bounty programs
+- Hunter module docs section in docs center
 
 ### Changed
 - Reorganized documentation structure into logical categories
 - Updated all README files with proper navigation links
+- Replaced all NOFX branding with AiT across documentation (50+ files)
+- Updated GitHub repository URLs to Aixxww/AiT
+- Kernel engine optimizations (engine.go, engine_analysis.go, engine_position.go, engine_prompt.go)
+- Market data layer improvements (data.go, data_klines.go)
+- Provider module optimizations (local/client.go, local/hunter.go, nofxos/ai500.go)
 
 ---
 

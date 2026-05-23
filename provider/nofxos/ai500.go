@@ -21,6 +21,12 @@ type CoinData struct {
 	IsAvailable     bool     `json:"-"`                // Whether tradable (internal use)
 	SignalTags      []string `json:"signal_tags,omitempty"` // Trading signal tags (e.g. "rsi_oversold", "vol_breakout", "oi_up_price_up")
 	Direction       string   `json:"direction,omitempty"`   // "LONG" or "SHORT" — dominant direction from Hunter scoring
+
+	// Bidirectional scoring (for AI decision context)
+	LongScore  float64  `json:"long_score,omitempty"`  // Hunter LONG composite score
+	ShortScore float64  `json:"short_score,omitempty"` // Hunter SHORT composite score
+	LongTags   []string `json:"long_tags,omitempty"`   // Hunter LONG signal tags
+	ShortTags  []string `json:"short_tags,omitempty"`  // Hunter SHORT signal tags
 }
 
 // AI500Response is the API response structure

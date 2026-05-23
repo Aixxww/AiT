@@ -484,7 +484,7 @@ func Format(data *Data) string {
 			sb.WriteString(fmt.Sprintf("Volume: %s\n\n", formatFloatSlice(data.IntradaySeries.Volume)))
 		}
 
-		sb.WriteString(fmt.Sprintf("3m ATR (14‑period): %.3f\n\n", data.IntradaySeries.ATR14))
+		sb.WriteString(fmt.Sprintf("3m ATR (14‑period): %s\n\n", formatPriceWithDynamicPrecision(data.IntradaySeries.ATR14)))
 	}
 
 	if data.LongerTermContext != nil {
@@ -493,8 +493,9 @@ func Format(data *Data) string {
 		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f\n\n",
 			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
 
-		sb.WriteString(fmt.Sprintf("3‑Period ATR: %.3f vs. 14‑Period ATR: %.3f\n\n",
-			data.LongerTermContext.ATR3, data.LongerTermContext.ATR14))
+		sb.WriteString(fmt.Sprintf("3‑Period ATR: %s vs. 14‑Period ATR: %s\n\n",
+			formatPriceWithDynamicPrecision(data.LongerTermContext.ATR3),
+			formatPriceWithDynamicPrecision(data.LongerTermContext.ATR14)))
 
 		sb.WriteString(fmt.Sprintf("Current Volume: %.3f vs. Average Volume: %.3f\n\n",
 			data.LongerTermContext.CurrentVolume, data.LongerTermContext.AverageVolume))
@@ -535,8 +536,13 @@ func formatTimeframeData(sb *strings.Builder, data *TimeframeSeriesData) {
 			if i == len(data.Klines)-1 {
 				marker = "  <- current"
 			}
-			sb.WriteString(fmt.Sprintf("%-14s %-9.4f %-9.4f %-9.4f %-9.4f %-12.2f%s\n",
-				timeStr, k.Open, k.High, k.Low, k.Close, k.Volume, marker))
+			sb.WriteString(fmt.Sprintf("%-14s %-9s %-9s %-9s %-9s %-12.2f%s\n",
+				timeStr,
+				formatPriceWithDynamicPrecision(k.Open),
+				formatPriceWithDynamicPrecision(k.High),
+				formatPriceWithDynamicPrecision(k.Low),
+				formatPriceWithDynamicPrecision(k.Close),
+				k.Volume, marker))
 		}
 		sb.WriteString("\n")
 	} else if len(data.MidPrices) > 0 {
@@ -569,7 +575,7 @@ func formatTimeframeData(sb *strings.Builder, data *TimeframeSeriesData) {
 	}
 
 	if data.ATR14 > 0 {
-		sb.WriteString(fmt.Sprintf("ATR14: %.4f\n", data.ATR14))
+		sb.WriteString(fmt.Sprintf("ATR14: %s\n", formatPriceWithDynamicPrecision(data.ATR14)))
 	}
 
 	sb.WriteString("\n")
@@ -759,6 +765,33 @@ func isStaleData(klines []Kline, symbol string) bool {
 	// Take the last stalePriceThreshold K-lines
 	recentKlines := klines[len(klines)-stalePriceThreshold:]
 	firstPrice := recentKlines[0].Close
+
+	// Low-price coin check: if close < 0.01 and all recent closes are identical to
+	// 8+ decimal places, treat as stale even if volume is non-zero (Binance rounding)
+	lastClose := klines[len(klines)-1].Close
+	if lastClose > 0 && lastClose < 0.01 {
+		allSamePrecise := true
+		refClose := recentKlines[0].Close
+		for _, k := range recentKlines[1:] {
+			if math.Abs(k.Close-refClose) > 1e-8 {
+				allSamePrecise = false
+				break
+			}
+		}
+		if allSamePrecise {
+			allVolZero := true
+			for _, k := range recentKlines {
+				if k.Volume > 0 {
+					allVolZero = false
+					break
+				}
+			}
+			if allVolZero {
+				logger.Infof("⚠️  %s stale data (low-price coin: close=%.8f, all zero volume)", symbol, lastClose)
+				return true
+			}
+		}
+	}
 
 	// Check if all prices are within tolerance
 	for i := 1; i < len(recentKlines); i++ {

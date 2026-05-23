@@ -1,14 +1,14 @@
-# 🗺️ NOFX Roadmap
+# 🗺️ AiT Roadmap
 
 **Language:** [English](README.md) | [中文](README.zh-CN.md)
 
-Strategic plan for NOFX development and universal market expansion.
+Strategic plan for AiT development and universal market expansion.
 
 ---
 
 ## 📋 Overview
 
-NOFX is on a mission to become the **Universal AI Trading Operating System** for all financial markets. Our proven infrastructure on crypto markets is being extended to stocks, futures, options, forex, and beyond.
+AiT is on a mission to become the **Universal AI Trading Operating System** for all financial markets. Our proven infrastructure on crypto markets is being extended to stocks, futures, options, forex, and beyond.
 
 **Vision:** Same architecture. Same agent framework. All markets.
 

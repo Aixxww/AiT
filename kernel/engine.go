@@ -57,6 +57,10 @@ type CandidateCoin struct {
 	PreFetchedData *market.PreFetchedData `json:"-"`       // Hunter pre-fetched klines, not serialized
 	Direction      string                 `json:"-"`       // Hunter direction: "LONG" or "SHORT"
 	SignalTags     []string               `json:"-"`       // Hunter signal tags for AI context
+	LongScore      float64                `json:"-"`       // Hunter LONG composite score
+	ShortScore     float64                `json:"-"`       // Hunter SHORT composite score
+	LongTags       []string               `json:"-"`       // Hunter LONG signal tags
+	ShortTags      []string               `json:"-"`       // Hunter SHORT signal tags
 }
 
 // OITopData open interest growth top data (for AI decision reference)
@@ -593,6 +597,10 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 		if meta, ok := coinMeta[symbol]; ok {
 			cc.Direction = meta.Direction
 			cc.SignalTags = meta.SignalTags
+			cc.LongScore = meta.LongScore
+			cc.ShortScore = meta.ShortScore
+			cc.LongTags = meta.LongTags
+			cc.ShortTags = meta.ShortTags
 		}
 		// Filter by direction if specified (LONG or SHORT)
 		if direction != "" && direction != "BOTH" && cc.Direction != direction {

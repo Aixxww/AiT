@@ -226,7 +226,7 @@ docker info | grep -A 10 "Registry Mirrors"
 # Should show your configured mirrors
 ```
 
-**Related Issue:** [#168](https://github.com/NoFxAiOS/nofx/issues/168)
+**Related Issue:** [#168](https://github.com/Aixxww/AiT/issues/168)
 
 ---
 
@@ -330,7 +330,7 @@ If errors persist after time sync:
    - Login to Binance → API Management
    - Delete old key
    - Create new key
-   - Update NOFX configuration
+   - Update AiT configuration
 
 **Solution 3: Check Rate Limits**
 
@@ -340,7 +340,7 @@ Binance has strict API rate limits:
 - Reduce number of traders
 - Increase decision interval (e.g., from 1min to 3-5min)
 
-**Related Issue:** [#60](https://github.com/NoFxAiOS/nofx/issues/60)
+**Related Issue:** [#60](https://github.com/Aixxww/AiT/issues/60)
 
 ---
 
@@ -387,7 +387,7 @@ Binance has strict API rate limits:
 
 **Solution:**
 ```bash
-# Stop all NOFX processes
+# Stop all AiT processes
 docker compose down
 # OR
 pkill nofx
@@ -559,7 +559,7 @@ If you've tried all the above and still have problems:
 
 3. **Join Community:**
    - [Telegram Developer Community](https://t.me/nofx_dev_community)
-   - [GitHub Discussions](https://github.com/NoFxAiOS/nofx/discussions)
+   - [GitHub Discussions](https://github.com/Aixxww/AiT/discussions)
 
 ---
 

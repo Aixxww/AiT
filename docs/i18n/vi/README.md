@@ -1,4 +1,4 @@
-<h1 align="center">NOFX</h1>
+<h1 align="center">AiT</h1>
 
 <p align="center">
   <strong>Trợ lý giao dịch AI cá nhân của bạn.</strong><br/>
@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NoFxAiOS/nofx/stargazers"><img src="https://img.shields.io/github/stars/NoFxAiOS/nofx?style=for-the-badge" alt="Stars"></a>
-  <a href="https://github.com/NoFxAiOS/nofx/releases"><img src="https://img.shields.io/github/v/release/NoFxAiOS/nofx?style=for-the-badge" alt="Release"></a>
-  <a href="https://github.com/NoFxAiOS/nofx/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/Aixxww/AiT/stargazers"><img src="https://img.shields.io/github/stars/Aixxww/AiT?style=for-the-badge" alt="Stars"></a>
+  <a href="https://github.com/Aixxww/AiT/releases"><img src="https://img.shields.io/github/v/release/Aixxww/AiT?style=for-the-badge" alt="Release"></a>
+  <a href="https://github.com/Aixxww/AiT/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <a href="https://t.me/nofx_dev_community"><img src="https://img.shields.io/badge/Telegram-Community-blue?style=for-the-badge&logo=telegram" alt="Telegram"></a>
 </p>
 
@@ -31,14 +31,14 @@
 
 ---
 
-NOFX là trợ lý giao dịch AI **tự chủ** mã nguồn mở. Không giống các công cụ AI truyền thống yêu cầu bạn cấu hình mô hình thủ công, quản lý API key và kết nối nguồn dữ liệu — AI của NOFX **tự nhận diện thị trường, tự chọn mô hình và tự lấy dữ liệu**. Không cần con người can thiệp. Bạn chỉ cần đặt chiến lược, AI xử lý mọi thứ còn lại.
+AiT là trợ lý giao dịch AI **tự chủ** mã nguồn mở. Không giống các công cụ AI truyền thống yêu cầu bạn cấu hình mô hình thủ công, quản lý API key và kết nối nguồn dữ liệu — AI của AiT **tự nhận diện thị trường, tự chọn mô hình và tự lấy dữ liệu**. Không cần con người can thiệp. Bạn chỉ cần đặt chiến lược, AI xử lý mọi thứ còn lại.
 
 **Hoàn toàn tự chủ**: AI tự quyết định sử dụng mô hình nào, lấy dữ liệu thị trường gì, khi nào giao dịch. Không cần cấu hình mô hình thủ công. Không cần quản lý API key của nhiều dịch vụ. Chỉ cần nạp ví USDC và chạy.
 
 Điểm khác biệt: **tích hợp thanh toán vi mô [x402](https://x402.org)**. Không cần API key. Nạp ví USDC và thanh toán theo yêu cầu. Ví chính là danh tính của bạn.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/install.sh | bash
 ```
 
 Mở **http://127.0.0.1:3000**. Xong.
@@ -49,7 +49,7 @@ Mở **http://127.0.0.1:3000**. Xong.
 
 <p align="center">
   <a href="https://drive.google.com/file/d/1frzw-HDZ3viQvLOQKsAJGc9bT0dXs68D/view">
-    <img src="../../../screenshots/demo-cover.png" alt="Video demo nhanh của NOFX" width="900"/>
+    <img src="../../../screenshots/demo-cover.png" alt="Video demo nhanh của AiT" width="900"/>
   </a>
 </p>
 
@@ -137,7 +137,7 @@ Crypto · Cổ phiếu Mỹ · Forex · Kim loại
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Aixxww/AiT/main/install.sh | bash
 ```
 
 ### Railway (Cloud)
@@ -147,7 +147,7 @@ curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bas
 ### Docker
 
 ```bash
-curl -O https://raw.githubusercontent.com/NoFxAiOS/nofx/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/Aixxww/AiT/main/docker-compose.prod.yml
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -158,7 +158,7 @@ docker compose -f docker-compose.prod.yml up -d
 # macOS: brew install ta-lib
 # Ubuntu: sudo apt-get install libta-lib0-dev
 
-git clone https://github.com/NoFxAiOS/nofx.git && cd nofx
+git clone https://github.com/Aixxww/AiT.git && cd nofx
 go build -o nofx && ./nofx          # backend
 cd web && npm install && npm run dev  # frontend (terminal mới)
 ```
@@ -183,4 +183,4 @@ cd web && npm install && npm run dev  # frontend (terminal mới)
 
 [AGPL-3.0](../../../LICENSE)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=NoFxAiOS/nofx&type=Date)](https://star-history.com/#NoFxAiOS/nofx&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Aixxww/AiT&type=Date)](https://star-history.com/#Aixxww/AiT&Date)
