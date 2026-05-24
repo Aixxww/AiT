@@ -9,6 +9,7 @@ import (
 
 	"nofx/market"
 	"nofx/provider/nofxos"
+	"nofx/store"
 )
 
 // HunterCoinScore holds intermediate scoring for one coin in the Hunter system.
@@ -1113,7 +1114,8 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 }
 
 // GetHunterTopRatedCoins returns top N symbols from Hunter scoring.
-func (c *Client) GetHunterTopRatedCoins(limit int) ([]string, error) {
+func (c *Client) GetHunterTopRatedCoins(limit int, cfg *store.HunterConfig) ([]string, error) {
+	c.HunterCfg = cfg
 	coins, err := c.GetHunterList()
 	if err != nil {
 		return nil, err
@@ -1142,7 +1144,8 @@ type HunterCoinMeta struct {
 }
 
 // GetHunterCoinsWithData returns top N symbols, pre-fetched kline data, and direction metadata.
-func (c *Client) GetHunterCoinsWithData(limit int) ([]string, map[string]*market.PreFetchedData, map[string]*HunterCoinMeta, error) {
+func (c *Client) GetHunterCoinsWithData(limit int, cfg *store.HunterConfig) ([]string, map[string]*market.PreFetchedData, map[string]*HunterCoinMeta, error) {
+	c.HunterCfg = cfg
 	coins, err := c.GetHunterList()
 	if err != nil {
 		return nil, nil, nil, err
