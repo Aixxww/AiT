@@ -478,10 +478,10 @@ export function AgentChatPage() {
 
   return (
     <div
+      className="bg-background"
       style={{
         display: 'flex',
         height: 'calc(100dvh - 64px)',
-        background: '#09090b',
         overflow: 'hidden',
       }}
     >
@@ -520,7 +520,7 @@ export function AgentChatPage() {
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: 20,
-                color: '#6c6c82',
+                color: 'var(--color-muted-foreground)',
                 fontSize: 12,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -539,7 +539,7 @@ export function AgentChatPage() {
               padding: 6,
               background: 'transparent',
               border: 'none',
-              color: '#4c4c62',
+              color: 'var(--color-muted-foreground)',
               cursor: 'pointer',
               borderRadius: 8,
               display: 'flex',
@@ -548,8 +548,8 @@ export function AgentChatPage() {
               transition: 'color 0.2s',
             }}
             title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#8a8aa0' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#4c4c62' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-foreground)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted-foreground)' }}
           >
             {sidebarOpen ? (
               <PanelRightClose size={18} />
@@ -617,7 +617,7 @@ export function AgentChatPage() {
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: '#4c4c62',
+                    color: 'var(--color-muted-foreground)',
                     textTransform: 'uppercase',
                     letterSpacing: 1.5,
                   }}
@@ -639,7 +639,7 @@ export function AgentChatPage() {
                       padding: '7px 8px',
                       background: 'transparent',
                       border: 'none',
-                      color: '#7a7a90',
+                      color: 'var(--color-muted-foreground)',
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -649,11 +649,11 @@ export function AgentChatPage() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-                      e.currentTarget.style.color = '#a0a0b0'
+                      e.currentTarget.style.color = 'var(--color-foreground)'
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = '#7a7a90'
+                      e.currentTarget.style.color = 'var(--color-muted-foreground)'
                     }}
                   >
                     {section.icon}
@@ -704,7 +704,7 @@ export function AgentChatPage() {
           width: 5px;
           height: 5px;
           border-radius: 50%;
-          background: #F0B90B;
+          background: var(--color-primary);
           display: inline-block;
           animation: typingBounce 1.2s infinite;
         }
@@ -717,7 +717,7 @@ export function AgentChatPage() {
 
         .quick-action-btn:hover {
           border-color: rgba(240,185,11,0.2) !important;
-          color: #F0B90B !important;
+          color: var(--color-primary) !important;
           background: rgba(240,185,11,0.04) !important;
         }
 

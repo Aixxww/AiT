@@ -153,7 +153,7 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 				}
 
 				// Low Hunter score + high AI confidence = suspicious
-				if selectedHunterScore < 25 && d.Confidence > 85 {
+				if selectedHunterScore < 15 && d.Confidence > 85 {
 					logger.Infof("⚠️  %s: Hunter score %.1f LOW but AI confidence %d HIGH — capping confidence to 65",
 						d.Symbol, selectedHunterScore, d.Confidence)
 					d.Confidence = 65

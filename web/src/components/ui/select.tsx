@@ -73,7 +73,7 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] rounded border border-[#2B3139] bg-[#0B0E11] shadow-xl shadow-black/50 max-h-60 overflow-y-auto"
+          className="fixed z-[9999] rounded border border-border bg-background shadow-xl shadow-black/50 max-h-60 overflow-y-auto"
           style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
         >
           {options.map((opt) => (
@@ -82,8 +82,8 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
               className={cn(
                 'px-3 py-1.5 text-sm cursor-pointer transition-colors whitespace-nowrap',
                 String(opt.value) === String(value)
-                  ? 'bg-[#F0B90B]/10 text-[#F0B90B]'
-                  : 'text-[#EAECEF] hover:bg-[#1E2329]',
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-foreground hover:bg-surface-alt',
               )}
               onClick={(e) => {
                 e.stopPropagation()

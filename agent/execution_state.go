@@ -30,22 +30,22 @@ const (
 )
 
 type ExecutionState struct {
-	SessionID        string        `json:"session_id"`
-	UserID           int64         `json:"user_id"`
-	Goal             string        `json:"goal"`
-	Status           string        `json:"status"`
-	PlanID           string        `json:"plan_id"`
-	Steps            []PlanStep    `json:"steps,omitempty"`
-	CurrentStepID    string        `json:"current_step_id,omitempty"`
+	SessionID         string             `json:"session_id"`
+	UserID            int64              `json:"user_id"`
+	Goal              string             `json:"goal"`
+	Status            string             `json:"status"`
+	PlanID            string             `json:"plan_id"`
+	Steps             []PlanStep         `json:"steps,omitempty"`
+	CurrentStepID     string             `json:"current_step_id,omitempty"`
 	CurrentReferences *CurrentReferences `json:"current_references,omitempty"`
-	DynamicSnapshots []Observation `json:"dynamic_snapshots,omitempty"`
-	ExecutionLog     []Observation `json:"execution_log,omitempty"`
-	SummaryNotes     []Observation `json:"summary_notes,omitempty"`
-	Waiting          *WaitingState `json:"waiting,omitempty"`
-	Observations     []Observation `json:"observations,omitempty"`
-	FinalAnswer      string        `json:"final_answer,omitempty"`
-	LastError        string        `json:"last_error,omitempty"`
-	UpdatedAt        string        `json:"updated_at"`
+	DynamicSnapshots  []Observation      `json:"dynamic_snapshots,omitempty"`
+	ExecutionLog      []Observation      `json:"execution_log,omitempty"`
+	SummaryNotes      []Observation      `json:"summary_notes,omitempty"`
+	Waiting           *WaitingState      `json:"waiting,omitempty"`
+	Observations      []Observation      `json:"observations,omitempty"`
+	FinalAnswer       string             `json:"final_answer,omitempty"`
+	LastError         string             `json:"last_error,omitempty"`
+	UpdatedAt         string             `json:"updated_at"`
 }
 
 type PlanStep struct {
@@ -127,7 +127,7 @@ func (a *Agent) getExecutionState(userID int64) ExecutionState {
 
 func (a *Agent) saveExecutionState(state ExecutionState) error {
 	if a.store == nil {
-		return fmt.Errorf("store unavailable")
+		return nil
 	}
 	state = normalizeExecutionState(state)
 	if state.SessionID == "" {
@@ -332,8 +332,8 @@ func buildObservationContext(state ExecutionState) map[string]any {
 	state = normalizeExecutionState(state)
 	return map[string]any{
 		"current_references": state.CurrentReferences,
-		"dynamic_snapshots": state.DynamicSnapshots,
-		"execution_log":     state.ExecutionLog,
-		"summary_notes":     state.SummaryNotes,
+		"dynamic_snapshots":  state.DynamicSnapshots,
+		"execution_log":      state.ExecutionLog,
+		"summary_notes":      state.SummaryNotes,
 	}
 }

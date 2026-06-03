@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"nofx/market"
@@ -36,6 +37,52 @@ type HunterCoinScore struct {
 	LongTags       []string
 
 	Direction string // "LONG" or "SHORT"
+}
+
+// Capital confirmation levels for tier classification.
+const (
+	CapitalLevelNone = 0 // No capital signal
+	CapitalLevelWeak = 1 // Level-1: oi_moderate / oi_surge_1h / pure LSR → Tier-B "LOW CONFIDENCE"
+	CapitalLevelMed  = 2 // Level-2: oi_spike_1h alone / oi_squeeze / oi_accumulation / oi_distribution → Tier-A
+	CapitalLevelStrong = 3 // Level-3: oi_spike_1h + LSR confirmation → Tier-S "PRIME SIGNAL"
+)
+
+// classifyCapitalLevel classifies a coin's capital confirmation level based on its signal tags.
+// Returns level (0-3) and tier label string.
+// Level-3: multi-signal resonance (oi_spike_1h + LSR-based signal)
+// Level-2: single strong OI signal
+// Level-1: weak OI signal or pure LSR
+// Level-0: no capital signal at all
+func ClassifyCapitalLevel(tags []string, score float64) (level int, tier string) {
+	tagSet := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		tagSet[t] = true
+	}
+
+	// Level-3: oi_spike_1h + (lsr_bearish_reversal OR lsr_bearish_strong OR lsr_reversal OR lsr_bullish)
+	hasOISpike := tagSet["oi_spike_1h"]
+	hasLSRStrong := tagSet["lsr_bearish_reversal"] || tagSet["lsr_bearish_strong"] ||
+		tagSet["lsr_reversal"] || tagSet["lsr_bullish"]
+	hasOIExtreme := tagSet["oi_short_squeeze"] || tagSet["oi_accumulation"] ||
+		tagSet["oi_distribution"] || tagSet["oi_long_squeeze"] ||
+		tagSet["oi_squeeze_moderate"] || tagSet["oi_long_squeeze_moderate"]
+
+	if hasOISpike && (hasLSRStrong || hasOIExtreme) {
+		return CapitalLevelStrong, "Tier-S PRIME SIGNAL"
+	}
+
+	// Level-2: oi_spike_1h alone, or any extreme OI signal
+	if hasOISpike || hasOIExtreme {
+		return CapitalLevelMed, "Tier-A"
+	}
+
+	// Level-1: weak OI signals or pure LSR
+	hasWeakOI := tagSet["oi_moderate"] || tagSet["oi_moderate_short"] || tagSet["oi_surge_1h"]
+	if hasWeakOI || hasLSRStrong {
+		return CapitalLevelWeak, "Tier-B LOW CONFIDENCE"
+	}
+
+	return CapitalLevelNone, "Untiered"
 }
 
 // computeATR computes Average True Range using Wilder's smoothing.
@@ -93,10 +140,15 @@ func computeBBWidth(klines []klineBar, period int, multiplier float64) (widthPct
 // computeBBWidthSqueeze detects if current BB Width is at a rolling low (squeeze).
 // Uses 15m klines (50 bars = 12.5h) for 24h context, falls back to 5m (50 bars = ~4h).
 // Returns: (score [0-15], tags).
-func (c *Client) computeBBWidthSqueeze(symbol string) (float64, []string) {
+func (c *Client) computeBBWidthSqueeze(symbol string, sc *SymbolCache) (float64, []string) {
 	// Try 15m first (50 bars = 12.5h, better for 24h context)
-	klines15m, err := c.fetchKlines(symbol, "15m", 50)
-	if err == nil && len(klines15m) >= 25 {
+	var klines15m []klineBar
+	if sc != nil {
+		klines15m = sc.Klines["15m"]
+	} else {
+		klines15m, _ = c.fetchKlines(symbol, "15m", 50)
+	}
+	if len(klines15m) >= 25 {
 		widthPct, _, _, _ := computeBBWidth(klines15m, 20, 2.0)
 		if widthPct > 0 {
 			minWidth := math.MaxFloat64
@@ -113,8 +165,13 @@ func (c *Client) computeBBWidthSqueeze(symbol string) (float64, []string) {
 		}
 	}
 	// Fallback: 5m klines (50 bars = ~4.2h)
-	klines5m, err := c.fetchKlines(symbol, "5m", 50)
-	if err == nil && len(klines5m) >= 25 {
+	var klines5m []klineBar
+	if sc != nil {
+		klines5m = sc.Klines["5m"]
+	} else {
+		klines5m, _ = c.fetchKlines(symbol, "5m", 50)
+	}
+	if len(klines5m) >= 25 {
 		widthPct, _, _, _ := computeBBWidth(klines5m, 20, 2.0)
 		if widthPct > 0 {
 			minWidth := math.MaxFloat64
@@ -136,31 +193,36 @@ func (c *Client) computeBBWidthSqueeze(symbol string) (float64, []string) {
 // Uses Binance openInterestHist with 1h period, 13 data points (12 hours).
 // Computes mean and stddev of 1h OI changes, flags if latest change > 2σ AND > 3%.
 // Returns: (score [0-15], tags).
-func (c *Client) computeOISpike(symbol string) (float64, []string) {
-	url := fmt.Sprintf("%s/futures/data/openInterestHist?symbol=%s&period=1h&limit=13",
-		c.BinanceURL, symbol)
-
-	type oiEntry struct {
-		SumOpenInterestValue string `json:"sumOpenInterestValue"`
-		Timestamp            int64  `json:"timestamp"`
-	}
-
-	var entries []oiEntry
-	if err := c.fetchJSON(url, &entries); err != nil || len(entries) < 4 {
-		return 0, nil
-	}
-
-	// Compute period-over-period % changes
+func (c *Client) computeOISpike(symbol string, sc *SymbolCache) (float64, []string) {
 	var changes []float64
-	for i := 1; i < len(entries); i++ {
-		prev := parseFloat(entries[i-1].SumOpenInterestValue)
-		curr := parseFloat(entries[i].SumOpenInterestValue)
-		if prev > 0 {
-			changes = append(changes, (curr-prev)/prev*100)
+
+	if sc != nil && len(sc.OIHist1hChanges) >= 3 {
+		changes = sc.OIHist1hChanges
+	} else {
+		url := fmt.Sprintf("%s/futures/data/openInterestHist?symbol=%s&period=1h&limit=13",
+			c.BinanceURL, symbol)
+
+		type oiEntry struct {
+			SumOpenInterestValue string `json:"sumOpenInterestValue"`
+			Timestamp            int64  `json:"timestamp"`
 		}
-	}
-	if len(changes) < 3 {
-		return 0, nil
+
+		var entries []oiEntry
+		if err := c.fetchJSON(url, &entries); err != nil || len(entries) < 4 {
+			return 0, nil
+		}
+
+		// Compute period-over-period % changes
+		for i := 1; i < len(entries); i++ {
+			prev := parseFloat(entries[i-1].SumOpenInterestValue)
+			curr := parseFloat(entries[i].SumOpenInterestValue)
+			if prev > 0 {
+				changes = append(changes, (curr-prev)/prev*100)
+			}
+		}
+		if len(changes) < 3 {
+			return 0, nil
+		}
 	}
 
 	latestChange := changes[len(changes)-1]
@@ -191,9 +253,9 @@ func (c *Client) computeOISpike(symbol string) (float64, []string) {
 // computeSqueezeExplosionPillar combines BB Width squeeze and OI spike into Pillar E'.
 // Synergy bonus: if both signals fire, extra +5 points.
 // Returns: (score [0-25], tags).
-func (c *Client) computeSqueezeExplosionPillar(symbol string) (float64, []string) {
-	bbScore, bbTags := c.computeBBWidthSqueeze(symbol)
-	oiScore, oiTags := c.computeOISpike(symbol)
+func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache) (float64, []string) {
+	bbScore, bbTags := c.computeBBWidthSqueeze(symbol, sc)
+	oiScore, oiTags := c.computeOISpike(symbol, sc)
 
 	totalScore := bbScore + oiScore
 	allTags := append(append([]string{}, bbTags...), oiTags...)
@@ -229,12 +291,17 @@ func findHighLow(klines []klineBar) (high, low float64) {
 // Near 4h support (within 1.5×ATR) → +25; near resistance → -15;
 // near 1d support (within 2×ATR) → +15; near 1h support (within 1×ATR) → +10;
 // already moved >50% in 24h → -20 (chase penalty).
-func (c *Client) computePositionScore(symbol string, ticker binanceTicker) (float64, []string) {
+func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *SymbolCache) (float64, []string) {
 	score := 0.0
 	var tags []string
 
-	klines4h, err := c.fetchKlines(symbol, "4h", 20)
-	if err != nil || len(klines4h) < 15 {
+	var klines4h []klineBar
+	if sc != nil {
+		klines4h = lastN(sc.Klines["4h"], 20)
+	} else {
+		klines4h, _ = c.fetchKlines(symbol, "4h", 20)
+	}
+	if len(klines4h) < 15 {
 		return 0, nil
 	}
 
@@ -258,8 +325,13 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker) (floa
 	}
 
 	// --- 1d support (wider threshold: 2×ATR derived from daily bars) ---
-	klines1d, err1d := c.fetchKlines(symbol, "1d", 20)
-	if err1d == nil && len(klines1d) >= 15 {
+	var klines1d []klineBar
+	if sc != nil {
+		klines1d = lastN(sc.Klines["1d"], 20)
+	} else {
+		klines1d, _ = c.fetchKlines(symbol, "1d", 20)
+	}
+	if len(klines1d) >= 15 {
 		atr1d := computeATR(klines1d, 14)
 		if atr1d > 0 {
 			_, low1d := findHighLow(klines1d)
@@ -271,8 +343,13 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker) (floa
 	}
 
 	// --- 1h support (tighter threshold: 1×ATR) ---
-	klines1h, err1h := c.fetchKlines(symbol, "1h", 20)
-	if err1h == nil && len(klines1h) >= 15 {
+	var klines1h []klineBar
+	if sc != nil {
+		klines1h = lastN(sc.Klines["1h"], 20)
+	} else {
+		klines1h, _ = c.fetchKlines(symbol, "1h", 20)
+	}
+	if len(klines1h) >= 15 {
 		atr1h := computeATR(klines1h, 14)
 		if atr1h > 0 {
 			_, low1h := findHighLow(klines1h)
@@ -284,8 +361,13 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker) (floa
 	}
 
 	// v7: --- 15m support (short-term swing, 1×ATR) ---
-	klines15m, err15m := c.fetchKlines(symbol, "15m", 20)
-	if err15m == nil && len(klines15m) >= 15 {
+	var klines15m []klineBar
+	if sc != nil {
+		klines15m = lastN(sc.Klines["15m"], 20)
+	} else {
+		klines15m, _ = c.fetchKlines(symbol, "15m", 20)
+	}
+	if len(klines15m) >= 15 {
 		atr15m := computeATR(klines15m, 14)
 		if atr15m > 0 {
 			_, low15m := findHighLow(klines15m)
@@ -297,8 +379,13 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker) (floa
 	}
 
 	// v7: --- 5m support (micro swing / entry timing, 1×ATR) ---
-	klines5m, err5m := c.fetchKlines(symbol, "5m", 20)
-	if err5m == nil && len(klines5m) >= 15 {
+	var klines5m []klineBar
+	if sc != nil {
+		klines5m = lastN(sc.Klines["5m"], 20)
+	} else {
+		klines5m, _ = c.fetchKlines(symbol, "5m", 20)
+	}
+	if len(klines5m) >= 15 {
 		atr5m := computeATR(klines5m, 14)
 		if atr5m > 0 {
 			_, low5m := findHighLow(klines5m)
@@ -333,26 +420,34 @@ func (c *Client) fetchCurrentOI(symbol string, price float64) (float64, error) {
 }
 
 // computeOISmartScore replaces 15M hard threshold with OI change rate analysis.
-func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64) (float64, []string) {
+func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64) (float64, []string) {
 	score := 0.0
 	var tags []string
 
-	// OI 4h delta
-	oiDelta4h, err := c.fetchOIHist(symbol, "4h", 2)
-	if err != nil {
-		return 0, nil
+	// OI 4h delta — use cached value if available
+	var oiDelta4h float64
+	if sc != nil {
+		oiDelta4h = sc.OIDelta4h
+	} else {
+		var err error
+		oiDelta4h, err = c.fetchOIHist(symbol, "4h", 2)
+		if err != nil {
+			return 0, nil
+		}
 	}
 
 	oiValue := currentOIValue
 
-	// Apply cooldown-based OI threshold reduction
-	threshold := 2_000_000.0 * globalCooldown.getOIThresholdReduction(symbol)
+	// Dynamic OI threshold with cooldown reduction
+	threshold := oiThreshold * globalCooldown.getOIThresholdReduction(symbol)
 
 	if oiValue < threshold {
 		globalCooldown.recordOIFilter(symbol)
 		tags = append(tags, "oi_too_low")
+		log.Printf("📊 OI filtered LONG: %s OI=$%.0f < threshold=$%.0f", symbol, oiValue, threshold)
 		return 0, tags
 	}
+	log.Printf("✅ OI OK LONG: %s OI=$%.0f threshold=$%.0f", symbol, oiValue, threshold)
 
 	priceDir := parseFloat(ticker.PriceChangePercent)
 
@@ -381,13 +476,25 @@ func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, curren
 }
 
 // computeSmartMoneyScore combines LSR signal and Taker buy/sell signal.
-func (c *Client) computeSmartMoneyScore(symbol string, klines []klineBar) (float64, []string) {
+func (c *Client) computeSmartMoneyScore(symbol string, klines []klineBar, sc *SymbolCache) (float64, []string) {
 	score := 0.0
 	var tags []string
 
 	// --- LSR Signal (12 bars for better trend detection) ---
-	oldestRatio, newestRatio, err := c.fetchLSRHist(symbol, "1h", 12)
-	if err == nil && oldestRatio > 0 {
+	var oldestRatio, newestRatio float64
+	var lsrOK bool
+	if sc != nil && sc.LSROldest > 0 {
+		oldestRatio = sc.LSROldest
+		newestRatio = sc.LSRNewest
+		lsrOK = true
+	} else {
+		var err error
+		oldestRatio, newestRatio, err = c.fetchLSRHist(symbol, "1h", 12)
+		if err == nil && oldestRatio > 0 {
+			lsrOK = true
+		}
+	}
+	if lsrOK && oldestRatio > 0 {
 		lsrDeltaPct := ((newestRatio - oldestRatio) / oldestRatio) * 100
 
 		if oldestRatio < 0.9 && newestRatio > oldestRatio {
@@ -514,17 +621,122 @@ func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klin
 	return multiplier, tags
 }
 
+// TakerObservation records 15m Taker state for monitoring, even when no signal fires.
+type TakerObservation struct {
+	Symbol           string
+	TakerRatios15m   []float64 // Latest 6 bars' TakerBuyRatio
+	MaxConsecutive   float64   // Best consecutive ratio streak
+	NearestTrigger   string    // "none" / "strong" / "sustained" / "rush"
+	TriggerDirection string    // "BUY" / "SELL" / ""
+}
+
+// computeTakerSignal15m detects 15m-level Taker buy/sell pressure signals.
+// Uses already-fetched 15m klines to compute TakerBuyBaseVolume/Volume ratios.
+// Three detection tiers per direction (v2 thresholds, tuned for higher coverage):
+//
+//	BUY:  strong(>0.58)→+5, sustained(3/5>0.53)→+10, RUSH(2 consec>0.60)→+15
+//	SELL: strong(<0.42)→+5, sustained(3/5<0.47)→+10, RUSH(2 consec<0.40)→+15
+//
+// Returns: (buyScore, sellScore, buyTags, sellTags). Each score clamped [0, 25].
+func computeTakerSignal15m(klines15m []klineBar) (buyScore, sellScore float64, buyTags, sellTags []string) {
+	if len(klines15m) < 7 {
+		return 0, 0, nil, nil
+	}
+
+	// Compute TakerBuyRatio for last 6 bars (expanded window for sustained detection)
+	type barRatio struct {
+		ratio float64
+		valid bool
+	}
+	var ratios []barRatio
+	for _, k := range klines15m[len(klines15m)-6:] {
+		if k.Volume > 0 {
+			ratios = append(ratios, barRatio{ratio: k.TakerBuyBaseVolume / k.Volume, valid: true})
+		} else {
+			ratios = append(ratios, barRatio{valid: false})
+		}
+	}
+
+	// --- BUY signals ---
+	latest := ratios[len(ratios)-1]
+	if latest.valid && latest.ratio > 0.58 {
+		buyScore += 5
+		buyTags = append(buyTags, "taker_buy_strong_15m")
+	}
+
+	// Sustained buying: 3+ of last 5 bars > 0.53 (v2: wider window, lower threshold)
+	if len(ratios) >= 5 {
+		strongBars := 0
+		for _, r := range ratios[len(ratios)-5:] {
+			if r.valid && r.ratio > 0.53 {
+				strongBars++
+			}
+		}
+		if strongBars >= 3 {
+			buyScore += 10
+			buyTags = append(buyTags, "taker_sustained_buying_15m")
+		}
+	}
+
+	// MICRO_BUY_RUSH: 2 consecutive bars > 0.60 (v2: lowered from 0.62)
+	if len(ratios) >= 2 {
+		r1, r2 := ratios[len(ratios)-2], ratios[len(ratios)-1]
+		if r1.valid && r2.valid && r1.ratio > 0.60 && r2.ratio > 0.60 {
+			buyScore += 15
+			buyTags = append(buyTags, "MICRO_BUY_RUSH")
+		}
+	}
+
+	// --- SELL signals (mirror) ---
+	if latest.valid && latest.ratio < 0.42 {
+		sellScore += 5
+		sellTags = append(sellTags, "taker_sell_strong_15m")
+	}
+
+	// Sustained selling: 3+ of last 5 bars < 0.47 (v2: wider window, higher threshold)
+	if len(ratios) >= 5 {
+		weakBars := 0
+		for _, r := range ratios[len(ratios)-5:] {
+			if r.valid && r.ratio < 0.47 {
+				weakBars++
+			}
+		}
+		if weakBars >= 3 {
+			sellScore += 10
+			sellTags = append(sellTags, "taker_sustained_selling_15m")
+		}
+	}
+
+	// MICRO_SELL_RUSH: 2 consecutive bars < 0.40 (v2: raised from 0.38)
+	if len(ratios) >= 2 {
+		r1, r2 := ratios[len(ratios)-2], ratios[len(ratios)-1]
+		if r1.valid && r2.valid && r1.ratio < 0.40 && r2.ratio < 0.40 {
+			sellScore += 15
+			sellTags = append(sellTags, "MICRO_SELL_RUSH")
+		}
+	}
+
+	buyScore = clamp(buyScore, 0, 25)
+	sellScore = clamp(sellScore, 0, 25)
+	return
+}
+
 // computeShortPositionScore mirrors computePositionScore for SHORT direction.
 // Near 4h resistance (within 2×ATR) → +25; near support → -25;
 // near 1d resistance → +15; near 1h resistance → +10;
 // near 15m resistance → +8; near 5m resistance → +5 (swing entry timing);
 // chase penalty same as long.
-func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) (float64, []string) {
+func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, sc *SymbolCache) (float64, []string) {
 	score := 0.0
 	var tags []string
 
-	klines4h, err := c.fetchKlines(symbol, "4h", 20)
-	if err != nil || len(klines4h) < 15 {
+	var klines4h []klineBar
+	if sc != nil {
+		klines4h = lastN(sc.Klines["4h"], 20)
+	} else {
+		klines4h, _ = c.fetchKlines(symbol, "4h", 20)
+	}
+	if len(klines4h) < 15 {
 		return 0, nil
 	}
 
@@ -548,8 +760,13 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) 
 	}
 
 	// --- 1d resistance ---
-	klines1d, err1d := c.fetchKlines(symbol, "1d", 20)
-	if err1d == nil && len(klines1d) >= 15 {
+	var klines1d []klineBar
+	if sc != nil {
+		klines1d = lastN(sc.Klines["1d"], 20)
+	} else {
+		klines1d, _ = c.fetchKlines(symbol, "1d", 20)
+	}
+	if len(klines1d) >= 15 {
 		atr1d := computeATR(klines1d, 14)
 		if atr1d > 0 {
 			high1d, _ := findHighLow(klines1d)
@@ -561,8 +778,13 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) 
 	}
 
 	// --- 1h resistance ---
-	klines1h, err1h := c.fetchKlines(symbol, "1h", 20)
-	if err1h == nil && len(klines1h) >= 15 {
+	var klines1h []klineBar
+	if sc != nil {
+		klines1h = lastN(sc.Klines["1h"], 20)
+	} else {
+		klines1h, _ = c.fetchKlines(symbol, "1h", 20)
+	}
+	if len(klines1h) >= 15 {
 		atr1h := computeATR(klines1h, 14)
 		if atr1h > 0 {
 			high1h, _ := findHighLow(klines1h)
@@ -574,8 +796,13 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) 
 	}
 
 	// --- 15m resistance (short-term swing) ---
-	klines15m, err15m := c.fetchKlines(symbol, "15m", 20)
-	if err15m == nil && len(klines15m) >= 15 {
+	var klines15m []klineBar
+	if sc != nil {
+		klines15m = lastN(sc.Klines["15m"], 20)
+	} else {
+		klines15m, _ = c.fetchKlines(symbol, "15m", 20)
+	}
+	if len(klines15m) >= 15 {
 		atr15m := computeATR(klines15m, 14)
 		if atr15m > 0 {
 			high15m, _ := findHighLow(klines15m)
@@ -587,8 +814,13 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) 
 	}
 
 	// --- 5m resistance (micro swing / entry timing) ---
-	klines5m, err5m := c.fetchKlines(symbol, "5m", 20)
-	if err5m == nil && len(klines5m) >= 15 {
+	var klines5m []klineBar
+	if sc != nil {
+		klines5m = lastN(sc.Klines["5m"], 20)
+	} else {
+		klines5m, _ = c.fetchKlines(symbol, "5m", 20)
+	}
+	if len(klines5m) >= 15 {
 		atr5m := computeATR(klines5m, 14)
 		if atr5m > 0 {
 			high5m, _ := findHighLow(klines5m)
@@ -612,24 +844,33 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker) 
 // computeShortOISmartScore mirrors computeOISmartScore for SHORT direction.
 // OI↑ + Price↑ = smart money building shorts (distribution) → +40
 // OI↓ + Price↓ = long liquidation cascade → +45
-func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64) (float64, []string) {
+func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64) (float64, []string) {
 	score := 0.0
 	var tags []string
 
-	oiDelta4h, err := c.fetchOIHist(symbol, "4h", 2)
-	if err != nil {
-		return 0, nil
+	// OI 4h delta — use cached value if available
+	var oiDelta4h float64
+	if sc != nil {
+		oiDelta4h = sc.OIDelta4h
+	} else {
+		var err error
+		oiDelta4h, err = c.fetchOIHist(symbol, "4h", 2)
+		if err != nil {
+			return 0, nil
+		}
 	}
 
 	oiValue := currentOIValue
-	// v7: 做空侧独立OI门槛 $1.5M（低于做多$2M，捕捉更多短周期机会）
-	threshold := 1_500_000.0 * globalCooldown.getOIThresholdReduction(symbol)
+	// Dynamic OI threshold with cooldown reduction
+	threshold := oiThreshold * globalCooldown.getOIThresholdReduction(symbol)
 
 	if oiValue < threshold {
 		globalCooldown.recordOIFilter(symbol)
 		tags = append(tags, "oi_too_low")
+		log.Printf("📊 OI filtered SHORT: %s OI=$%.0f < threshold=$%.0f", symbol, oiValue, threshold)
 		return 0, tags
 	}
+	log.Printf("✅ OI OK SHORT: %s OI=$%.0f threshold=$%.0f", symbol, oiValue, threshold)
 
 	priceDir := parseFloat(ticker.PriceChangePercent)
 
@@ -660,13 +901,25 @@ func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, c
 }
 
 // computeShortSmartMoneyScore mirrors computeSmartMoneyScore for SHORT direction.
-func (c *Client) computeShortSmartMoneyScore(symbol string, klines []klineBar) (float64, []string) {
+func (c *Client) computeShortSmartMoneyScore(symbol string, klines []klineBar, sc *SymbolCache) (float64, []string) {
 	score := 0.0
 	var tags []string
 
 	// --- LSR Signal (mirrored) ---
-	oldestRatio, newestRatio, err := c.fetchLSRHist(symbol, "1h", 12)
-	if err == nil && oldestRatio > 0 {
+	var oldestRatio, newestRatio float64
+	var lsrOK bool
+	if sc != nil && sc.LSROldest > 0 {
+		oldestRatio = sc.LSROldest
+		newestRatio = sc.LSRNewest
+		lsrOK = true
+	} else {
+		var err error
+		oldestRatio, newestRatio, err = c.fetchLSRHist(symbol, "1h", 12)
+		if err == nil && oldestRatio > 0 {
+			lsrOK = true
+		}
+	}
+	if lsrOK && oldestRatio > 0 {
 		lsrDeltaPct := ((newestRatio - oldestRatio) / oldestRatio) * 100
 
 		// Bearish reversal: was bullish (>1.1), now falling
@@ -805,6 +1058,39 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		pool = pool[:50]
 	}
 
+	// Build SymbolCaches for all pool symbols (parallel, rate-limited)
+	// This replaces ~20 sequential API calls per symbol with 9 parallel calls
+	poolSymbols := make([]string, 0, len(pool))
+	tickerMap := make(map[string]binanceTicker)
+	for _, p := range pool {
+		poolSymbols = append(poolSymbols, p.ticker.Symbol)
+		tickerMap[p.ticker.Symbol] = p.ticker
+	}
+	rl := NewBinanceRateLimiter(15)
+	symbolCaches := BuildSymbolCaches(c, poolSymbols, tickerMap, rl)
+	log.Printf("🎯 Hunter: built %d/%d symbol caches", len(symbolCaches), len(poolSymbols))
+
+	// --- Dynamic OI threshold: P10 of pool OI values, floor $100K ---
+	var oiValues []float64
+	for _, sc := range symbolCaches {
+		if sc != nil && sc.OICurrent > 0 {
+			oiValues = append(oiValues, sc.OICurrent)
+		}
+	}
+	sort.Float64s(oiValues)
+	dynamicOIThreshold := 100_000.0 // floor
+	if len(oiValues) > 0 {
+		p10Idx := int(float64(len(oiValues)) * 0.10)
+		if p10Idx < len(oiValues) && oiValues[p10Idx] > dynamicOIThreshold {
+			dynamicOIThreshold = oiValues[p10Idx]
+		}
+		medianOI := oiValues[len(oiValues)/2]
+		log.Printf("📊 Hunter OI分布: n=%d median=$%.0f P10=$%.0f threshold=$%.0f",
+			len(oiValues), medianOI, oiValues[int(float64(len(oiValues))*0.10)], dynamicOIThreshold)
+	} else {
+		log.Printf("⚠️ Hunter OI分布: 0 valid OI values, using floor $%.0f", dynamicOIThreshold)
+	}
+
 	for i := range pool {
 		p := &pool[i]
 		sym := p.ticker.Symbol
@@ -812,19 +1098,25 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		p.score.Ticker = p.ticker
 		currentPrice := parseFloat(p.ticker.LastPrice)
 
-		// Fetch current OI once (shared by OI score and wash detection)
-		currentOI, _ := c.fetchCurrentOI(sym, currentPrice)
+		// Use SymbolCache if available, otherwise fall back to direct API calls
+		sc := symbolCaches[sym]
+		var currentOI float64
+		if sc != nil {
+			currentOI = sc.OICurrent
+		} else {
+			currentOI, _ = c.fetchCurrentOI(sym, currentPrice)
+		}
 
 		if usingFallback {
 			// CoinGecko fallback: only compute OI Smart Score; skip kline-dependent pillars
-			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI)
+			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
 			p.score.OISmartScore = oiScore
 			qv := parseFloat(p.ticker.QuoteVolume)
 			baseScore := clamp(oiScore+math.Log10(math.Max(qv, 1))*2, 0, 75)
 			composite := baseScore
 
 			// Short OI scoring (CoinGecko fallback)
-			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI)
+			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
 			p.score.ShortOISmartScore = shortOIScore
 			shortBaseScore := clamp(shortOIScore+math.Log10(math.Max(qv, 1))*2, 0, 75)
 			shortComposite := shortBaseScore
@@ -853,18 +1145,27 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			// Full Binance path: compute all 4 pillars for BOTH directions
 
 			// Fetch shared data
-			klines4h, _ := c.fetchKlines(sym, "4h", 20)
+			klines4h := lastN(sc.Klines["4h"], 20)
+			klines15mForTaker := lastN(sc.Klines["15m"], 50) // 15m Taker signal data
 
 			// ===== LONG DIRECTION =====
-			posScore, posTags := c.computePositionScore(sym, p.ticker)
-			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI)
+			posScore, posTags := c.computePositionScore(sym, p.ticker, sc)
+			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
 			p.score.PositionScore = posScore
 			p.score.OISmartScore = oiScore
-			baseScore50 := clamp((posScore+oiScore)/2, -35, 50)
+			baseScore50 := clamp(math.Max(posScore, oiScore)*0.65+math.Min(posScore, oiScore)*0.35, -35, 50)
 
-			smScore, smTags := c.computeSmartMoneyScore(sym, klines4h)
+			smScore, smTags := c.computeSmartMoneyScore(sym, klines4h, sc)
+
+			// 15m Taker signal (LONG): faster detection for fast-moving markets
+			if len(klines15mForTaker) >= 5 {
+				takerBuy15m, _, takerBuy15mTags, _ := computeTakerSignal15m(klines15mForTaker)
+				smScore += takerBuy15m
+				smTags = append(smTags, takerBuy15mTags...)
+			}
+
 			p.score.SmartMoneyScore = smScore
-			baseScore25 := smScore * 0.65
+			baseScore25 := smScore * 0.80
 
 			composite := clamp(baseScore50+baseScore25, 0, 75)
 
@@ -882,6 +1183,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 					"oi_accumulation": true, "oi_price_aligned": true, "oi_moderate": true,
 					"lsr_reversal": true, "lsr_bullish": true,
 					"taker_buy_strong": true, "taker_sustained_buying": true,
+					"taker_buy_strong_15m": true, "taker_sustained_buying_15m": true, "MICRO_BUY_RUSH": true,
 				}
 				hasConfirmation := false
 				for _, t := range allTags {
@@ -891,7 +1193,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 					}
 				}
 				if !hasConfirmation {
-					composite *= 0.5
+					composite *= 0.70
 				}
 			}
 
@@ -902,10 +1204,10 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			if loss24h > 20.0 {
 				composite *= 0.10
 				longELPTags = append(longELPTags, "elp_hard_kill")
-			} else if loss24h > 10.0 && currentOI < 5_000_000 {
+			} else if loss24h > 10.0 && currentOI < dynamicOIThreshold*5 {
 				composite *= 0.30
 				longELPTags = append(longELPTags, "elp_severe")
-			} else if loss24h > 10.0 && currentOI < 20_000_000 {
+			} else if loss24h > 10.0 && currentOI < dynamicOIThreshold*20 {
 				composite *= 0.50
 				longELPTags = append(longELPTags, "elp_moderate")
 			}
@@ -922,15 +1224,23 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			p.score.Tags = append(append(append(append(posTags, oiTags...), smTags...), longELPTags...), washTags...)
 
 			// ===== SHORT DIRECTION =====
-			shortPosScore, shortPosTags := c.computeShortPositionScore(sym, p.ticker)
-			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI)
+			shortPosScore, shortPosTags := c.computeShortPositionScore(sym, p.ticker, sc)
+			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
 			p.score.ShortPositionScore = shortPosScore
 			p.score.ShortOISmartScore = shortOIScore
-			shortBase50 := clamp((shortPosScore+shortOIScore)/2, -35, 50)
+			shortBase50 := clamp(math.Max(shortPosScore, shortOIScore)*0.65+math.Min(shortPosScore, shortOIScore)*0.35, -35, 50)
 
-			shortSMScore, shortSMTags := c.computeShortSmartMoneyScore(sym, klines4h)
+			shortSMScore, shortSMTags := c.computeShortSmartMoneyScore(sym, klines4h, sc)
+
+			// 15m Taker signal (SHORT): faster detection for fast-moving markets
+			if len(klines15mForTaker) >= 5 {
+				_, takerSell15m, _, takerSell15mTags := computeTakerSignal15m(klines15mForTaker)
+				shortSMScore += takerSell15m
+				shortSMTags = append(shortSMTags, takerSell15mTags...)
+			}
+
 			p.score.ShortSmartMoneyScore = shortSMScore
-			shortBase25 := shortSMScore * 0.65
+			shortBase25 := shortSMScore * 0.80
 
 			shortComposite := clamp(shortBase50+shortBase25, 0, 75)
 
@@ -948,6 +1258,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 					"oi_distribution": true, "oi_price_aligned_short": true, "oi_moderate_short": true,
 					"lsr_bearish_reversal": true, "lsr_bearish_strong": true,
 					"taker_sell_strong": true, "taker_sustained_selling": true,
+					"taker_sell_strong_15m": true, "taker_sustained_selling_15m": true, "MICRO_SELL_RUSH": true,
 				}
 				hasShortConfirmation := false
 				for _, t := range allShortTags {
@@ -957,7 +1268,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 					}
 				}
 				if !hasShortConfirmation {
-					shortComposite *= 0.5
+					shortComposite *= 0.70
 				}
 			}
 
@@ -969,7 +1280,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			} else if pct24h > 15.0 {
 				shortComposite *= 0.30
 				shortELPTags = append(shortELPTags, "elp_short_severe")
-			} else if pct24h > 10.0 && currentOI < 20_000_000 {
+			} else if pct24h > 10.0 && currentOI < dynamicOIThreshold*20 {
 				shortComposite *= 0.50
 				shortELPTags = append(shortELPTags, "elp_short_moderate")
 			}
@@ -978,7 +1289,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 			p.score.ShortTags = append(append(append(append(shortPosTags, shortOITags...), shortSMTags...), shortELPTags...), washTags...)
 
 			// ===== PILLAR E': Squeeze & Explosion Potential (direction-agnostic) =====
-			squeezeScore, squeezeTags := c.computeSqueezeExplosionPillar(sym)
+			squeezeScore, squeezeTags := c.computeSqueezeExplosionPillar(sym, sc)
 			p.score.FinalScore += squeezeScore
 			p.score.Tags = append(p.score.Tags, squeezeTags...)
 			p.score.ShortFinalScore += squeezeScore
@@ -1023,52 +1334,34 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		return filtered[i].score.FinalScore > filtered[j].score.FinalScore
 	})
 
-	// v6: 宁缺勿滥门控 — Top-10 中强信号标的不足则观望
-	// Long strong signals
-	longStrongSignals := map[string]bool{
-		"oi_accumulation": true, "oi_price_aligned": true, "oi_moderate": true,
-		"oi_short_squeeze": true, "oi_squeeze_moderate": true,
-		"lsr_reversal": true, "lsr_bullish": true,
-		"bb_squeeze_15m": true, "bb_squeeze_5m": true,
-		"oi_spike_1h": true, "squeeze_explosion_synergy": true,
+	// --- Signal dedup: keep max 2 per tag combination for diversity ---
+	type sigGroup struct {
+		sig  string
+		idxs []int
 	}
-	// Short strong signals
-	shortStrongSignals := map[string]bool{
-		"oi_distribution": true, "oi_price_aligned_short": true, "oi_moderate_short": true,
-		"oi_long_squeeze": true, "oi_long_squeeze_moderate": true,
-		"lsr_bearish_reversal": true, "lsr_bearish_strong": true,
-		"bb_squeeze_15m": true, "bb_squeeze_5m": true,
-		"oi_spike_1h": true, "squeeze_explosion_synergy": true,
+	groups := make(map[string][]int)
+	for i, p := range filtered {
+		sorted := make([]string, len(p.score.Tags))
+		copy(sorted, p.score.Tags)
+		sort.Strings(sorted)
+		sig := strings.Join(sorted, ",")
+		groups[sig] = append(groups[sig], i)
 	}
-	// v7: 宁缺勿滥分离 — 双方向各自独立≥2个强信号，避免单方向占满
-	checkTop := 10
-	if len(filtered) < checkTop {
-		checkTop = len(filtered)
-	}
-	longStrongCount, shortStrongCount := 0, 0
-	for i := 0; i < checkTop; i++ {
-		hasLong, hasShort := false, false
-		for _, t := range filtered[i].score.Tags {
-			if longStrongSignals[t] {
-				hasLong = true
-			}
-			if shortStrongSignals[t] {
-				hasShort = true
-			}
+	deduped := make([]candidate, 0, len(filtered))
+	for _, idxs := range groups {
+		limit := 2
+		if len(idxs) < limit {
+			limit = len(idxs)
 		}
-		if hasLong {
-			longStrongCount++
-		}
-		if hasShort {
-			shortStrongCount++
+		for j := 0; j < limit; j++ {
+			deduped = append(deduped, filtered[idxs[j]])
 		}
 	}
-	// 任一方向≥2即通过（OR逻辑，宁缺勿滥但不扼杀单方向机会）
-	if longStrongCount < 2 && shortStrongCount < 2 {
-		log.Printf("⚠️  Hunter 宁缺勿滥: LONG强信号%d个 SHORT强信号%d个 (各自需≥2), 观望", longStrongCount, shortStrongCount)
-		return nil, nil
-	}
-	log.Printf("✅ Hunter 宁缺勿滥通过: LONG强信号%d个, SHORT强信号%d个", longStrongCount, shortStrongCount)
+	sort.SliceStable(deduped, func(i, j int) bool {
+		return deduped[i].score.FinalScore > deduped[j].score.FinalScore
+	})
+	filtered = deduped
+	log.Printf("🔄 Hunter dedup: %d → %d symbols (max 2 per tag group)", len(filtered)+len(groups)*0, len(filtered))
 
 	topN := 30
 	if len(filtered) < topN {

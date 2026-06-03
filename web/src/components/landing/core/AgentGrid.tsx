@@ -13,7 +13,7 @@ const agents = [
     apy: '142%',
     winRate: '68%',
     risk: 'HIGH',
-    color: 'text-ait-gold',
+    color: 'text-primary',
     border: 'border-ait-gold/50',
     bg_glow: 'shadow-[0_0_30px_rgba(240,185,11,0.1)]',
     icon: Zap,
@@ -69,17 +69,17 @@ export default function AgentGrid() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end mb-10 md:mb-16 gap-6">
           <div>
-            <div className="flex items-center gap-2 text-ait-gold font-mono text-xs mb-2 tracking-widest uppercase">
+            <div className="flex items-center gap-2 text-primary font-mono text-xs mb-2 tracking-widest uppercase">
               <Crosshair className="w-4 h-4" /> MARKET SELECT
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">
+            <h2 className="text-4xl md:text-5xl font-black text-foreground uppercase tracking-tighter">
               STRATEGY{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold to-white">
                 UNITS
               </span>
             </h2>
           </div>
-          <div className="font-mono text-right text-xs text-zinc-500 max-w-xs">
+          <div className="font-mono text-right text-xs text-muted-foreground max-w-xs">
             SELECT AN AUTONOMOUS AGENT TO BEGIN DEPLOYMENT. UNITS ARE
             PRE-TRAINED ON HISTORICAL TICKS.
           </div>
@@ -104,11 +104,11 @@ export default function AgentGrid() {
                 <div className="p-8 relative z-10">
                   {/* Header */}
                   <div className="flex justify-between items-start mb-6">
-                    <div className="p-3 bg-zinc-900/80 rounded border border-zinc-700">
+                    <div className="p-3 bg-surface/80 rounded border border-border">
                       <Icon className={`w-8 h-8 ${agent.color}`} />
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase">
+                      <div className="text-[10px] font-mono text-muted-foreground uppercase">
                         Class
                       </div>
                       <div
@@ -120,33 +120,33 @@ export default function AgentGrid() {
                   </div>
 
                   {/* Name & Desc */}
-                  <h3 className="text-3xl font-bold text-white mb-2 tracking-tight group-hover:text-ait-accent transition-colors">
+                  <h3 className="text-3xl font-bold text-foreground mb-2 tracking-tight group-hover:text-ait-accent transition-colors">
                     {agent.name}
                   </h3>
-                  <p className="text-zinc-500 text-sm mb-8 leading-relaxed h-10">
+                  <p className="text-muted-foreground text-sm mb-8 leading-relaxed h-10">
                     {agent.desc}
                   </p>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-3 gap-px bg-zinc-800/50 border border-zinc-800 rounded overflow-hidden mb-8">
-                    <div className="bg-black/60 p-3 text-center group-hover:bg-zinc-900/60 transition-colors">
-                      <div className="text-[10px] text-zinc-500 uppercase font-mono mb-1">
+                  <div className="grid grid-cols-3 gap-px bg-surface-alt border border-border rounded overflow-hidden mb-8">
+                    <div className="bg-black/60 p-3 text-center group-hover:bg-surface/60 transition-colors">
+                      <div className="text-[10px] text-muted-foreground uppercase font-mono mb-1">
                         APY
                       </div>
                       <div className="text-green-400 font-bold">
                         {agent.apy}
                       </div>
                     </div>
-                    <div className="bg-black/60 p-3 text-center group-hover:bg-zinc-900/60 transition-colors">
-                      <div className="text-[10px] text-zinc-500 uppercase font-mono mb-1">
+                    <div className="bg-black/60 p-3 text-center group-hover:bg-surface/60 transition-colors">
+                      <div className="text-[10px] text-muted-foreground uppercase font-mono mb-1">
                         Win %
                       </div>
-                      <div className="text-white font-bold">
+                      <div className="text-foreground font-bold">
                         {agent.winRate}
                       </div>
                     </div>
-                    <div className="bg-black/60 p-3 text-center group-hover:bg-zinc-900/60 transition-colors">
-                      <div className="text-[10px] text-zinc-500 uppercase font-mono mb-1">
+                    <div className="bg-black/60 p-3 text-center group-hover:bg-surface/60 transition-colors">
+                      <div className="text-[10px] text-muted-foreground uppercase font-mono mb-1">
                         Risk
                       </div>
                       <div className={`${agent.color} font-bold`}>
@@ -158,7 +158,7 @@ export default function AgentGrid() {
                   {/* Action Btn */}
                   <button
                     onClick={handleInitialize}
-                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-zinc-700 hover:border-${agent.color === 'text-ait-gold' ? 'ait-gold' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-white cursor-pointer`}
+                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-border hover:border-${agent.color === 'text-primary' ? 'ait-gold' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-foreground cursor-pointer`}
                   >
                     <span className={agent.color}>[</span> INITIALIZE{' '}
                     <span className={agent.color}>]</span>

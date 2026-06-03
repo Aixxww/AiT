@@ -88,7 +88,7 @@ export interface GridStrategyConfig {
 }
 
 export interface CoinSourceConfig {
-  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'hunter' | 'mixed';
+  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'hunter' | 'hunter_sniff' | 'indicator_hub' | 'mixed';
   static_coins?: string[];
   excluded_coins?: string[];   // 排除的币种列表
   use_ai500: boolean;
@@ -104,8 +104,32 @@ export interface CoinSourceConfig {
   use_hunter?: boolean;
   hunter_limit?: number;
   hunter_config?: HunterConfig;
-  hunter_direction?: 'LONG' | 'SHORT'; // Hunter signal direction: LONG or SHORT
+  hunter_direction?: 'LONG' | 'SHORT' | 'BOTH'; // Hunter signal direction: LONG, SHORT, or BOTH
   // Note: API URLs are now built automatically using Binance public API (local provider)
+
+  // IndicatorHub unified scoring engine
+  use_indicator_hub?: boolean;
+  indicator_hub?: IndicatorHubConfig;
+}
+
+export interface IndicatorHubConfig {
+  tech_weight?: number;       // default 40
+  quant_weight?: number;      // default 40
+  social_weight?: number;     // default 20
+  direction_margin?: number;  // default 15
+  grade_s_threshold?: number; // default 80
+  grade_a_threshold?: number; // default 65
+  grade_b_threshold?: number; // default 50
+  stop_loss_atr?: number;     // default 2.0
+  tp1_atr?: number;           // default 1.5
+  tp2_atr?: number;           // default 3.0
+  tp3_atr?: number;           // default 5.0
+  max_signals_per_cycle?: number; // default 5
+  min_score?: number;         // default 50
+  cooldown_minutes?: number;  // default 60
+  top_n_for_scoring?: number; // default 100
+  social_enabled?: boolean;   // default true
+  lunarcrush_api_key?: string;
 }
 
 export interface HunterConfig {
@@ -118,6 +142,11 @@ export interface HunterConfig {
   enable_cooldown?: boolean;
   min_trade_count?: number;
   position_timeframes?: string[];
+  // Breakout mode fields
+  strategy_mode?: 'default' | 'breakout';
+  bb_width_coarse_filter?: number;
+  bb_width_cache_ttl?: number;
+  oi_lone_breaker_threshold?: number;
 }
 
 export interface IndicatorConfig {

@@ -198,6 +198,28 @@ func isRealtimeAccountIntent(text string) bool {
 
 func snapshotKindsForIntent(userText string) []string {
 	kinds := make([]string, 0, 6)
+	lower := strings.ToLower(strings.TrimSpace(userText))
+	if lower == "" {
+		return nil
+	}
+
+	if detectTraderManagementIntent(userText) || strings.Contains(lower, "trader") || strings.Contains(lower, "交易员") {
+		kinds = append(kinds,
+			"current_model_configs",
+			"current_exchange_configs",
+			"current_traders",
+			"current_strategies",
+		)
+	}
+	if detectModelManagementIntent(userText) || strings.Contains(lower, "模型") || strings.Contains(lower, "model") {
+		kinds = append(kinds, "current_model_configs")
+	}
+	if detectExchangeManagementIntent(userText) || strings.Contains(lower, "交易所") || strings.Contains(lower, "exchange") {
+		kinds = append(kinds, "current_exchange_configs")
+	}
+	if detectStrategyManagementIntent(userText) || strings.Contains(lower, "策略") || strings.Contains(lower, "strategy") {
+		kinds = append(kinds, "current_strategies")
+	}
 	return uniqueStrings(kinds)
 }
 
@@ -756,6 +778,9 @@ func (a *Agent) thinkAndAct(ctx context.Context, storeUserID string, userID int6
 	if answer, ok := a.tryHardSkill(ctx, storeUserID, userID, lang, text, nil); ok {
 		return answer, nil
 	}
+	if answer, ok, err := a.tryLLMSkillRoute(ctx, storeUserID, userID, lang, text, nil); ok || err != nil {
+		return answer, err
+	}
 	// Check setup flow before falling back to noAI — handles "开始配置", "setup", etc.
 	if reply, handled := a.handleSetupFlowForStoreUser(storeUserID, userID, text, lang); handled {
 		return reply, nil
@@ -789,6 +814,9 @@ func (a *Agent) thinkAndActStream(ctx context.Context, storeUserID string, userI
 	if answer, ok := a.tryHardSkill(ctx, storeUserID, userID, lang, text, onEvent); ok {
 		return answer, nil
 	}
+	if answer, ok, err := a.tryLLMSkillRoute(ctx, storeUserID, userID, lang, text, onEvent); ok || err != nil {
+		return answer, err
+	}
 	// Check setup flow before falling back to noAI — handles "开始配置", "setup", etc.
 	if reply, handled := a.handleSetupFlowForStoreUser(storeUserID, userID, text, lang); handled {
 		if onEvent != nil {
@@ -809,18 +837,18 @@ func tryInstantDirectReply(lang, text string) (string, bool) {
 	}
 
 	zhReplies := map[string]string{
-		"hi":     "在，有什么我帮你看的？",
-		"hello":  "在，有什么我帮你看的？",
-		"hey":    "在，有什么我帮你看的？",
-		"你好":     "在，有什么我帮你看的？",
-		"嗨":      "在，有什么我帮你看的？",
-		"在吗":     "在，有什么我帮你看的？",
-		"谢谢":     "不客气。",
-		"多谢":     "不客气。",
-		"谢了":     "不客气。",
-		"ok":     "好。",
-		"好的":     "好。",
-		"收到":     "好。",
+		"hi":    "在，有什么我帮你看的？",
+		"hello": "在，有什么我帮你看的？",
+		"hey":   "在，有什么我帮你看的？",
+		"你好":    "在，有什么我帮你看的？",
+		"嗨":     "在，有什么我帮你看的？",
+		"在吗":    "在，有什么我帮你看的？",
+		"谢谢":    "不客气。",
+		"多谢":    "不客气。",
+		"谢了":    "不客气。",
+		"ok":    "好。",
+		"好的":    "好。",
+		"收到":    "好。",
 	}
 	enReplies := map[string]string{
 		"hi":        "I'm here. What should we look at?",

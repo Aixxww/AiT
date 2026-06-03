@@ -210,8 +210,30 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 		})
 	}
 
-	// ---- signal bonus: detect RSI oversold, volume breakout, OI-price divergence ----
-	c.applySignalBonus(coins)
+	// ---- signal bonus using SymbolCache (parallel, rate-limited) ----
+	// Build ticker map for SymbolCache
+	tickerMap := make(map[string]binanceTicker, topN)
+	for i := 0; i < topN; i++ {
+		tickerMap[pool[i].ticker.Symbol] = pool[i].ticker
+	}
+
+	// Extract symbols for cache building
+	cacheSymbols := make([]string, 0, topN)
+	for i := 0; i < topN; i++ {
+		cacheSymbols = append(cacheSymbols, pool[i].ticker.Symbol)
+	}
+
+	// Build SymbolCaches with rate limiting (10 concurrent API calls)
+	rl := NewBinanceRateLimiter(10)
+	symbolCaches := BuildSymbolCaches(c, cacheSymbols, tickerMap, rl)
+
+	// Apply signal bonus from caches
+	for i := range coins {
+		sc := symbolCaches[coins[i].Pair]
+		if sc != nil {
+			c.applySignalBonusFromCache(&coins[i], sc)
+		}
+	}
 
 	// Re-sort after signal bonus
 	sort.SliceStable(coins, func(i, j int) bool {
@@ -382,29 +404,137 @@ func (c *Client) computeSignalBonus(coin *nofxos.CoinData) {
 	}
 }
 
-// fetchJSONParallel is like fetchJSON but without rate limiting.
-// Safe for concurrent use from multiple goroutines (each creates its own http.Client).
+// applySignalBonusFromCache computes signal bonuses for a single coin using pre-fetched SymbolCache.
+// This is the cache-based version of computeSignalBonus that avoids API calls.
+//
+// Signals detected (each adds bonus points):
+//   - RSI14 < 30 (oversold bounce setup): +15
+//   - Volume breakout (latest 1h vol > 5-bar avg × 2): +10
+//   - OI increase + price increase (bullish accumulation): +10
+//   - Funding rate negative (shorts paying longs): +8 to +15
+//   - Funding rate overheated (overleveraged longs): -10
+func (c *Client) applySignalBonusFromCache(coin *nofxos.CoinData, sc *SymbolCache) {
+	bonus := 0.0
+	var tags []string
+
+	// Use 1h klines from cache (20 bars for RSI14 + volume avg)
+	klines1h := lastN(sc.Klines["1h"], 20)
+	if len(klines1h) < 15 {
+		return
+	}
+
+	// Signal 1: RSI14 oversold (< 30)
+	rsi14 := computeRSI(klines1h, 14)
+	if rsi14 > 0 && rsi14 < 30 {
+		bonus += 15
+		tags = append(tags, "rsi_oversold")
+	}
+
+	// Signal 2: Volume breakout
+	if len(klines1h) >= 6 {
+		latestVol := klines1h[len(klines1h)-1].Volume
+		avgVol := 0.0
+		for _, k := range klines1h[len(klines1h)-6 : len(klines1h)-1] {
+			avgVol += k.Volume
+		}
+		avgVol /= 5
+		if avgVol > 0 && latestVol > avgVol*2 {
+			bonus += 10
+			tags = append(tags, "vol_breakout")
+		}
+	}
+
+	// Signal 3: OI increase + price increase (use 4h delta from cache)
+	if sc.OIDelta4h > 0 {
+		if len(klines1h) >= 4 {
+			priceStart := klines1h[len(klines1h)-4].Close
+			priceEnd := klines1h[len(klines1h)-1].Close
+			if priceStart > 0 && priceEnd > priceStart {
+				bonus += 10
+				tags = append(tags, "oi_up_price_up")
+			}
+		}
+	}
+
+	// Signal 4: Funding rate signal (from cache)
+	fr := sc.FundingRate
+	if fr < -0.0005 { // -0.05%: extreme bearish crowding
+		bonus += 15
+		tags = append(tags, "funding_negative")
+	} else if fr < 0 { // negative: shorts paying
+		bonus += 8
+		tags = append(tags, "funding_bearish")
+	} else if fr > 0.001 { // +0.1%: overleveraged longs
+		bonus -= 10
+		tags = append(tags, "funding_overheated")
+	}
+
+	if bonus > 0 {
+		coin.Score += bonus
+		coin.SignalTags = tags
+		log.Printf("🎯 %s signal bonus (cached): +%.0f %v (new score: %.1f)", coin.Pair, bonus, tags, coin.Score)
+	}
+}
+
+// fetchJSONParallel is like fetchJSON but without per-request rate limiting.
+// Uses a shared http.Client with connection pooling and a concurrency
+// semaphore to avoid overwhelming Binance. Retries on HTTP 429 with
+// exponential backoff (up to 3 attempts).
+// Safe for concurrent use from multiple goroutines.
 func (c *Client) fetchJSONParallel(url string, target interface{}) error {
-	httpClient := &http.Client{Timeout: c.Timeout}
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		return fmt.Errorf("local: GET %s failed: %w", url, err)
-	}
-	defer resp.Body.Close()
+	// Acquire semaphore slot (blocks if maxParallelRequests already in-flight)
+	c.parallelSem <- struct{}{}
+	defer func() { <-c.parallelSem }()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("local: read body %s failed: %w", url, err)
-	}
+	const maxRetries = 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err := c.parallelClient.Get(url)
+		if err != nil {
+			if attempt < maxRetries && isRetryableNetError(err) {
+				backoff := time.Duration(300*(1<<attempt)) * time.Millisecond
+				time.Sleep(backoff)
+				continue
+			}
+			return fmt.Errorf("local: GET %s failed: %w", url, err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("local: %s returned HTTP %d: %s", url, resp.StatusCode, string(body))
-	}
+		body, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("local: read body %s failed: %w", url, err)
+		}
 
-	if err := json.Unmarshal(body, target); err != nil {
-		return fmt.Errorf("local: JSON unmarshal failed for %s: %w", url, err)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			// Rate limited — exponential backoff: 500ms, 1s, 2s
+			if attempt < maxRetries {
+				backoff := time.Duration(500*(1<<attempt)) * time.Millisecond
+				time.Sleep(backoff)
+				continue
+			}
+			return fmt.Errorf("local: %s rate limited (429) after %d retries", url, maxRetries)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("local: %s returned HTTP %d: %s", url, resp.StatusCode, string(body))
+		}
+
+		if err := json.Unmarshal(body, target); err != nil {
+			return fmt.Errorf("local: JSON unmarshal failed for %s: %w", url, err)
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("local: %s exhausted retries", url)
+}
+
+// isRetryableNetError returns true if the error is a transient network issue
+// (connection reset, timeout, EOF) that should be retried.
+func isRetryableNetError(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "connection reset") ||
+		strings.Contains(s, "i/o timeout") ||
+		strings.Contains(s, "EOF") ||
+		strings.Contains(s, "broken pipe") ||
+		strings.Contains(s, "unexpected EOF")
 }
 
 // fetchKlinesParallel fetches klines using fetchJSONParallel (no rate limiting).

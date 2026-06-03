@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -86,8 +87,22 @@ func mockGetLLM(llm *mockLLM) func() mcp.AIClient {
 
 const testPrompt = "You are a test assistant."
 
+func requireLocalTCP(t *testing.T) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close local TCP listener: %v", err)
+	}
+}
+
 // mockAPIServer creates a test HTTP server with configurable route handlers.
-func mockAPIServer(handlers map[string]string) (*httptest.Server, int) {
+func mockAPIServer(t *testing.T, handlers map[string]string) (*httptest.Server, int) {
+	t.Helper()
+	requireLocalTCP(t)
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Method + " " + r.URL.Path
 		if body, ok := handlers[key]; ok {
@@ -126,7 +141,7 @@ func TestAgentDirectReply(t *testing.T) {
 
 // TestAgentAPICall: LLM makes one tool call, gets result, gives final reply — two LLM calls.
 func TestAgentAPICall(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/my-traders": `[{"trader_id":"t1","trader_name":"BTC Trader","is_running":false}]`,
 	})
 	defer srv.Close()
@@ -149,7 +164,7 @@ func TestAgentAPICall(t *testing.T) {
 
 // TestAgentMultiStep: LLM chains two tool calls before final reply — three LLM calls.
 func TestAgentMultiStep(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/account":   `{"total_equity":1000}`,
 		"/api/positions": `[]`,
 	})
@@ -174,7 +189,7 @@ func TestAgentMultiStep(t *testing.T) {
 
 // TestAgentAPIResultInContext: tool result must appear as a tool message in the next LLM call.
 func TestAgentAPIResultInContext(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/account": `{"balance":1234.56}`,
 	})
 	defer srv.Close()
@@ -206,7 +221,7 @@ func TestAgentAPIResultInContext(t *testing.T) {
 // In real LLM APIs, Content is always empty alongside ToolCalls, but we verify
 // our agent handles a malformed response defensively.
 func TestNarrationStructurallyImpossible(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/strategies": `[{"id":"s1","name":"BTC Trend"}]`,
 	})
 	defer srv.Close()
@@ -241,7 +256,7 @@ func TestNarrationStructurallyImpossible(t *testing.T) {
 
 // TestOnChunkCalledWithFinalReply: onChunk receives the complete final reply.
 func TestOnChunkCalledWithFinalReply(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/account": `{"equity":500}`,
 	})
 	defer srv.Close()
@@ -275,7 +290,7 @@ func TestOnChunkCalledWithFinalReply(t *testing.T) {
 // TestCreateStrategyWorkflow: simulates creating a BTC trend strategy.
 // Verifies: POST strategy → GET verify → final reply shows strategy info.
 func TestCreateStrategyWorkflow(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"POST /api/strategies":   `{"id":"s1","name":"BTC趋势"}`,
 		"GET /api/strategies/s1": `{"id":"s1","name":"BTC趋势","config":{"coin_source":{"source_type":"static","static_coins":["BTC/USDT"]},"leverage":5}}`,
 	})
@@ -300,6 +315,7 @@ func TestCreateStrategyWorkflow(t *testing.T) {
 // TestFullSetupWorkflow: create strategy → verify → create trader → start trader.
 // This is the "帮我配置策略并跑起来" workflow.
 func TestFullSetupWorkflow(t *testing.T) {
+	requireLocalTCP(t)
 	calls := map[string]int{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Method + " " + r.URL.Path
@@ -350,6 +366,7 @@ func TestFullSetupWorkflow(t *testing.T) {
 
 // TestStartExistingTrader: when trader already exists, just start it.
 func TestStartExistingTrader(t *testing.T) {
+	requireLocalTCP(t)
 	calls := map[string]int{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Method + " " + r.URL.Path
@@ -387,7 +404,7 @@ func TestStartExistingTrader(t *testing.T) {
 
 // TestMaxIterations: agent terminates after maxIterations and returns fallback message.
 func TestMaxIterations(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/account": `{"ok":true}`,
 	})
 	defer srv.Close()
@@ -413,7 +430,7 @@ func TestMaxIterations(t *testing.T) {
 
 // TestToolCallIDPropagated: tool result messages carry the correct ToolCallID.
 func TestToolCallIDPropagated(t *testing.T) {
-	srv, port := mockAPIServer(map[string]string{
+	srv, port := mockAPIServer(t, map[string]string{
 		"/api/account": `{"balance":999}`,
 	})
 	defer srv.Close()

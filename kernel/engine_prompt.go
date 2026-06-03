@@ -239,6 +239,31 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			btcData.CurrentMACD, btcData.CurrentRSI7))
 	}
 
+	// Market environment classification (ADX-based regime detection)
+	if ctx.MarketEnv != nil {
+		env := ctx.MarketEnv
+		regimeLabel := "Transitional (balanced risk, standard position sizing)"
+		switch env.Regime {
+		case market.RegimeRanging:
+			regimeLabel = "Mean-Reversion Dominated (favor Hunter/Sniff signals, avoid trend-chasing)"
+		case market.RegimeTrending:
+			regimeLabel = "Trend-Following Dominated (favor momentum/surge signals, avoid counter-trend entries)"
+		}
+		if e.GetLanguage() == LangChinese {
+			switch env.Regime {
+			case market.RegimeRanging:
+				regimeLabel = "均值回归主导 (偏向Hunter/Sniff信号，避免追涨杀跌)"
+			case market.RegimeTrending:
+				regimeLabel = "趋势追踪主导 (偏向动量/追浪信号，避免逆势操作)"
+			default:
+				regimeLabel = "过渡期 (平衡风控，标准仓位)"
+			}
+		}
+		sb.WriteString(fmt.Sprintf("## Market Environment: %s (ADX=%.1f, +DI=%.1f, -DI=%.1f)\n\n",
+			strings.ToUpper(string(env.Regime)), env.ADX, env.PlusDI, env.MinusDI))
+		sb.WriteString(fmt.Sprintf("Guidance: %s\n\n", regimeLabel))
+	}
+
 	// Account information
 	sb.WriteString(fmt.Sprintf("Account: Equity %.2f | Balance %.2f (%.1f%%) | PnL %+.2f%% | Margin %.1f%% | Positions %d\n\n",
 		ctx.Account.TotalEquity,
@@ -369,6 +394,27 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 		if len(coin.SignalTags) > 0 && coin.Direction != "" {
 			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
 		}
+		// RUSH alert: highlight extreme 15m taker pressure for AI attention
+		for _, tag := range coin.SignalTags {
+			if tag == "MICRO_BUY_RUSH" || tag == "MICRO_SELL_RUSH" {
+				sb.WriteString(fmt.Sprintf("⚡ ALERT: %s detected on 15m — strong short-term directional pressure!\n\n", tag))
+			}
+		}
+		// Capital confirmation tier (three-level gate)
+		if coin.CapitalTier != "" && coin.CapitalTier != "Untiered" {
+			tierLabel := coin.CapitalTier
+			if e.GetLanguage() == LangChinese {
+				switch coin.CapitalLevel {
+				case 3:
+					tierLabel = "Tier-S 高置信信号"
+				case 2:
+					tierLabel = "Tier-A 中等确认"
+				case 1:
+					tierLabel = "Tier-B 低置信 (仅补位)"
+				}
+			}
+			sb.WriteString(fmt.Sprintf("Capital Tier: %s (Level %d)\n\n", tierLabel, coin.CapitalLevel))
+		}
 		// Show Hunter bidirectional scores for AI decision context
 		if coin.LongScore > 0 || coin.ShortScore > 0 {
 			selectedScore := coin.LongScore
@@ -382,8 +428,22 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			} else if coin.Direction == "LONG" && coin.ShortScore > coin.LongScore {
 				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: SHORT score (%.1f) > LONG score (%.1f). Consider switching direction or reducing confidence.\n", coin.ShortScore, coin.LongScore))
 			}
-			if selectedScore < 30 {
-				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: Selected direction score (%.1f) is below 30. High risk — consider WAIT.\n", selectedScore))
+			if selectedScore < 10 {
+				sb.WriteString(fmt.Sprintf("🛑 Hunter REJECT: Score (%.1f) below 10. Do NOT trade.\n", selectedScore))
+			} else if selectedScore < 20 {
+				sb.WriteString(fmt.Sprintf("⚠️ Hunter LOW: Score (%.1f). Reduce position to 25%% max.\n", selectedScore))
+			} else if selectedScore < 30 {
+				sb.WriteString(fmt.Sprintf("⚡ Hunter MODERATE: Score (%.1f). Standard position.\n", selectedScore))
+			} else {
+				sb.WriteString(fmt.Sprintf("🔥 Hunter STRONG: Score (%.1f). Full conviction.\n", selectedScore))
+			}
+			// ADX direction validation: warn if Hunter direction conflicts with market trend
+			if ctx.MarketEnv != nil && ctx.MarketEnv.ADX >= 20 {
+				_, adxWarning := ValidateDirectionWithADX(coin.Direction, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI)
+				if adxWarning != "" {
+					sb.WriteString(fmt.Sprintf("⚠️ %s — ADX=%.1f (+DI=%.1f, -DI=%.1f). Reduce confidence or reconsider direction.\n",
+						adxWarning, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI))
+				}
 			}
 			sb.WriteString("\n")
 		}

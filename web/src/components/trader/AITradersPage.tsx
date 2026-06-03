@@ -639,19 +639,19 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-4">
             <div className="relative group">
-              <div className="absolute -inset-1 bg-ait-gold/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-black border border-ait-gold/30 text-ait-gold relative z-10 shadow-[0_0_15px_rgba(240,185,11,0.1)]">
+              <div className="absolute -inset-1 bg-primary/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-black border border-ait-gold/30 text-primary relative z-10 shadow-[0_0_15px_rgba(240,185,11,0.1)]">
                 <Bot className="w-6 h-6 md:w-7 md:h-7" />
               </div>
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-mono tracking-tight text-white flex items-center gap-3 uppercase">
+              <h1 className="text-2xl md:text-3xl font-bold font-mono tracking-tight text-foreground flex items-center gap-3 uppercase">
                 {t('aiTraders', language)}
-                <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-ait-gold/10 text-ait-gold border border-ait-gold/20 tracking-wider">
+                <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-primary-dim text-primary border border-ait-gold/20 tracking-wider">
                   {traders?.length || 0} ACTIVE_NODES
                 </span>
               </h1>
-              <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-1 ml-1 flex items-center gap-2">
+              <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mt-1 ml-1 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                 SYSTEM_READY
               </p>
@@ -661,7 +661,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
           <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
             <button
               onClick={handleAddModel}
-              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-zinc-700 bg-black/20 text-zinc-400 hover:text-white hover:border-zinc-500 whitespace-nowrap backdrop-blur-sm"
+              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-border bg-black/20 text-muted-foreground hover:text-foreground hover:border-zinc-500 whitespace-nowrap backdrop-blur-sm"
             >
               <div className="flex items-center gap-2">
                 <Plus className="w-3 h-3" />
@@ -671,7 +671,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
 
             <button
               onClick={handleAddExchange}
-              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-zinc-700 bg-black/20 text-zinc-400 hover:text-white hover:border-zinc-500 whitespace-nowrap backdrop-blur-sm"
+              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-border bg-black/20 text-muted-foreground hover:text-foreground hover:border-zinc-500 whitespace-nowrap backdrop-blur-sm"
             >
               <div className="flex items-center gap-2">
                 <Plus className="w-3 h-3" />
@@ -695,7 +695,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
                 configuredModels.length === 0 ||
                 configuredExchanges.length === 0
               }
-              className="group relative px-6 py-2 rounded text-xs font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap overflow-hidden bg-ait-gold text-black hover:bg-yellow-400 shadow-[0_0_20px_rgba(240,185,11,0.2)] hover:shadow-[0_0_30px_rgba(240,185,11,0.4)]"
+              className="group relative px-6 py-2 rounded text-xs font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap overflow-hidden bg-primary text-primary-foreground hover:bg-yellow-400 shadow-[0_0_20px_rgba(240,185,11,0.2)] hover:shadow-[0_0_30px_rgba(240,185,11,0.4)]"
             >
               <span className="relative z-10 flex items-center gap-2">
                 <Plus className="w-4 h-4" />

@@ -5,6 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="/icons/ait.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AiT - AI Auto Trading Dashboard</title>
+    <script>
+      // FOUWT: Apply theme before CSS loads to prevent flash-of-wrong-theme
+      (function() {
+        try {
+          var saved = JSON.parse(localStorage.getItem('ait-theme-mode'));
+          var mode = (saved && saved.state && saved.state.mode) || 'system';
+          var scheme, style;
+
+          if (mode === 'system') {
+            scheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            style = 'pro';
+          } else {
+            var parts = mode.split('-');
+            style = parts[0];
+            scheme = parts[1];
+          }
+
+          document.documentElement.setAttribute('data-theme', scheme);
+          document.documentElement.setAttribute('data-style', style);
+          document.documentElement.classList.add(scheme, style);
+          document.documentElement.style.colorScheme = scheme;
+        } catch(e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.setAttribute('data-style', 'pro');
+          document.documentElement.classList.add('dark', 'pro');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

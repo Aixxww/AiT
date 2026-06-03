@@ -5,10 +5,12 @@ import (
 	"nofx/api"
 	nofxiagent "nofx/agent"
 	"nofx/auth"
+	"nofx/backtest"
 	"nofx/config"
 	"nofx/crypto"
 	"nofx/logger"
 	"nofx/manager"
+	"nofx/mcp"
 	_ "nofx/mcp/payment"
 	_ "nofx/mcp/provider"
 	"nofx/store"
@@ -79,6 +81,7 @@ func main() {
 		logger.Fatalf("❌ Failed to initialize database: %v", err)
 	}
 	defer st.Close()
+	backtest.UseDatabaseWithType(st.DB(), st.DBType() == store.DBTypePostgres)
 
 	// Set JWT secret
 	auth.SetJWTSecret(cfg.JWTSecret)
@@ -94,6 +97,13 @@ func main() {
 
 	// Create TraderManager
 	traderManager := manager.NewTraderManager()
+
+	// Create BacktestManager
+	mcpClient := newSharedMCPClient()
+	backtestManager := backtest.NewManager(mcpClient)
+	if err := backtestManager.RestoreRuns(); err != nil {
+		logger.Warnf("⚠️ Failed to restore backtest history: %v", err)
+	}
 
 	// Load all traders from database to memory (may auto-start traders with IsRunning=true)
 	if err := traderManager.LoadTradersFromStore(st); err != nil {
@@ -125,7 +135,7 @@ func main() {
 	}
 
 	// Start API server
-	server := api.NewServer(traderManager, st, cryptoService, cfg.APIServerPort)
+	server := api.NewServer(traderManager, st, cryptoService, backtestManager, cfg.APIServerPort)
 
 	// Create hot-reload channel for Telegram bot; wire it to the API server
 	// so that POST /api/telegram can trigger a bot restart when the token changes.
@@ -169,5 +179,15 @@ func main() {
 	// Stop all traders
 	traderManager.StopAll()
 	logger.Info("✅ System shut down safely")
+}
+
+// newSharedMCPClient creates a shared MCP AI client (for backtesting)
+func newSharedMCPClient() mcp.AIClient {
+	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	if apiKey == "" {
+		logger.Warn("⚠️ DEEPSEEK_API_KEY not set, AI backtest features will be unavailable")
+		return nil
+	}
+	return mcp.NewAIClientByProvider("deepseek")
 }
 

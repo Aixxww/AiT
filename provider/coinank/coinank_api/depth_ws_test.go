@@ -10,6 +10,7 @@ import (
 )
 
 func TestDepthWs(t *testing.T) {
+	requireCoinankLiveTest(t)
 	ctx := context.TODO()
 	ws, err := DepthWsConn(ctx)
 	if err != nil {

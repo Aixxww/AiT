@@ -158,7 +158,7 @@ func isNoReply(text string) bool {
 func isCancelSkillReply(text string) bool {
 	lower := strings.ToLower(strings.TrimSpace(text))
 	switch lower {
-	case "取消", "/cancel", "cancel", "不改", "先不改", "算了", "先不用", "不用了", "不弄了", "不搞了", "换话题", "换话题了", "聊别的", "先聊别的":
+	case "取消", "/cancel", "cancel", "不改", "先不改", "算了", "不用了", "不弄了", "不搞了", "换话题", "换话题了", "聊别的", "先聊别的":
 		return true
 	default:
 		return false
@@ -673,6 +673,24 @@ func ensureSkillFields(session *skillSession) {
 }
 
 func (a *Agent) handleCreateTraderSkill(storeUserID string, userID int64, lang, text string, session skillSession) (string, bool) {
+	if session.Phase == "await_start_confirmation" {
+		setSkillDAGStep(&session, "await_start_confirmation")
+		switch {
+		case isYesReply(text):
+			answer := a.executeCreateTraderSkill(storeUserID, userID, lang, session, true)
+			return answer, true
+		case isNoReply(text):
+			answer := a.executeCreateTraderSkill(storeUserID, userID, lang, session, false)
+			return answer, true
+		default:
+			a.saveSkillSession(userID, session)
+			if lang == "zh" {
+				return "当前流程在等待你确认是否立即启动交易员。回复“确认”继续启动，回复“先不用”则只创建不启动。", true
+			}
+			return "This flow is waiting for your confirmation to start the trader. Reply 'confirm' to start it now, or 'no' to create without starting.", true
+		}
+	}
+
 	if isCancelSkillReply(text) {
 		a.clearSkillSession(userID)
 		if lang == "zh" {
@@ -698,24 +716,6 @@ func (a *Agent) handleCreateTraderSkill(storeUserID string, userID int64, lang, 
 	}
 	if fieldValue(session, skillDAGStepField) == "" {
 		setSkillDAGStep(&session, "resolve_name")
-	}
-
-	if session.Phase == "await_start_confirmation" {
-		setSkillDAGStep(&session, "await_start_confirmation")
-		switch {
-		case isYesReply(text):
-			answer := a.executeCreateTraderSkill(storeUserID, userID, lang, session, true)
-			return answer, true
-		case isNoReply(text):
-			answer := a.executeCreateTraderSkill(storeUserID, userID, lang, session, false)
-			return answer, true
-		default:
-			a.saveSkillSession(userID, session)
-			if lang == "zh" {
-				return "当前流程在等待你确认是否立即启动交易员。回复“确认”继续启动，回复“先不用”则只创建不启动。", true
-			}
-			return "This flow is waiting for your confirmation to start the trader. Reply 'confirm' to start it now, or 'no' to create without starting.", true
-		}
 	}
 
 	slots := session.Slots

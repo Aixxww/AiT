@@ -92,7 +92,7 @@ export default function HeaderBar({
           className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
         >
           <img src="/icons/ait.svg" alt="AiT Logo" className="w-7 h-7" />
-          <span className="text-lg font-bold text-ait-gold">AiT</span>
+          <span className="text-lg font-bold text-primary">AiT</span>
         </div>
 
         {/* Desktop Menu */}
@@ -159,6 +159,17 @@ export default function HeaderBar({
                   requiresAuth: true,
                 },
                 {
+                  page: 'backtest',
+                  path: ROUTES.backtest,
+                  label:
+                    language === 'zh'
+                      ? '回测'
+                      : language === 'id'
+                        ? 'Backtest'
+                        : 'Backtest',
+                  requiresAuth: true,
+                },
+                {
                   page: 'competition',
                   path: ROUTES.competition,
                   label: t('realtimeNav', language),
@@ -190,14 +201,14 @@ export default function HeaderBar({
                   key={tab.page}
                   onClick={() => handleNavClick(tab)}
                   className={`text-sm font-bold transition-all duration-300 relative focus:outline-2 focus:outline-yellow-500 px-3 py-2 rounded-lg
-                    ${resolvedCurrentPage === tab.page ? 'text-ait-gold' : 'text-ait-text-muted hover:text-ait-gold'}`}
+                    ${resolvedCurrentPage === tab.page ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                 >
                   {resolvedCurrentPage === tab.page && (
-                    <span className="absolute inset-0 rounded-lg bg-ait-gold/15 -z-10" />
+                    <span className="absolute inset-0 rounded-lg bg-primary/15 -z-10" />
                   )}
                   {tab.label}
                   {tab.badge && (
-                    <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-ait-gold/20 text-ait-gold font-semibold uppercase align-top relative -top-1">
+                    <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-top relative -top-1">
                       {tab.badge}
                     </span>
                   )}
@@ -215,24 +226,24 @@ export default function HeaderBar({
                 <div className="relative" ref={userDropdownRef}>
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded transition-colors bg-ait-bg-lighter border border-ait-gold/20 hover:bg-white/5"
+                    className="flex items-center gap-2 px-3 py-2 rounded transition-colors bg-surface border border-primary/20 hover:bg-white/5"
                   >
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-ait-gold text-black">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground">
                       {user.email[0].toUpperCase()}
                     </div>
-                    <span className="text-sm text-ait-text-muted">
+                    <span className="text-sm text-muted-foreground">
                       {user.email}
                     </span>
-                    <ChevronDown className="w-4 h-4 text-ait-text-muted" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   </button>
 
                   {userDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg overflow-hidden z-50 bg-ait-bg-lighter border border-ait-gold/20">
-                      <div className="px-3 py-2 border-b border-ait-gold/20">
-                        <div className="text-xs text-ait-text-muted">
+                    <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
+                      <div className="px-3 py-2 border-b border-primary/20">
+                        <div className="text-xs text-muted-foreground">
                           {t('loggedInAs', language)}
                         </div>
-                        <div className="text-sm font-medium text-ait-text-muted">
+                        <div className="text-sm font-medium text-muted-foreground">
                           {user.email}
                         </div>
                       </div>
@@ -241,7 +252,7 @@ export default function HeaderBar({
                           navigateInApp(ROUTES.settings)
                           setUserDropdownOpen(false)
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-ait-text-muted hover:text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
                       >
                         <Settings className="w-3.5 h-3.5" />
                         Settings
@@ -252,7 +263,7 @@ export default function HeaderBar({
                             userMode === 'beginner' ? 'advanced' : 'beginner'
                           )
                         }
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-ait-text-muted hover:text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
                       >
                         <Settings className="w-3.5 h-3.5" />
                         {userMode === 'beginner'
@@ -269,7 +280,7 @@ export default function HeaderBar({
                             onLogout()
                             setUserDropdownOpen(false)
                           }}
-                          className="w-full px-3 py-2 text-sm font-semibold transition-colors hover:opacity-80 text-center bg-ait-danger/20 text-ait-danger"
+                          className="w-full px-3 py-2 text-sm font-semibold transition-colors hover:opacity-80 text-center bg-loss/20 text-loss"
                         >
                           {t('exitLogin', language)}
                         </button>
@@ -286,7 +297,7 @@ export default function HeaderBar({
                   <button
                     type="button"
                     onClick={() => navigateInApp(ROUTES.login)}
-                    className="px-3 py-2 text-sm font-medium transition-colors rounded text-ait-text-muted hover:text-white"
+                    className="px-3 py-2 text-sm font-medium transition-colors rounded text-muted-foreground hover:text-foreground"
                   >
                     {t('signIn', language)}
                   </button>
@@ -298,7 +309,7 @@ export default function HeaderBar({
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded transition-colors text-ait-text-muted hover:bg-white/5"
+                className="flex items-center gap-2 px-3 py-2 rounded transition-colors text-muted-foreground hover:bg-white/5"
               >
                 <span className="text-lg">
                   {language === 'zh' ? '🇨🇳' : language === 'id' ? '🇮🇩' : '🇺🇸'}
@@ -307,14 +318,14 @@ export default function HeaderBar({
               </button>
 
               {languageDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-32 rounded-lg shadow-lg overflow-hidden z-50 bg-ait-bg-lighter border border-ait-gold/20">
+                <div className="absolute right-0 top-full mt-2 w-32 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
                   <button
                     onClick={() => {
                       onLanguageChange?.('zh')
                       setLanguageDropdownOpen(false)
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-ait-text-muted hover:text-white
-                      ${language === 'zh' ? 'bg-ait-gold/10' : 'hover:bg-white/5'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
+                      ${language === 'zh' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
                   >
                     <span className="text-base">🇨🇳</span>
                     <span className="text-sm">中文</span>
@@ -324,8 +335,8 @@ export default function HeaderBar({
                       onLanguageChange?.('en')
                       setLanguageDropdownOpen(false)
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-ait-text-muted hover:text-white
-                      ${language === 'en' ? 'bg-ait-gold/10' : 'hover:bg-white/5'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
+                      ${language === 'en' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
                   >
                     <span className="text-base">🇺🇸</span>
                     <span className="text-sm">English</span>
@@ -335,8 +346,8 @@ export default function HeaderBar({
                       onLanguageChange?.('id')
                       setLanguageDropdownOpen(false)
                     }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-ait-text-muted hover:text-white
-                      ${language === 'id' ? 'bg-ait-gold/10' : 'hover:bg-white/5'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
+                      ${language === 'id' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
                   >
                     <span className="text-base">🇮🇩</span>
                     <span className="text-sm">Bahasa</span>
@@ -350,7 +361,7 @@ export default function HeaderBar({
         {/* Mobile Menu Button */}
         <motion.button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden text-ait-text-muted hover:text-white"
+          className="md:hidden text-muted-foreground hover:text-foreground"
           whileTap={{ scale: 0.9 }}
         >
           {mobileMenuOpen ? (
@@ -438,6 +449,17 @@ export default function HeaderBar({
                       requiresAuth: true,
                     },
                     {
+                      page: 'backtest',
+                      path: ROUTES.backtest,
+                      label:
+                        language === 'zh'
+                          ? '回测'
+                          : language === 'id'
+                            ? 'Backtest'
+                            : 'Backtest',
+                      requiresAuth: true,
+                    },
+                    {
                       page: 'competition',
                       path: ROUTES.competition,
                       label: t('realtimeNav', language),
@@ -472,22 +494,22 @@ export default function HeaderBar({
                       transition={{ delay: 0.1 + i * 0.05 }}
                       onClick={() => handleMobileNavClick(tab)}
                       className={`text-2xl font-black tracking-tight text-left flex items-center gap-3
-                        ${resolvedCurrentPage === tab.page ? 'text-ait-gold' : 'text-zinc-500'}`}
+                        ${resolvedCurrentPage === tab.page ? 'text-primary' : 'text-muted-foreground'}`}
                     >
                       {resolvedCurrentPage === tab.page && (
                         <motion.div
                           layoutId="active-indicator"
-                          className="w-1.5 h-1.5 rounded-full bg-ait-gold"
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
                         />
                       )}
                       {tab.label}
                       {tab.badge && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ait-gold/20 text-ait-gold font-semibold uppercase align-middle relative -top-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-middle relative -top-1">
                           {tab.badge}
                         </span>
                       )}
                       {tab.requiresAuth && !isLoggedIn && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-500 font-normal tracking-wide uppercase align-middle relative -top-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-normal tracking-wide uppercase align-middle relative -top-1">
                           LOGIN_REQ
                         </span>
                       )}
@@ -508,7 +530,7 @@ export default function HeaderBar({
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.5 + i * 0.1 }}
                         href={`#${item.key === 'features' ? 'features' : 'how-it-works'}`}
-                        className="block text-lg font-mono text-zinc-600 hover:text-white"
+                        className="block text-lg font-mono text-muted-foreground hover:text-foreground"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         {'>'} {item.label}
@@ -523,7 +545,7 @@ export default function HeaderBar({
                 {/* Account / Lang */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Lang Switcher */}
-                  <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+                  <div className="flex bg-surface rounded-lg p-1 border border-border">
                     {['zh', 'en', 'id'].map((lang) => (
                       <button
                         key={lang}
@@ -533,8 +555,8 @@ export default function HeaderBar({
                         }}
                         className={`flex-1 py-3 text-sm font-bold rounded-md transition-colors ${
                           language === lang
-                            ? 'bg-zinc-800 text-white shadow-sm'
-                            : 'text-zinc-500'
+                            ? 'bg-surface-alt text-foreground shadow-sm'
+                            : 'text-muted-foreground'
                         }`}
                       >
                         {lang === 'zh' ? 'CN' : lang === 'id' ? 'ID' : 'EN'}
@@ -562,7 +584,7 @@ export default function HeaderBar({
                           navigateInApp(ROUTES.login)
                           setMobileMenuOpen(false)
                         }}
-                        className="flex items-center justify-center bg-ait-gold text-black rounded-lg font-bold text-sm hover:bg-yellow-400 transition-colors"
+                        className="flex items-center justify-center bg-primary text-primary-foreground rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
                       >
                         {t('signIn', language)}
                       </button>

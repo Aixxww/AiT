@@ -24,6 +24,7 @@ func TestLeverageFallback(t *testing.T) {
 				PositionSizeUSD: 100,
 				StopLoss:        50,
 				TakeProfit:      200,
+				Confidence:      75,
 			},
 			accountEquity:   100,
 			btcEthLeverage:  10,
@@ -40,6 +41,7 @@ func TestLeverageFallback(t *testing.T) {
 				PositionSizeUSD: 1000,
 				StopLoss:        90000,
 				TakeProfit:      110000,
+				Confidence:      75,
 			},
 			accountEquity:   100,
 			btcEthLeverage:  10, // Limit 10x
@@ -56,6 +58,7 @@ func TestLeverageFallback(t *testing.T) {
 				PositionSizeUSD: 500,
 				StopLoss:        4000,
 				TakeProfit:      3000,
+				Confidence:      75,
 			},
 			accountEquity:   100,
 			btcEthLeverage:  10,
@@ -72,6 +75,7 @@ func TestLeverageFallback(t *testing.T) {
 				PositionSizeUSD: 100,
 				StopLoss:        50,
 				TakeProfit:      200,
+				Confidence:      75,
 			},
 			accountEquity:   100,
 			btcEthLeverage:  10,
@@ -84,7 +88,7 @@ func TestLeverageFallback(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use default position value ratios for testing (10x for BTC/ETH, 1.5x for altcoins)
-			err := validateDecision(&tt.decision, tt.accountEquity, tt.btcEthLeverage, tt.altcoinLeverage, 10.0, 1.5)
+			err := validateDecision(&tt.decision, tt.accountEquity, tt.btcEthLeverage, tt.altcoinLeverage, 10.0, 1.5, nil)
 
 			// Check error status
 			if (err != nil) != tt.wantError {
@@ -99,7 +103,6 @@ func TestLeverageFallback(t *testing.T) {
 		})
 	}
 }
-
 
 // contains checks if string contains substring (helper function)
 func contains(s, substr string) bool {

@@ -64,7 +64,7 @@ export function LoginPage() {
           <div className="text-center mb-10">
             <div className="flex justify-center mb-5">
               <div className="relative">
-                <div className="absolute -inset-3 bg-ait-gold/15 rounded-full blur-2xl" />
+                <div className="absolute -inset-3 bg-primary/15 rounded-full blur-2xl" />
                 <img
                   src="/icons/ait.svg"
                   alt="AiT"
@@ -72,25 +72,25 @@ export function LoginPage() {
                 />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-1.5">
+            <h1 className="text-2xl font-bold text-foreground mb-1.5">
               Welcome back
             </h1>
-            <p className="text-zinc-500 text-sm">Sign in to your account</p>
+            <p className="text-muted-foreground text-sm">Sign in to your account</p>
           </div>
 
           {/* Card */}
-          <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+          <div className="bg-surface/60 backdrop-blur-xl border border-border/80 rounded-2xl p-8 shadow-2xl">
             <form onSubmit={handleLogin} className="space-y-5">
               {/* Email */}
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-2">
+                <label className="block text-xs font-medium text-muted-foreground mb-2">
                   {t('email', language)}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                  className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
                   placeholder="you@example.com"
                   required
                   autoFocus
@@ -100,13 +100,13 @@ export function LoginPage() {
               {/* Password */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium text-zinc-400">
+                  <label className="text-xs font-medium text-muted-foreground">
                     {t('password', language)}
                   </label>
                   <button
                     type="button"
                     onClick={() => navigate('/reset-password')}
-                    className="text-xs text-zinc-500 hover:text-ait-gold transition-colors"
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
                   >
                     {t('forgotPassword', language)}
                   </button>
@@ -116,14 +116,14 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                    className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -141,7 +141,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-ait-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-primary hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading
                   ? t('loggingIn', language) || 'Signing in...'

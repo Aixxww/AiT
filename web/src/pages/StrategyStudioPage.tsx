@@ -566,8 +566,8 @@ export function StrategyStudioPage() {
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="text-center">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-4 border-yellow-500/20 border-t-yellow-500 animate-spin" />
-            <Zap className="w-6 h-6 text-yellow-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <Zap className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
         </div>
       </div>
@@ -582,7 +582,7 @@ export function StrategyStudioPage() {
     {
       key: 'gridConfig' as const,
       icon: Activity,
-      color: '#0ECB81',
+      color: 'var(--color-profit)',
       title: tr('gridConfig'),
       forStrategyType: 'grid_trading' as const,
       content: editingConfig?.grid_config && (
@@ -598,7 +598,7 @@ export function StrategyStudioPage() {
     {
       key: 'coinSource' as const,
       icon: Target,
-      color: '#F0B90B',
+      color: 'var(--color-primary)',
       title: tr('coinSource'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
@@ -613,7 +613,7 @@ export function StrategyStudioPage() {
     {
       key: 'indicators' as const,
       icon: BarChart3,
-      color: '#0ECB81',
+      color: 'var(--color-profit)',
       title: tr('indicators'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
@@ -628,7 +628,7 @@ export function StrategyStudioPage() {
     {
       key: 'riskControl' as const,
       icon: Shield,
-      color: '#F6465D',
+      color: 'var(--color-loss)',
       title: tr('riskControl'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
@@ -643,7 +643,7 @@ export function StrategyStudioPage() {
     {
       key: 'promptSections' as const,
       icon: FileText,
-      color: '#a855f7',
+      color: 'var(--color-accent)',
       title: tr('promptSections'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
@@ -658,12 +658,12 @@ export function StrategyStudioPage() {
     {
       key: 'customPrompt' as const,
       icon: Settings,
-      color: '#60a5fa',
+      color: 'var(--color-accent)',
       title: tr('customPrompt'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <div>
-          <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+          <p className="text-xs mb-2 text-muted-foreground">
             {tr('customPromptDesc')}
           </p>
           <textarea
@@ -671,8 +671,8 @@ export function StrategyStudioPage() {
             onChange={(e) => updateConfig('custom_prompt', e.target.value)}
             disabled={selectedStrategy?.is_default}
             placeholder={tr('customPromptPlaceholder')}
-            className="w-full h-32 px-3 py-2 rounded-lg resize-none font-mono text-xs"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139', color: '#EAECEF' }}
+            className="w-full h-32 px-3 py-2 rounded-lg resize-none font-mono text-xs bg-background text-foreground"
+            style={{ border: '1px solid var(--color-border)' }}
           />
         </div>
       ),
@@ -680,7 +680,7 @@ export function StrategyStudioPage() {
     {
       key: 'publishSettings' as const,
       icon: Globe,
-      color: '#0ECB81',
+      color: 'var(--color-profit)',
       title: tr('publishSettings'),
       forStrategyType: 'both' as const,
       content: selectedStrategy && (
@@ -738,7 +738,7 @@ export function StrategyStudioPage() {
               <span className="text-xs font-medium text-ait-text-muted">{tr('strategies')}</span>
               <div className="flex items-center gap-1">
                 {/* Import button with hidden file input */}
-                <label className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-ait-text-muted hover:text-white" title={tr('importStrategy')}>
+                <label className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-ait-text-muted hover:text-foreground" title={tr('importStrategy')}>
                   <Upload className="w-4 h-4" />
                   <input
                     type="file"
@@ -749,7 +749,7 @@ export function StrategyStudioPage() {
                 </label>
                 <button
                   onClick={handleCreateStrategy}
-                  className="p-1 rounded hover:bg-white/10 transition-colors text-ait-gold"
+                  className="p-1 rounded hover:bg-white/10 transition-colors text-primary"
                   title={tr('newStrategyTooltip')}
                 >
                   <Plus className="w-4 h-4" />
@@ -768,7 +768,7 @@ export function StrategyStudioPage() {
                     setAiTestResult(null)
                   }}
                   className={`group px-2 py-2 rounded-lg cursor-pointer transition-all ${selectedStrategy?.id === strategy.id
-                    ? 'ring-1 ring-ait-gold/50 bg-ait-gold/10 shadow-[0_0_15px_rgba(240,185,11,0.1)]'
+                    ? 'ring-1 ring-ait-gold/50 bg-primary-dim shadow-neon'
                     : 'hover:bg-ait-bg-lighter/60 ring-1 ring-white/10 hover:ring-ait-gold/20 bg-transparent'
                     }`}
                 >
@@ -777,7 +777,7 @@ export function StrategyStudioPage() {
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleExportStrategy(strategy) }}
-                        className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-white"
+                        className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-foreground"
                         title={tr('export')}
                       >
                         <Download className="w-3 h-3" />
@@ -786,7 +786,7 @@ export function StrategyStudioPage() {
                         <>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDuplicateStrategy(strategy.id) }}
-                            className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-white"
+                            className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-foreground"
                             title={tr('duplicate')}
                           >
                             <Copy className="w-3 h-3" />
@@ -810,12 +810,12 @@ export function StrategyStudioPage() {
                       </span>
                     )}
                     {strategy.is_default && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-ait-gold/15 text-ait-gold">
+                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/15 text-primary">
                         {tr('default')}
                       </span>
                     )}
                     {strategy.is_public && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded flex items-center gap-0.5 bg-blue-400/15 text-blue-400">
+                      <span className="px-1.5 py-0.5 text-[10px] rounded flex items-center gap-0.5 bg-accent/15 text-accent">
                         <Globe className="w-2.5 h-2.5" />
                         {tr('public')}
                       </span>
@@ -856,7 +856,7 @@ export function StrategyStudioPage() {
                     className="text-xs bg-transparent border-none outline-none w-full text-ait-text-muted placeholder-ait-text-muted/50 mt-1"
                   />
                   {hasChanges && (
-                    <span className="text-xs text-ait-gold">● {tr('unsaved')}</span>
+                    <span className="text-xs text-primary">● {tr('unsaved')}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -874,7 +874,7 @@ export function StrategyStudioPage() {
                       onClick={handleSaveStrategy}
                       disabled={isSaving || !hasChanges}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50
-                        ${hasChanges ? 'bg-ait-gold text-black hover:bg-yellow-500' : 'bg-ait-bg-lighter text-ait-text-muted cursor-not-allowed'}`}
+                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-yellow-500' : 'bg-ait-bg-lighter text-ait-text-muted cursor-not-allowed'}`}
                     >
                       <Save className="w-3 h-3" />
                       {isSaving ? tr('saving') : tr('save')}
@@ -894,7 +894,7 @@ export function StrategyStudioPage() {
               {editingConfig && (
                 <div className="mb-4 p-4 rounded-lg bg-ait-bg-lighter border border-ait-gold/20">
                   <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4" style={{ color: '#F0B90B' }} />
+                    <Zap className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
                     <span className="text-sm font-medium text-ait-text">{tr('strategyType')}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -903,12 +903,12 @@ export function StrategyStudioPage() {
                       disabled={selectedStrategy?.is_default}
                       className={`p-3 rounded-lg border transition-all ${
                         (!editingConfig.strategy_type || editingConfig.strategy_type === 'ai_trading')
-                          ? 'border-ait-gold bg-ait-gold/10'
+                          ? 'border-ait-gold bg-primary-dim'
                           : 'border-ait-border hover:border-ait-gold/50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Bot className="w-4 h-4" style={{ color: '#F0B90B' }} />
+                        <Bot className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
                         <span className="text-sm font-medium text-ait-text">{tr('aiTrading')}</span>
                       </div>
                       <p className="text-xs text-ait-text-muted text-left">{tr('aiTradingDesc')}</p>
@@ -918,12 +918,12 @@ export function StrategyStudioPage() {
                       disabled={selectedStrategy?.is_default}
                       className={`p-3 rounded-lg border transition-all ${
                         editingConfig.strategy_type === 'grid_trading'
-                          ? 'border-ait-gold bg-ait-gold/10'
+                          ? 'border-ait-gold bg-primary-dim'
                           : 'border-ait-border hover:border-ait-gold/50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Activity className="w-4 h-4" style={{ color: '#0ECB81' }} />
+                        <Activity className="w-4 h-4" style={{ color: 'var(--color-profit)' }} />
                         <span className="text-sm font-medium text-ait-text">{tr('gridTrading')}</span>
                       </div>
                       <p className="text-xs text-ait-text-muted text-left">{tr('gridTradingDesc')}</p>
@@ -980,7 +980,7 @@ export function StrategyStudioPage() {
           <div className="flex-shrink-0 flex border-b border-ait-gold/20">
             <button
               onClick={() => setActiveRightTab('prompt')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeRightTab === 'prompt' ? 'border-b-2 border-purple-500 text-purple-500' : 'opacity-60 hover:opacity-100 text-ait-text-muted'
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeRightTab === 'prompt' ? 'border-b-2 border-accent text-accent' : 'opacity-60 hover:opacity-100 text-ait-text-muted'
                 }`}
             >
               <Eye className="w-4 h-4" />
@@ -988,7 +988,7 @@ export function StrategyStudioPage() {
             </button>
             <button
               onClick={() => setActiveRightTab('test')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeRightTab === 'test' ? 'border-b-2 border-green-500 text-green-500' : 'opacity-60 hover:opacity-100 text-ait-text-muted'
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeRightTab === 'test' ? 'border-b-2 border-profit text-profit' : 'opacity-60 hover:opacity-100 text-ait-text-muted'
                 }`}
             >
               <Play className="w-4 h-4" />
@@ -1015,7 +1015,7 @@ export function StrategyStudioPage() {
                   <button
                     onClick={fetchPromptPreview}
                     disabled={isLoadingPrompt || !editingConfig}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 bg-purple-600 hover:bg-purple-700 text-white"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 bg-accent hover:bg-accent/80 text-foreground"
                   >
                     {isLoadingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     {promptPreview ? tr('refreshPrompt') : tr('loadPrompt')}
@@ -1027,8 +1027,8 @@ export function StrategyStudioPage() {
                     {/* Config Summary */}
                     <div className="p-2 rounded-lg bg-ait-bg border border-ait-gold/20">
                       <div className="flex items-center gap-1.5 mb-2">
-                        <Code className="w-3 h-3 text-purple-500" />
-                        <span className="text-xs font-medium text-purple-500">Config</span>
+                        <Code className="w-3 h-3 text-accent" />
+                        <span className="text-xs font-medium text-accent">Config</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         {Object.entries(promptPreview.config_summary || {}).map(([key, value]) => (
@@ -1044,7 +1044,7 @@ export function StrategyStudioPage() {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-1.5">
-                          <FileText className="w-3 h-3 text-purple-500" />
+                          <FileText className="w-3 h-3 text-accent" />
                           <span className="text-xs font-medium text-ait-text">{tr('systemPrompt')}</span>
                         </div>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-ait-bg-lighter text-ait-text-muted">
@@ -1072,7 +1072,7 @@ export function StrategyStudioPage() {
                 {/* Controls */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-green-500" />
+                    <Bot className="w-4 h-4 text-profit" />
                     <span className="text-xs font-medium text-ait-text">{tr('selectModel')}</span>
                   </div>
                   {aiModels.length > 0 ? (
@@ -1106,7 +1106,7 @@ export function StrategyStudioPage() {
                     <button
                       onClick={runAiTest}
                       disabled={isRunningAiTest || !editingConfig || !selectedModelId}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 text-white shadow-lg shadow-green-500/20 bg-gradient-to-br from-green-500 to-green-600"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 text-foreground shadow-lg shadow-neon bg-gradient-to-br from-profit to-profit/80"
                     >
                       {isRunningAiTest ? (
                         <>
@@ -1146,7 +1146,7 @@ export function StrategyStudioPage() {
                         {aiTestResult.user_prompt && (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
-                              <Terminal className="w-3 h-3 text-blue-400" />
+                              <Terminal className="w-3 h-3 text-accent" />
                               <span className="text-xs font-medium text-ait-text">{tr('userPrompt')} (Input)</span>
                             </div>
                             <pre
@@ -1162,7 +1162,7 @@ export function StrategyStudioPage() {
                         {aiTestResult.reasoning && (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
-                              <Sparkles className="w-3 h-3 text-ait-gold" />
+                              <Sparkles className="w-3 h-3 text-primary" />
                               <span className="text-xs font-medium text-ait-text">{tr('reasoning')}</span>
                             </div>
                             <pre
@@ -1178,11 +1178,11 @@ export function StrategyStudioPage() {
                         {aiTestResult.decisions && aiTestResult.decisions.length > 0 && (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
-                              <Activity className="w-3 h-3 text-green-500" />
+                              <Activity className="w-3 h-3 text-profit" />
                               <span className="text-xs font-medium text-ait-text">{tr('decisions')}</span>
                             </div>
                             <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-ait-bg border border-green-500/30 text-ait-text"
+                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-ait-bg border border-profit/30 text-ait-text"
                               style={{ maxHeight: '200px' }}
                             >
                               {JSON.stringify(aiTestResult.decisions, null, 2)}

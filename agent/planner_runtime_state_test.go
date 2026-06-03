@@ -436,11 +436,20 @@ func (d *directReplyAIClient) CallWithMessages(string, string) (string, error) {
 	return "", errors.New("unexpected CallWithMessages")
 }
 func (d *directReplyAIClient) CallWithRequest(req *mcp.Request) (string, error) {
+	systemPrompts := make([]string, 0, len(req.Messages))
 	if len(req.Messages) > 0 {
 		d.lastSystemPrompt = req.Messages[0].Content
 	}
-	if len(req.Messages) > 1 {
-		d.lastUserPrompt = req.Messages[1].Content
+	for _, msg := range req.Messages {
+		if msg.Role == "system" {
+			systemPrompts = append(systemPrompts, msg.Content)
+		}
+		if msg.Role == "user" {
+			d.lastUserPrompt = msg.Content
+		}
+	}
+	if len(systemPrompts) > 0 {
+		d.lastSystemPrompt = strings.Join(systemPrompts, "\n")
 	}
 	if strings.Contains(d.lastSystemPrompt, "first-pass router for NOFXi") {
 		d.routerPrompt = d.lastSystemPrompt
@@ -456,8 +465,12 @@ func (d *directReplyAIClient) CallWithRequest(req *mcp.Request) (string, error) 
 		}
 		return `{"route":"planner","skill":"","action":"","filter":""}`, nil
 	}
-	if strings.Contains(d.lastSystemPrompt, "planning module for NOFXi") {
+	if strings.Contains(d.lastSystemPrompt, "step selector for NOFXi") || strings.Contains(d.lastSystemPrompt, "planning module for NOFXi") {
 		d.plannerPrompt = d.lastSystemPrompt
+		return `{"goal":"test goal","steps":[{"id":"step_1","type":"respond","instruction":"ok"}]}`, nil
+	}
+	if strings.Contains(d.lastSystemPrompt, "responding after a completed execution plan") {
+		return "ok", nil
 	}
 	return `{"goal":"test goal","steps":[{"id":"step_1","type":"respond","instruction":"ok"}]}`, nil
 }
@@ -488,7 +501,7 @@ func TestThinkAndActLegacyReturnsProviderFailureInsteadOfNoAIFallback(t *testing
 	}
 }
 
-func TestThinkAndActUsesDirectReplyGateForConversationalQuestion(t *testing.T) {
+func TestThinkAndActUsesInstantReplyForConversationalQuestion(t *testing.T) {
 	client := &directReplyAIClient{}
 	a := &Agent{
 		aiClient: client,
@@ -501,11 +514,11 @@ func TestThinkAndActUsesDirectReplyGateForConversationalQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("thinkAndAct() error = %v", err)
 	}
-	if !strings.Contains(resp, "你好，我在") {
-		t.Fatalf("expected direct reply response, got %q", resp)
+	if !strings.Contains(resp, "在，有什么我帮你看的") {
+		t.Fatalf("expected instant reply response, got %q", resp)
 	}
-	if !strings.Contains(client.routerPrompt, "first-pass router for NOFXi") {
-		t.Fatalf("expected direct reply router prompt, got %q", client.routerPrompt)
+	if client.routerPrompt != "" {
+		t.Fatalf("expected instant reply to skip direct reply router, got %q", client.routerPrompt)
 	}
 }
 
@@ -612,7 +625,7 @@ func TestThinkAndActPrioritizesActiveExecutionStateOverDirectReply(t *testing.T)
 	if strings.Contains(resp, "你好，我在") {
 		t.Fatalf("expected active execution state to bypass direct reply gate, got %q", resp)
 	}
-	if !strings.Contains(client.plannerPrompt, "planning module for NOFXi") {
+	if !strings.Contains(client.plannerPrompt, "step selector for NOFXi") {
 		t.Fatalf("expected planner prompt when execution state is active, got %q", client.plannerPrompt)
 	}
 }

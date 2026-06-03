@@ -154,8 +154,7 @@ export class HttpClient {
         sessionStorage.setItem('from401', 'true')
         window.location.href = '/login'
 
-        // Return pending promise
-        return new Promise(() => {})
+        throw new Error('Session expired')
       }
 
       throw new Error('Session expired')

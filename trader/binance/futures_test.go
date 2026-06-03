@@ -3,6 +3,7 @@ package binance
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,11 +24,17 @@ import (
 // Inherits TraderTestSuite and adds Binance Futures specific mock logic
 type BinanceFuturesTestSuite struct {
 	*testutil.TraderTestSuite // Embeds base test suite
-	mockServer              *httptest.Server
+	mockServer                *httptest.Server
 }
 
 // NewBinanceFuturesTestSuite Creates Binance Futures test suite
 func NewBinanceFuturesTestSuite(t *testing.T) *BinanceFuturesTestSuite {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
 	// Create mock HTTP server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return different mock responses based on URL path
@@ -319,6 +326,12 @@ func TestFuturesTrader_CommonInterface(t *testing.T) {
 
 // TestNewFuturesTrader tests creating Binance Futures trader
 func TestNewFuturesTrader(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
 	// Create mock HTTP server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path

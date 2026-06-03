@@ -72,14 +72,14 @@ function StatCard({
     <div
       className="rounded-lg p-4 transition-all duration-200 hover:scale-[1.02]"
       style={{
-        background: 'linear-gradient(135deg, #1E2329 0%, #181C21 100%)',
-        border: '1px solid #2B3139',
+        background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+        border: '1px solid var(--color-border)',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
       }}
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">{icon}</span>
-        <span className="text-xs" style={{ color: '#848E9C' }}>
+        <span className="text-xs text-muted-foreground">
           {title}
         </span>
         {metricKey && (
@@ -89,18 +89,18 @@ function StatCard({
       <div className="flex items-baseline gap-1">
         <span
           className="text-xl font-bold font-mono"
-          style={{ color: color || '#EAECEF' }}
+          style={{ color: color || 'var(--foreground)' }}
         >
           {value}
         </span>
         {suffix && (
-          <span className="text-sm" style={{ color: '#848E9C' }}>
+          <span className="text-sm text-muted-foreground">
             {suffix}
           </span>
         )}
       </div>
       {subtitle && (
-        <div className="text-xs mt-1" style={{ color: '#848E9C' }}>
+        <div className="text-xs mt-1 text-muted-foreground">
           {subtitle}
         </div>
       )}
@@ -112,26 +112,26 @@ function StatCard({
 function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
   const totalPnl = stat.total_pnl || 0
   const winRate = stat.win_rate || 0
-  const pnlColor = totalPnl >= 0 ? '#0ECB81' : '#F6465D'
+  const pnlColor = totalPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
   const winRateColor =
-    winRate >= 60 ? '#0ECB81' : winRate >= 40 ? '#F0B90B' : '#F6465D'
+    winRate >= 60 ? 'var(--color-profit)' : winRate >= 40 ? 'var(--color-primary)' : 'var(--color-loss)'
 
   return (
     <div
       className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 hover:bg-white/5"
-      style={{ borderBottom: '1px solid #2B3139' }}
+      style={{ borderBottom: '1px solid var(--color-border)' }}
     >
       <div className="flex items-center gap-3">
-        <span className="font-mono font-semibold" style={{ color: '#EAECEF' }}>
+        <span className="font-mono font-semibold text-foreground">
           {(stat.symbol || '').replace('USDT', '')}
         </span>
-        <span className="text-xs" style={{ color: '#848E9C' }}>
+        <span className="text-xs text-muted-foreground">
           {stat.total_trades || 0} trades
         </span>
       </div>
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <div className="text-xs" style={{ color: '#848E9C' }}>
+          <div className="text-xs text-muted-foreground">
             Win Rate
           </div>
           <div className="font-mono font-semibold" style={{ color: winRateColor }}>
@@ -139,7 +139,7 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
           </div>
         </div>
         <div className="text-right min-w-[80px]">
-          <div className="text-xs" style={{ color: '#848E9C' }}>
+          <div className="text-xs text-muted-foreground">
             P&L
           </div>
           <div className="font-mono font-semibold" style={{ color: pnlColor }}>
@@ -155,18 +155,18 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
 // Direction Stats Card
 function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language: Language }) {
   const isLong = (stat.side || '').toLowerCase() === 'long'
-  const iconColor = isLong ? '#0ECB81' : '#F6465D'
+  const iconColor = isLong ? 'var(--color-profit)' : 'var(--color-loss)'
   const totalPnl = stat.total_pnl || 0
   const winRate = stat.win_rate || 0
   const tradeCount = stat.trade_count || 0
   const avgPnl = stat.avg_pnl || 0
-  const pnlColor = totalPnl >= 0 ? '#0ECB81' : '#F6465D'
+  const pnlColor = totalPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
 
   return (
     <div
       className="rounded-lg p-4"
       style={{
-        background: 'linear-gradient(135deg, #1E2329 0%, #181C21 100%)',
+        background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
         border: `1px solid ${iconColor}33`,
       }}
     >
@@ -181,15 +181,15 @@ function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language
       </div>
       <div className="grid grid-cols-4 gap-4">
         <div>
-          <div className="text-xs mb-1" style={{ color: '#848E9C' }}>
+          <div className="text-xs mb-1 text-muted-foreground">
             {t('positionHistory.trades', language)}
           </div>
-          <div className="font-mono font-semibold" style={{ color: '#EAECEF' }}>
+          <div className="font-mono font-semibold text-foreground">
             {tradeCount}
           </div>
         </div>
         <div>
-          <div className="text-xs mb-1" style={{ color: '#848E9C' }}>
+          <div className="text-xs mb-1 text-muted-foreground">
             {t('positionHistory.winRate', language)}
           </div>
           <div
@@ -197,17 +197,17 @@ function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language
             style={{
               color:
                 winRate >= 60
-                  ? '#0ECB81'
+                  ? 'var(--color-profit)'
                   : winRate >= 40
-                    ? '#F0B90B'
-                    : '#F6465D',
+                    ? 'var(--color-primary)'
+                    : 'var(--color-loss)',
             }}
           >
             {winRate.toFixed(1)}%
           </div>
         </div>
         <div>
-          <div className="text-xs mb-1" style={{ color: '#848E9C' }}>
+          <div className="text-xs mb-1 text-muted-foreground">
             {t('positionHistory.totalPnL', language)}
           </div>
           <div className="font-mono font-semibold" style={{ color: pnlColor }}>
@@ -216,10 +216,10 @@ function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language
           </div>
         </div>
         <div>
-          <div className="text-xs mb-1" style={{ color: '#848E9C' }}>
+          <div className="text-xs mb-1 text-muted-foreground">
             {t('positionHistory.avgPnL', language)}
           </div>
-          <div className="font-mono font-semibold" style={{ color: avgPnl >= 0 ? '#0ECB81' : '#F6465D' }}>
+          <div className="font-mono font-semibold" style={{ color: avgPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
             {avgPnl >= 0 ? '+' : ''}
             {formatNumber(avgPnl)}
           </div>
@@ -235,8 +235,8 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
   const isLong = side.toUpperCase() === 'LONG'
   const realizedPnl = position.realized_pnl || 0
   const isProfitable = realizedPnl >= 0
-  const sideColor = isLong ? '#0ECB81' : '#F6465D'
-  const pnlColor = isProfitable ? '#0ECB81' : '#F6465D'
+  const sideColor = isLong ? 'var(--color-profit)' : 'var(--color-loss)'
+  const pnlColor = isProfitable ? 'var(--color-profit)' : 'var(--color-loss)'
 
   // Calculate holding time
   const entryTime = position.entry_time ? new Date(position.entry_time).getTime() : 0
@@ -261,12 +261,12 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
   return (
     <tr
       className="transition-all duration-200 hover:bg-white/5"
-      style={{ borderBottom: '1px solid #2B3139' }}
+      style={{ borderBottom: '1px solid var(--color-border)' }}
     >
       {/* Symbol */}
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-semibold" style={{ color: '#EAECEF' }}>
+          <span className="font-mono font-semibold text-foreground">
             {(position.symbol || '').replace('USDT', '')}
           </span>
           <span
@@ -283,22 +283,22 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
       </td>
 
       {/* Entry Price */}
-      <td className="py-3 px-4 text-right font-mono" style={{ color: '#EAECEF' }}>
+      <td className="py-3 px-4 text-right font-mono text-foreground">
         {formatPrice(entryPrice)}
       </td>
 
       {/* Exit Price */}
-      <td className="py-3 px-4 text-right font-mono" style={{ color: '#EAECEF' }}>
+      <td className="py-3 px-4 text-right font-mono text-foreground">
         {formatPrice(exitPrice)}
       </td>
 
       {/* Quantity */}
-      <td className="py-3 px-4 text-right font-mono" style={{ color: '#848E9C' }}>
+      <td className="py-3 px-4 text-right font-mono text-muted-foreground">
         {formatQuantity(displayQty)}
       </td>
 
       {/* Position Value (Entry Price * Quantity) */}
-      <td className="py-3 px-4 text-right font-mono" style={{ color: '#EAECEF' }}>
+      <td className="py-3 px-4 text-right font-mono text-foreground">
         {formatNumber(entryPrice * displayQty)}
       </td>
 
@@ -315,19 +315,19 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
       </td>
 
       {/* Fee - show more precision for small fees */}
-      <td className="py-3 px-4 text-right font-mono text-xs" style={{ color: '#848E9C' }}>
+      <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground">
         -{((position.fee || 0) < 0.01 && (position.fee || 0) > 0)
           ? (position.fee || 0).toFixed(4)
           : (position.fee || 0).toFixed(2)}
       </td>
 
       {/* Duration */}
-      <td className="py-3 px-4 text-center text-sm" style={{ color: '#848E9C' }}>
+      <td className="py-3 px-4 text-center text-sm text-muted-foreground">
         {formatDuration(holdingMinutes)}
       </td>
 
       {/* Exit Time */}
-      <td className="py-3 px-4 text-right text-xs" style={{ color: '#848E9C' }}>
+      <td className="py-3 px-4 text-right text-xs text-muted-foreground">
         {formatDate(position.exit_time)}
       </td>
     </tr>
@@ -456,8 +456,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center p-12"
-        style={{ color: '#848E9C' }}
+        className="flex items-center justify-center p-12 text-muted-foreground"
       >
         <div className="animate-spin mr-3">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
@@ -486,9 +485,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       <div
         className="rounded-lg p-6 text-center"
         style={{
-          background: 'rgba(246, 70, 93, 0.1)',
-          border: '1px solid rgba(246, 70, 93, 0.3)',
-          color: '#F6465D',
+          background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--color-loss) 30%, transparent)',
+          color: 'var(--color-loss)',
         }}
       >
         {error}
@@ -501,15 +500,15 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       <div
         className="rounded-lg p-12 text-center"
         style={{
-          background: 'linear-gradient(135deg, #1E2329 0%, #181C21 100%)',
-          border: '1px solid #2B3139',
+          background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+          border: '1px solid var(--color-border)',
         }}
       >
         <div className="text-4xl mb-4">📊</div>
-        <div className="text-lg font-semibold mb-2" style={{ color: '#EAECEF' }}>
+        <div className="text-lg font-semibold mb-2 text-foreground">
           {t('positionHistory.noHistory', language)}
         </div>
-        <div style={{ color: '#848E9C' }}>
+        <div className="text-muted-foreground">
           {t('positionHistory.noHistoryDesc', language)}
         </div>
       </div>
@@ -535,10 +534,10 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             suffix="%"
             color={
               (stats.win_rate || 0) >= 60
-                ? '#0ECB81'
+                ? 'var(--color-profit)'
                 : (stats.win_rate || 0) >= 40
-                  ? '#F0B90B'
-                  : '#F6465D'
+                  ? 'var(--color-primary)'
+                  : 'var(--color-loss)'
             }
             metricKey="win_rate"
             language={language}
@@ -547,7 +546,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="💰"
             title={t('positionHistory.totalPnL', language)}
             value={((stats.total_pnl || 0) >= 0 ? '+' : '') + formatNumber(stats.total_pnl || 0)}
-            color={(stats.total_pnl || 0) >= 0 ? '#0ECB81' : '#F6465D'}
+            color={(stats.total_pnl || 0) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'}
             subtitle={`${t('positionHistory.fee', language)}: -${formatNumber(stats.total_fee || 0)}`}
             metricKey="total_return"
             language={language}
@@ -556,7 +555,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="📈"
             title={t('positionHistory.profitFactor', language)}
             value={(stats.profit_factor || 0).toFixed(2)}
-            color={(stats.profit_factor || 0) >= 1.5 ? '#0ECB81' : (stats.profit_factor || 0) >= 1 ? '#F0B90B' : '#F6465D'}
+            color={(stats.profit_factor || 0) >= 1.5 ? 'var(--color-profit)' : (stats.profit_factor || 0) >= 1 ? 'var(--color-primary)' : 'var(--color-loss)'}
             subtitle={t('positionHistory.profitFactorDesc', language)}
             metricKey="profit_factor"
             language={language}
@@ -565,7 +564,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="⚖️"
             title={t('positionHistory.plRatio', language)}
             value={profitLossRatio === Infinity ? '∞' : profitLossRatio.toFixed(2)}
-            color={profitLossRatio >= 1.5 ? '#0ECB81' : profitLossRatio >= 1 ? '#F0B90B' : '#F6465D'}
+            color={profitLossRatio >= 1.5 ? 'var(--color-profit)' : profitLossRatio >= 1 ? 'var(--color-primary)' : 'var(--color-loss)'}
             subtitle={t('positionHistory.plRatioDesc', language)}
             metricKey="expectancy"
             language={language}
@@ -580,7 +579,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="📉"
             title={t('positionHistory.sharpeRatio', language)}
             value={(stats.sharpe_ratio || 0).toFixed(2)}
-            color={(stats.sharpe_ratio || 0) >= 1 ? '#0ECB81' : (stats.sharpe_ratio || 0) >= 0 ? '#F0B90B' : '#F6465D'}
+            color={(stats.sharpe_ratio || 0) >= 1 ? 'var(--color-profit)' : (stats.sharpe_ratio || 0) >= 0 ? 'var(--color-primary)' : 'var(--color-loss)'}
             subtitle={t('positionHistory.sharpeRatioDesc', language)}
             metricKey="sharpe_ratio"
             language={language}
@@ -590,7 +589,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             title={t('positionHistory.maxDrawdown', language)}
             value={(stats.max_drawdown_pct || 0).toFixed(1)}
             suffix="%"
-            color={(stats.max_drawdown_pct || 0) <= 10 ? '#0ECB81' : (stats.max_drawdown_pct || 0) <= 20 ? '#F0B90B' : '#F6465D'}
+            color={(stats.max_drawdown_pct || 0) <= 10 ? 'var(--color-profit)' : (stats.max_drawdown_pct || 0) <= 20 ? 'var(--color-primary)' : 'var(--color-loss)'}
             metricKey="max_drawdown"
             language={language}
           />
@@ -598,7 +597,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="🏆"
             title={t('positionHistory.avgWin', language)}
             value={'+' + formatNumber(stats.avg_win || 0)}
-            color="#0ECB81"
+            color="var(--color-profit)"
             metricKey="avg_trade_pnl"
             language={language}
           />
@@ -606,14 +605,14 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="💸"
             title={t('positionHistory.avgLoss', language)}
             value={'-' + formatNumber(stats.avg_loss || 0)}
-            color="#F6465D"
+            color="var(--color-loss)"
             language={language}
           />
           <StatCard
             icon="💵"
             title={t('positionHistory.netPnL', language)}
             value={((stats.total_pnl || 0) - (stats.total_fee || 0) >= 0 ? '+' : '') + formatNumber((stats.total_pnl || 0) - (stats.total_fee || 0))}
-            color={(stats.total_pnl || 0) - (stats.total_fee || 0) >= 0 ? '#0ECB81' : '#F6465D'}
+            color={(stats.total_pnl || 0) - (stats.total_fee || 0) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'}
             subtitle={t('positionHistory.netPnLDesc', language)}
             language={language}
           />
@@ -634,13 +633,13 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         <div
           className="rounded-lg p-4"
           style={{
-            background: 'linear-gradient(135deg, #1E2329 0%, #181C21 100%)',
-            border: '1px solid #2B3139',
+            background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+            border: '1px solid var(--color-border)',
           }}
         >
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">🏅</span>
-            <span className="font-semibold" style={{ color: '#EAECEF' }}>
+            <span className="font-semibold text-foreground">
               {t('positionHistory.symbolPerformance', language)}
             </span>
           </div>
@@ -656,17 +655,17 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       <div
         className="rounded-lg overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, #1E2329 0%, #181C21 100%)',
-          border: '1px solid #2B3139',
+          background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+          border: '1px solid var(--color-border)',
         }}
       >
         {/* Filters */}
         <div
           className="flex flex-wrap items-center gap-4 p-4"
-          style={{ borderBottom: '1px solid #2B3139' }}
+          style={{ borderBottom: '1px solid var(--color-border)' }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm" style={{ color: '#848E9C' }}>
+            <span className="text-sm text-muted-foreground">
               {t('positionHistory.symbol', language)}:
             </span>
             <AiTSelect
@@ -678,26 +677,26 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               ]}
               className="rounded px-3 py-1.5 text-sm"
               style={{
-                background: '#0B0E11',
-                border: '1px solid #2B3139',
-                color: '#EAECEF',
+                background: 'var(--background)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--foreground)',
               }}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm" style={{ color: '#848E9C' }}>
+            <span className="text-sm text-muted-foreground">
               {t('positionHistory.side', language)}:
             </span>
-            <div className="flex rounded overflow-hidden" style={{ border: '1px solid #2B3139' }}>
+            <div className="flex rounded overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
               {['all', 'LONG', 'SHORT'].map((side) => (
                 <button
                   key={side}
                   onClick={() => setFilterSide(side)}
                   className="px-3 py-1.5 text-sm capitalize transition-colors"
                   style={{
-                    background: filterSide === side ? '#2B3139' : 'transparent',
-                    color: filterSide === side ? '#EAECEF' : '#848E9C',
+                    background: filterSide === side ? 'var(--color-border)' : 'transparent',
+                    color: filterSide === side ? 'var(--foreground)' : 'var(--color-muted-fg)',
                   }}
                 >
                   {side === 'all' ? t('positionHistory.all', language) : side}
@@ -707,7 +706,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm" style={{ color: '#848E9C' }}>
+            <span className="text-sm text-muted-foreground">
               {t('positionHistory.sort', language)}:
             </span>
             <AiTSelect
@@ -725,9 +724,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               ]}
               className="rounded px-3 py-1.5 text-sm"
               style={{
-                background: '#0B0E11',
-                border: '1px solid #2B3139',
-                color: '#EAECEF',
+                background: 'var(--background)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--foreground)',
               }}
             />
           </div>
@@ -737,58 +736,49 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr style={{ background: '#0B0E11' }}>
+              <tr className="bg-background">
                 <th
-                  className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.symbol', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.entry', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.exit', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.qty', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.value', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.pnl', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.fee', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-center text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.duration', language)}
                 </th>
                 <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#848E9C' }}
+                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   {t('positionHistory.closedAt', language)}
                 </th>
@@ -805,7 +795,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         {/* Footer with Pagination */}
         <div
           className="flex flex-wrap items-center justify-between gap-4 p-4 text-sm"
-          style={{ borderTop: '1px solid #2B3139', color: '#848E9C' }}
+          style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-muted-fg)' }}
         >
           {/* Left: Count info */}
           <div className="flex items-center gap-4">
@@ -819,8 +809,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   style={{
                     color:
                       filteredAndSortedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0) >= 0
-                        ? '#0ECB81'
-                        : '#F6465D',
+                        ? 'var(--color-profit)'
+                        : 'var(--color-loss)',
                   }}
                 >
                   {filteredAndSortedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0) >= 0
@@ -838,7 +828,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           <div className="flex items-center gap-3">
             {/* Page size selector */}
             <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: '#848E9C' }}>
+              <span className="text-xs text-muted-foreground">
                 {language === 'zh' ? '每页' : 'Per page'}:
               </span>
               <AiTSelect
@@ -851,9 +841,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 ]}
                 className="rounded px-2 py-1 text-sm"
                 style={{
-                  background: '#0B0E11',
-                  border: '1px solid #2B3139',
-                  color: '#EAECEF',
+                  background: 'var(--background)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--foreground)',
                 }}
               />
             </div>
@@ -866,8 +856,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === 1 ? 'transparent' : '#2B3139',
-                    color: '#EAECEF',
+                    background: currentPage === 1 ? 'transparent' : 'var(--color-border)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   «
@@ -877,13 +867,13 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === 1 ? 'transparent' : '#2B3139',
-                    color: '#EAECEF',
+                    background: currentPage === 1 ? 'transparent' : 'var(--color-border)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   ‹
                 </button>
-                <span className="px-3 text-xs" style={{ color: '#EAECEF' }}>
+                <span className="px-3 text-xs text-foreground">
                   {currentPage} / {totalPages}
                 </span>
                 <button
@@ -891,8 +881,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === totalPages ? 'transparent' : '#2B3139',
-                    color: '#EAECEF',
+                    background: currentPage === totalPages ? 'transparent' : 'var(--color-border)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   ›
@@ -902,8 +892,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === totalPages ? 'transparent' : '#2B3139',
-                    color: '#EAECEF',
+                    background: currentPage === totalPages ? 'transparent' : 'var(--color-border)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   »

@@ -9,11 +9,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"nofx/store"
 )
+
+// maxParallelRequests caps total in-flight HTTP requests to avoid overwhelming
+// Binance. Binance enforces 1200 weight/min per IP. With 40 concurrent requests
+// and ~2s avg latency (Binance server-side), we get ~20 req/s = 1200 req/min
+// at ~1.5 weight/req avg ≈ 1800 weight/min theoretical. The 429 retry logic
+// with exponential backoff handles any overages gracefully.
+const maxParallelRequests = 40
 
 // Default Binance USDT-M Futures base URL (public, no auth required).
 const (
@@ -30,6 +41,16 @@ type Client struct {
 	cache      *Cache
 	mu         sync.Mutex
 	lastCall   time.Time
+
+	// parallelClient is a shared http.Client with connection pooling for
+	// fetchJSONParallel. Reuses TCP/TLS connections across requests.
+	parallelClient *http.Client
+	// parallelSem limits total concurrent in-flight requests to maxParallelRequests.
+	parallelSem chan struct{}
+
+	// HunterCfg holds Hunter-specific config (strategy mode, thresholds).
+	// Set by the engine before calling Hunter methods; nil = default behavior.
+	HunterCfg *store.HunterConfig
 }
 
 // NewClient creates a local data provider backed by Binance public APIs.
@@ -43,6 +64,22 @@ func NewClient(binanceURL string) *Client {
 		Timeout:    DefaultTimeout,
 		cache:      NewCache(),
 		lastCall:   time.Time{},
+		parallelClient: &http.Client{
+			Timeout: DefaultTimeout,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   10 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:        400,
+				MaxIdleConnsPerHost: 200,
+				MaxConnsPerHost:     200,
+				IdleConnTimeout:     90 * time.Second,
+				TLSHandshakeTimeout: 10 * time.Second,
+				ForceAttemptHTTP2:   true,
+			},
+		},
+		parallelSem: make(chan struct{}, maxParallelRequests),
 	}
 }
 
@@ -286,4 +323,22 @@ var excludedTokenizedAssets = map[string]bool{
 	"BABAUSDT": true,  // 阿里巴巴
 	"TSLAUSDT": true,  // 特斯拉
 	"NATGASUSDT": true, // 天然气
+}
+
+// fetchKlinesWithFallback tries Binance first, falls back to CoinAnk on failure.
+// Returns (bars, nil) on success, or (nil, err) if both sources fail.
+// Currently only uses Binance; CoinAnk fallback will be wired when the
+// market package exposes a suitable import path.
+func (c *Client) fetchKlinesWithFallback(symbol, interval string, limit int) ([]klineBar, error) {
+	bars, err := c.fetchKlinesParallel(symbol, interval, limit)
+	if err == nil && len(bars) > 0 {
+		return bars, nil
+	}
+	if err != nil {
+		log.Printf("⚠️  fetchKlinesWithFallback: Binance failed for %s %s: %v", symbol, interval, err)
+	}
+	// Fallback: use market package's CoinAnk fetcher
+	// (market.getKlinesFromCoinAnk is in a different package, so we need to import or create a wrapper)
+	// TODO: wire CoinAnk fallback when market package export is ready
+	return nil, fmt.Errorf("fetchKlinesWithFallback: all sources failed for %s %s: %w", symbol, interval, err)
 }

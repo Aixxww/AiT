@@ -289,25 +289,25 @@ body {
 }
 
 .ait-toast {
-  background: #0b0e11 !important;
-  border: 1px solid var(--panel-border) !important;
-  color: var(--text-primary) !important;
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-foreground) !important;
   box-shadow: var(--shadow-lg) !important;
   border-radius: 6px !important;
 }
 
 .ait-toast .sonner-title {
-  color: var(--text-primary) !important;
+  color: var(--color-foreground) !important;
   font-weight: 700;
 }
 
 .ait-toast .sonner-description {
-  color: var(--text-secondary) !important;
+  color: var(--color-muted-fg) !important;
 }
 
 /* Success / Error / Warning tint */
 .ait-toast[data-type='success'] {
-  background: #0b0e11 !important;
+  background: var(--color-panel) !important;
   border-color: var(--binance-green) !important;
   border-left: 3px solid var(--binance-green) !important;
 }
@@ -318,7 +318,7 @@ body {
 }
 
 .ait-toast[data-type='error'] {
-  background: #0b0e11 !important;
+  background: var(--color-panel) !important;
   border-color: var(--binance-red) !important;
   border-left: 3px solid var(--binance-red) !important;
 }
@@ -330,7 +330,7 @@ body {
 
 .ait-toast[data-type='warning'],
 .ait-toast[data-type='info'] {
-  background: #0b0e11 !important;
+  background: var(--color-panel) !important;
   border-color: var(--binance-yellow) !important;
   border-left: 3px solid var(--binance-yellow) !important;
 }
@@ -343,11 +343,11 @@ body {
 }
 
 .ait-toast .sonner-close-button {
-  color: var(--text-secondary) !important;
+  color: var(--color-muted-fg) !important;
 }
 
 .ait-toast .sonner-close-button:hover {
-  color: var(--text-primary) !important;
+  color: var(--color-foreground) !important;
 }
 
 /* Monospace numbers */
@@ -950,4 +950,311 @@ tr:hover {
       rgba(240, 185, 11, 0.1) 360deg);
   mix-blend-mode: overlay;
   background-blend-mode: overlay, normal;
+}
+
+/* ================================================================
+   DUAL THEME SYSTEM — 4 组色板 (Pro Dark, Pro Light, Glass Dark, Glass Light)
+   ================================================================ */
+
+/* ── PROFESSIONAL DARK ── */
+[data-theme="dark"][data-style="pro"],
+.pro.dark {
+  --color-background:    #0A0D10;
+  --color-surface:       #0F1318;
+  --color-surface-alt:   #141920;
+  --color-panel:         #171C24;
+  --color-panel-hover:   #1C222C;
+
+  --color-foreground:    #E8EAED;
+  --color-muted-fg:      #8B95A5;
+  --color-muted:         #2A3040;
+  --color-disabled-fg:   #4A5568;
+
+  --color-primary:       #F0B90B;
+  --color-primary-fg:    #0A0D10;
+  --color-primary-dim:   rgba(240, 185, 11, 0.10);
+  --color-primary-glow:  rgba(240, 185, 11, 0.15);
+  --color-accent:        #00D4E8;
+
+  --color-border:        rgba(255, 255, 255, 0.06);
+  --color-border-hover:  rgba(240, 185, 11, 0.30);
+  --color-input:         #1A1F28;
+  --color-ring:          rgba(240, 185, 11, 0.35);
+
+  --color-profit:        #0ECB81;
+  --color-profit-bg:     rgba(14, 203, 129, 0.10);
+  --color-profit-border: rgba(14, 203, 129, 0.25);
+  --color-loss:          #F6465D;
+  --color-loss-bg:       rgba(246, 70, 93, 0.10);
+  --color-loss-border:   rgba(246, 70, 93, 0.25);
+
+  --color-warning:       #F59E0B;
+  --color-warning-bg:    rgba(245, 158, 11, 0.10);
+  --color-info:          #3B82F6;
+  --color-info-bg:       rgba(59, 130, 246, 0.10);
+
+  --color-header:        rgba(10, 13, 16, 0.88);
+  --color-header-border: rgba(255, 255, 255, 0.04);
+
+  --shadow-sm:           0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow-md:           0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-lg:           0 8px 32px rgba(0, 0, 0, 0.50);
+  --shadow-primary-glow: rgba(240, 185, 11, 0.12);
+  --shadow-accent-glow:  rgba(0, 212, 232, 0.12);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --blur-glass: 12px;
+  --blur-glass-heavy: 24px;
+
+  --chart-bg:            #0A0D10;
+  --chart-grid:          rgba(43, 49, 57, 0.20);
+  --chart-text:          #8B95A5;
+  --chart-crosshair:     rgba(240, 185, 11, 0.50);
+  --chart-border:        #1E2430;
+}
+
+/* ── PROFESSIONAL LIGHT ── */
+[data-theme="light"][data-style="pro"],
+.pro.light {
+  --color-background:    #F8F9FA;
+  --color-surface:       #FFFFFF;
+  --color-surface-alt:   #F1F3F5;
+  --color-panel:         #FFFFFF;
+  --color-panel-hover:   #F8F9FA;
+
+  --color-foreground:    #1A1D23;
+  --color-muted-fg:      #6B7280;
+  --color-muted:         #E5E7EB;
+  --color-disabled-fg:   #9CA3AF;
+
+  --color-primary:       #D4A00A;
+  --color-primary-fg:    #FFFFFF;
+  --color-primary-dim:   rgba(212, 160, 10, 0.08);
+  --color-primary-glow:  rgba(212, 160, 10, 0.12);
+  --color-accent:        #0891B2;
+
+  --color-border:        #E5E7EB;
+  --color-border-hover:  rgba(212, 160, 10, 0.40);
+  --color-input:         #FFFFFF;
+  --color-ring:          rgba(212, 160, 10, 0.30);
+
+  --color-profit:        #059669;
+  --color-profit-bg:     rgba(5, 150, 105, 0.08);
+  --color-profit-border: rgba(5, 150, 105, 0.20);
+  --color-loss:          #DC2626;
+  --color-loss-bg:       rgba(220, 38, 38, 0.08);
+  --color-loss-border:   rgba(220, 38, 38, 0.20);
+
+  --color-warning:       #D97706;
+  --color-warning-bg:    rgba(217, 119, 6, 0.08);
+  --color-info:          #2563EB;
+  --color-info-bg:       rgba(37, 99, 235, 0.08);
+
+  --color-header:        rgba(255, 255, 255, 0.92);
+  --color-header-border: rgba(0, 0, 0, 0.06);
+
+  --shadow-sm:           0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md:           0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:           0 8px 32px rgba(0, 0, 0, 0.10);
+  --shadow-primary-glow: rgba(212, 160, 10, 0.10);
+  --shadow-accent-glow:  rgba(8, 145, 178, 0.10);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --blur-glass: 12px;
+  --blur-glass-heavy: 24px;
+
+  --chart-bg:            #FFFFFF;
+  --chart-grid:          rgba(229, 231, 235, 0.60);
+  --chart-text:          #6B7280;
+  --chart-crosshair:     rgba(212, 160, 10, 0.50);
+  --chart-border:        #E5E7EB;
+}
+
+/* ── GLASS DARK (Apple Liquid Glass) ── */
+[data-theme="dark"][data-style="glass"],
+.glass.dark {
+  --color-background:    #0A0C12;
+  --color-surface:       rgba(15, 18, 28, 0.60);
+  --color-surface-alt:   rgba(20, 24, 36, 0.50);
+  --color-panel:         rgba(18, 22, 34, 0.45);
+  --color-panel-hover:   rgba(24, 28, 42, 0.55);
+
+  --color-foreground:    #F0F2F5;
+  --color-muted-fg:      #8892A6;
+  --color-muted:         rgba(40, 48, 68, 0.40);
+  --color-disabled-fg:   #4A5568;
+
+  --color-primary:       #F0B90B;
+  --color-primary-fg:    #0A0C12;
+  --color-primary-dim:   rgba(240, 185, 11, 0.08);
+  --color-primary-glow:  rgba(240, 185, 11, 0.20);
+  --color-accent:        #22D3EE;
+
+  --color-border:        rgba(255, 255, 255, 0.08);
+  --color-border-hover:  rgba(240, 185, 11, 0.25);
+  --color-input:         rgba(15, 18, 28, 0.50);
+  --color-ring:          rgba(240, 185, 11, 0.30);
+
+  --color-profit:        #10D99A;
+  --color-profit-bg:     rgba(16, 217, 154, 0.12);
+  --color-profit-border: rgba(16, 217, 154, 0.25);
+  --color-loss:          #FF5A7A;
+  --color-loss-bg:       rgba(255, 90, 122, 0.12);
+  --color-loss-border:   rgba(255, 90, 122, 0.25);
+
+  --color-warning:       #FBBF24;
+  --color-warning-bg:    rgba(251, 191, 36, 0.12);
+  --color-info:          #60A5FA;
+  --color-info-bg:       rgba(96, 165, 250, 0.12);
+
+  --color-header:        rgba(10, 12, 18, 0.65);
+  --color-header-border: rgba(255, 255, 255, 0.06);
+
+  --shadow-sm:           0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md:           0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-lg:           0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-primary-glow: rgba(240, 185, 11, 0.20);
+  --shadow-accent-glow:  rgba(34, 211, 238, 0.15);
+  --shadow-glass:        0 8px 32px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-glass-heavy:  0 16px 64px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --blur-glass: 20px;
+  --blur-glass-heavy: 40px;
+
+  --chart-bg:            rgba(10, 12, 18, 0.80);
+  --chart-grid:          rgba(255, 255, 255, 0.04);
+  --chart-text:          #8892A6;
+  --chart-crosshair:     rgba(240, 185, 11, 0.40);
+  --chart-border:        rgba(255, 255, 255, 0.08);
+}
+
+/* ── GLASS LIGHT (Apple Liquid Glass) ── */
+[data-theme="light"][data-style="glass"],
+.glass.light {
+  --color-background:    #F0F2F5;
+  --color-surface:       rgba(255, 255, 255, 0.60);
+  --color-surface-alt:   rgba(245, 247, 250, 0.55);
+  --color-panel:         rgba(255, 255, 255, 0.50);
+  --color-panel-hover:   rgba(255, 255, 255, 0.65);
+
+  --color-foreground:    #1A1D23;
+  --color-muted-fg:      #5F6B7A;
+  --color-muted:         rgba(0, 0, 0, 0.04);
+  --color-disabled-fg:   #9CA3AF;
+
+  --color-primary:       #D4A00A;
+  --color-primary-fg:    #FFFFFF;
+  --color-primary-dim:   rgba(212, 160, 10, 0.06);
+  --color-primary-glow:  rgba(212, 160, 10, 0.15);
+  --color-accent:        #0891B2;
+
+  --color-border:        rgba(0, 0, 0, 0.06);
+  --color-border-hover:  rgba(212, 160, 10, 0.30);
+  --color-input:         rgba(255, 255, 255, 0.60);
+  --color-ring:          rgba(212, 160, 10, 0.25);
+
+  --color-profit:        #059669;
+  --color-profit-bg:     rgba(5, 150, 105, 0.06);
+  --color-profit-border: rgba(5, 150, 105, 0.18);
+  --color-loss:          #DC2626;
+  --color-loss-bg:       rgba(220, 38, 38, 0.06);
+  --color-loss-border:   rgba(220, 38, 38, 0.18);
+
+  --color-warning:       #D97706;
+  --color-warning-bg:    rgba(217, 119, 6, 0.06);
+  --color-info:          #2563EB;
+  --color-info-bg:       rgba(37, 99, 235, 0.06);
+
+  --color-header:        rgba(255, 255, 255, 0.72);
+  --color-header-border: rgba(0, 0, 0, 0.04);
+
+  --shadow-sm:           0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md:           0 8px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.80);
+  --shadow-lg:           0 16px 48px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+  --shadow-primary-glow: rgba(212, 160, 10, 0.10);
+  --shadow-accent-glow:  rgba(8, 145, 178, 0.08);
+  --shadow-glass:        0 4px 16px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  --shadow-glass-heavy:  0 12px 48px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --blur-glass: 16px;
+  --blur-glass-heavy: 32px;
+
+  --chart-bg:            rgba(255, 255, 255, 0.70);
+  --chart-grid:          rgba(0, 0, 0, 0.06);
+  --chart-text:          #5F6B7A;
+  --chart-crosshair:     rgba(212, 160, 10, 0.40);
+  --chart-border:        rgba(0, 0, 0, 0.06);
+}
+
+/* ── Glass 主题条件样式 ── */
+[data-style="glass"] .panel,
+[data-style="glass"] .binance-card {
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+  position: relative;
+}
+
+[data-style="glass"] .panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+[data-style="glass"] .glass,
+[data-style="glass"] .glass-panel {
+  backdrop-filter: blur(var(--blur-glass-heavy));
+  -webkit-backdrop-filter: blur(var(--blur-glass-heavy));
+}
+
+[data-style="glass"] h1,
+[data-style="glass"] h2 {
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+[data-style="glass"] th {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+[data-style="pro"] .panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }

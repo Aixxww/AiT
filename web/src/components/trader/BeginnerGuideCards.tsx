@@ -139,16 +139,16 @@ export function BeginnerGuideCards({
     <section className="space-y-4 rounded-[28px] border border-white/10 bg-zinc-950/60 p-5 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.3em] text-ait-gold/80">
+          <div className="text-xs font-semibold uppercase tracking-[0.3em] text-primary/80">
             {isZh ? '新手引导' : 'Quickstart'}
           </div>
-          <h2 className="mt-1 text-xl font-bold text-white">
+          <h2 className="mt-1 text-xl font-bold text-foreground">
             {isZh
               ? '先按这 4 步走，最快上手'
               : 'Follow these 4 steps to get started fast'}
           </h2>
         </div>
-        {/* <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
+        {/* <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground">
           {isZh ? '老手模式不会看到这块' : 'Hidden in advanced mode'}
         </div> */}
       </div>
@@ -162,14 +162,14 @@ export function BeginnerGuideCards({
               className="rounded-[22px] border border-white/8 bg-black/25 p-4"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/6 text-ait-gold">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/6 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${
                     card.ready
                       ? 'bg-emerald-500/15 text-emerald-300'
-                      : 'bg-zinc-800 text-zinc-400'
+                      : 'bg-surface-alt text-muted-foreground'
                   }`}
                 >
                   {card.ready
@@ -182,13 +182,13 @@ export function BeginnerGuideCards({
                 </span>
               </div>
 
-              <h3 className="mt-4 text-base font-semibold text-white">
+              <h3 className="mt-4 text-base font-semibold text-foreground">
                 {card.title}
               </h3>
-              <p className="mt-2 min-h-[72px] text-sm leading-6 text-zinc-400">
+              <p className="mt-2 min-h-[72px] text-sm leading-6 text-muted-foreground">
                 {card.desc}
               </p>
-              <div className="mt-3 text-xs text-zinc-500">{card.meta}</div>
+              <div className="mt-3 text-xs text-muted-foreground">{card.meta}</div>
 
               <button
                 type="button"
@@ -196,8 +196,8 @@ export function BeginnerGuideCards({
                 disabled={card.disabled}
                 className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                   card.disabled
-                    ? 'cursor-not-allowed bg-zinc-900 text-zinc-500'
-                    : 'bg-ait-gold text-black hover:bg-yellow-400'
+                    ? 'cursor-not-allowed bg-surface text-muted-foreground'
+                    : 'bg-primary text-primary-foreground hover:bg-yellow-400'
                 }`}
               >
                 {card.actionLabel}

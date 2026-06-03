@@ -59,7 +59,7 @@ export function FAQContent({
         <div key={category.id} className="ait-glass p-8 rounded-xl border border-white/5">
           {/* Category Header */}
           <div className="flex items-center gap-3 mb-6 pb-3 border-b border-white/10">
-            <category.icon className="w-7 h-7 text-ait-gold" />
+            <category.icon className="w-7 h-7 text-primary" />
             <h2 className="text-2xl font-bold text-ait-text-main">
               {t(category.titleKey, language)}
             </h2>
@@ -81,7 +81,7 @@ export function FAQContent({
                 </h3>
 
                 {/* Answer */}
-                <div className="prose prose-invert max-w-none text-ait-text-muted leading-relaxed">
+                <div className="prose prose-invert max-w-none text-muted-foreground leading-relaxed">
                   {item.id === 'github-projects-tasks' ? (
                     <div className="space-y-3">
                       <div className="text-base">
@@ -90,7 +90,7 @@ export function FAQContent({
                           href="https://github.com/orgs/AiTAiOS/projects/3"
                           target="_blank"
                           rel="noreferrer"
-                          style={{ color: '#F0B90B' }}
+                          style={{ color: 'var(--color-primary)' }}
                         >
                           {language === 'zh' ? '路线图' : 'Roadmap'}
                         </a>
@@ -99,7 +99,7 @@ export function FAQContent({
                           href="https://github.com/orgs/AiTAiOS/projects/5"
                           target="_blank"
                           rel="noreferrer"
-                          style={{ color: '#F0B90B' }}
+                          style={{ color: 'var(--color-primary)' }}
                         >
                           {language === 'zh' ? '任务看板' : 'Task Dashboard'}
                         </a>
@@ -218,13 +218,13 @@ export function FAQContent({
                       <div
                         className="rounded p-3 mt-3"
                         style={{
-                          background: 'rgba(240, 185, 11, 0.08)',
-                          border: '1px solid rgba(240, 185, 11, 0.25)',
+                          background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)',
                         }}
                       >
                         {language === 'zh' ? (
                           <div className="text-sm">
-                            <strong style={{ color: '#F0B90B' }}>提示：</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>提示：</strong>{' '}
                             参与贡献将享有激励制度（如
                             Bounty/奖金、荣誉徽章与鸣谢、优先
                             Review/合并与内测资格 等）。 可在任务中优先选择带
@@ -232,7 +232,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/labels/bounty"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               bounty 标签
                             </a>
@@ -241,7 +241,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               Bounty Claim
                             </a>
@@ -249,7 +249,7 @@ export function FAQContent({
                           </div>
                         ) : (
                           <div className="text-sm">
-                            <strong style={{ color: '#F0B90B' }}>Note:</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>Note:</strong>{' '}
                             Contribution incentives are available (e.g., cash
                             bounties, badges & shout-outs, priority
                             review/merge, beta access). Prefer tasks with
@@ -257,7 +257,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/labels/bounty"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               bounty label
                             </a>
@@ -266,7 +266,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               Bounty Claim
                             </a>
@@ -283,7 +283,7 @@ export function FAQContent({
                           href="https://github.com/Aixxww/AiT/blob/dev/CONTRIBUTING.md"
                           target="_blank"
                           rel="noreferrer"
-                          className="text-ait-gold hover:underline"
+                          className="text-primary hover:underline"
                         >
                           CONTRIBUTING.md
                         </a>
@@ -292,7 +292,7 @@ export function FAQContent({
                           href="https://github.com/Aixxww/AiT/blob/dev/.github/PR_TITLE_GUIDE.md"
                           target="_blank"
                           rel="noreferrer"
-                          className="text-ait-gold hover:underline"
+                          className="text-primary hover:underline"
                         >
                           PR_TITLE_GUIDE.md
                         </a>
@@ -371,17 +371,17 @@ export function FAQContent({
                         )}
                       </ol>
 
-                      <div className="rounded p-3 mt-3 bg-ait-gold/10 border border-ait-gold/25">
+                      <div className="rounded p-3 mt-3 bg-primary-dim border border-ait-gold/25">
                         {language === 'zh' ? (
                           <div className="text-sm">
-                            <strong className="text-ait-gold">Note:</strong>{' '}
+                            <strong className="text-primary">Note:</strong>{' '}
                             我们为高质量贡献提供激励（Bounty/奖金、荣誉徽章与鸣谢、优先
                             Review/合并与内测资格 等）。 详情可关注带
                             <a
                               href="https://github.com/Aixxww/AiT/labels/bounty"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               bounty 标签
                             </a>
@@ -390,7 +390,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               Bounty Claim 模板
                             </a>
@@ -398,7 +398,7 @@ export function FAQContent({
                           </div>
                         ) : (
                           <div className="text-sm">
-                            <strong style={{ color: '#F0B90B' }}>Note:</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>Note:</strong>{' '}
                             We offer contribution incentives (bounties, badges,
                             shout-outs, priority review/merge, beta access).
                             Look for tasks with
@@ -406,7 +406,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/labels/bounty"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               bounty label
                             </a>
@@ -415,7 +415,7 @@ export function FAQContent({
                               href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
                               target="_blank"
                               rel="noreferrer"
-                              style={{ color: '#F0B90B' }}
+                              style={{ color: 'var(--color-primary)' }}
                             >
                               Bounty Claim
                             </a>

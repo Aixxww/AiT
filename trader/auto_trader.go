@@ -1,8 +1,11 @@
 package trader
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
+	"nofx/datafetch"
+	"nofx/engine"
 	"nofx/kernel"
 	"nofx/logger"
 	"nofx/mcp"
@@ -180,6 +183,7 @@ type AutoTrader struct {
 	consecutiveAIFailures int                // Consecutive AI call failures
 	safeMode              bool               // Safe mode: no new positions, protect existing ones
 	safeModeReason        string             // Why safe mode was activated
+	snapshotEngine        *kernel.SnapshotEngine // Unified IndicatorHub engine (nil = legacy mode)
 }
 
 // NewAutoTrader creates an automatic trader
@@ -365,6 +369,80 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	strategyEngine := kernel.NewStrategyEngine(config.StrategyConfig)
 	logger.Infof("✓ [%s] Using strategy engine (strategy configuration loaded)", config.Name)
 
+	// Initialize SnapshotEngine — always for non-static sources (unified data path)
+	// Hunter/AI500 read from the same Snapshot as IndicatorHub → zero duplicate API calls
+	var snapEngine *kernel.SnapshotEngine
+	coinSrc := config.StrategyConfig.CoinSource
+	needSnapshot := coinSrc.UseIndicatorHub ||
+		coinSrc.SourceType == "hunter" || coinSrc.SourceType == "hunter_sniff" ||
+		coinSrc.SourceType == "ai500"
+	if needSnapshot {
+		hubCfg := engine.DefaultHubConfig()
+		ihCfg := coinSrc.IndicatorHub // may be nil for Hunter/AI500-only mode
+		// Override defaults with user config (only when IndicatorHub config exists)
+		if ihCfg != nil && ihCfg.TechWeight > 0 {
+			hubCfg.TechWeight = ihCfg.TechWeight
+		}
+		if ihCfg != nil && ihCfg.QuantWeight > 0 {
+			hubCfg.QuantWeight = ihCfg.QuantWeight
+		}
+		if ihCfg != nil && ihCfg.SocialWeight > 0 {
+			hubCfg.SocialWeight = ihCfg.SocialWeight
+		}
+		if ihCfg != nil && ihCfg.DirectionMargin > 0 {
+			hubCfg.DirectionMargin = ihCfg.DirectionMargin
+		}
+		if ihCfg != nil && ihCfg.GradeSThreshold > 0 {
+			hubCfg.GradeSThreshold = ihCfg.GradeSThreshold
+		}
+		if ihCfg != nil && ihCfg.GradeAThreshold > 0 {
+			hubCfg.GradeAThreshold = ihCfg.GradeAThreshold
+		}
+		if ihCfg != nil && ihCfg.GradeBThreshold > 0 {
+			hubCfg.GradeBThreshold = ihCfg.GradeBThreshold
+		}
+		if ihCfg != nil && ihCfg.StopLossATR > 0 {
+			hubCfg.StopLossATR = ihCfg.StopLossATR
+		}
+		if ihCfg != nil && ihCfg.TP1ATR > 0 {
+			hubCfg.TP1ATR = ihCfg.TP1ATR
+		}
+		if ihCfg != nil && ihCfg.TP2ATR > 0 {
+			hubCfg.TP2ATR = ihCfg.TP2ATR
+		}
+		if ihCfg != nil && ihCfg.TP3ATR > 0 {
+			hubCfg.TP3ATR = ihCfg.TP3ATR
+		}
+		if ihCfg != nil && ihCfg.MaxSignalsPerCycle > 0 {
+			hubCfg.MaxSignalsPerCycle = ihCfg.MaxSignalsPerCycle
+		}
+		if ihCfg != nil && ihCfg.MinScore > 0 {
+			hubCfg.MinScore = ihCfg.MinScore
+		}
+		if ihCfg != nil && ihCfg.CooldownMinutes > 0 {
+			hubCfg.CooldownMinutes = ihCfg.CooldownMinutes
+		}
+		if ihCfg != nil && ihCfg.TopNForScoring > 0 {
+			hubCfg.TopNForScoring = ihCfg.TopNForScoring
+		}
+
+		var dataCfg datafetch.CollectorConfig
+		if ihCfg != nil {
+			dataCfg = datafetch.CollectorConfig{
+				LunarCrushKey: ihCfg.LunarCrushAPIKey,
+			}
+		}
+
+		se, err := kernel.NewSnapshotEngine(hubCfg, dataCfg)
+		if err != nil {
+			logger.Warnf("⚠ [%s] Failed to create SnapshotEngine: %v, using legacy mode", config.Name, err)
+		} else {
+			snapEngine = se
+			strategyEngine.SetSnapshotEngine(se)
+			logger.Infof("✅ [%s] IndicatorHub unified engine initialized", config.Name)
+		}
+	}
+
 	return &AutoTrader{
 		id:                    config.ID,
 		name:                  config.Name,
@@ -390,6 +468,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		peakPnLCacheMutex:     sync.RWMutex{},
 		lastBalanceSyncTime:   time.Now(),
 		userID:                userID,
+		snapshotEngine:        snapEngine,
 	}, nil
 }
 
@@ -485,6 +564,18 @@ func (at *AutoTrader) Run() error {
 			kucoinTrader.StartOrderSync(at.id, at.exchangeID, at.exchange, at.store, 30*time.Second)
 			at.logInfof("🔄 KuCoin order+position sync enabled (every 30s)")
 		}
+	}
+
+	// Start SnapshotEngine (IndicatorHub) if enabled
+	if at.snapshotEngine != nil {
+		seCtx, seCancel := context.WithCancel(context.Background())
+		at.snapshotEngine.Start(seCtx)
+		at.monitorWg.Add(1)
+		go func() {
+			defer at.monitorWg.Done()
+			defer seCancel()
+			<-at.stopMonitorCh
+		}()
 	}
 
 	ticker := time.NewTicker(at.config.ScanInterval)

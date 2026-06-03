@@ -505,6 +505,9 @@ func classifyWorkflowTask(text string) (WorkflowTask, bool) {
 		}
 	case detectModelManagementIntent(segment):
 		action := normalizeAtomicSkillAction("model_management", detectManagementAction(segment, "model"))
+		if action == "update_name" && !containsAny(strings.ToLower(segment), []string{"模型名", "模型名称", "model name", "改名", "重命名", "rename"}) {
+			return WorkflowTask{}, false
+		}
 		if supportedWorkflowSkill("model_management", action) {
 			return WorkflowTask{Skill: "model_management", Action: action, Request: segment}, true
 		}

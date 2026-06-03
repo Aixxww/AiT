@@ -10,8 +10,11 @@ import {
   ChevronRight,
   Plus,
   Pencil,
+  Palette,
+  Monitor,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { api } from '../lib/api'
 import { ExchangeConfigModal } from '../components/trader/ExchangeConfigModal'
@@ -19,7 +22,7 @@ import { TelegramConfigModal } from '../components/trader/TelegramConfigModal'
 import { ModelConfigModal } from '../components/trader/ModelConfigModal'
 import type { Exchange, AIModel } from '../types'
 
-type Tab = 'account' | 'models' | 'exchanges' | 'telegram'
+type Tab = 'account' | 'models' | 'exchanges' | 'telegram' | 'appearance'
 
 function configBadge(label: string, active: boolean) {
   return (
@@ -27,11 +30,92 @@ function configBadge(label: string, active: boolean) {
       className={`text-[11px] px-2 py-0.5 rounded-full ${
         active
           ? 'bg-emerald-500/10 text-emerald-300'
-          : 'bg-zinc-800 text-zinc-500'
+          : 'bg-surface-alt text-muted-foreground'
       }`}
     >
       {label}
     </span>
+  )
+}
+
+function AppearanceTab() {
+  const { mode, setMode, isDark } = useTheme()
+
+  const themeOptions = [
+    {
+      mode: 'pro-dark' as const,
+      label: 'Pro Dark',
+      description: 'Terminal style',
+      preview: { bg: '#0A0D10', surface: '#171C24', accent: '#F0B90B' },
+    },
+    {
+      mode: 'pro-light' as const,
+      label: 'Pro Light',
+      description: 'Clean finance',
+      preview: { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#D4A00A' },
+    },
+    {
+      mode: 'glass-dark' as const,
+      label: 'Glass Dark',
+      description: 'Liquid glass',
+      preview: { bg: '#0A0C12', surface: 'rgba(18,22,34,0.45)', accent: '#F0B90B' },
+    },
+    {
+      mode: 'glass-light' as const,
+      label: 'Glass Light',
+      description: 'Frosted glass',
+      preview: { bg: '#F0F2F5', surface: 'rgba(255,255,255,0.50)', accent: '#D4A00A' },
+    },
+    {
+      mode: 'system' as const,
+      label: 'System',
+      description: 'Auto',
+      preview: null,
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-4">Theme</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {themeOptions.map((option) => (
+            <button
+              key={option.mode}
+              onClick={() => setMode(option.mode)}
+              className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
+                ${mode === option.mode
+                  ? 'border-primary bg-primary-dim'
+                  : 'border-border hover:border-border-hover bg-surface'}`}
+            >
+              {option.preview ? (
+                <div className="w-full h-12 rounded-lg overflow-hidden relative" style={{ background: option.preview.bg }}>
+                  <div className="absolute bottom-0 left-0 right-0 h-6 rounded-t" style={{ background: option.preview.surface }} />
+                  <div className="absolute top-1 left-1 w-2 h-2 rounded-full" style={{ background: option.preview.accent }} />
+                </div>
+              ) : (
+                <div className="w-full h-12 rounded-lg bg-gradient-to-br from-surface to-panel flex items-center justify-center">
+                  <Monitor size={20} className="text-muted-foreground" />
+                </div>
+              )}
+              <span className="text-xs font-medium text-foreground">{option.label}</span>
+              <span className="text-[10px] text-muted-foreground">{option.description}</span>
+              {mode === option.mode && (
+                <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="text-xs text-muted-foreground p-3 rounded-lg bg-surface-alt border border-border">
+        {mode === 'system' ? (
+          <>Following system preference. Currently: <span className="font-medium text-foreground">{isDark ? 'Dark' : 'Light'}</span></>
+        ) : (
+          <>{mode.startsWith('glass') ? 'Liquid glass with translucent panels and depth effects.' : 'Professional terminal-style with high information density.'}</>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -314,18 +398,18 @@ export function SettingsPage() {
     { key: 'models', label: 'AI Models', icon: <Cpu size={16} /> },
     { key: 'exchanges', label: 'Exchanges', icon: <Building2 size={16} /> },
     { key: 'telegram', label: 'Telegram', icon: <MessageCircle size={16} /> },
+    { key: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
   ]
 
   return (
     <div
-      className="min-h-screen pt-20 pb-12 px-4"
-      style={{ background: '#0B0E11' }}
+      className="min-h-screen pt-20 pb-12 px-4 bg-background"
     >
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-xl font-bold text-white mb-6">Settings</h1>
+        <h1 className="text-xl font-bold text-foreground mb-6">Settings</h1>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1">
+        <div className="flex gap-1 mb-6 bg-panel border border-border rounded-xl p-1">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -333,8 +417,8 @@ export function SettingsPage() {
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
                 ${
                   activeTab === tab.key
-                    ? 'bg-ait-gold text-black'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
             >
               {tab.icon}
@@ -344,20 +428,20 @@ export function SettingsPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-6">
+        <div className="bg-panel backdrop-blur-xl border border-border rounded-2xl p-6">
           {/* Account Tab */}
           {activeTab === 'account' && (
             <div className="space-y-6">
               <div>
-                <p className="text-xs text-zinc-500 mb-1">Email</p>
-                <p className="text-sm text-white font-medium">{user?.email}</p>
+                <p className="text-xs text-muted-foreground mb-1">Email</p>
+                <p className="text-sm text-foreground font-medium">{user?.email}</p>
               </div>
 
-              <div className="border-t border-zinc-800 pt-6">
-                <h3 className="text-sm font-semibold text-white mb-4">Change Password</h3>
+              <div className="border-t border-border pt-6">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Change Password</h3>
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-2">
+                    <label className="block text-xs font-medium text-muted-foreground mb-2">
                       New Password
                     </label>
                     <div className="relative">
@@ -365,14 +449,14 @@ export function SettingsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full bg-zinc-950/80 border border-zinc-700/80 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                        className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                         placeholder="At least 8 characters"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {showPassword ? (
                           <EyeOff size={16} />
@@ -385,7 +469,7 @@ export function SettingsPage() {
                   <button
                     type="submit"
                     disabled={changingPassword || newPassword.length < 8}
-                    className="w-full bg-ait-gold hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-primary hover:opacity-90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {changingPassword ? 'Updating...' : 'Update Password'}
                   </button>
@@ -398,7 +482,7 @@ export function SettingsPage() {
           {activeTab === 'models' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-muted-foreground">
                   {configuredModels.length} model
                   {configuredModels.length !== 1 ? 's' : ''} configured
                 </p>
@@ -407,7 +491,7 @@ export function SettingsPage() {
                     setEditingModel(null)
                     setShowModelModal(true)
                   }}
-                  className="flex items-center gap-1.5 text-xs font-medium bg-ait-gold/10 hover:bg-ait-gold/20 text-ait-gold px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium bg-primary-dim hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
                   Add Model
@@ -415,7 +499,7 @@ export function SettingsPage() {
               </div>
 
               {configuredModels.length === 0 ? (
-                <div className="text-center py-8 text-zinc-600 text-sm">
+                <div className="text-center py-8 text-muted-foreground text-sm">
                   No AI models configured yet
                 </div>
               ) : (
@@ -427,16 +511,16 @@ export function SettingsPage() {
                         setEditingModel(model.id)
                         setShowModelModal(true)
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 transition-colors group"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-alt hover:bg-panel-hover border border-border transition-colors group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
-                          <Cpu size={14} className="text-zinc-300" />
+                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                          <Cpu size={14} className="text-foreground" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-white">{model.name}</p>
+                          <p className="text-sm font-medium text-foreground">{model.name}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <p className="text-xs text-zinc-500">{model.provider}</p>
+                            <p className="text-xs text-muted-foreground">{model.provider}</p>
                             {configBadge('API Key', !!model.has_api_key)}
                             {model.customModelName ? configBadge('Custom Model', true) : null}
                             {model.customApiUrl ? configBadge('Base URL', true) : null}
@@ -445,13 +529,13 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${model.enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-700 text-zinc-500'}`}
+                          className={`text-xs px-2 py-0.5 rounded-full ${model.enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted text-muted-foreground'}`}
                         >
                           {model.enabled ? 'Active' : 'Inactive'}
                         </span>
                         <Pencil
                           size={14}
-                          className="text-zinc-600 group-hover:text-zinc-400 transition-colors"
+                          className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                         />
                       </div>
                     </button>
@@ -465,7 +549,7 @@ export function SettingsPage() {
           {activeTab === 'exchanges' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-muted-foreground">
                   {exchanges.length} account{exchanges.length !== 1 ? 's' : ''}{' '}
                   connected
                 </p>
@@ -474,7 +558,7 @@ export function SettingsPage() {
                     setEditingExchange(null)
                     setShowExchangeModal(true)
                   }}
-                  className="flex items-center gap-1.5 text-xs font-medium bg-ait-gold/10 hover:bg-ait-gold/20 text-ait-gold px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium bg-primary-dim hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
                   Add Exchange
@@ -482,7 +566,7 @@ export function SettingsPage() {
               </div>
 
               {exchanges.length === 0 ? (
-                <div className="text-center py-8 text-zinc-600 text-sm">
+                <div className="text-center py-8 text-muted-foreground text-sm">
                   No exchange accounts connected yet
                 </div>
               ) : (
@@ -494,16 +578,16 @@ export function SettingsPage() {
                         setEditingExchange(exchange.id)
                         setShowExchangeModal(true)
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 transition-colors group"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-alt hover:bg-panel-hover border border-border transition-colors group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
-                          <Building2 size={14} className="text-zinc-300" />
+                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                          <Building2 size={14} className="text-foreground" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-white">{exchange.account_name || exchange.name}</p>
+                          <p className="text-sm font-medium text-foreground">{exchange.account_name || exchange.name}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <p className="text-xs text-zinc-500 capitalize">{exchange.exchange_type || exchange.type}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{exchange.exchange_type || exchange.type}</p>
                             {configBadge('API Key', !!exchange.has_api_key)}
                             {configBadge('Secret', !!exchange.has_secret_key)}
                             {exchange.has_passphrase ? configBadge('Passphrase', true) : null}
@@ -515,7 +599,7 @@ export function SettingsPage() {
                       </div>
                       <ChevronRight
                         size={14}
-                        className="text-zinc-600 group-hover:text-zinc-400 transition-colors"
+                        className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                       />
                     </button>
                   ))}
@@ -527,28 +611,33 @@ export function SettingsPage() {
           {/* Telegram Tab */}
           {activeTab === 'telegram' && (
             <div className="space-y-4">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 Connect a Telegram bot to receive trading notifications and
                 interact with your traders.
               </p>
               <button
                 onClick={() => setShowTelegramModal(true)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 transition-colors group"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-alt hover:bg-panel-hover border border-border transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#0088cc]/20 flex items-center justify-center">
                     <MessageCircle size={14} className="text-[#0088cc]" />
                   </div>
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-foreground">
                     Configure Telegram Bot
                   </span>
                 </div>
                 <ChevronRight
                   size={14}
-                  className="text-zinc-600 group-hover:text-zinc-400 transition-colors"
+                  className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                 />
               </button>
             </div>
+          )}
+
+          {/* Appearance Tab */}
+          {activeTab === 'appearance' && (
+            <AppearanceTab />
           )}
         </div>
       </div>

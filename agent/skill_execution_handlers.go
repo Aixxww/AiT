@@ -14,6 +14,10 @@ import (
 var (
 	firstIntegerPattern = regexp.MustCompile(`\d+`)
 	timeframeTokenRE    = regexp.MustCompile(`(?i)\b\d{1,2}[mhdw]\b`)
+	modelNameUpdateRE   = regexp.MustCompile(`(?i)(?:模型名(?:称)?|model name)?\s*(?:改成|改为|修改为|换成|切换为|change to|switch to)\s*([A-Za-z0-9][A-Za-z0-9_.:/-]*)`)
+	modelIdentifierRE   = regexp.MustCompile(`[A-Za-z0-9][A-Za-z0-9_.:/-]*`)
+	enabledTrueRE       = regexp.MustCompile(`(?i)\b(enable|enabled|on)\b`)
+	enabledFalseRE      = regexp.MustCompile(`(?i)\b(disable|disabled|off)\b`)
 )
 
 func parseStandaloneInteger(text string) (int, bool) {
@@ -31,9 +35,9 @@ func parseStandaloneInteger(text string) (int, bool) {
 func parseEnabledValue(text string) (bool, bool) {
 	lower := strings.ToLower(strings.TrimSpace(text))
 	switch {
-	case containsAny(lower, []string{"启用", "打开", "开启", "enable", "enabled", "on"}):
+	case containsAny(lower, []string{"启用", "打开", "开启"}) || enabledTrueRE.MatchString(lower):
 		return true, true
-	case containsAny(lower, []string{"禁用", "关闭", "停用", "disable", "disabled", "off"}):
+	case containsAny(lower, []string{"禁用", "关闭", "停用"}) || enabledFalseRE.MatchString(lower):
 		return false, true
 	default:
 		return false, false
@@ -695,8 +699,13 @@ func (a *Agent) executeModelManagementAction(storeUserID string, userID int64, l
 		if apiKey := extractCredentialValue(text, []string{"api key", "apikey", "api_key"}); apiKey != "" {
 			setField(&session, "api_key", apiKey)
 		}
-		if modelName := extractPostKeywordName(text, []string{"model name", "模型名", "模型名称", "改成", "改为", "修改为", "换成", "换到", "切换为", "切换到", "change to", "switch to"}); modelName != "" {
-			setField(&session, "custom_model_name", normalizeModelName(modelName))
+		if modelName := extractModelNameUpdateValue(text); modelName != "" {
+			setField(&session, "custom_model_name", modelName)
+		}
+		if fieldValue(session, "custom_model_name") == "" {
+			if modelName := extractPostKeywordName(text, []string{"model name", "模型名", "模型名称", "改成", "改为", "修改为", "换成", "换到", "切换为", "切换到", "change to", "switch to"}); modelName != "" {
+				setField(&session, "custom_model_name", normalizeModelName(modelName))
+			}
 		}
 		if value := fieldValue(session, "custom_api_url"); value != "" {
 			payload["custom_api_url"] = value
@@ -773,10 +782,10 @@ func normalizeModelName(name string) string {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	aliases := map[string]string{
 		// Claude
-		"claude opus":     "claude-opus",
-		"claude opus4.6":  "claude-opus",
-		"claude opus 4.6": "claude-opus",
-		"claude-opus-4-6": "claude-opus",
+		"claude opus":       "claude-opus",
+		"claude opus4.6":    "claude-opus",
+		"claude opus 4.6":   "claude-opus",
+		"claude-opus-4-6":   "claude-opus",
 		"claude sonnet":     "claude-sonnet",
 		"claude sonnet4.6":  "claude-sonnet",
 		"claude sonnet 4.6": "claude-sonnet",
@@ -820,8 +829,25 @@ func normalizeModelName(name string) string {
 	return strings.ReplaceAll(strings.TrimSpace(name), " ", "-")
 }
 
+func extractModelNameUpdateValue(text string) string {
+	trimmed := strings.TrimSpace(text)
+	matches := modelNameUpdateRE.FindStringSubmatch(trimmed)
+	if len(matches) != 2 {
+		lower := strings.ToLower(trimmed)
+		if !strings.Contains(lower, "模型名") && !strings.Contains(lower, "模型名称") && !strings.Contains(lower, "model name") {
+			return ""
+		}
+		all := modelIdentifierRE.FindAllString(trimmed, -1)
+		if len(all) == 0 {
+			return ""
+		}
+		return normalizeModelName(all[len(all)-1])
+	}
+	return normalizeModelName(matches[1])
+}
+
 func (a *Agent) executeStrategyManagementAction(storeUserID string, userID int64, lang, text string, session skillSession) string {
-	if session.TargetRef == nil && session.Action != "query" && session.Action != "query_list" && session.Action != "create" {
+	if session.TargetRef == nil && fieldValue(session, "bulk_scope") != "all" && session.Action != "query" && session.Action != "query_list" && session.Action != "create" {
 		if lang == "zh" {
 			return "请先告诉我你要操作哪个策略。"
 		}

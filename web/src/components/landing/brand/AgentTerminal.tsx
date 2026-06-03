@@ -9,7 +9,7 @@ export default function AgentTerminal() {
             className="w-[380px] lg:w-[440px] relative group"
         >
             {/* Terminal frame */}
-            <div className="relative bg-[#0B0F14] rounded-2xl overflow-hidden shadow-2xl shadow-black/80 border border-zinc-800/80">
+            <div className="relative bg-[#0B0F14] rounded-2xl overflow-hidden shadow-2xl shadow-black/80 border border-border/80">
 
                 {/* Scanline overlay */}
                 <div className="absolute inset-0 pointer-events-none z-50 opacity-[0.02]" style={{
@@ -17,7 +17,7 @@ export default function AgentTerminal() {
                 }} />
 
                 {/* Header bar - macOS style */}
-                <div className="flex items-center justify-between px-4 py-2.5 bg-[#0D1117] border-b border-zinc-800/60">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-[#0D1117] border-b border-border/60">
                     {/* Window controls */}
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
@@ -28,7 +28,7 @@ export default function AgentTerminal() {
                     </div>
                     {/* Title */}
                     <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-                        <span className="text-zinc-400 text-xs font-mono">AiT Agent Terminal</span>
+                        <span className="text-muted-foreground text-xs font-mono">AiT Agent Terminal</span>
                     </div>
                     {/* Live indicator */}
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-green-500/10 border border-green-500/20">
@@ -38,13 +38,13 @@ export default function AgentTerminal() {
                 </div>
 
                 {/* Portfolio PnL Section */}
-                <div className="p-4 border-b border-zinc-800/40">
+                <div className="p-4 border-b border-border/40">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-zinc-500 text-xs font-mono uppercase tracking-wider">Portfolio PnL</span>
+                        <span className="text-muted-foreground text-xs font-mono uppercase tracking-wider">Portfolio PnL</span>
                         <div className="flex gap-1">
-                            <button className="px-2 py-0.5 bg-ait-gold/20 border border-ait-gold/30 rounded text-[10px] text-ait-gold font-mono">24H</button>
-                            <button className="px-2 py-0.5 text-[10px] text-zinc-600 font-mono hover:text-zinc-400 transition-colors">7D</button>
-                            <button className="px-2 py-0.5 text-[10px] text-zinc-600 font-mono hover:text-zinc-400 transition-colors">30D</button>
+                            <button className="px-2 py-0.5 bg-primary/20 border border-ait-gold/30 rounded text-[10px] text-primary font-mono">24H</button>
+                            <button className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors">7D</button>
+                            <button className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors">30D</button>
                         </div>
                     </div>
                     <div className="flex items-baseline gap-3">
@@ -76,20 +76,20 @@ export default function AgentTerminal() {
                 </div>
 
                 {/* Metrics Row */}
-                <div className="grid grid-cols-3 divide-x divide-zinc-800/40 border-b border-zinc-800/40">
+                <div className="grid grid-cols-3 divide-x divide-zinc-800/40 border-b border-border/40">
                     <div className="p-3 text-center">
-                        <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-wider mb-1">OI</div>
-                        <div className="text-white font-bold font-mono">$847M</div>
+                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider mb-1">OI</div>
+                        <div className="text-foreground font-bold font-mono">$847M</div>
                         <div className="text-green-500 text-[10px] font-mono">↑ 2.1%</div>
                     </div>
                     <div className="p-3 text-center">
-                        <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-wider mb-1">Netflow</div>
+                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider mb-1">Netflow</div>
                         <div className="text-green-400 font-bold font-mono">+$124M</div>
-                        <div className="text-zinc-500 text-[10px] font-mono">24h inflow</div>
+                        <div className="text-muted-foreground text-[10px] font-mono">24h inflow</div>
                     </div>
                     <div className="p-3 text-center">
-                        <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-wider mb-1">L/S Ratio</div>
-                        <div className="text-white font-bold font-mono">1.24</div>
+                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider mb-1">L/S Ratio</div>
+                        <div className="text-foreground font-bold font-mono">1.24</div>
                         <div className="flex gap-0.5 mt-1 px-2">
                             <div className="h-1 bg-green-500/60 rounded-l flex-[55]" />
                             <div className="h-1 bg-red-500/60 rounded-r flex-[45]" />
@@ -98,10 +98,10 @@ export default function AgentTerminal() {
                 </div>
 
                 {/* Order Book */}
-                <div className="p-4 border-b border-zinc-800/40">
+                <div className="p-4 border-b border-border/40">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-zinc-400 text-xs font-mono uppercase tracking-wider">Order Book</span>
-                        <span className="text-zinc-600 text-[10px] font-mono">Spread: <span className="text-ait-gold">0.02%</span></span>
+                        <span className="text-muted-foreground text-xs font-mono uppercase tracking-wider">Order Book</span>
+                        <span className="text-muted-foreground text-[10px] font-mono">Spread: <span className="text-primary">0.02%</span></span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         {/* Asks */}
@@ -114,7 +114,7 @@ export default function AgentTerminal() {
                                 <div key={i} className="relative flex justify-between text-[11px] py-1 px-1.5 rounded">
                                     <div className="absolute inset-0 bg-red-500/10 rounded-sm" style={{ width: `${ask.depth}%` }} />
                                     <span className="relative text-red-400 font-mono">{ask.price}</span>
-                                    <span className="relative text-zinc-500 font-mono">{ask.amount}</span>
+                                    <span className="relative text-muted-foreground font-mono">{ask.amount}</span>
                                 </div>
                             ))}
                         </div>
@@ -128,7 +128,7 @@ export default function AgentTerminal() {
                                 <div key={i} className="relative flex justify-between text-[11px] py-1 px-1.5 rounded">
                                     <div className="absolute inset-0 bg-green-500/10 rounded-sm" style={{ width: `${bid.depth}%` }} />
                                     <span className="relative text-green-400 font-mono">{bid.price}</span>
-                                    <span className="relative text-zinc-500 font-mono">{bid.amount}</span>
+                                    <span className="relative text-muted-foreground font-mono">{bid.amount}</span>
                                 </div>
                             ))}
                         </div>
@@ -138,7 +138,7 @@ export default function AgentTerminal() {
                 {/* Active Positions */}
                 <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-zinc-400 text-xs font-mono uppercase tracking-wider">Positions</span>
+                        <span className="text-muted-foreground text-xs font-mono uppercase tracking-wider">Positions</span>
                         <span className="text-green-400 text-xs font-mono font-medium">+$12,847</span>
                     </div>
                     <div className="space-y-2">
@@ -147,7 +147,7 @@ export default function AgentTerminal() {
                             { coin: 'ETH', name: 'ETH-PERP', size: '3.2', profit: '+$4,127', percent: '+7.6%', color: '#627EEA' },
                             { coin: 'BNB', name: 'BNB-PERP', size: '8.5', profit: '+$2,300', percent: '+5.2%', color: '#F3BA2F' },
                         ].map((pos, i) => (
-                            <div key={i} className="flex items-center justify-between py-2 px-2 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/50 transition-colors">
+                            <div key={i} className="flex items-center justify-between py-2 px-2 rounded-lg bg-surface/50 hover:bg-surface-alt transition-colors">
                                 <div className="flex items-center gap-3">
                                     <div
                                         className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border"
@@ -160,10 +160,10 @@ export default function AgentTerminal() {
                                         {pos.coin}
                                     </div>
                                     <div>
-                                        <div className="text-white text-sm font-mono">{pos.name}</div>
+                                        <div className="text-foreground text-sm font-mono">{pos.name}</div>
                                         <div className="flex items-center gap-2 text-[10px]">
                                             <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded font-mono">LONG</span>
-                                            <span className="text-zinc-500 font-mono">{pos.size} {pos.coin}</span>
+                                            <span className="text-muted-foreground font-mono">{pos.size} {pos.coin}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -177,15 +177,15 @@ export default function AgentTerminal() {
                 </div>
 
                 {/* Footer status bar */}
-                <div className="px-4 py-2 bg-[#0D1117] border-t border-zinc-800/60 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-600">
+                <div className="px-4 py-2 bg-[#0D1117] border-t border-border/60 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
                         <span className="flex items-center gap-1">
                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                             Connected
                         </span>
                         <span>Latency: 12ms</span>
                     </div>
-                    <div className="text-[10px] font-mono text-zinc-600">
+                    <div className="text-[10px] font-mono text-muted-foreground">
                         mainnet • v2.4.0
                     </div>
                 </div>

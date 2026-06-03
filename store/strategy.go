@@ -19,6 +19,12 @@ const (
 	MaxKlineCount     = 30
 )
 
+// Hunter strategy mode constants
+const (
+	StrategyModeDefault  = "default"
+	StrategyModeBreakout = "breakout"
+)
+
 // ClampLimits enforces product-level limits on strategy config to prevent token overflow.
 func (c *StrategyConfig) ClampLimits() {
 	// Clamp coin source limits
@@ -203,7 +209,46 @@ type CoinSourceConfig struct {
 	HunterDirection string `json:"hunter_direction,omitempty"`
 	// Hunter algorithm tuning parameters
 	Hunter *HunterConfig `json:"hunter_config,omitempty"`
+	// Hunter Sniff mode tuning parameters (institutional ambush detector)
+	HunterSniffer *SnifferConfig `json:"hunter_sniffer,omitempty"`
+
+	// Market environment pre-classifier (ADX-based regime detection for mixed mode)
+	EnableADXPreClassifier bool   `json:"enable_adx_pre_classifier,omitempty"`
+	ADXPeriod              int    `json:"adx_period,omitempty"`           // default 14
+	ADXRegimeSymbol        string `json:"adx_regime_symbol,omitempty"`    // default "BTCUSDT"
+	ADXRegimeTimeframe     string `json:"adx_regime_timeframe,omitempty"` // default "4h"
+	ADXRegimeBars          int    `json:"adx_regime_bars,omitempty"`      // default 100
+
+	// IndicatorHub unified scoring engine (replaces all source_types above when enabled)
+	UseIndicatorHub bool             `json:"use_indicator_hub,omitempty"`
+	IndicatorHub    *IndicatorHubCfg `json:"indicator_hub,omitempty"`
+
 	// Note: API URLs are now built automatically using NofxOSAPIKey from IndicatorConfig
+}
+
+// IndicatorHubCfg configuration for the unified IndicatorHub scoring engine.
+type IndicatorHubCfg struct {
+	TechWeight   float64 `json:"tech_weight,omitempty"`    // default 40
+	QuantWeight  float64 `json:"quant_weight,omitempty"`   // default 40
+	SocialWeight float64 `json:"social_weight,omitempty"`  // default 20
+
+	DirectionMargin  float64 `json:"direction_margin,omitempty"`   // default 15
+	GradeSThreshold  float64 `json:"grade_s_threshold,omitempty"`  // default 80
+	GradeAThreshold  float64 `json:"grade_a_threshold,omitempty"`  // default 65
+	GradeBThreshold  float64 `json:"grade_b_threshold,omitempty"`  // default 50
+
+	StopLossATR float64 `json:"stop_loss_atr,omitempty"` // default 2.0
+	TP1ATR      float64 `json:"tp1_atr,omitempty"`       // default 1.5
+	TP2ATR      float64 `json:"tp2_atr,omitempty"`       // default 3.0
+	TP3ATR      float64 `json:"tp3_atr,omitempty"`       // default 5.0
+
+	MaxSignalsPerCycle int     `json:"max_signals_per_cycle,omitempty"` // default 5
+	MinScore           float64 `json:"min_score,omitempty"`              // default 50
+	CooldownMinutes    int     `json:"cooldown_minutes,omitempty"`       // default 60
+	TopNForScoring     int     `json:"top_n_for_scoring,omitempty"`      // default 100
+
+	SocialEnabled    bool   `json:"social_enabled,omitempty"`       // default true
+	LunarCrushAPIKey string `json:"lunarcrush_api_key,omitempty"`
 }
 
 // HunterConfig tunable parameters for the Hunter coin selection algorithm
@@ -226,6 +271,28 @@ type HunterConfig struct {
 	MinTradeCount int64 `json:"min_trade_count,omitempty"`
 	// Position score timeframes (default ["1h", "4h", "1d"])
 	PositionTimeframes []string `json:"position_timeframes,omitempty"`
+
+	// Strategy mode: "default" (mean-reversion) or "breakout" (volatility squeeze hunting)
+	StrategyMode string `json:"strategy_mode,omitempty"`
+
+	// Sniffer mode configuration (institutional ambush pattern detector)
+	Sniffer *SnifferConfig `json:"sniffer,omitempty"`
+	// BB Width coarse filter percentile threshold (default 25)
+	BBWidthCoarseFilter float64 `json:"bb_width_coarse_filter,omitempty"`
+	// BB Width cache TTL in seconds (default 180)
+	BBWidthCacheTTL int `json:"bb_width_cache_ttl,omitempty"`
+	// OI lone breaker threshold percentage (default 15)
+	OILoneBreakerThreshold float64 `json:"oi_lone_breaker_threshold,omitempty"`
+}
+
+// SnifferConfig tunable parameters for the Hunter Sniff mode (institutional ambush detector).
+type SnifferConfig struct {
+	// Minimum LONG score to qualify for Long Ambush pool (default 20.0)
+	MinLongScore float64 `json:"min_long_score,omitempty"`
+	// Minimum SHORT score to qualify for Short Distribution pool (default 20.0)
+	MinShortScore float64 `json:"min_short_score,omitempty"`
+	// Strict squeeze: require bb_squeeze_15m (default true)
+	StrictSqueeze bool `json:"strict_squeeze,omitempty"`
 }
 
 // IndicatorConfig indicator configuration
@@ -901,6 +968,8 @@ func (c *StrategyConfig) getEffectiveCoinCount() int {
 	case "square_heat":
 		count = c.CoinSource.SquareHeatLimit
 	case "hunter":
+		count = c.CoinSource.HunterLimit
+	case "hunter_sniff":
 		count = c.CoinSource.HunterLimit
 	case "mixed":
 		if c.CoinSource.UseAI500 {

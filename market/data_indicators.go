@@ -116,6 +116,169 @@ func calculateATR(klines []Kline, period int) float64 {
 	return atr
 }
 
+// ============================================================================
+// ADX (Average Directional Index) — Market Trend Strength
+// ============================================================================
+
+// MarketRegime represents the current market environment classification.
+type MarketRegime string
+
+const (
+	RegimeRanging  MarketRegime = "ranging"   // ADX < 20: sideways, mean-reversion dominates
+	RegimeTrending MarketRegime = "trending"   // ADX > 25: directional, trend-following dominates
+	RegimeNeutral  MarketRegime = "neutral"    // 20 <= ADX <= 25: transitional
+)
+
+// MarketEnvironment holds the market regime classification result.
+type MarketEnvironment struct {
+	Regime  MarketRegime `json:"regime"`
+	ADX     float64      `json:"adx"`
+	PlusDI  float64      `json:"plus_di"`
+	MinusDI float64      `json:"minus_di"`
+	Symbol  string       `json:"symbol"`
+}
+
+// calculateADXWithDI computes ADX, +DI, and -DI using Wilder's smoothing method.
+// period: typically 14. Requires at least period*2+1 bars for accurate results.
+// Algorithm:
+//  1. Compute +DM/-DM from consecutive highs/lows
+//  2. Compute True Range
+//  3. Wilder-smooth +DM, -DM, TR over `period` bars
+//  4. DI+ = smoothed(+DM) / smoothed(TR) × 100
+//  5. DI- = smoothed(-DM) / smoothed(TR) × 100
+//  6. DX = |DI+ - DI-| / (DI+ + DI-) × 100
+//  7. ADX = Wilder smooth of DX
+func calculateADXWithDI(klines []Kline, period int) (adx, plusDI, minusDI float64) {
+	if len(klines) < period*2+1 {
+		return 0, 0, 0
+	}
+
+	n := len(klines)
+
+	// Step 1-2: Compute +DM, -DM, TR for each bar (skip bar 0)
+	plusDMs := make([]float64, n)
+	minusDMs := make([]float64, n)
+	trs := make([]float64, n)
+
+	for i := 1; i < n; i++ {
+		high := klines[i].High
+		low := klines[i].Low
+		prevHigh := klines[i-1].High
+		prevLow := klines[i-1].Low
+		prevClose := klines[i-1].Close
+
+		upMove := high - prevHigh
+		downMove := prevLow - low
+
+		if upMove > downMove && upMove > 0 {
+			plusDMs[i] = upMove
+		}
+		if downMove > upMove && downMove > 0 {
+			minusDMs[i] = downMove
+		}
+
+		tr1 := high - low
+		tr2 := math.Abs(high - prevClose)
+		tr3 := math.Abs(low - prevClose)
+		trs[i] = math.Max(tr1, math.Max(tr2, tr3))
+	}
+
+	// Step 3: Initial Wilder smooth (SMA seed over first `period` bars)
+	smoothedPlusDM := 0.0
+	smoothedMinusDM := 0.0
+	smoothedTR := 0.0
+	for i := 1; i <= period; i++ {
+		smoothedPlusDM += plusDMs[i]
+		smoothedMinusDM += minusDMs[i]
+		smoothedTR += trs[i]
+	}
+
+	// Step 4-5: Compute DI+ and DI- from initial smooth
+	if smoothedTR == 0 {
+		return 0, 0, 0
+	}
+	plusDI = smoothedPlusDM / smoothedTR * 100
+	minusDI = smoothedMinusDM / smoothedTR * 100
+
+	// Step 6: First DX
+	denom := plusDI + minusDI
+	firstDX := 0.0
+	if denom > 0 {
+		firstDX = math.Abs(plusDI-minusDI) / denom * 100
+	}
+
+	// Step 7: Wilder smooth DX values to get ADX
+	adxSum := firstDX
+	dxCount := 1
+
+	// Continue Wilder smoothing from period+1 to end
+	for i := period + 1; i < n; i++ {
+		smoothedPlusDM = smoothedPlusDM - smoothedPlusDM/float64(period) + plusDMs[i]
+		smoothedMinusDM = smoothedMinusDM - smoothedMinusDM/float64(period) + minusDMs[i]
+		smoothedTR = smoothedTR - smoothedTR/float64(period) + trs[i]
+
+		if smoothedTR == 0 {
+			continue
+		}
+
+		diPlus := smoothedPlusDM / smoothedTR * 100
+		diMinus := smoothedMinusDM / smoothedTR * 100
+		diDenom := diPlus + diMinus
+
+		dx := 0.0
+		if diDenom > 0 {
+			dx = math.Abs(diPlus-diMinus) / diDenom * 100
+		}
+
+		adxSum += dx
+		dxCount++
+
+		// Update latest DI values
+		plusDI = diPlus
+		minusDI = diMinus
+	}
+
+	if dxCount > 0 {
+		adx = adxSum / float64(dxCount)
+	}
+
+	return adx, plusDI, minusDI
+}
+
+// calculateADX returns just the ADX value (convenience wrapper).
+func calculateADX(klines []Kline, period int) float64 {
+	adx, _, _ := calculateADXWithDI(klines, period)
+	return adx
+}
+
+// ExportCalculateADX exports ADX calculation for testing.
+func ExportCalculateADX(klines []Kline, period int) (float64, float64, float64) {
+	return calculateADXWithDI(klines, period)
+}
+
+// ClassifyMarketRegime determines the market environment based on ADX.
+// ADX < 20 → ranging (mean-reversion favors)
+// ADX > 25 → trending (trend-following favors)
+// Otherwise → neutral (transitional)
+func ClassifyMarketRegime(klines []Kline, period int, symbol string) *MarketEnvironment {
+	adx, plusDI, minusDI := calculateADXWithDI(klines, period)
+
+	regime := RegimeNeutral
+	if adx < 20 {
+		regime = RegimeRanging
+	} else if adx > 25 {
+		regime = RegimeTrending
+	}
+
+	return &MarketEnvironment{
+		Regime:  regime,
+		ADX:     adx,
+		PlusDI:  plusDI,
+		MinusDI: minusDI,
+		Symbol:  symbol,
+	}
+}
+
 // calculateBOLL calculates Bollinger Bands (upper, middle, lower)
 // period: typically 20, multiplier: typically 2
 func calculateBOLL(klines []Kline, period int, multiplier float64) (upper, middle, lower float64) {

@@ -150,7 +150,7 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
         Desktop: Standard flex-wrap/nowrap
       */}
       <div
-        className="relative z-20 flex flex-wrap md:flex-nowrap items-center justify-between gap-y-2 px-3 py-2 shrink-0 backdrop-blur-md bg-[#0B0E11]/80 rounded-t-lg"
+        className="relative z-20 flex flex-wrap md:flex-nowrap items-center justify-between gap-y-2 px-3 py-2 shrink-0 backdrop-blur-md bg-background/80 rounded-t-lg"
         style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
       >
         {/* Left: Tab Switcher */}
@@ -158,8 +158,8 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
           <button
             onClick={() => setActiveTab('equity')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${activeTab === 'equity'
-              ? 'bg-ait-gold/10 text-ait-gold border border-ait-gold/20 shadow-[0_0_10px_rgba(240,185,11,0.1)]'
-              : 'text-ait-text-muted hover:text-ait-text-main hover:bg-white/5'
+              ? 'bg-primary-dim text-primary border border-ait-gold/20 shadow-neon'
+              : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
               }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -170,8 +170,8 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
           <button
             onClick={() => setActiveTab('kline')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${activeTab === 'kline'
-              ? 'bg-ait-gold/10 text-ait-gold border border-ait-gold/20 shadow-[0_0_10px_rgba(240,185,11,0.1)]'
-              : 'text-ait-text-muted hover:text-ait-text-main hover:bg-white/5'
+              ? 'bg-primary-dim text-primary border border-ait-gold/20 shadow-neon'
+              : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
               }`}
           >
             <CandlestickChart className="w-3.5 h-3.5" />
@@ -190,8 +190,8 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                     key={type}
                     onClick={() => handleMarketTypeChange(type)}
                     className={`px-2.5 py-1 text-[10px] font-medium rounded transition-all border ${isActive
-                      ? 'bg-white/10 text-white border-white/20'
-                      : 'text-ait-text-muted border-transparent hover:text-ait-text-main hover:bg-white/5'
+                      ? 'bg-white/10 text-foreground border-white/20'
+                      : 'text-muted-foreground border-transparent hover:text-ait-text-main hover:bg-white/5'
                       }`}
                   >
                     <span className="mr-1 opacity-70">{config.icon}</span>
@@ -212,22 +212,22 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                 <>
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-ait-text-main hover:border-ait-gold/30 hover:text-ait-gold transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-ait-text-main hover:border-ait-gold/30 hover:text-primary transition-all"
                   >
                     <span>{chartSymbol}</span>
-                    <ChevronDown className={`w-3 h-3 text-ait-text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                   </button>
                   {showDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-[#0B0E11] border border-white/10 rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden ait-glass ring-1 ring-white/5">
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-background border border-white/10 rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden ait-glass ring-1 ring-white/5">
                       <div className="p-2 border-b border-white/5">
                         <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-white/10 focus-within:border-ait-gold/50 transition-colors">
-                          <Search className="w-3.5 h-3.5 text-ait-text-muted" />
+                          <Search className="w-3.5 h-3.5 text-muted-foreground" />
                           <input
                             type="text"
                             value={searchFilter}
                             onChange={(e) => setSearchFilter(e.target.value)}
                             placeholder="Search symbol..."
-                            className="flex-1 bg-transparent text-[11px] text-white placeholder-gray-600 focus:outline-none font-mono"
+                            className="flex-1 bg-transparent text-[11px] text-foreground placeholder-gray-600 focus:outline-none font-mono"
                             autoFocus
                           />
                         </div>
@@ -239,12 +239,12 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                           const labels: Record<string, string> = { crypto: 'Crypto', stock: 'Stocks', forex: 'Forex', commodity: 'Commodities', index: 'Index' }
                           return (
                             <div key={category}>
-                              <div className="px-3 py-1.5 text-[9px] font-bold text-ait-text-muted/60 bg-white/5 uppercase tracking-wider">{labels[category]}</div>
+                              <div className="px-3 py-1.5 text-[9px] font-bold text-muted-foreground/60 bg-white/5 uppercase tracking-wider">{labels[category]}</div>
                               {categorySymbols.map(s => (
                                 <button
                                   key={s.symbol}
                                   onClick={() => { setChartSymbol(s.symbol); setShowDropdown(false); setSearchFilter('') }}
-                                  className={`w-full px-3 py-2 text-left text-[11px] font-mono hover:bg-white/5 transition-all flex items-center justify-between ${chartSymbol === s.symbol ? 'bg-ait-gold/10 text-ait-gold' : 'text-ait-text-muted'}`}
+                                  className={`w-full px-3 py-2 text-left text-[11px] font-mono hover:bg-white/5 transition-all flex items-center justify-between ${chartSymbol === s.symbol ? 'bg-primary-dim text-primary' : 'text-muted-foreground'}`}
                                 >
                                   <span>{s.symbol}</span>
                                   <span className="text-[9px] opacity-40">{s.name}</span>
@@ -269,8 +269,8 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                   key={int.value}
                   onClick={() => setInterval(int.value)}
                   className={`px-2 py-1 text-[10px] font-medium transition-all ${interval === int.value
-                    ? 'bg-ait-gold/20 text-ait-gold'
-                    : 'text-ait-text-muted hover:text-white hover:bg-white/5'
+                    ? 'bg-primary/20 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                     }`}
                 >
                   {int.label}
@@ -285,9 +285,9 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                 value={symbolInput}
                 onChange={(e) => setSymbolInput(e.target.value)}
                 placeholder="Sym"
-                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-white placeholder-gray-600 focus:outline-none focus:border-ait-gold/50 font-mono transition-colors"
+                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-foreground placeholder-gray-600 focus:outline-none focus:border-ait-gold/50 font-mono transition-colors"
               />
-              <button type="submit" className="px-2 py-1 bg-white/5 border border-white/10 border-l-0 rounded-r text-[10px] text-ait-text-muted hover:text-white hover:bg-white/10 transition-all">
+              <button type="submit" className="px-2 py-1 bg-white/5 border border-white/10 border-l-0 rounded-r text-[10px] text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all">
                 Go
               </button>
             </form>
@@ -296,7 +296,7 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
       </div>
 
       {/* Tab Content - Chart autosizes to this container */}
-      <div className="relative flex-1 bg-[#0B0E11]/50 rounded-b-lg overflow-hidden h-full min-h-0">
+      <div className="relative flex-1 bg-background/50 rounded-b-lg overflow-hidden h-full min-h-0">
         <AnimatePresence mode="wait">
           {activeTab === 'equity' ? (
             <motion.div

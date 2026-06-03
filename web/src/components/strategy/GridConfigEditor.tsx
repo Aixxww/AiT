@@ -47,11 +47,11 @@ export function GridConfigEditor({
   const inputStyle = {
     background: '#1E2329',
     border: '1px solid #2B3139',
-    color: '#EAECEF',
+    color: 'var(--foreground)',
   }
 
   const sectionStyle = {
-    background: '#0B0E11',
+    background: 'var(--background)',
     border: '1px solid #2B3139',
   }
 
@@ -61,7 +61,7 @@ export function GridConfigEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <DollarSign className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(gridConfig.tradingPair, language)}
           </h3>
         </div>
@@ -69,10 +69,10 @@ export function GridConfigEditor({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Symbol */}
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.symbol, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.symbolDesc, language)}
             </p>
             <AiTSelect
@@ -94,10 +94,10 @@ export function GridConfigEditor({
 
           {/* Investment */}
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.totalInvestment, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.totalInvestmentDesc, language)}
             </p>
             <input
@@ -114,10 +114,10 @@ export function GridConfigEditor({
 
           {/* Leverage */}
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.leverage, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.leverageDesc, language)}
             </p>
             <input
@@ -138,7 +138,7 @@ export function GridConfigEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Grid className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(gridConfig.gridParameters, language)}
           </h3>
         </div>
@@ -146,10 +146,10 @@ export function GridConfigEditor({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Grid Count */}
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.gridCount, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.gridCountDesc, language)}
             </p>
             <input
@@ -166,10 +166,10 @@ export function GridConfigEditor({
 
           {/* Distribution */}
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.distribution, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.distributionDesc, language)}
             </p>
             <AiTSelect
@@ -192,7 +192,7 @@ export function GridConfigEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(gridConfig.priceBounds, language)}
           </h3>
         </div>
@@ -201,10 +201,10 @@ export function GridConfigEditor({
         <div className="p-4 rounded-lg mb-4" style={sectionStyle}>
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm text-foreground">
                 {ts(gridConfig.useAtrBounds, language)}
               </label>
-              <p className="text-xs" style={{ color: '#848E9C' }}>
+              <p className="text-xs text-muted-foreground">
                 {ts(gridConfig.useAtrBoundsDesc, language)}
               </p>
             </div>
@@ -216,17 +216,17 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F0B90B]"></div>
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
 
         {config.use_atr_bounds ? (
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.atrMultiplier, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.atrMultiplierDesc, language)}
             </p>
             <input
@@ -244,10 +244,10 @@ export function GridConfigEditor({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg" style={sectionStyle}>
-              <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm mb-1 text-foreground">
                 {ts(gridConfig.upperPrice, language)}
               </label>
-              <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+              <p className="text-xs mb-2 text-muted-foreground">
                 {ts(gridConfig.upperPriceDesc, language)}
               </p>
               <input
@@ -262,10 +262,10 @@ export function GridConfigEditor({
               />
             </div>
             <div className="p-4 rounded-lg" style={sectionStyle}>
-              <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm mb-1 text-foreground">
                 {ts(gridConfig.lowerPrice, language)}
               </label>
-              <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+              <p className="text-xs mb-2 text-muted-foreground">
                 {ts(gridConfig.lowerPriceDesc, language)}
               </p>
               <input
@@ -287,17 +287,17 @@ export function GridConfigEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(gridConfig.riskControl, language)}
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.maxDrawdown, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.maxDrawdownDesc, language)}
             </p>
             <input
@@ -313,10 +313,10 @@ export function GridConfigEditor({
           </div>
 
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.stopLoss, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.stopLossDesc, language)}
             </p>
             <input
@@ -332,10 +332,10 @@ export function GridConfigEditor({
           </div>
 
           <div className="p-4 rounded-lg" style={sectionStyle}>
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(gridConfig.dailyLossLimit, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(gridConfig.dailyLossLimitDesc, language)}
             </p>
             <input
@@ -355,10 +355,10 @@ export function GridConfigEditor({
         <div className="p-4 rounded-lg" style={sectionStyle}>
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm text-foreground">
                 {ts(gridConfig.useMakerOnly, language)}
               </label>
-              <p className="text-xs" style={{ color: '#848E9C' }}>
+              <p className="text-xs text-muted-foreground">
                 {ts(gridConfig.useMakerOnlyDesc, language)}
               </p>
             </div>
@@ -370,7 +370,7 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F0B90B]"></div>
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
@@ -380,7 +380,7 @@ export function GridConfigEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Compass className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(gridConfig.directionAdjust, language)}
           </h3>
         </div>
@@ -389,10 +389,10 @@ export function GridConfigEditor({
         <div className="p-4 rounded-lg mb-4" style={sectionStyle}>
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm text-foreground">
                 {ts(gridConfig.enableDirectionAdjust, language)}
               </label>
-              <p className="text-xs" style={{ color: '#848E9C' }}>
+              <p className="text-xs text-muted-foreground">
                 {ts(gridConfig.enableDirectionAdjustDesc, language)}
               </p>
             </div>
@@ -404,7 +404,7 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F0B90B]"></div>
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
@@ -416,24 +416,24 @@ export function GridConfigEditor({
               <p className="text-xs font-medium mb-2" style={{ color: '#F0B90B' }}>
                 📊 {ts(gridConfig.directionModes, language)}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs" style={{ color: '#848E9C' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div>• {ts(gridConfig.modeNeutral, language)}</div>
                 <div>• <span style={{ color: '#0ECB81' }}>{ts(gridConfig.modeLongBias, language)}</span></div>
                 <div>• <span style={{ color: '#0ECB81' }}>{ts(gridConfig.modeLong, language)}</span></div>
                 <div>• <span style={{ color: '#F6465D' }}>{ts(gridConfig.modeShortBias, language)}</span></div>
                 <div>• <span style={{ color: '#F6465D' }}>{ts(gridConfig.modeShort, language)}</span></div>
               </div>
-              <p className="text-xs mt-3 pt-2 border-t border-zinc-700" style={{ color: '#848E9C' }}>
+              <p className="text-xs mt-3 pt-2 border-t border-border text-muted-foreground">
                 💡 {ts(gridConfig.directionExplain, language)}
               </p>
             </div>
 
             {/* Bias Strength */}
             <div className="p-4 rounded-lg" style={sectionStyle}>
-              <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+              <label className="block text-sm mb-1 text-foreground">
                 {ts(gridConfig.directionBiasRatio, language)} (X)
               </label>
-              <p className="text-xs mb-1" style={{ color: '#848E9C' }}>
+              <p className="text-xs mb-1 text-muted-foreground">
                 {ts(gridConfig.directionBiasRatioDesc, language)}
               </p>
               <p className="text-xs mb-3" style={{ color: '#F0B90B' }}>
@@ -458,11 +458,11 @@ export function GridConfigEditor({
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2 rounded" style={{ background: '#0ECB8115', border: '1px solid #0ECB8130' }}>
                   <span style={{ color: '#0ECB81' }}>Long Bias: </span>
-                  <span style={{ color: '#EAECEF' }}>{Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.sell, language)}</span>
+                  <span className="text-foreground">{Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.sell, language)}</span>
                 </div>
                 <div className="p-2 rounded" style={{ background: '#F6465D15', border: '1px solid #F6465D30' }}>
                   <span style={{ color: '#F6465D' }}>Short Bias: </span>
-                  <span style={{ color: '#EAECEF' }}>{Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.sell, language)}</span>
+                  <span className="text-foreground">{Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.sell, language)}</span>
                 </div>
               </div>
             </div>

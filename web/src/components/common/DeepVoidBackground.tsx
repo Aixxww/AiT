@@ -28,7 +28,7 @@ export function DeepVoidBackground({ children, className = '', disableAnimation 
 
                     {/* 3. Ambient Glow Spots */}
                     <div className="absolute inset-0 overflow-hidden pointer-events-none fixed z-0">
-                        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-ait-gold/10 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow"></div>
+                        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-primary-dim rounded-full blur-[120px] mix-blend-screen animate-pulse-slow"></div>
                         <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-ait-accent/5 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
                     </div>
 

@@ -59,12 +59,12 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
   ]
 
   return (
-    <section className="py-24 relative" style={{ background: '#0B0E11' }}>
+    <section className="py-24 relative bg-background">
       {/* Background */}
       <div
         className="absolute inset-0 opacity-[0.02]"
         style={{
-          backgroundImage: `linear-gradient(#F0B90B 1px, transparent 1px), linear-gradient(90deg, #F0B90B 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(var(--color-primary) 1px, transparent 1px), linear-gradient(90deg, var(--color-primary) 1px, transparent 1px)`,
           backgroundSize: '40px 40px',
         }}
       />
@@ -77,10 +77,10 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: '#EAECEF' }}>
+          <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-foreground">
             {t('whyChooseAiT', language)}
           </h2>
-          <p className="text-lg max-w-2xl mx-auto" style={{ color: '#848E9C' }}>
+          <p className="text-lg max-w-2xl mx-auto text-muted-foreground">
             {language === 'zh'
               ? '不只是交易机器人，而是完整的 AI 交易操作系统'
               : 'Not just a trading bot, but a complete AI trading operating system'}
@@ -102,11 +102,11 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
               `}
               style={{
                 background: feature.highlight
-                  ? 'linear-gradient(135deg, rgba(240, 185, 11, 0.08) 0%, rgba(240, 185, 11, 0.02) 100%)'
-                  : '#12161C',
+                  ? 'linear-gradient(135deg, var(--color-primary-dim) 0%, var(--color-primary-glow) 100%)'
+                  : 'var(--color-panel)',
                 border: feature.highlight
-                  ? '1px solid rgba(240, 185, 11, 0.2)'
-                  : '1px solid rgba(255, 255, 255, 0.06)',
+                  ? '1px solid var(--color-border-hover)'
+                  : '1px solid var(--color-border)',
               }}
             >
               {/* Badge */}
@@ -114,8 +114,8 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
                 <div
                   className="absolute top-4 right-4 px-2 py-1 rounded text-xs font-medium"
                   style={{
-                    background: 'rgba(240, 185, 11, 0.15)',
-                    color: '#F0B90B',
+                    background: 'var(--color-primary-glow)',
+                    color: 'var(--color-primary)',
                   }}
                 >
                   {feature.badge}
@@ -127,28 +127,26 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
                 className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
                 style={{
                   background: feature.highlight
-                    ? 'rgba(240, 185, 11, 0.15)'
-                    : 'rgba(240, 185, 11, 0.1)',
-                  border: '1px solid rgba(240, 185, 11, 0.2)',
+                    ? 'var(--color-primary-glow)'
+                    : 'var(--color-primary-dim)',
+                  border: '1px solid var(--color-border-hover)',
                 }}
                 whileHover={{ scale: 1.1, rotate: 5 }}
               >
                 <feature.icon
                   className="w-6 h-6"
-                  style={{ color: '#F0B90B' }}
+                  style={{ color: 'var(--color-primary)' }}
                 />
               </motion.div>
 
               {/* Text */}
               <h3
-                className="text-xl font-bold mb-3"
-                style={{ color: '#EAECEF' }}
+                className="text-xl font-bold mb-3 text-foreground"
               >
                 {feature.title}
               </h3>
               <p
-                className="text-sm leading-relaxed"
-                style={{ color: '#848E9C' }}
+                className="text-sm leading-relaxed text-muted-foreground"
               >
                 {feature.desc}
               </p>
@@ -156,7 +154,7 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
               {/* Hover Glow */}
               <div
                 className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-30 transition-opacity duration-500"
-                style={{ background: '#F0B90B' }}
+                style={{ background: 'var(--color-primary)' }}
               />
             </motion.div>
           ))}
@@ -186,14 +184,14 @@ export default function FeaturesSection({ language }: FeaturesSectionProps) {
               <div
                 className="text-2xl font-bold mb-1"
                 style={{
-                  background: 'linear-gradient(135deg, #F0B90B 0%, #FCD535 100%)',
+                  background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}
               >
                 {stat.value}
               </div>
-              <div className="text-xs" style={{ color: '#5E6673' }}>
+              <div className="text-xs" style={{ color: 'var(--color-muted-fg)' }}>
                 {stat.label}
               </div>
             </div>

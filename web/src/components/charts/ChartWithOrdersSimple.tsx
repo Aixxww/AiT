@@ -66,17 +66,17 @@ export function ChartWithOrdersSimple({
   }, [symbol, interval, traderID])
 
   return (
-    <div className="relative" style={{ background: '#0B0E11', borderRadius: '8px', overflow: 'hidden', minHeight: height }}>
+    <div className="relative" style={{ background: 'var(--color-background)', borderRadius: '8px', overflow: 'hidden', minHeight: height }}>
       {/* 标题栏 */}
-      <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid #2B3139' }}>
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-xl">📈</span>
-          <h3 className="text-lg font-bold" style={{ color: '#EAECEF' }}>
+          <h3 className="text-lg font-bold text-foreground">
             {symbol} {interval} (测试模式)
           </h3>
         </div>
         {loading && (
-          <div className="text-sm" style={{ color: '#848E9C' }}>
+          <div className="text-sm text-muted-foreground">
             加载中...
           </div>
         )}
@@ -87,29 +87,29 @@ export function ChartWithOrdersSimple({
         {error ? (
           <div className="text-center">
             <div className="text-2xl mb-2">⚠️</div>
-            <div style={{ color: '#F6465D' }}>{error}</div>
+            <div className="text-loss">{error}</div>
           </div>
         ) : (
           <>
-            <div className="p-4 rounded" style={{ background: '#1E2329', border: '1px solid #2B3139' }}>
-              <div className="text-sm mb-2" style={{ color: '#848E9C' }}>币安K线数据</div>
-              <div className="text-2xl font-bold" style={{ color: '#0ECB81' }}>
+            <div className="p-4 rounded bg-panel border border-border">
+              <div className="text-sm mb-2 text-muted-foreground">币安K线数据</div>
+              <div className="text-2xl font-bold text-profit">
                 {klineCount} 根K线
               </div>
             </div>
 
             {traderID && (
-              <div className="p-4 rounded" style={{ background: '#1E2329', border: '1px solid #2B3139' }}>
-                <div className="text-sm mb-2" style={{ color: '#848E9C' }}>历史订单数据</div>
-                <div className="text-2xl font-bold" style={{ color: '#F0B90B' }}>
+              <div className="p-4 rounded bg-panel border border-border">
+                <div className="text-sm mb-2 text-muted-foreground">历史订单数据</div>
+                <div className="text-2xl font-bold text-primary">
                   {orderCount} 笔订单
                 </div>
               </div>
             )}
 
-            <div className="p-4 rounded" style={{ background: '#1E2329', border: '1px solid #2B3139' }}>
-              <div className="text-sm mb-2" style={{ color: '#848E9C' }}>状态</div>
-              <div className="text-lg" style={{ color: '#EAECEF' }}>
+            <div className="p-4 rounded bg-panel border border-border">
+              <div className="text-sm mb-2 text-muted-foreground">状态</div>
+              <div className="text-lg text-foreground">
                 ✅ 数据获取正常，图表组件开发中
               </div>
             </div>

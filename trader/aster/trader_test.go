@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,11 +23,17 @@ import (
 // Inherits TraderTestSuite and adds Aster specific mock logic
 type AsterTraderTestSuite struct {
 	*testutil.TraderTestSuite // Embeds base test suite
-	mockServer              *httptest.Server
+	mockServer                *httptest.Server
 }
 
 // NewAsterTraderTestSuite creates Aster test suite
 func NewAsterTraderTestSuite(t *testing.T) *AsterTraderTestSuite {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
 	// Create mock HTTP server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return different mock responses based on URL path

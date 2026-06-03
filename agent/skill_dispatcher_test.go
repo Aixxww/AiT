@@ -402,6 +402,13 @@ func TestModelManagementAtomicUpdates(t *testing.T) {
 	}
 }
 
+func TestExtractModelNameUpdateValue(t *testing.T) {
+	got := extractModelNameUpdateValue("更新模型，把模型名称改成 deepseek-reasoner")
+	if got != "deepseek-reasoner" {
+		t.Fatalf("expected model name update value, got %q", got)
+	}
+}
+
 func TestStrategyManagementAtomicUpdates(t *testing.T) {
 	a := newTestAgentWithStore(t)
 

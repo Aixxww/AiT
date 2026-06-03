@@ -19,11 +19,11 @@ export function Header({ simple = false }: HeaderProps) {
               <img src="/icons/ait.svg" alt="AiT Logo" className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-xl font-bold" style={{ color: '#EAECEF' }}>
+              <h1 className="text-xl font-bold text-foreground">
                 {t('appTitle', language)}
               </h1>
               {!simple && (
-                <p className="text-xs mono" style={{ color: '#848E9C' }}>
+                <p className="text-xs mono text-muted-foreground">
                   {t('subtitle', language)}
                 </p>
               )}
@@ -33,15 +33,15 @@ export function Header({ simple = false }: HeaderProps) {
           {/* Right - Language Toggle (always show) */}
           <div
             className="flex gap-1 rounded p-1"
-            style={{ background: '#1E2329' }}
+            style={{ background: 'var(--color-panel)' }}
           >
             <button
               onClick={() => setLanguage('zh')}
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'zh'
-                  ? { background: '#F0B90B', color: '#000' }
-                  : { background: 'transparent', color: '#848E9C' }
+                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
+                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
               }
             >
               中文
@@ -51,8 +51,8 @@ export function Header({ simple = false }: HeaderProps) {
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'en'
-                  ? { background: '#F0B90B', color: '#000' }
-                  : { background: 'transparent', color: '#848E9C' }
+                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
+                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
               }
             >
               EN
@@ -62,8 +62,8 @@ export function Header({ simple = false }: HeaderProps) {
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'id'
-                  ? { background: '#F0B90B', color: '#000' }
-                  : { background: 'transparent', color: '#848E9C' }
+                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
+                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
               }
             >
               ID

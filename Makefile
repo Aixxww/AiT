@@ -1,6 +1,8 @@
 # AiT Makefile — Build, Test, Run
 
 APP_NAME := ait
+GO_PACKAGES := $(shell go list ./... | grep -v '/web/node_modules/')
+GO_TEST_TIMEOUT ?= 60s
 
 .PHONY: help test test-backend test-frontend test-coverage clean install dev start stop status logs
 
@@ -43,7 +45,7 @@ help:
 # Run all tests
 test:
 	@echo "🧪 Running backend tests..."
-	go test -v ./...
+	go test -timeout=$(GO_TEST_TIMEOUT) -v $(GO_PACKAGES)
 	@echo ""
 	@echo "🧪 Running frontend tests..."
 	cd web && npm run test
@@ -52,7 +54,7 @@ test:
 # Backend tests only
 test-backend:
 	@echo "🧪 Running backend tests..."
-	go test -v ./...
+	go test -timeout=$(GO_TEST_TIMEOUT) -v $(GO_PACKAGES)
 
 # Frontend tests only
 test-frontend:
@@ -62,7 +64,7 @@ test-frontend:
 # Coverage report
 test-coverage:
 	@echo "📊 Generating coverage..."
-	go test -coverprofile=coverage.out ./...
+	go test -timeout=$(GO_TEST_TIMEOUT) -coverprofile=coverage.out $(GO_PACKAGES)
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "✅ Backend coverage: coverage.html"
 
@@ -99,7 +101,7 @@ run-frontend:
 # Format Go code
 fmt:
 	@echo "🎨 Formatting Go code..."
-	go fmt ./...
+	go fmt $(GO_PACKAGES)
 	@echo "✅ Code formatted"
 
 # Lint Go code (requires golangci-lint)
@@ -188,7 +190,7 @@ deps:
 # Update Go dependencies
 deps-update:
 	@echo "📦 Updating Go dependencies..."
-	go get -u ./...
+	go get -u $(GO_PACKAGES)
 	go mod tidy
 	@echo "✅ Dependencies updated"
 

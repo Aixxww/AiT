@@ -55,6 +55,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	if err != nil {
 		return err
 	}
+	if err := at.validateOpenDecision(decision, marketData.CurrentPrice, "long"); err != nil {
+		return err
+	}
 
 	// Get balance (needed for multiple checks)
 	balance, err := at.trader.GetBalance()
@@ -170,6 +173,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	// Get current price
 	marketData, err := market.GetWithExchange(decision.Symbol, at.exchange)
 	if err != nil {
+		return err
+	}
+	if err := at.validateOpenDecision(decision, marketData.CurrentPrice, "short"); err != nil {
 		return err
 	}
 

@@ -55,7 +55,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#0B0E11' }}>
+    <div className="min-h-screen bg-background">
       <Header simple />
 
       <div
@@ -66,8 +66,7 @@ export function ResetPasswordPage() {
           {/* Back to Login */}
           <button
             onClick={() => navigate('/login')}
-            className="flex items-center gap-2 mb-6 text-sm hover:text-[#F0B90B] transition-colors"
-            style={{ color: '#848E9C' }}
+            className="flex items-center gap-2 mb-6 text-sm hover:text-primary transition-colors text-muted-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             {t('backToLogin', language)}
@@ -77,14 +76,14 @@ export function ResetPasswordPage() {
           <div className="text-center mb-8">
             <div
               className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full"
-              style={{ background: 'rgba(240, 185, 11, 0.1)' }}
+              style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}
             >
-              <KeyRound className="w-8 h-8" style={{ color: '#F0B90B' }} />
+              <KeyRound className="w-8 h-8" style={{ color: 'var(--color-primary)' }} />
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: '#EAECEF' }}>
+            <h1 className="text-2xl font-bold text-foreground">
               {t('resetPasswordTitle', language)}
             </h1>
-            <p className="text-sm mt-2" style={{ color: '#848E9C' }}>
+            <p className="text-sm mt-2 text-muted-foreground">
               使用邮箱和新密码重置账户密码
             </p>
           </div>
@@ -92,18 +91,17 @@ export function ResetPasswordPage() {
           {/* Reset Password Form */}
           <div
             className="rounded-lg p-6"
-            style={{ background: '#1E2329', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--color-panel)', border: '1px solid var(--color-border)' }}
           >
             {success ? (
               <div className="text-center py-8">
                 <div className="text-5xl mb-4">✅</div>
                 <p
-                  className="text-lg font-semibold mb-2"
-                  style={{ color: '#EAECEF' }}
+                  className="text-lg font-semibold mb-2 text-foreground"
                 >
                   {t('resetPasswordSuccess', language)}
                 </p>
-                <p className="text-sm" style={{ color: '#848E9C' }}>
+                <p className="text-sm text-muted-foreground">
                   3秒后将自动跳转到登录页面...
                 </p>
               </div>
@@ -111,8 +109,7 @@ export function ResetPasswordPage() {
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
                   <label
-                    className="block text-sm font-semibold mb-2"
-                    style={{ color: '#EAECEF' }}
+                    className="block text-sm font-semibold mb-2 text-foreground"
                   >
                     {t('email', language)}
                   </label>
@@ -127,8 +124,7 @@ export function ResetPasswordPage() {
 
                 <div>
                   <label
-                    className="block text-sm font-semibold mb-2"
-                    style={{ color: '#EAECEF' }}
+                    className="block text-sm font-semibold mb-2 text-foreground"
                   >
                     {t('newPassword', language)}
                   </label>
@@ -159,8 +155,7 @@ export function ResetPasswordPage() {
 
                 <div>
                   <label
-                    className="block text-sm font-semibold mb-2"
-                    style={{ color: '#EAECEF' }}
+                    className="block text-sm font-semibold mb-2 text-foreground"
                   >
                     {t('confirmPassword', language)}
                   </label>
@@ -231,8 +226,8 @@ export function ResetPasswordPage() {
                   <div
                     className="text-sm px-3 py-2 rounded"
                     style={{
-                      background: 'rgba(246, 70, 93, 0.1)',
-                      color: '#F6465D',
+                      background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                      color: 'var(--color-loss)',
                     }}
                   >
                     {error}
@@ -243,7 +238,7 @@ export function ResetPasswordPage() {
                   type="submit"
                   disabled={loading || !passwordValid}
                   className="w-full px-4 py-2 rounded text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50"
-                  style={{ background: '#F0B90B', color: '#000' }}
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
                 >
                   {loading
                     ? t('loading', language)

@@ -13,6 +13,10 @@ const (
 	CacheTTLHunter  = 180 * time.Second // Hunter composite scores (3 min)
 )
 
+// BBWidthPercentileCache caches BB Width percentile values for Hunter breakout mode.
+// TTL is specified per Set() call (default 180s).
+var BBWidthPercentileCache = NewCache()
+
 // cacheEntry represents a single cached item with expiration time
 type cacheEntry struct {
 	data      interface{}

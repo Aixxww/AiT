@@ -26,7 +26,7 @@ export function PublishSettingsEditor({
         style={{
           background: isPublic
             ? 'linear-gradient(135deg, rgba(14, 203, 129, 0.15) 0%, rgba(14, 203, 129, 0.05) 100%)'
-            : 'linear-gradient(135deg, #1E2329 0%, #0B0E11 100%)',
+            : 'linear-gradient(135deg, #1E2329 0%, var(--background) 100%)',
           border: isPublic ? '1px solid rgba(14, 203, 129, 0.4)' : '1px solid #2B3139',
           boxShadow: isPublic ? '0 0 20px rgba(14, 203, 129, 0.1)' : 'none',
         }}
@@ -48,21 +48,21 @@ export function PublishSettingsEditor({
             <div
               className="p-2.5 rounded-lg transition-all duration-300"
               style={{
-                background: isPublic ? 'rgba(14, 203, 129, 0.2)' : '#0B0E11',
+                background: isPublic ? 'rgba(14, 203, 129, 0.2)' : 'var(--background)',
                 border: isPublic ? '1px solid rgba(14, 203, 129, 0.3)' : '1px solid #2B3139'
               }}
             >
               {isPublic ? (
                 <Globe className="w-5 h-5" style={{ color: '#0ECB81' }} />
               ) : (
-                <Lock className="w-5 h-5" style={{ color: '#848E9C' }} />
+                <Lock className="w-5 h-5 text-muted-foreground" />
               )}
             </div>
             <div>
-              <div className="text-sm font-medium" style={{ color: '#EAECEF' }}>
+              <div className="text-sm font-medium text-foreground">
                 {ts(publishSettings.publishToMarket, language)}
               </div>
-              <div className="text-xs mt-0.5" style={{ color: '#848E9C' }}>
+              <div className="text-xs mt-0.5 text-muted-foreground">
                 {ts(publishSettings.publishDesc, language)}
               </div>
             </div>
@@ -72,7 +72,7 @@ export function PublishSettingsEditor({
           <div className="flex items-center gap-3">
             <span
               className="text-[10px] font-mono font-bold tracking-wider"
-              style={{ color: isPublic ? '#0ECB81' : '#848E9C' }}
+              style={{ color: isPublic ? '#0ECB81' : 'var(--color-muted-fg)' }}
             >
               {isPublic ? ts(publishSettings.public, language) : ts(publishSettings.private, language)}
             </span>
@@ -88,7 +88,7 @@ export function PublishSettingsEditor({
               <div
                 className="absolute top-1 w-4 h-4 rounded-full transition-all duration-300"
                 style={{
-                  background: '#EAECEF',
+                  background: 'var(--foreground)',
                   left: isPublic ? '28px' : '4px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
                 }}
@@ -105,7 +105,7 @@ export function PublishSettingsEditor({
           style={{
             background: configVisible
               ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)'
-              : 'linear-gradient(135deg, #1E2329 0%, #0B0E11 100%)',
+              : 'linear-gradient(135deg, #1E2329 0%, var(--background) 100%)',
             border: configVisible ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid #2B3139',
             boxShadow: configVisible ? '0 0 20px rgba(168, 85, 247, 0.1)' : 'none',
           }}
@@ -127,21 +127,21 @@ export function PublishSettingsEditor({
               <div
                 className="p-2.5 rounded-lg transition-all duration-300"
                 style={{
-                  background: configVisible ? 'rgba(168, 85, 247, 0.2)' : '#0B0E11',
+                  background: configVisible ? 'rgba(168, 85, 247, 0.2)' : 'var(--background)',
                   border: configVisible ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid #2B3139'
                 }}
               >
                 {configVisible ? (
                   <Eye className="w-5 h-5" style={{ color: '#a855f7' }} />
                 ) : (
-                  <EyeOff className="w-5 h-5" style={{ color: '#848E9C' }} />
+                  <EyeOff className="w-5 h-5 text-muted-foreground" />
                 )}
               </div>
               <div>
-                <div className="text-sm font-medium" style={{ color: '#EAECEF' }}>
+                <div className="text-sm font-medium text-foreground">
                   {ts(publishSettings.showConfig, language)}
                 </div>
-                <div className="text-xs mt-0.5" style={{ color: '#848E9C' }}>
+                <div className="text-xs mt-0.5 text-muted-foreground">
                   {ts(publishSettings.showConfigDesc, language)}
                 </div>
               </div>
@@ -151,7 +151,7 @@ export function PublishSettingsEditor({
             <div className="flex items-center gap-3">
               <span
                 className="text-[10px] font-mono font-bold tracking-wider"
-                style={{ color: configVisible ? '#a855f7' : '#848E9C' }}
+                style={{ color: configVisible ? '#a855f7' : 'var(--color-muted-fg)' }}
               >
                 {configVisible ? ts(publishSettings.visible, language) : ts(publishSettings.hidden, language)}
               </span>
@@ -167,7 +167,7 @@ export function PublishSettingsEditor({
                 <div
                   className="absolute top-1 w-4 h-4 rounded-full transition-all duration-300"
                   style={{
-                    background: '#EAECEF',
+                    background: 'var(--foreground)',
                     left: configVisible ? '28px' : '4px',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
                   }}

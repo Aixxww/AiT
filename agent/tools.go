@@ -965,7 +965,7 @@ func (a *Agent) toolManageModelConfig(storeUserID, argsJSON string) string {
 		if apiKey != "" {
 			effectiveAPIKey = apiKey
 		}
-		if enabled && !modelConfigUsable(existing.Provider, existing.ID, effectiveAPIKey, customAPIURL, customModelName) {
+		if args.Enabled != nil && enabled && !modelConfigUsable(existing.Provider, existing.ID, effectiveAPIKey, customAPIURL, customModelName) {
 			return `{"error":"cannot enable model config before API key is configured"}`
 		}
 		if err := a.store.AIModel().Update(storeUserID, existing.ID, enabled, apiKey, customAPIURL, customModelName); err != nil {

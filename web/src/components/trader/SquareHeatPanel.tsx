@@ -19,10 +19,10 @@ function getTrendIcon(trend: string): string {
 }
 
 function getChangeColor(val?: number): string {
-  if (val == null) return 'text-ait-text-muted'
+  if (val == null) return 'text-muted-foreground'
   if (val > 0) return 'text-ait-green'
   if (val < 0) return 'text-ait-red'
-  return 'text-ait-text-muted'
+  return 'text-muted-foreground'
 }
 
 function formatPct(val?: number): string {
@@ -110,7 +110,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
             className={`p-1.5 rounded-lg transition-all ${
               workerRunning
                 ? 'text-green-400 hover:bg-green-500/20'
-                : 'text-ait-text-muted hover:bg-white/10 hover:text-white'
+                : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'
             } ${workerToggling ? 'opacity-50' : ''}`}
             title={workerRunning ? 'Stop Worker' : 'Start Worker'}
           >
@@ -122,7 +122,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
           </button>
           <button
             onClick={() => { setLoading(true); fetchData() }}
-            className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-ait-text-muted hover:text-white"
+            className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-muted-foreground hover:text-foreground"
             title="Refresh"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -132,7 +132,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
 
       {/* Update time */}
       {data?.updated_at && (
-        <div className="text-[10px] text-ait-text-muted mb-3 relative z-10">
+        <div className="text-[10px] text-muted-foreground mb-3 relative z-10">
           {t('traderDashboard.lastUpdate', language)}: {new Date(data.updated_at).toLocaleTimeString()}
           {data.count > 0 && <span className="ml-2">{data.count} {t('symbols', language)}</span>}
         </div>
@@ -140,7 +140,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
 
       {/* Error state */}
       {error && !loading && (
-        <div className="text-center py-8 text-ait-text-muted opacity-60 relative z-10">
+        <div className="text-center py-8 text-muted-foreground opacity-60 relative z-10">
           <div className="text-3xl mb-2">📡</div>
           <div className="text-xs">{error}</div>
         </div>
@@ -148,7 +148,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
 
       {/* Loading state */}
       {loading && !data && (
-        <div className="text-center py-8 text-ait-text-muted relative z-10">
+        <div className="text-center py-8 text-muted-foreground relative z-10">
           <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
           <div className="text-xs">Loading...</div>
         </div>
@@ -156,7 +156,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
 
       {/* Empty state */}
       {!loading && !error && items.length === 0 && (
-        <div className="text-center py-8 text-ait-text-muted opacity-60 relative z-10">
+        <div className="text-center py-8 text-muted-foreground opacity-60 relative z-10">
           <div className="text-3xl mb-2">🔥</div>
           <div className="text-xs">No heat signals</div>
           <div className="text-[10px] mt-1">Square Monitor may be offline</div>
@@ -173,7 +173,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
             >
               {/* Rank + Trend */}
               <div className="flex items-center gap-1.5 min-w-[36px]">
-                <span className="text-[10px] text-ait-text-muted font-mono w-4 text-right">{i + 1}</span>
+                <span className="text-[10px] text-muted-foreground font-mono w-4 text-right">{i + 1}</span>
                 <span className="text-sm">{getTrendIcon(item.trend)}</span>
               </div>
 
@@ -189,14 +189,14 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
                         ? 'bg-ait-green/10 text-ait-green'
                         : item.direction.includes('空') || item.direction.includes('↓')
                           ? 'bg-ait-red/10 text-ait-red'
-                          : 'bg-white/5 text-ait-text-muted'
+                          : 'bg-white/5 text-muted-foreground'
                     }`}>
                       {item.direction}
                     </span>
                   )}
                 </div>
                 {item.verdict && (
-                  <div className="text-[9px] text-ait-text-muted truncate mt-0.5">
+                  <div className="text-[9px] text-muted-foreground truncate mt-0.5">
                     {item.verdict}
                   </div>
                 )}
@@ -204,10 +204,10 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
 
               {/* Score */}
               <div className="text-right min-w-[50px]">
-                <div className="font-mono font-bold text-xs text-ait-gold">
+                <div className="font-mono font-bold text-xs text-primary">
                   {item.composite_score.toFixed(0)}
                 </div>
-                <div className="text-[9px] text-ait-text-muted">
+                <div className="text-[9px] text-muted-foreground">
                   {item.mentions}M
                 </div>
               </div>
@@ -228,7 +228,7 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
               {item.tags && item.tags.length > 0 && (
                 <div className="hidden xl:flex flex-col gap-0.5 min-w-[60px]">
                   {item.tags.slice(0, 2).map((tag, j) => (
-                    <span key={j} className="text-[8px] px-1 py-0.5 rounded bg-white/5 text-ait-text-muted truncate">
+                    <span key={j} className="text-[8px] px-1 py-0.5 rounded bg-white/5 text-muted-foreground truncate">
                       {tag}
                     </span>
                   ))}

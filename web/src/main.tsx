@@ -17,9 +17,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         toastOptions={{
           className: 'ait-toast',
           style: {
-            background: '#0b0e11',
-            border: '1px solid var(--panel-border)',
-            color: 'var(--text-primary)',
+            background: 'var(--color-panel)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-foreground)',
           },
         }}
       />

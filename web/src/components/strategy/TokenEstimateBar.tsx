@@ -72,7 +72,7 @@ export function TokenEstimateBar({ config, language, onTokenCountChange }: Token
 
   if (isLoading && !estimate) {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-ait-text-muted">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="w-3 h-3 animate-spin" />
         <span>{tr('tokenEstimating')}</span>
       </div>
@@ -86,7 +86,7 @@ export function TokenEstimateBar({ config, language, onTokenCountChange }: Token
   const barWidth = Math.min(pct, 100)
 
   let barColor = '#0ECB81' // green
-  let textColor = '#848E9C'
+  let textColor = 'var(--color-muted-fg)'
   if (pct >= 100) {
     barColor = '#F6465D' // red
     textColor = '#F6465D'
@@ -111,8 +111,8 @@ export function TokenEstimateBar({ config, language, onTokenCountChange }: Token
           {isLoading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : `${pct}%`}
         </span>
         <div className="relative group">
-          <Info className="w-3 h-3 text-ait-text-muted cursor-help" />
-          <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 rounded-lg text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 bg-ait-bg-lighter border border-ait-border text-ait-text-muted shadow-lg">
+          <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+          <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 rounded-lg text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 bg-ait-bg-lighter border border-ait-border text-muted-foreground shadow-lg">
             {tr('tokenTooltip')} (~{estimate.total.toLocaleString()} / 200K)
           </div>
         </div>

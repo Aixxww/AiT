@@ -3,12 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
-	"github.com/your-ait/provider/local"
-	"github.com/your-ait/provider/nofxos"
+	"nofx/provider/local"
+	"nofx/provider/nofxos"
 )
 
 type RoundResult struct {

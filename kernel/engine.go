@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"nofx/datafetch"
 	"nofx/logger"
 	"nofx/market"
 	"nofx/provider/hyperliquid"
@@ -61,6 +62,17 @@ type CandidateCoin struct {
 	ShortScore     float64                `json:"-"`       // Hunter SHORT composite score
 	LongTags       []string               `json:"-"`       // Hunter LONG signal tags
 	ShortTags      []string               `json:"-"`       // Hunter SHORT signal tags
+
+	// Sniff mode fields (only set when source_type == "hunter_sniff")
+	AmbushType    string   `json:"-"` // "LONG_AMBUSH" or "SHORT_DISTRIBUTION"
+	AmbushReasons []string `json:"-"` // Sniff filter pass reasons
+
+	// Capital confirmation tier (three-level gate)
+	CapitalLevel int    `json:"-"` // 0=none, 1=weak, 2=moderate, 3=strong
+	CapitalTier  string `json:"-"` // "Tier-S PRIME SIGNAL" / "Tier-A" / "Tier-B LOW CONFIDENCE" / "Untiered"
+
+	// IndicatorHub unified engine signal (set when using SnapshotEngine)
+	TradeSignal interface{} `json:"-"` // *engine.TradeSignal when using SnapshotEngine
 }
 
 // OITopData open interest growth top data (for AI decision reference)
@@ -117,6 +129,7 @@ type Context struct {
 	BTCETHLeverage     int                                `json:"-"`
 	AltcoinLeverage    int                                `json:"-"`
 	Timeframes         []string                           `json:"-"`
+	MarketEnv          *market.MarketEnvironment          `json:"-"` // Market regime (ADX-based)
 }
 
 // Decision AI trading decision
@@ -193,9 +206,11 @@ type OIDeltaData struct {
 
 // StrategyEngine strategy execution engine
 type StrategyEngine struct {
-	config       *store.StrategyConfig
-	nofxosClient nofxos.DataProvider
-	squareClient *square.Client // nil when square_heat not configured
+	config         *store.StrategyConfig
+	nofxosClient   nofxos.DataProvider
+	squareClient   *square.Client          // nil when square_heat not configured
+	marketEnv      *market.MarketEnvironment // cached market regime classification (ADX-based)
+	snapshotEngine *SnapshotEngine         // nil = use legacy coin sources
 }
 
 // NewStrategyEngine creates strategy execution engine.
@@ -253,6 +268,139 @@ func (e *StrategyEngine) GetLanguage() Language {
 // GetConfig gets complete strategy configuration
 func (e *StrategyEngine) GetConfig() *store.StrategyConfig {
 	return e.config
+}
+
+// SetSnapshotEngine sets the unified IndicatorHub engine.
+func (e *StrategyEngine) SetSnapshotEngine(se *SnapshotEngine) {
+	e.snapshotEngine = se
+}
+
+// GetSnapshotEngine returns the current SnapshotEngine (may be nil).
+func (e *StrategyEngine) GetSnapshotEngine() *SnapshotEngine {
+	return e.snapshotEngine
+}
+
+// GetCandidateCoinsWithSnapshot is the unified data source entry point.
+// All scoring engines (Hunter/AI500/IndicatorHub) share a single datafetch.Snapshot
+// fetched by DataCollector — zero duplicate API calls, <1s pure-CPU scoring.
+func (e *StrategyEngine) GetCandidateCoinsWithSnapshot() ([]CandidateCoin, error) {
+	if e.snapshotEngine == nil {
+		return e.GetCandidateCoins() // no SnapshotEngine → legacy path
+	}
+
+	snap := e.snapshotEngine.GetSnapshot()
+	if snap == nil || len(snap.Symbols) == 0 {
+		logger.Info("📋 Snapshot 为空，等待 DataCollector 下一轮")
+		return nil, nil // 不 fallback 到 legacy，避免重复拉数据
+	}
+
+	return e.scoreFromSnapshot(snap)
+}
+
+// scoreFromSnapshot routes to the appropriate scorer based on source_type.
+// Hunter/AI500 use snapshot-based pure-CPU scorers; IndicatorHub uses its own engine.
+func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]CandidateCoin, error) {
+	coinSource := e.config.CoinSource
+	var candidates []CandidateCoin
+
+	switch coinSource.SourceType {
+	case "hunter", "hunter_sniff":
+		cfg := local.HunterSnapshotConfig{
+			MinOIValue: 500_000,
+			MaxSymbols: 50,
+		}
+		if coinSource.Hunter != nil && coinSource.Hunter.MinOIValue > 0 {
+			cfg.MinOIValue = coinSource.Hunter.MinOIValue
+		}
+		scores := local.ScoreHunterFromSnapshot(snap, cfg)
+		candidates = e.hunterScoresToCandidateCoins(scores, coinSource.HunterDirection)
+		if coinSource.SourceType == "hunter_sniff" {
+			candidates = e.filterSniffCandidates(candidates, coinSource.HunterSniffer)
+		}
+
+	case "ai500":
+		limit := coinSource.AI500Limit
+		if limit <= 0 {
+			limit = 20
+		}
+		coins, err := local.ScoreAI500FromSnapshot(snap, limit)
+		if err != nil {
+			return nil, err
+		}
+		candidates = e.ai500CoinsToCandidateCoins(coins)
+
+	default:
+		// IndicatorHub: use the engine's own signals
+		signals := e.snapshotEngine.GetTradeSignals()
+		if len(signals) == 0 {
+			logger.Info("📋 IndicatorHub 返回 0 信号")
+			return nil, nil
+		}
+		candidates = e.snapshotEngine.ConvertSignalsToCandidateCoins(signals)
+	}
+
+	logger.Infof("📋 [Snapshot] %s → %d candidate coins", coinSource.SourceType, len(candidates))
+	return e.filterExcludedCoins(candidates), nil
+}
+
+// hunterScoresToCandidateCoins converts snapshot Hunter scores to CandidateCoin format.
+func (e *StrategyEngine) hunterScoresToCandidateCoins(scores []local.HunterCoinScore, direction string) []CandidateCoin {
+	var candidates []CandidateCoin
+	for _, s := range scores {
+		if s.Direction == "" {
+			continue
+		}
+		cc := CandidateCoin{
+			Symbol:     s.Symbol,
+			Sources:    []string{"hunter"},
+			Direction:  s.Direction,
+			LongScore:  s.LongFinalScore,
+			ShortScore: s.ShortFinalScore,
+			LongTags:   s.LongTags,
+			ShortTags:  s.ShortTags,
+			SignalTags: s.Tags,
+		}
+		cc.CapitalLevel, cc.CapitalTier = local.ClassifyCapitalLevel(cc.SignalTags, cc.LongScore+cc.ShortScore)
+		if direction != "" && direction != "BOTH" && cc.Direction != direction {
+			continue
+		}
+		candidates = append(candidates, cc)
+	}
+	return candidates
+}
+
+// ai500CoinsToCandidateCoins converts snapshot AI500 results to CandidateCoin format.
+func (e *StrategyEngine) ai500CoinsToCandidateCoins(coins []nofxos.CoinData) []CandidateCoin {
+	var candidates []CandidateCoin
+	for _, c := range coins {
+		candidates = append(candidates, CandidateCoin{
+			Symbol:  c.Pair,
+			Sources: []string{"ai500"},
+		})
+	}
+	return candidates
+}
+
+// filterSniffCandidates applies the 3-condition resonance filter for hunter_sniff mode.
+// For snapshot mode, this is a simplified version that filters by score thresholds.
+func (e *StrategyEngine) filterSniffCandidates(candidates []CandidateCoin, snifferCfg *store.SnifferConfig) []CandidateCoin {
+	if snifferCfg == nil {
+		return candidates
+	}
+	var filtered []CandidateCoin
+	for _, cc := range candidates {
+		if cc.Direction == "LONG" && cc.LongScore >= snifferCfg.MinLongScore {
+			cc.AmbushType = "LONG_AMBUSH"
+			cc.AmbushReasons = []string{"snapshot_long_score_above_threshold"}
+			filtered = append(filtered, cc)
+		} else if cc.Direction == "SHORT" && cc.ShortScore >= snifferCfg.MinShortScore {
+			cc.AmbushType = "SHORT_DISTRIBUTION"
+			cc.AmbushReasons = []string{"snapshot_short_score_above_threshold"}
+			filtered = append(filtered, cc)
+		}
+	}
+	logger.Infof("🔍 Hunter Sniff (snapshot): %d/%d candidates passed threshold", len(filtered), len(candidates))
+	return filtered
 }
 
 // ============================================================================
@@ -418,7 +566,19 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 		}
 		return e.filterExcludedCoins(coins), nil
 
+	case "hunter_sniff":
+		coins, err := e.getHunterSniffCoins(coinSource.HunterLimit, coinSource.HunterSniffer)
+		if err != nil {
+			return nil, err
+		}
+		return e.filterExcludedCoins(coins), nil
+
 	case "mixed":
+		// Market environment pre-classifier: detect ranging vs trending before source assembly
+		if coinSource.EnableADXPreClassifier {
+			e.classifyMarketEnvironment(coinSource)
+		}
+
 		if coinSource.UseAI500 {
 			poolCoins, err := e.getAI500Coins(coinSource.AI500Limit)
 			if err != nil {
@@ -494,7 +654,7 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 			if coinSource.UseHunter {
 				if limit := coinSource.HunterLimit; limit > 0 {
 					if localClient, ok := e.nofxosClient.(*local.Client); ok {
-						symbols, err := localClient.GetHunterTopRatedCoins(limit)
+						symbols, err := localClient.GetHunterTopRatedCoins(limit, coinSource.Hunter)
 						if err != nil {
 							logger.Warnf("⚠ Hunter unavailable in mixed mode: %v", err)
 						} else {
@@ -555,6 +715,71 @@ func (e *StrategyEngine) filterExcludedCoins(candidates []CandidateCoin) []Candi
 	return filtered
 }
 
+// classifyMarketEnvironment fetches BTC klines and classifies the current market regime
+// using ADX (Average Directional Index). Called at the start of mixed mode to determine
+// whether to favor mean-reversion (ranging) or trend-following (trending) sources.
+func (e *StrategyEngine) classifyMarketEnvironment(coinSource store.CoinSourceConfig) {
+	symbol := coinSource.ADXRegimeSymbol
+	if symbol == "" {
+		symbol = "BTCUSDT"
+	}
+	tf := coinSource.ADXRegimeTimeframe
+	if tf == "" {
+		tf = "4h"
+	}
+	bars := coinSource.ADXRegimeBars
+	if bars <= 0 {
+		bars = 100
+	}
+	period := coinSource.ADXPeriod
+	if period <= 0 {
+		period = 14
+	}
+
+	// Use market package's APIClient to fetch klines
+	apiClient := market.NewAPIClient()
+	klines, err := apiClient.GetKlines(symbol, tf, bars)
+	if err != nil {
+		logger.Warnf("⚠️  ADX pre-classifier: failed to fetch %s %s klines: %v", symbol, tf, err)
+		return
+	}
+	if len(klines) < period*2+1 {
+		logger.Warnf("⚠️  ADX pre-classifier: insufficient klines (%d < %d)", len(klines), period*2+1)
+		return
+	}
+
+	e.marketEnv = market.ClassifyMarketRegime(klines, period, symbol)
+	logger.Infof("📊 Market Environment: %s (ADX=%.1f, +DI=%.1f, -DI=%.1f)",
+		e.marketEnv.Regime, e.marketEnv.ADX, e.marketEnv.PlusDI, e.marketEnv.MinusDI)
+}
+
+// ValidateDirectionWithADX checks if a coin's Hunter direction conflicts with the ADX market regime.
+// Returns a confidence multiplier (0.80-1.15) and a warning string for AI prompt injection.
+// Only activates when ADX > 20 (trending market) and |DI difference| > 5.
+func ValidateDirectionWithADX(direction string, adx, plusDI, minusDI float64) (confidenceMultiplier float64, warning string) {
+	if adx < 20 {
+		return 1.0, "" // Ranging market — no direction validation
+	}
+
+	diDiff := plusDI - minusDI
+
+	switch direction {
+	case "SHORT":
+		if diDiff > 5.0 {
+			return 0.80, "ADX_DIRECTION_CONFLICT: SHORT against bullish trend (+DI dominant)"
+		} else if diDiff < -5.0 {
+			return 1.15, "" // Trend-aligned short, boost
+		}
+	case "LONG":
+		if diDiff < -5.0 {
+			return 0.80, "ADX_DIRECTION_CONFLICT: LONG against bearish trend (-DI dominant)"
+		} else if diDiff > 5.0 {
+			return 1.15, "" // Trend-aligned long, boost
+		}
+	}
+	return 1.0, "" // |DI diff| ≤ 5, direction ambiguous
+}
+
 func (e *StrategyEngine) getAI500Coins(limit int) ([]CandidateCoin, error) {
 	if limit <= 0 {
 		limit = 30
@@ -583,7 +808,7 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 	if !ok {
 		return nil, fmt.Errorf("hunter source requires local.Client, got %T", e.nofxosClient)
 	}
-	symbols, preFetched, coinMeta, err := localClient.GetHunterCoinsWithData(limit)
+	symbols, preFetched, coinMeta, err := localClient.GetHunterCoinsWithData(limit, e.config.CoinSource.Hunter)
 	if err != nil {
 		return nil, err
 	}
@@ -601,6 +826,8 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 			cc.ShortScore = meta.ShortScore
 			cc.LongTags = meta.LongTags
 			cc.ShortTags = meta.ShortTags
+			// Classify capital confirmation level (three-level gate)
+			cc.CapitalLevel, cc.CapitalTier = local.ClassifyCapitalLevel(cc.SignalTags, cc.LongScore+cc.ShortScore)
 		}
 		// Filter by direction if specified (LONG or SHORT)
 		if direction != "" && direction != "BOTH" && cc.Direction != direction {
@@ -608,6 +835,67 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 		}
 		candidates = append(candidates, cc)
 	}
+	return candidates, nil
+}
+
+// getHunterSniffCoins returns coins filtered through the Hunter Sniff mode
+// (institutional ambush pattern detector). It fetches raw Hunter scores,
+// applies the 3-condition resonance filter, and returns only high-conviction
+// LONG_AMBUSH and SHORT_DISTRIBUTION candidates.
+func (e *StrategyEngine) getHunterSniffCoins(limit int, snifferCfg *store.SnifferConfig) ([]CandidateCoin, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	localClient, ok := e.nofxosClient.(*local.Client)
+	if !ok {
+		return nil, fmt.Errorf("hunter_sniff source requires local.Client, got %T", e.nofxosClient)
+	}
+
+	// Step 1: Get raw scored coins from Hunter
+	allCoins, err := localClient.GetHunterList()
+	if err != nil {
+		return nil, fmt.Errorf("hunter_sniff: GetHunterList failed: %w", err)
+	}
+
+	// Step 2: Get coin meta (direction, scores, tags) + pre-fetched klines
+	_, preFetched, coinMeta, err := localClient.GetHunterCoinsWithData(limit, e.config.CoinSource.Hunter)
+	if err != nil {
+		return nil, fmt.Errorf("hunter_sniff: GetHunterCoinsWithData failed: %w", err)
+	}
+
+	// Step 3: Apply sniff filter (3-condition resonance)
+	snifferResult := localClient.FilterAmbushCandidates(allCoins, coinMeta)
+
+	if len(snifferResult.LongAmbush) == 0 && len(snifferResult.ShortDist) == 0 {
+		logger.Infof("🔍 Hunter Sniff: 0 ambush candidates from %d scanned (watch mode)", snifferResult.Stats.TotalScanned)
+		return nil, nil
+	}
+
+	// Step 4: Merge Long Ambush + Short Distribution into CandidateCoins
+	var candidates []CandidateCoin
+	for _, amb := range append(snifferResult.LongAmbush, snifferResult.ShortDist...) {
+		sym := market.Normalize(amb.Symbol)
+		cc := CandidateCoin{
+			Symbol:         sym,
+			Sources:        []string{"hunter_sniff"},
+			AmbushType:     string(amb.AmbushType),
+			AmbushReasons:  amb.Reasons,
+			PreFetchedData: preFetched[sym],
+		}
+		if meta, ok := coinMeta[sym]; ok {
+			cc.Direction = meta.Direction
+			cc.SignalTags = meta.SignalTags
+			cc.LongScore = meta.LongScore
+			cc.ShortScore = meta.ShortScore
+			cc.LongTags = meta.LongTags
+			cc.ShortTags = meta.ShortTags
+		}
+		candidates = append(candidates, cc)
+	}
+
+	logger.Infof("🔍 Hunter Sniff: %d candidates (LONG_AMBUSH: %d, SHORT_DIST: %d) from %d scanned",
+		len(candidates), snifferResult.Stats.LongPassed, snifferResult.Stats.ShortPassed, snifferResult.Stats.TotalScanned)
+
 	return candidates, nil
 }
 

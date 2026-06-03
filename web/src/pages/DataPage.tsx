@@ -27,8 +27,8 @@ export function DataPage() {
                 key={item.key}
                 onClick={() => setActiveWidget(item.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${activeWidget === item.key
-                  ? 'bg-ait-gold/10 text-ait-gold border-ait-gold/20'
-                  : 'text-ait-text-muted border-transparent hover:text-white hover:bg-white/5'
+                  ? 'bg-primary-dim text-primary border-ait-gold/20'
+                  : 'text-muted-foreground border-transparent hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Icon className="w-3.5 h-3.5 inline mr-1.5" />
@@ -61,14 +61,14 @@ export function DataPage() {
 
       {/* Footer bar */}
       <div className="px-6 py-2 border-t border-white/5 flex items-center justify-between">
-        <span className="text-[10px] text-ait-text-muted/50">
+        <span className="text-[10px] text-muted-foreground/50">
           {language === 'zh' ? '数据来自 TradingView（免费嵌入）' : 'Data via TradingView (free embed)'}
         </span>
         <a
           href="https://www.tradingview.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-ait-text-muted/50 hover:text-ait-gold flex items-center gap-1 transition-colors"
+          className="text-[10px] text-muted-foreground/50 hover:text-primary flex items-center gap-1 transition-colors"
         >
           TradingView <ExternalLink className="w-2.5 h-2.5" />
         </a>

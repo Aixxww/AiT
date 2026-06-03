@@ -52,11 +52,11 @@ const strategyStyles: Record<
   }
 > = {
   scalper: {
-    color: 'text-[#F0B90B]',
-    border: 'border-[#F0B90B]/30',
-    glow: 'shadow-[0_0_20px_rgba(240,185,11,0.15)]',
-    shadow: 'hover:shadow-[0_0_30px_rgba(240,185,11,0.25)]',
-    bg: 'bg-[#F0B90B]/5',
+    color: 'text-primary',
+    border: 'border-primary/30',
+    glow: 'shadow-neon',
+    shadow: 'hover:shadow-neon',
+    bg: 'bg-primary-dim',
     icon: Zap,
   },
   swing: {
@@ -92,11 +92,11 @@ const strategyStyles: Record<
     icon: Target,
   },
   default: {
-    color: 'text-zinc-400',
-    border: 'border-zinc-700',
+    color: 'text-muted-foreground',
+    border: 'border-border',
     glow: '',
     shadow: 'hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]',
-    bg: 'bg-zinc-800/20',
+    bg: 'bg-surface-alt/20',
     icon: Activity,
   },
 }
@@ -193,38 +193,38 @@ export function StrategyMarketPage() {
   }
 
   return (
-    <DeepVoidBackground className="min-h-screen text-white font-mono py-12">
+    <DeepVoidBackground className="min-h-screen text-foreground font-mono py-12">
       <div className="w-full px-4 md:px-8 space-y-8">
         <div className="w-full relative z-10">
           {/* Header Section */}
-          <div className="mb-12 border-b border-zinc-800 pb-8 relative">
-            <div className="absolute top-0 right-0 p-2 border border-zinc-800 rounded bg-black/50 text-xs text-zinc-500 font-mono hidden md:block">
+          <div className="mb-12 border-b border-border pb-8 relative">
+            <div className="absolute top-0 right-0 p-2 border border-border rounded bg-black/50 text-xs text-muted-foreground font-mono hidden md:block">
               SYSTEM_STATUS:{' '}
-              <span className="text-emerald-500 animate-pulse">ONLINE</span>
+              <span className="text-profit animate-pulse">ONLINE</span>
               <br />
               MARKET_UPLINK:{' '}
-              <span className="text-emerald-500">ESTABLISHED</span>
+              <span className="text-profit">ESTABLISHED</span>
             </div>
 
             <div className="flex items-center gap-4 mb-4">
-              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-none relative group overflow-hidden">
-                <div className="absolute inset-0 bg-ait-gold/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <Database className="w-8 h-8 text-ait-gold relative z-10" />
+              <div className="bg-surface border border-border p-3 rounded-none relative group overflow-hidden">
+                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <Database className="w-8 h-8 text-primary relative z-10" />
               </div>
               <div>
                 <h1
-                  className="text-4xl font-bold tracking-tighter text-white uppercase glitch-text"
+                  className="text-4xl font-bold tracking-tighter text-foreground uppercase glitch-text"
                   data-text={tr('title')}
                 >
                   {tr('title')}
                 </h1>
-                <p className="text-xs text-ait-gold tracking-[0.3em] font-bold mt-1">
+                <p className="text-xs text-primary tracking-[0.3em] font-bold mt-1">
                   {'// '}
                   {tr('subtitle')}
                 </p>
               </div>
             </div>
-            <p className="text-sm text-zinc-500 max-w-2xl border-l-2 border-zinc-800 pl-4">
+            <p className="text-sm text-muted-foreground max-w-2xl border-l-2 border-border pl-4">
               {tr('description')}
             </p>
           </div>
@@ -233,9 +233,9 @@ export function StrategyMarketPage() {
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             {/* Search */}
             <div className="relative flex-1 group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-ait-gold/20 to-zinc-800/20 rounded opacity-0 group-hover:opacity-100 transition duration-500 blur"></div>
-              <div className="relative bg-black flex items-center border border-zinc-800 group-hover:border-ait-gold/50 transition-colors">
-                <div className="pl-4 pr-3 text-zinc-500 group-hover:text-ait-gold transition-colors">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-muted/20 rounded opacity-0 group-hover:opacity-100 transition duration-500 blur"></div>
+              <div className="relative bg-background flex items-center border border-border group-hover:border-border-hover transition-colors">
+                <div className="pl-4 pr-3 text-muted-foreground group-hover:text-primary transition-colors">
                   <Terminal size={16} />
                 </div>
                 <input
@@ -243,30 +243,30 @@ export function StrategyMarketPage() {
                   placeholder={tr('search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent py-3 text-sm focus:outline-none placeholder-zinc-700 text-ait-gold font-mono"
+                  className="w-full bg-transparent py-3 text-sm focus:outline-none placeholder-disabled-fg text-primary font-mono"
                 />
                 <div className="pr-4">
-                  <div className="w-2 h-4 bg-ait-gold animate-pulse"></div>
+                  <div className="w-2 h-4 bg-primary animate-pulse"></div>
                 </div>
               </div>
             </div>
 
             {/* Category Filter */}
-            <div className="flex gap-2 bg-zinc-900/50 p-1 border border-zinc-800">
+            <div className="flex gap-2 bg-surface/50 p-1 border border-border">
               {['all', 'popular', 'recent'].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-4 py-2 text-xs font-mono uppercase tracking-wider transition-all relative overflow-hidden ${
                     selectedCategory === cat
-                      ? 'text-black font-bold'
-                      : 'text-zinc-500 hover:text-white'
+                      ? 'text-primary-foreground font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {selectedCategory === cat && (
                     <motion.div
                       layoutId="filter-highlight"
-                      className="absolute inset-0 bg-ait-gold"
+                      className="absolute inset-0 bg-primary"
                       transition={{
                         type: 'spring',
                         bounce: 0.2,
@@ -284,26 +284,26 @@ export function StrategyMarketPage() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-32 space-y-4">
               <div className="relative w-16 h-16">
-                <div className="absolute inset-0 border-2 border-zinc-800 rounded-full"></div>
+                <div className="absolute inset-0 border-2 border-border rounded-full"></div>
                 <div className="absolute inset-0 border-2 border-ait-gold rounded-full border-t-transparent animate-spin"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Cpu size={24} className="text-ait-gold/50" />
+                  <Cpu size={24} className="text-primary/50" />
                 </div>
               </div>
-              <p className="text-ait-gold text-xs tracking-widest animate-pulse">
+              <p className="text-primary text-xs tracking-widest animate-pulse">
                 {tr('loading')}
               </p>
               <div className="flex gap-1">
                 <div
-                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
                   style={{ animationDelay: '0s' }}
                 ></div>
                 <div
-                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
                   style={{ animationDelay: '0.2s' }}
                 ></div>
                 <div
-                  className="w-1 h-1 bg-ait-gold rounded-full animate-bounce"
+                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
                   style={{ animationDelay: '0.4s' }}
                 ></div>
               </div>
@@ -312,15 +312,15 @@ export function StrategyMarketPage() {
 
           {/* Empty State */}
           {!isLoading && filteredStrategies.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-32 border border-zinc-800 border-dashed bg-zinc-900/20 rounded">
+            <div className="flex flex-col items-center justify-center py-32 border border-border border-dashed bg-surface/20 rounded">
               <div className="relative mb-6">
-                <div className="absolute -inset-4 bg-red-500/10 rounded-full blur-xl animate-pulse"></div>
-                <Activity className="w-16 h-16 text-zinc-700 relative z-10" />
+                <div className="absolute -inset-4 bg-loss-bg rounded-full blur-xl animate-pulse"></div>
+                <Activity className="w-16 h-16 text-disabled-fg relative z-10" />
               </div>
-              <h3 className="text-xl font-bold text-zinc-300 font-mono tracking-tight mb-2">
+              <h3 className="text-xl font-bold text-foreground font-mono tracking-tight mb-2">
                 [{tr('noStrategies')}]
               </h3>
-              <p className="text-zinc-600 text-xs tracking-wide uppercase">
+              <p className="text-muted-foreground text-xs tracking-wide uppercase">
                 {tr('noStrategiesDesc')}
               </p>
             </div>
@@ -345,7 +345,7 @@ export function StrategyMarketPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.05 }}
-                      className={`group relative bg-black border border-zinc-800 hover:border-zinc-600 transition-all duration-300 ${style.shadow}`}
+                      className={`group relative bg-background border border-border hover:border-border-hover transition-all duration-300 ${style.shadow}`}
                     >
                       {/* Holographic Border Highlight */}
                       <div
@@ -370,12 +370,12 @@ export function StrategyMarketPage() {
                           </div>
                           <div className="text-[10px] font-mono">
                             {strategy.config_visible ? (
-                              <div className="flex items-center gap-1.5 text-emerald-500 border border-emerald-500/20 bg-emerald-500/10 px-2 py-1">
+                              <div className="flex items-center gap-1.5 text-profit border border-profit-border bg-profit-bg px-2 py-1">
                                 <Eye size={10} />
                                 PUBLIC_ACCESS
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1.5 text-zinc-500 border border-zinc-800 bg-zinc-900 px-2 py-1">
+                              <div className="flex items-center gap-1.5 text-muted-foreground border border-border bg-surface px-2 py-1">
                                 <EyeOff size={10} />
                                 RESTRICTED
                               </div>
@@ -388,36 +388,36 @@ export function StrategyMarketPage() {
                           className={`text-lg font-bold mb-2 tracking-tight group-hover:${style.color} transition-colors uppercase truncate relative`}
                         >
                           {strategy.name}
-                          <span className="absolute -bottom-1 left-0 w-8 h-[2px] bg-zinc-800 group-hover:bg-ait-gold transition-colors"></span>
+                          <span className="absolute -bottom-1 left-0 w-8 h-[2px] bg-surface-alt group-hover:bg-primary transition-colors"></span>
                         </h3>
-                        <p className="text-xs text-zinc-500 mb-6 line-clamp-2 h-8 leading-relaxed font-sans">
+                        <p className="text-xs text-muted-foreground mb-6 line-clamp-2 h-8 leading-relaxed font-sans">
                           {strategy.description || 'NO_DESCRIPTION_AVAILABLE'}
                         </p>
 
                         {/* Meta Data */}
-                        <div className="grid grid-cols-2 gap-y-2 mb-6 text-[10px] font-mono text-zinc-600">
+                        <div className="grid grid-cols-2 gap-y-2 mb-6 text-[10px] font-mono text-muted-foreground">
                           <div className="flex flex-col">
-                            <span className="text-zinc-700 uppercase">
+                            <span className="text-disabled-fg uppercase">
                               {tr('author')}
                             </span>
-                            <span className="text-zinc-400 group-hover:text-white transition-colors">
+                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
                               @
                               {strategy.author_email?.split('@')[0] ||
                                 'UNKNOWN'}
                             </span>
                           </div>
                           <div className="flex flex-col text-right">
-                            <span className="text-zinc-700 uppercase">
+                            <span className="text-disabled-fg uppercase">
                               {tr('createdAt')}
                             </span>
-                            <span className="text-zinc-400">
+                            <span className="text-muted-foreground">
                               {formatDate(strategy.created_at)}
                             </span>
                           </div>
                         </div>
 
                         {/* Config / Indicators */}
-                        <div className="bg-zinc-900/30 border border-zinc-800/50 p-3 mb-4 backdrop-blur-sm min-h-[90px]">
+                        <div className="bg-surface/30 border border-border/50 p-3 mb-4 backdrop-blur-sm min-h-[90px]">
                           {strategy.config_visible && strategy.config ? (
                             <div className="space-y-3">
                               {/* Indicators */}
@@ -426,13 +426,13 @@ export function StrategyMarketPage() {
                                   indicators.map((ind) => (
                                     <span
                                       key={ind}
-                                      className="px-1.5 py-0.5 border border-zinc-700 bg-zinc-800 text-[9px] text-zinc-300 font-mono whitespace-nowrap"
+                                      className="px-1.5 py-0.5 border border-border bg-surface-alt text-[9px] text-foreground font-mono whitespace-nowrap"
                                     >
                                       {ind}
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-[9px] text-zinc-600">
+                                  <span className="text-[9px] text-muted-foreground">
                                     NO_INDICATORS
                                   </span>
                                 )}
@@ -443,20 +443,20 @@ export function StrategyMarketPage() {
                                 <div className="flex justify-between items-center text-[10px]">
                                   <div className="flex gap-3">
                                     <div className="flex flex-col">
-                                      <span className="text-zinc-600 scale-90 origin-left">
+                                      <span className="text-muted-foreground scale-90 origin-left">
                                         LEV
                                       </span>
-                                      <span className="text-zinc-300 font-bold">
+                                      <span className="text-foreground font-bold">
                                         {strategy.config.risk_control
                                           .btc_eth_max_leverage || '-'}
                                         x
                                       </span>
                                     </div>
                                     <div className="flex flex-col">
-                                      <span className="text-zinc-600 scale-90 origin-left">
+                                      <span className="text-muted-foreground scale-90 origin-left">
                                         POS
                                       </span>
-                                      <span className="text-zinc-300 font-bold">
+                                      <span className="text-foreground font-bold">
                                         {strategy.config.risk_control
                                           .max_positions || '-'}
                                       </span>
@@ -464,13 +464,13 @@ export function StrategyMarketPage() {
                                   </div>
                                   <Activity
                                     size={12}
-                                    className="text-zinc-700"
+                                    className="text-disabled-fg"
                                   />
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-zinc-600">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                               <EyeOff size={16} className="mb-1 opacity-50" />
                               <span className="text-[9px] uppercase tracking-widest">
                                 {tr('configHiddenDesc')}
@@ -484,12 +484,12 @@ export function StrategyMarketPage() {
                           {strategy.config_visible && strategy.config ? (
                             <button
                               onClick={() => handleCopyConfig(strategy)}
-                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-zinc-700 bg-black hover:bg-zinc-900 text-zinc-300 hover:text-ait-gold hover:border-ait-gold transition-all flex items-center justify-center gap-2 group/btn"
+                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-black hover:bg-surface text-foreground hover:text-primary hover:border-ait-gold transition-all flex items-center justify-center gap-2 group/btn"
                             >
                               {copiedId === strategy.id ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-500" />
-                                  <span className="text-emerald-500">
+                                  <Check className="w-3 h-3 text-profit" />
+                                  <span className="text-profit">
                                     {tr('copied')}
                                   </span>
                                 </>
@@ -503,7 +503,7 @@ export function StrategyMarketPage() {
                           ) : (
                             <button
                               disabled
-                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-zinc-800 bg-black text-zinc-700 cursor-not-allowed flex items-center justify-center gap-2"
+                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-background text-disabled-fg cursor-not-allowed flex items-center justify-center gap-2"
                             >
                               <Shield size={12} />
                               {tr('hideConfig')}
@@ -531,21 +531,21 @@ export function StrategyMarketPage() {
                 onClick={() => navigate('/strategy')}
               >
                 <div className="absolute -inset-1 bg-gradient-to-r from-ait-gold to-yellow-600 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                <div className="relative px-8 py-4 bg-black border border-zinc-800 hover:border-ait-gold/50 flex items-center gap-4 transition-all">
+                <div className="relative px-8 py-4 bg-background border border-border hover:border-border-hover flex items-center gap-4 transition-all">
                   <Hexagon
-                    className="text-ait-gold animate-spin-slow"
+                    className="text-primary animate-spin-slow"
                     size={24}
                   />
                   <div className="text-left">
-                    <div className="text-sm font-bold text-white uppercase tracking-wider group-hover:text-ait-gold transition-colors">
+                    <div className="text-sm font-bold text-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
                       {tr('shareYours')}
                     </div>
-                    <div className="text-[10px] text-zinc-500 font-mono">
+                    <div className="text-[10px] text-muted-foreground font-mono">
                       CONTRIBUTE TO THE GLOBAL DATABASE
                     </div>
                   </div>
-                  <div className="w-[1px] h-8 bg-zinc-800 mx-2"></div>
-                  <div className="text-xs font-mono text-zinc-400 group-hover:translate-x-1 transition-transform">
+                  <div className="w-[1px] h-8 bg-surface-alt mx-2"></div>
+                  <div className="text-xs font-mono text-muted-foreground group-hover:translate-x-1 transition-transform">
                     INITIALIZE_UPLOAD -&gt;
                   </div>
                 </div>

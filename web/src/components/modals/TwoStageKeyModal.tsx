@@ -181,7 +181,7 @@ export function TwoStageKeyModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
         <div className="bg-gray-900 p-8 rounded-xl max-w-lg w-full mx-4 border border-gray-700">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-white mb-2">
+            <h2 className="text-xl font-bold text-foreground mb-2">
               🔐 {t('twoStageKey.title', language)}
               {contextLabel && (
                 <span className="text-gray-300 text-base font-normal ml-2">
@@ -218,7 +218,7 @@ export function TwoStageKeyModal({
                   value={part1}
                   onChange={(e) => setPart1(e.target.value)}
                   placeholder="0x1234..."
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-foreground font-mono text-sm focus:border-blue-500 focus:outline-none"
                   maxLength={expectedPart1Length + 2} // +2 for optional 0x prefix
                   disabled={processing}
                 />
@@ -233,7 +233,7 @@ export function TwoStageKeyModal({
                     (part1.startsWith('0x') ? part1.slice(2) : part1).length <
                       expectedPart1Length || processing
                   }
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
                 >
                   {processing
                     ? t('twoStageKey.processing', language)
@@ -242,7 +242,7 @@ export function TwoStageKeyModal({
                 <button
                   onClick={onCancel}
                   disabled={processing}
-                  className="px-6 py-3 text-gray-300 hover:text-white border border-gray-600 rounded-lg transition-colors"
+                  className="px-6 py-3 text-gray-300 hover:text-foreground border border-gray-600 rounded-lg transition-colors"
                 >
                   {t('twoStageKey.cancelButton', language)}
                 </button>
@@ -293,7 +293,7 @@ export function TwoStageKeyModal({
                   value={part2}
                   onChange={(e) => setPart2(e.target.value)}
                   placeholder="...5678"
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-foreground font-mono text-sm focus:border-blue-500 focus:outline-none"
                   maxLength={expectedPart2Length + 2}
                 />
               </div>
@@ -307,13 +307,13 @@ export function TwoStageKeyModal({
                     (part2.startsWith('0x') ? part2.slice(2) : part2).length <
                     expectedPart2Length
                   }
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
                 >
                   🔒 {t('twoStageKey.encryptButton', language)}
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-6 py-3 text-gray-300 hover:text-white border border-gray-600 rounded-lg transition-colors"
+                  className="px-6 py-3 text-gray-300 hover:text-foreground border border-gray-600 rounded-lg transition-colors"
                 >
                   {t('twoStageKey.backButton', language)}
                 </button>

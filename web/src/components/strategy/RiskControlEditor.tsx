@@ -30,7 +30,7 @@ export function RiskControlEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: '#F0B90B' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(riskControl.positionLimits, language)}
           </h3>
         </div>
@@ -38,12 +38,12 @@ export function RiskControlEditor({
         <div className="grid grid-cols-1 gap-4 mb-4">
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.maxPositions, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.maxPositionsDesc, language)}
             </p>
             <input
@@ -59,7 +59,7 @@ export function RiskControlEditor({
               style={{
                 background: '#1E2329',
                 border: '1px solid #2B3139',
-                color: '#EAECEF',
+                color: 'var(--foreground)',
               }}
             />
           </div>
@@ -74,12 +74,12 @@ export function RiskControlEditor({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.btcEthLeverage, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.btcEthLeverageDesc, language)}
             </p>
             <div className="flex items-center gap-2">
@@ -105,12 +105,12 @@ export function RiskControlEditor({
 
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.altcoinLeverage, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.altcoinLeverageDesc, language)}
             </p>
             <div className="flex items-center gap-2">
@@ -140,19 +140,19 @@ export function RiskControlEditor({
           <p className="text-xs font-medium" style={{ color: '#0ECB81' }}>
             {ts(riskControl.positionValueRatio, language)}
           </p>
-          <p className="text-xs mt-1" style={{ color: '#848E9C' }}>
+          <p className="text-xs mt-1 text-muted-foreground">
             {ts(riskControl.positionValueRatioDesc, language)}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #0ECB81' }}
+            style={{ background: 'var(--background)', border: '1px solid #0ECB81' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.btcEthPositionValueRatio, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.btcEthPositionValueRatioDesc, language)}
             </p>
             <div className="flex items-center gap-2">
@@ -179,12 +179,12 @@ export function RiskControlEditor({
 
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #0ECB81' }}
+            style={{ background: 'var(--background)', border: '1px solid #0ECB81' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.altcoinPositionValueRatio, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.altcoinPositionValueRatioDesc, language)}
             </p>
             <div className="flex items-center gap-2">
@@ -215,7 +215,7 @@ export function RiskControlEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="w-5 h-5" style={{ color: '#F6465D' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(riskControl.riskParameters, language)}
           </h3>
         </div>
@@ -223,16 +223,16 @@ export function RiskControlEditor({
         <div className="grid grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.minRiskReward, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.minRiskRewardDesc, language)}
             </p>
             <div className="flex items-center">
-              <span style={{ color: '#848E9C' }}>1:</span>
+              <span className="text-muted-foreground">1:</span>
               <input
                 type="number"
                 value={config.min_risk_reward_ratio ?? 3}
@@ -247,7 +247,7 @@ export function RiskControlEditor({
                 style={{
                   background: '#1E2329',
                   border: '1px solid #2B3139',
-                  color: '#EAECEF',
+                  color: 'var(--foreground)',
                 }}
               />
             </div>
@@ -255,12 +255,12 @@ export function RiskControlEditor({
 
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #0ECB81' }}
+            style={{ background: 'var(--background)', border: '1px solid #0ECB81' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.maxMarginUsage, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.maxMarginUsageDesc, language)}
             </p>
             <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ export function RiskControlEditor({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: '#0ECB81' }} />
-          <h3 className="font-medium" style={{ color: '#EAECEF' }}>
+          <h3 className="font-medium text-foreground">
             {ts(riskControl.entryRequirements, language)}
           </h3>
         </div>
@@ -295,12 +295,12 @@ export function RiskControlEditor({
         <div className="grid grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.minPositionSize, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.minPositionSizeDesc, language)}
             </p>
             <div className="flex items-center">
@@ -317,10 +317,10 @@ export function RiskControlEditor({
                 style={{
                   background: '#1E2329',
                   border: '1px solid #2B3139',
-                  color: '#EAECEF',
+                  color: 'var(--foreground)',
                 }}
               />
-              <span className="ml-2" style={{ color: '#848E9C' }}>
+              <span className="ml-2 text-muted-foreground">
                 USDT
               </span>
             </div>
@@ -328,12 +328,12 @@ export function RiskControlEditor({
 
           <div
             className="p-4 rounded-lg"
-            style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
           >
-            <label className="block text-sm mb-1" style={{ color: '#EAECEF' }}>
+            <label className="block text-sm mb-1 text-foreground">
               {ts(riskControl.minConfidence, language)}
             </label>
-            <p className="text-xs mb-2" style={{ color: '#848E9C' }}>
+            <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.minConfidenceDesc, language)}
             </p>
             <div className="flex items-center gap-2">

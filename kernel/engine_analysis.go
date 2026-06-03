@@ -78,6 +78,11 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 			estimate.Total, providerName, contextLimit)
 	}
 
+	// Propagate market environment classification (ADX-based regime)
+	if engine.marketEnv != nil {
+		ctx.MarketEnv = engine.marketEnv
+	}
+
 	// 1. Fetch market data using strategy config
 	if len(ctx.MarketDataMap) == 0 {
 		if err := fetchMarketDataWithStrategy(ctx, engine); err != nil {
@@ -215,7 +220,16 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 		positionSymbols[pos.Symbol] = true
 	}
 
-	const minOIThresholdMillions = 15.0 // 15M USD minimum open interest value
+	// OI threshold: use HunterConfig value if set, otherwise default 15M
+	minOIThresholdMillions := 15.0
+	if config.CoinSource.Hunter != nil {
+		if config.CoinSource.Hunter.MinOIValue > 0 {
+			minOIThresholdMillions = config.CoinSource.Hunter.MinOIValue / 1_000_000
+		} else {
+			// Hunter exists but MinOIValue not set — use Hunter's own default ($5M)
+			minOIThresholdMillions = 5.0
+		}
+	}
 
 	for _, coin := range ctx.CandidateCoins {
 		if _, exists := ctx.MarketDataMap[coin.Symbol]; exists {
@@ -273,7 +287,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 			if coin.Direction == "SHORT" {
 				selectedScore = coin.ShortScore
 			}
-			const preFilterThreshold = 20.0
+			const preFilterThreshold = 18.0
 			if selectedScore > 0 && selectedScore < preFilterThreshold {
 				logger.Infof("🔽 Pre-filter: %s Hunter score %.1f < %.1f, skipping AI analysis (saves ~2600 tokens)",
 					coin.Symbol, selectedScore, preFilterThreshold)

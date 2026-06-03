@@ -40,10 +40,10 @@ export default function BrandFeatures() {
             <div className="max-w-[1920px] mx-auto px-6 lg:px-16">
 
                 <div className="mb-16 border-l-4 border-ait-gold pl-6">
-                    <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-4">
-                        Core Protocol <span className="text-zinc-600">Specs</span>
+                    <h2 className="text-4xl md:text-5xl font-black text-foreground uppercase tracking-tighter mb-4">
+                        Core Protocol <span className="text-muted-foreground">Specs</span>
                     </h2>
-                    <p className="text-xl text-zinc-400 font-mono">
+                    <p className="text-xl text-muted-foreground font-mono">
                         Next generation infrastructure for algorithmic dominance.
                     </p>
                 </div>
@@ -52,7 +52,7 @@ export default function BrandFeatures() {
                     {features.map((f, i) => (
                         <motion.div
                             key={i}
-                            className="group relative bg-zinc-900 border border-zinc-800 p-8 hover:bg-zinc-800 transition-colors cursor-default overflow-hidden"
+                            className="group relative bg-surface border border-border p-8 hover:bg-surface-alt transition-colors cursor-default overflow-hidden"
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
@@ -62,17 +62,17 @@ export default function BrandFeatures() {
                                 <f.icon size={100} />
                             </div>
 
-                            <f.icon className="w-10 h-10 text-ait-gold mb-6" />
+                            <f.icon className="w-10 h-10 text-primary mb-6" />
 
-                            <h3 className="text-xl font-bold text-white mb-3 uppercase flex items-center gap-2">
+                            <h3 className="text-xl font-bold text-foreground mb-3 uppercase flex items-center gap-2">
                                 {f.title}
                             </h3>
 
-                            <p className="text-zinc-400 leading-relaxed text-sm md:text-base">
+                            <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
                                 {f.description}
                             </p>
 
-                            <div className="absolute bottom-0 left-0 w-full h-1 bg-ait-gold transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-primary transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
                         </motion.div>
                     ))}
                 </div>

@@ -66,7 +66,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
     return (
       <div className={embedded ? 'p-6' : 'binance-card p-6'}>
         {!embedded && (
-          <h3 className="text-lg font-semibold mb-6" style={{ color: '#EAECEF' }}>
+          <h3 className="text-lg font-semibold mb-6 text-foreground">
             {t('accountEquityCurve', language)}
           </h3>
         )}
@@ -83,16 +83,16 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
         <div
           className="flex items-center gap-3 p-4 rounded"
           style={{
-            background: 'rgba(246, 70, 93, 0.1)',
-            border: '1px solid rgba(246, 70, 93, 0.2)',
+            background: 'var(--color-loss-bg)',
+            border: '1px solid var(--color-loss-border)',
           }}
         >
-          <AlertTriangle className="w-6 h-6" style={{ color: '#F6465D' }} />
+          <AlertTriangle className="w-6 h-6 text-loss" />
           <div>
-            <div className="font-semibold" style={{ color: '#F6465D' }}>
+            <div className="font-semibold text-loss">
               {t('loadingError', language)}
             </div>
-            <div className="text-sm" style={{ color: '#848E9C' }}>
+            <div className="text-sm text-muted-foreground">
               {error.message}
             </div>
           </div>
@@ -108,11 +108,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
     return (
       <div className={embedded ? 'p-6' : 'binance-card p-6'}>
         {!embedded && (
-          <h3 className="text-lg font-semibold mb-6" style={{ color: '#EAECEF' }}>
+          <h3 className="text-lg font-semibold mb-6 text-foreground">
             {t('accountEquityCurve', language)}
           </h3>
         )}
-        <div className="text-center py-16" style={{ color: '#848E9C' }}>
+        <div className="text-center py-16 text-muted-foreground">
           <div className="mb-4 flex justify-center opacity-50">
             <BarChart3 className="w-16 h-16" />
           </div>
@@ -188,18 +188,17 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
       const data = payload[0].payload
       return (
         <div
-          className="rounded p-3 shadow-xl"
-          style={{ background: '#1E2329', border: '1px solid #2B3139' }}
+          className="rounded p-3 shadow-xl bg-panel border border-border"
         >
-          <div className="text-xs mb-1" style={{ color: '#848E9C' }}>
+          <div className="text-xs mb-1 text-muted-foreground">
             Cycle #{data.cycle != null ? data.cycle : '—'}
           </div>
-          <div className="font-bold mono" style={{ color: '#EAECEF' }}>
+          <div className="font-bold mono text-foreground">
             {data.raw_equity.toFixed(2)} USDT
           </div>
           <div
             className="text-sm mono font-bold"
-            style={{ color: data.raw_pnl >= 0 ? '#0ECB81' : '#F6465D' }}
+            style={{ color: data.raw_pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}
           >
             {data.raw_pnl >= 0 ? '+' : ''}
             {data.raw_pnl.toFixed(2)} USDT ({data.raw_pnl_pct >= 0 ? '+' : ''}
@@ -218,21 +217,18 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
         <div className="flex-1">
           {!embedded && (
             <h3
-              className="text-base sm:text-lg font-bold mb-2"
-              style={{ color: '#EAECEF' }}
+              className="text-base sm:text-lg font-bold mb-2 text-foreground"
             >
               {t('accountEquityCurve', language)}
             </h3>
           )}
           <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
             <span
-              className="text-2xl sm:text-3xl font-bold mono"
-              style={{ color: '#EAECEF' }}
+              className="text-2xl sm:text-3xl font-bold mono text-foreground"
             >
               {account?.total_equity.toFixed(2) || '0.00'}
               <span
-                className="text-base sm:text-lg ml-1"
-                style={{ color: '#848E9C' }}
+                className="text-base sm:text-lg ml-1 text-muted-foreground"
               >
                 USDT
               </span>
@@ -241,14 +237,14 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
               <span
                 className="text-sm sm:text-lg font-bold mono px-2 sm:px-3 py-1 rounded flex items-center gap-1"
                 style={{
-                  color: isProfit ? '#0ECB81' : '#F6465D',
+                  color: isProfit ? 'var(--color-profit)' : 'var(--color-loss)',
                   background: isProfit
-                    ? 'rgba(14, 203, 129, 0.1)'
-                    : 'rgba(246, 70, 93, 0.1)',
+                    ? 'var(--color-profit-bg)'
+                    : 'var(--color-loss-bg)',
                   border: `1px solid ${
                     isProfit
-                      ? 'rgba(14, 203, 129, 0.2)'
-                      : 'rgba(246, 70, 93, 0.2)'
+                      ? 'var(--color-profit-border)'
+                      : 'var(--color-loss-border)'
                   }`,
                 }}
               >
@@ -261,8 +257,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
                 {currentValue.raw_pnl_pct}%
               </span>
               <span
-                className="text-xs sm:text-sm mono"
-                style={{ color: '#848E9C' }}
+                className="text-xs sm:text-sm mono text-muted-foreground"
               >
                 ({isProfit ? '+' : ''}
                 {currentValue.raw_pnl.toFixed(2)} USDT)
@@ -274,7 +269,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
         {/* Display Mode Toggle */}
         <div
           className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto"
-          style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+          className="bg-background border border-border"
         >
           <button
             onClick={() => setDisplayMode('dollar')}
@@ -282,11 +277,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             style={
               displayMode === 'dollar'
                 ? {
-                    background: '#F0B90B',
-                    color: '#000',
-                    boxShadow: '0 2px 8px rgba(240, 185, 11, 0.4)',
+                    background: 'var(--color-primary)',
+                    color: 'var(--color-primary-fg)',
+                    boxShadow: '0 2px 8px var(--shadow-primary-glow)',
                   }
-                : { background: 'transparent', color: '#848E9C' }
+                : { background: 'transparent', color: 'var(--color-muted-fg)' }
             }
           >
             <DollarSign className="w-4 h-4" /> USDT
@@ -297,11 +292,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             style={
               displayMode === 'percent'
                 ? {
-                    background: '#F0B90B',
-                    color: '#000',
-                    boxShadow: '0 2px 8px rgba(240, 185, 11, 0.4)',
+                    background: 'var(--color-primary)',
+                    color: 'var(--color-primary-fg)',
+                    boxShadow: '0 2px 8px var(--shadow-primary-glow)',
                   }
-                : { background: 'transparent', color: '#848E9C' }
+                : { background: 'transparent', color: 'var(--color-muted-fg)' }
             }
           >
             <Percent className="w-4 h-4" />
@@ -326,7 +321,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             right: '15px',
             fontSize: '20px',
             fontWeight: 'bold',
-            color: 'rgba(240, 185, 11, 0.15)',
+            color: 'var(--color-primary-glow)',
             zIndex: 10,
             pointerEvents: 'none',
             fontFamily: 'monospace',
@@ -341,25 +336,25 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           >
             <defs>
               <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F0B90B" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#FCD535" stopOpacity={0.2} />
+                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.2} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2B3139" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis
               dataKey="time"
-              stroke="#5E6673"
-              tick={{ fill: '#848E9C', fontSize: 11 }}
-              tickLine={{ stroke: '#2B3139' }}
+              stroke="var(--chart-text)"
+              tick={{ fill: 'var(--chart-text)', fontSize: 11 }}
+              tickLine={{ stroke: 'var(--chart-grid)' }}
               interval={Math.floor(chartData.length / 10)}
               angle={-15}
               textAnchor="end"
               height={60}
             />
             <YAxis
-              stroke="#5E6673"
-              tick={{ fill: '#848E9C', fontSize: 12 }}
-              tickLine={{ stroke: '#2B3139' }}
+              stroke="var(--chart-text)"
+              tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+              tickLine={{ stroke: 'var(--chart-grid)' }}
               domain={calculateYDomain()}
               tickFormatter={(value) =>
                 displayMode === 'dollar' ? `$${value.toFixed(0)}` : `${value}%`
@@ -368,14 +363,14 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine
               y={displayMode === 'dollar' ? initialBalance : 0}
-              stroke="#474D57"
+              stroke="var(--color-disabled-fg)"
               strokeDasharray="3 3"
               label={{
                 value:
                   displayMode === 'dollar'
                     ? t('initialBalance', language).split(' ')[0]
                     : '0%',
-                fill: '#848E9C',
+                fill: 'var(--color-muted-fg)',
                 fontSize: 12,
               }}
             />
@@ -384,11 +379,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
               dataKey="value"
               stroke="url(#colorGradient)"
               strokeWidth={3}
-              dot={chartData.length > 50 ? false : { fill: '#F0B90B', r: 3 }}
+              dot={chartData.length > 50 ? false : { fill: 'var(--color-primary)', r: 3 }}
               activeDot={{
                 r: 6,
-                fill: '#FCD535',
-                stroke: '#F0B90B',
+                fill: 'var(--color-primary)',
+                stroke: 'var(--color-primary)',
                 strokeWidth: 2,
               }}
               connectNulls={true}
@@ -400,72 +395,64 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
       {/* Footer Stats */}
       <div
         className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3"
-        style={{ borderTop: '1px solid #2B3139' }}
+        className="border-t border-border"
       >
         <div
           className="p-2 rounded transition-all hover:bg-opacity-50"
-          style={{ background: 'rgba(240, 185, 11, 0.05)' }}
+          className="bg-primary-dim"
         >
           <div
-            className="text-xs mb-1 uppercase tracking-wider"
-            style={{ color: '#848E9C' }}
+            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
           >
             {t('initialBalance', language)}
           </div>
           <div
-            className="text-xs sm:text-sm font-bold mono"
-            style={{ color: '#EAECEF' }}
+            className="text-xs sm:text-sm font-bold mono text-foreground"
           >
             {initialBalance.toFixed(2)} USDT
           </div>
         </div>
         <div
           className="p-2 rounded transition-all hover:bg-opacity-50"
-          style={{ background: 'rgba(240, 185, 11, 0.05)' }}
+          className="bg-primary-dim"
         >
           <div
-            className="text-xs mb-1 uppercase tracking-wider"
-            style={{ color: '#848E9C' }}
+            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
           >
             {t('currentEquity', language)}
           </div>
           <div
-            className="text-xs sm:text-sm font-bold mono"
-            style={{ color: '#EAECEF' }}
+            className="text-xs sm:text-sm font-bold mono text-foreground"
           >
             {currentValue.raw_equity.toFixed(2)} USDT
           </div>
         </div>
         <div
           className="p-2 rounded transition-all hover:bg-opacity-50"
-          style={{ background: 'rgba(240, 185, 11, 0.05)' }}
+          className="bg-primary-dim"
         >
           <div
-            className="text-xs mb-1 uppercase tracking-wider"
-            style={{ color: '#848E9C' }}
+            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
           >
             {t('historicalCycles', language)}
           </div>
           <div
-            className="text-xs sm:text-sm font-bold mono"
-            style={{ color: '#EAECEF' }}
+            className="text-xs sm:text-sm font-bold mono text-foreground"
           >
             {validHistory.length} {t('cycles', language)}
           </div>
         </div>
         <div
           className="p-2 rounded transition-all hover:bg-opacity-50"
-          style={{ background: 'rgba(240, 185, 11, 0.05)' }}
+          className="bg-primary-dim"
         >
           <div
-            className="text-xs mb-1 uppercase tracking-wider"
-            style={{ color: '#848E9C' }}
+            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
           >
             {t('displayRange', language)}
           </div>
           <div
-            className="text-xs sm:text-sm font-bold mono"
-            style={{ color: '#EAECEF' }}
+            className="text-xs sm:text-sm font-bold mono text-foreground"
           >
             {validHistory.length > MAX_DISPLAY_POINTS
               ? `${t('recent', language)} ${MAX_DISPLAY_POINTS}`

@@ -2,6 +2,7 @@ package gate
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,6 +27,12 @@ type GateTraderTestSuite struct {
 
 // NewGateTraderTestSuite creates Gate test suite with mock server
 func NewGateTraderTestSuite(t *testing.T) *GateTraderTestSuite {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
 	// Create mock HTTP server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path

@@ -19,7 +19,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-ait-bg-deeper text-white font-mono relative overflow-hidden flex items-center justify-center px-4">
+    <div className="min-h-screen bg-ait-bg-deeper text-foreground font-mono relative overflow-hidden flex items-center justify-center px-4">
       {/* Background Grid & Scanlines */}
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
       <div className="fixed inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none"></div>
@@ -31,7 +31,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
         transition={{ duration: 0.5 }}
         className="max-w-lg w-full relative z-10"
       >
-        <div className="bg-zinc-900/40 backdrop-blur-md border border-red-500/30 rounded-lg overflow-hidden relative group">
+        <div className="bg-surface/40 backdrop-blur-md border border-red-500/30 rounded-lg overflow-hidden relative group">
           {/* Top Bar */}
           <div className="flex items-center justify-between px-4 py-2 bg-red-900/20 border-b border-red-500/30">
             <div className="flex gap-1.5 opacity-50">
@@ -54,14 +54,14 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
             </div>
 
             {/* Title */}
-            <h1 className="text-2xl font-bold mb-2 tracking-widest text-white uppercase glitch-text">
+            <h1 className="text-2xl font-bold mb-2 tracking-widest text-foreground uppercase glitch-text">
               <span className="text-red-500">RESTRICTED</span> ACCESS
             </h1>
 
             <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-red-900/50 to-transparent my-4"></div>
 
             {/* Description */}
-            <p className="text-xs text-zinc-400 mb-8 leading-relaxed font-mono px-4">
+            <p className="text-xs text-muted-foreground mb-8 leading-relaxed font-mono px-4">
               <span className="text-red-400">[SYSTEM_MESSAGE]:</span> YOUR
               IDENTIFIER IS NOT ON THE ACTIVE WHITELIST.
               <br />
@@ -79,7 +79,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
                   <h3 className="text-xs font-bold text-red-400 uppercase mb-1">
                     Authorization Protocol
                   </h3>
-                  <p className="text-[10px] text-zinc-500 leading-tight">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
                     Access is rolled out in batches. If you believe this is an
                     error, please verify your credentials or contact system
                     administrators.
@@ -92,7 +92,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
             <div className="space-y-3">
               <button
                 onClick={handleBackToLogin}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-zinc-700 bg-black hover:bg-zinc-900 hover:border-red-500 hover:text-red-500 text-zinc-400 transition-all text-xs font-bold tracking-widest uppercase group"
+                className="w-full flex items-center justify-center gap-2 py-3 border border-border bg-black hover:bg-surface hover:border-red-500 hover:text-red-500 text-muted-foreground transition-all text-xs font-bold tracking-widest uppercase group"
               >
                 <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
                 RETURN TO LOGIN
@@ -103,7 +103,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
                   href={OFFICIAL_LINKS.twitter}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 py-2 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-500 hover:text-white transition-colors text-[10px] uppercase"
+                  className="flex items-center justify-center gap-2 py-2 border border-border bg-surface/50 hover:bg-surface-alt text-muted-foreground hover:text-foreground transition-colors text-[10px] uppercase"
                 >
                   <Twitter className="w-3 h-3" />
                   Updates
@@ -112,7 +112,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
                   href={OFFICIAL_LINKS.telegram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 py-2 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-500 hover:text-white transition-colors text-[10px] uppercase"
+                  className="flex items-center justify-center gap-2 py-2 border border-border bg-surface/50 hover:bg-surface-alt text-muted-foreground hover:text-foreground transition-colors text-[10px] uppercase"
                 >
                   <Send className="w-3 h-3" />
                   Support
@@ -122,7 +122,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
           </div>
 
           {/* Footer */}
-          <div className="bg-black/80 p-2 text-[9px] text-zinc-700 text-center border-t border-zinc-800 font-mono uppercase">
+          <div className="bg-black/80 p-2 text-[9px] text-zinc-700 text-center border-t border-border font-mono uppercase">
             ERR_CODE: WLIST_0x403 // SECURITY_LAYER_ACTIVE
           </div>
         </div>

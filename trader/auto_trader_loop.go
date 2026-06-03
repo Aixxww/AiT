@@ -425,7 +425,8 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	if at.strategyEngine == nil {
 		at.logWarnf("⚠️ No strategy engine configured, skipping candidate coins")
 	} else {
-		coins, err := at.strategyEngine.GetCandidateCoins()
+		// Use new SnapshotEngine if available, otherwise legacy
+		coins, err := at.strategyEngine.GetCandidateCoinsWithSnapshot()
 		if err != nil {
 			// Log warning but don't fail - equity snapshot should still be saved
 			at.logWarnf("⚠️ Failed to get candidate coins: %v (will use empty list)", err)

@@ -26,6 +26,7 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { StrategyMarketPage } from '../pages/StrategyMarketPage'
 import { StrategyStudioPage } from '../pages/StrategyStudioPage'
 import { TraderDashboardPage } from '../pages/TraderDashboardPage'
+import { BacktestPage } from '../components/backtest/BacktestPage'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSystemConfig } from '../hooks/useSystemConfig'
@@ -72,8 +73,7 @@ function LoadingScreen() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: '#0B0E11' }}
+      className="min-h-screen flex items-center justify-center bg-background"
     >
       <div className="text-center">
         <img
@@ -81,7 +81,7 @@ function LoadingScreen() {
           alt="AiT Logo"
           className="w-16 h-16 mx-auto mb-4 animate-pulse"
         />
-        <p style={{ color: '#EAECEF' }}>{t('loading', language)}</p>
+        <p className="text-foreground">{t('loading', language)}</p>
       </div>
     </div>
   )
@@ -159,8 +159,7 @@ function AppChrome({
 
   return (
     <div
-      className="min-h-screen"
-      style={{ background: '#0B0E11', color: '#EAECEF' }}
+      className="min-h-screen bg-background text-foreground"
     >
       <HeaderBar
         isLoggedIn={!!user}
@@ -234,15 +233,6 @@ function DashboardRoute() {
   const [selectedTraderId, setSelectedTraderId] = useState<string | undefined>()
   const [lastUpdate, setLastUpdate] = useState<string>('--:--:--')
   const [decisionsLimit, setDecisionsLimit] = useState(5)
-  const [accountPollOff, setAccountPollOff] = useState(false)
-  const [positionsPollOff, setPositionsPollOff] = useState(false)
-  const [decisionsPollOff, setDecisionsPollOff] = useState(false)
-
-  useEffect(() => {
-    setAccountPollOff(false)
-    setPositionsPollOff(false)
-    setDecisionsPollOff(false)
-  }, [selectedTraderId])
 
   const { data: traders, error: tradersError } = useSWR<TraderInfo[]>(
     user && token ? 'traders-dashboard' : null,
@@ -295,20 +285,14 @@ function DashboardRoute() {
     selectedTraderId ? `account-${selectedTraderId}` : null,
     () => api.getAccount(selectedTraderId, true),
     {
-      refreshInterval: accountPollOff ? 0 : 15000,
-      revalidateOnFocus: false,
+      refreshInterval: 15000,
+      revalidateOnFocus: true,
       dedupingInterval: 10000,
-      onErrorRetry: (_err, _key, _config, revalidate, { retryCount }) => {
-        if (retryCount >= 2) {
-          setAccountPollOff(true)
-          return
-        }
-        setTimeout(() => revalidate({ retryCount }), 500)
-      },
-      onSuccess: () => {
-        if (accountPollOff) {
-          setAccountPollOff(false)
-        }
+      onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
+        if (error.status === 404) return
+        if (retryCount >= 5) return
+        const delay = Math.min(2000 * 2 ** retryCount, 30000)
+        setTimeout(() => revalidate({ retryCount }), delay)
       },
     }
   )
@@ -317,20 +301,14 @@ function DashboardRoute() {
     selectedTraderId ? `positions-${selectedTraderId}` : null,
     () => api.getPositions(selectedTraderId, true),
     {
-      refreshInterval: positionsPollOff ? 0 : 15000,
-      revalidateOnFocus: false,
+      refreshInterval: 15000,
+      revalidateOnFocus: true,
       dedupingInterval: 10000,
-      onErrorRetry: (_err, _key, _config, revalidate, { retryCount }) => {
-        if (retryCount >= 2) {
-          setPositionsPollOff(true)
-          return
-        }
-        setTimeout(() => revalidate({ retryCount }), 500)
-      },
-      onSuccess: () => {
-        if (positionsPollOff) {
-          setPositionsPollOff(false)
-        }
+      onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
+        if (error.status === 404) return
+        if (retryCount >= 5) return
+        const delay = Math.min(2000 * 2 ** retryCount, 30000)
+        setTimeout(() => revalidate({ retryCount }), delay)
       },
     }
   )
@@ -341,20 +319,14 @@ function DashboardRoute() {
       : null,
     () => api.getLatestDecisions(selectedTraderId, decisionsLimit, true),
     {
-      refreshInterval: decisionsPollOff ? 0 : 30000,
-      revalidateOnFocus: false,
+      refreshInterval: 30000,
+      revalidateOnFocus: true,
       dedupingInterval: 20000,
-      onErrorRetry: (_err, _key, _config, revalidate, { retryCount }) => {
-        if (retryCount >= 2) {
-          setDecisionsPollOff(true)
-          return
-        }
-        setTimeout(() => revalidate({ retryCount }), 500)
-      },
-      onSuccess: () => {
-        if (decisionsPollOff) {
-          setDecisionsPollOff(false)
-        }
+      onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
+        if (error.status === 404) return
+        if (retryCount >= 5) return
+        const delay = Math.min(2000 * 2 ** retryCount, 30000)
+        setTimeout(() => revalidate({ retryCount }), delay)
       },
     }
   )
@@ -385,11 +357,11 @@ function DashboardRoute() {
         selectedTrader={selectedTrader}
         status={status}
         account={account}
-        accountFailed={accountPollOff}
+        accountFailed={false}
         positions={positions}
-        positionsFailed={positionsPollOff}
+        positionsFailed={false}
         decisions={decisions}
-        decisionsFailed={decisionsPollOff}
+        decisionsFailed={false}
         decisionsLimit={decisionsLimit}
         onDecisionsLimitChange={setDecisionsLimit}
         stats={stats}
@@ -536,6 +508,18 @@ export function AppRoutes() {
             isAuthenticated ? (
               <AppChrome currentPage="strategy" animateContent>
                 <StrategyStudioPage />
+              </AppChrome>
+            ) : (
+              <Navigate to={ROUTES.login} replace />
+            )
+          }
+        />
+        <Route
+          path={ROUTES.backtest}
+          element={
+            isAuthenticated ? (
+              <AppChrome currentPage="backtest" animateContent>
+                <BacktestPage />
               </AppChrome>
             ) : (
               <Navigate to={ROUTES.login} replace />

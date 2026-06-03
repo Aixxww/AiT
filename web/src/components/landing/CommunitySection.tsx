@@ -20,7 +20,7 @@ function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: Tw
       className="block p-5 rounded-2xl transition-all duration-300 group"
       style={{
         background: '#12161C',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        border: '1px solid var(--color-border)',
       }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -41,18 +41,17 @@ function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: Tw
             style={{ border: '2px solid rgba(255, 255, 255, 0.1)' }}
           />
           <div>
-            <div className="font-semibold text-sm" style={{ color: '#EAECEF' }}>
+            <div className="font-semibold text-sm text-foreground">
               {authorName}
             </div>
-            <div className="text-xs" style={{ color: '#5E6673' }}>
+            <div className="text-xs" style={{ color: 'var(--color-muted-fg)' }}>
               {handle}
             </div>
           </div>
         </div>
         {/* X Logo */}
         <div
-          className="w-6 h-6 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity"
-          style={{ color: '#EAECEF' }}
+          className="w-6 h-6 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity text-foreground"
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -70,20 +69,20 @@ function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: Tw
 
       {/* Footer */}
       <div className="flex items-center gap-6 pt-3" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: '#5E6673' }}>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
           <MessageCircle className="w-3.5 h-3.5" />
           <span>Reply</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: '#5E6673' }}>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
           <Repeat2 className="w-3.5 h-3.5" />
           <span>Repost</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: '#5E6673' }}>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
           <Heart className="w-3.5 h-3.5" />
           <span>Like</span>
         </div>
         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          <ExternalLink className="w-3.5 h-3.5" style={{ color: '#F0B90B' }} />
+          <ExternalLink className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
         </div>
       </div>
     </motion.a>
@@ -98,7 +97,7 @@ export default function CommunitySection({ language }: CommunitySectionProps) {
   const tweets: TweetProps[] = []
 
   return (
-    <section className="py-24 relative" style={{ background: '#0B0E11' }}>
+    <section className="py-24 relative bg-background">
       {/* Background Decoration */}
       <div
         className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20"
@@ -113,10 +112,10 @@ export default function CommunitySection({ language }: CommunitySectionProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: '#EAECEF' }}>
+          <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-foreground">
             {language === 'zh' ? '社区声音' : 'Community Voices'}
           </h2>
-          <p className="text-lg" style={{ color: '#848E9C' }}>
+          <p className="text-lg text-muted-foreground">
             {language === 'zh' ? '看看大家怎么说' : 'See what others are saying'}
           </p>
         </motion.div>

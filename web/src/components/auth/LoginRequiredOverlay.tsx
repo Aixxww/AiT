@@ -52,14 +52,14 @@ export function LoginRequiredOverlay({
               {/* Terminal Window Header */}
               <div className="flex items-center justify-between px-3 py-2 bg-ait-bg-lighter border-b border-ait-gold/20">
                 <div className="flex items-center gap-2">
-                  <Terminal size={12} className="text-ait-gold" />
-                  <span className="text-[10px] text-ait-text-muted uppercase tracking-wider">
+                  <Terminal size={12} className="text-primary" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                     auth_protocol.exe
                   </span>
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-ait-text-muted hover:text-ait-danger transition-colors"
+                  className="text-muted-foreground hover:text-loss transition-colors"
                 >
                   <X size={14} />
                 </button>
@@ -87,16 +87,16 @@ export function LoginRequiredOverlay({
                   {/* Terminal Text */}
                   <div className="space-y-4 mb-8">
                     <div className="text-center">
-                      <h2 className="text-xl font-bold text-white uppercase tracking-wider mb-2">
+                      <h2 className="text-xl font-bold text-foreground uppercase tracking-wider mb-2">
                         {tr('title')}
                       </h2>
-                      <p className="text-ait-gold text-xs uppercase tracking-widest border-b border-ait-gold/20 pb-4 inline-block">
+                      <p className="text-primary text-xs uppercase tracking-widest border-b border-ait-gold/20 pb-4 inline-block">
                         {subtitle}
                       </p>
                     </div>
 
                     <div className="bg-ait-bg-lighter border-l-2 border-ait-gold/20 p-3 my-4">
-                      <p className="text-xs text-ait-text-muted leading-relaxed font-mono">
+                      <p className="text-xs text-muted-foreground leading-relaxed font-mono">
                         <span className="text-green-500 mr-2">$</span>
                         {tr('description')}
                       </p>
@@ -106,9 +106,9 @@ export function LoginRequiredOverlay({
                       {benefits.map((benefit, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-2 text-[10px] text-ait-text-muted uppercase tracking-wide"
+                          className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wide"
                         >
-                          <span className="text-ait-gold">✓</span> {benefit}
+                          <span className="text-primary">✓</span> {benefit}
                         </div>
                       ))}
                     </div>
@@ -118,7 +118,7 @@ export function LoginRequiredOverlay({
                   <div className="space-y-3">
                     <Link
                       to="/login"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-ait-gold text-black font-bold text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-neon hover:shadow-[0_0_25px_rgba(240,185,11,0.4)] group"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-neon hover:shadow-[0_0_25px_rgba(240,185,11,0.4)] group"
                     >
                       <LogIn size={14} />
                       <span>{tr('loginButton')}</span>
@@ -129,7 +129,7 @@ export function LoginRequiredOverlay({
 
                     <Link
                       to="/register"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-transparent border border-ait-gold/20 text-ait-text-muted hover:text-white hover:border-ait-gold font-bold text-xs uppercase tracking-widest transition-all hover:bg-ait-gold/10"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-transparent border border-ait-gold/20 text-muted-foreground hover:text-foreground hover:border-ait-gold font-bold text-xs uppercase tracking-widest transition-all hover:bg-primary-dim"
                     >
                       <UserPlus size={14} />
                       <span>{tr('registerButton')}</span>
@@ -139,7 +139,7 @@ export function LoginRequiredOverlay({
                   <div className="mt-4 text-center">
                     <button
                       onClick={onClose}
-                      className="text-[10px] text-ait-text-muted hover:text-ait-danger uppercase tracking-widest hover:underline decoration-red-500/30"
+                      className="text-[10px] text-muted-foreground hover:text-loss uppercase tracking-widest hover:underline decoration-red-500/30"
                     >
                       [ {tr('abort')} ]
                     </button>

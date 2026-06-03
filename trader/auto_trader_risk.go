@@ -2,6 +2,7 @@ package trader
 
 import (
 	"fmt"
+	"nofx/kernel"
 	"nofx/logger"
 	"strings"
 	"time"
@@ -253,6 +254,81 @@ func (at *AutoTrader) enforceMaxPositions(currentPositionCount int) error {
 	if currentPositionCount >= maxPositions {
 		return fmt.Errorf("❌ [RISK CONTROL] Already at max positions (%d/%d)", currentPositionCount, maxPositions)
 	}
+	return nil
+}
+
+// validateOpenDecision enforces non-negotiable safety checks before any open order.
+func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPrice float64, side string) error {
+	if decision == nil {
+		return fmt.Errorf("❌ [RISK CONTROL] Decision is nil")
+	}
+	if currentPrice <= 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] Invalid current price %.8f for %s", currentPrice, decision.Symbol)
+	}
+	if decision.PositionSizeUSD <= 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] Position size must be positive for %s", decision.Symbol)
+	}
+	if decision.Leverage <= 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] Leverage must be positive for %s", decision.Symbol)
+	}
+
+	var minRiskRewardRatio float64
+	if at.config.StrategyConfig != nil {
+		riskControl := at.config.StrategyConfig.RiskControl
+
+		if riskControl.MinConfidence > 0 && decision.Confidence < riskControl.MinConfidence {
+			return fmt.Errorf("❌ [RISK CONTROL] Confidence %d below minimum %d for %s",
+				decision.Confidence, riskControl.MinConfidence, decision.Symbol)
+		}
+
+		maxLeverage := riskControl.AltcoinMaxLeverage
+		if isBTCETH(decision.Symbol) {
+			maxLeverage = riskControl.BTCETHMaxLeverage
+		}
+		if maxLeverage > 0 && decision.Leverage > maxLeverage {
+			return fmt.Errorf("❌ [RISK CONTROL] Leverage %dx exceeds max %dx for %s",
+				decision.Leverage, maxLeverage, decision.Symbol)
+		}
+
+		minRiskRewardRatio = riskControl.MinRiskRewardRatio
+	}
+
+	if decision.StopLoss <= 0 || decision.TakeProfit <= 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] Stop loss and take profit are required for %s", decision.Symbol)
+	}
+
+	var riskDistance, rewardDistance float64
+	switch side {
+	case "long":
+		if !(decision.StopLoss < currentPrice && currentPrice < decision.TakeProfit) {
+			return fmt.Errorf("❌ [RISK CONTROL] Invalid LONG SL/TP for %s: stop_loss %.8f < current %.8f < take_profit %.8f required",
+				decision.Symbol, decision.StopLoss, currentPrice, decision.TakeProfit)
+		}
+		riskDistance = currentPrice - decision.StopLoss
+		rewardDistance = decision.TakeProfit - currentPrice
+	case "short":
+		if !(decision.TakeProfit < currentPrice && currentPrice < decision.StopLoss) {
+			return fmt.Errorf("❌ [RISK CONTROL] Invalid SHORT SL/TP for %s: take_profit %.8f < current %.8f < stop_loss %.8f required",
+				decision.Symbol, decision.TakeProfit, currentPrice, decision.StopLoss)
+		}
+		riskDistance = decision.StopLoss - currentPrice
+		rewardDistance = currentPrice - decision.TakeProfit
+	default:
+		return fmt.Errorf("❌ [RISK CONTROL] Unknown open side %s for %s", side, decision.Symbol)
+	}
+
+	if riskDistance <= 0 || rewardDistance <= 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] Invalid risk/reward distance for %s", decision.Symbol)
+	}
+
+	if minRiskRewardRatio > 0 {
+		ratio := rewardDistance / riskDistance
+		if ratio < minRiskRewardRatio {
+			return fmt.Errorf("❌ [RISK CONTROL] Risk-reward ratio %.2f below minimum %.2f for %s",
+				ratio, minRiskRewardRatio, decision.Symbol)
+		}
+	}
+
 	return nil
 }
 

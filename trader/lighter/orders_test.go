@@ -2,6 +2,7 @@ package lighter
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -150,10 +151,10 @@ func TestGetActiveOrders_ErrorResponse(t *testing.T) {
 // TestConvertOrderResponseToOpenOrder tests conversion logic
 func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 	testCases := []struct {
-		name           string
-		order          OrderResponse
-		expectedSide   string
-		expectedType   string
+		name            string
+		order           OrderResponse
+		expectedSide    string
+		expectedType    string
 		expectedPosSide string
 	}{
 		{
@@ -166,8 +167,8 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 				RemainingBaseAmount: "1.0",
 				ReduceOnly:          false,
 			},
-			expectedSide:   "SELL",
-			expectedType:   "LIMIT",
+			expectedSide:    "SELL",
+			expectedType:    "LIMIT",
 			expectedPosSide: "SHORT",
 		},
 		{
@@ -180,8 +181,8 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 				RemainingBaseAmount: "1.0",
 				ReduceOnly:          false,
 			},
-			expectedSide:   "BUY",
-			expectedType:   "LIMIT",
+			expectedSide:    "BUY",
+			expectedType:    "LIMIT",
 			expectedPosSide: "LONG",
 		},
 		{
@@ -194,8 +195,8 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 				RemainingBaseAmount: "1.0",
 				ReduceOnly:          true,
 			},
-			expectedSide:   "SELL",
-			expectedType:   "STOP_MARKET",
+			expectedSide:    "SELL",
+			expectedType:    "STOP_MARKET",
 			expectedPosSide: "LONG",
 		},
 		{
@@ -208,8 +209,8 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 				RemainingBaseAmount: "1.0",
 				ReduceOnly:          true,
 			},
-			expectedSide:   "BUY",
-			expectedType:   "STOP_MARKET",
+			expectedSide:    "BUY",
+			expectedType:    "STOP_MARKET",
 			expectedPosSide: "SHORT",
 		},
 		{
@@ -222,8 +223,8 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 				RemainingBaseAmount: "1.0",
 				ReduceOnly:          true,
 			},
-			expectedSide:   "SELL",
-			expectedType:   "TAKE_PROFIT_MARKET",
+			expectedSide:    "SELL",
+			expectedType:    "TAKE_PROFIT_MARKET",
 			expectedPosSide: "LONG",
 		},
 	}
@@ -268,6 +269,12 @@ func TestConvertOrderResponseToOpenOrder(t *testing.T) {
 
 // TestGetActiveOrders_MockServer tests the full HTTP flow with a mock server
 func TestGetActiveOrders_MockServer(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	require.NoError(t, listener.Close())
+
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request path and auth parameter

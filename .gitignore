@@ -12,9 +12,16 @@ nofx-auto
 *.exe
 nofx
 ait
+main
+ait-server
 nofx_test
 coinselect
+/engine_eval
+/livetest
+/livetest_all
+/datasource_bench
 --help
+/bin/
 
 # Go 相关
 *.test

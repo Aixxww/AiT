@@ -17,8 +17,8 @@ export function ModelCard({ model, selected, onClick, configured }: ModelCardPro
       onClick={onClick}
       className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-105"
       style={{
-        background: selected ? 'rgba(139, 92, 246, 0.15)' : '#0B0E11',
-        border: selected ? '2px solid #8B5CF6' : '2px solid #2B3139',
+        background: selected ? 'rgba(139, 92, 246, 0.15)' : 'var(--background)',
+        border: selected ? '2px solid #8B5CF6' : '2px solid var(--color-border)',
       }}
     >
       <div className="relative">
@@ -30,7 +30,7 @@ export function ModelCard({ model, selected, onClick, configured }: ModelCardPro
         {selected && (
           <div
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ background: '#0ECB81' }}
+            style={{ background: 'var(--color-profit)' }}
           >
             <Check className="w-3 h-3 text-black" />
           </div>
@@ -38,13 +38,13 @@ export function ModelCard({ model, selected, onClick, configured }: ModelCardPro
         {configured && !selected && (
           <div
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
-            style={{ background: '#F0B90B' }}
+            style={{ background: 'var(--color-primary)' }}
           >
             <Check className="w-2.5 h-2.5 text-black" />
           </div>
         )}
       </div>
-      <span className="text-sm font-semibold" style={{ color: '#EAECEF' }}>
+      <span className="text-sm font-semibold text-foreground">
         {getShortName(model.name)}
       </span>
       <span

@@ -153,10 +153,21 @@ func extractURL(text string) string {
 
 func extractPostKeywordName(text string, keywords []string) string {
 	trimmed := strings.TrimSpace(text)
+	keywords = append([]string(nil), keywords...)
+	sort.SliceStable(keywords, func(i, j int) bool {
+		return len([]rune(keywords[i])) > len([]rune(keywords[j]))
+	})
 	for _, keyword := range keywords {
 		if idx := strings.Index(trimmed, keyword); idx >= 0 {
 			name := strings.TrimSpace(trimmed[idx+len(keyword):])
-			name = strings.Trim(name, "“”\"'：: ")
+			name = strings.Trim(name, "“”\"'：: ，,")
+			for _, prefix := range []string{"改成", "改为", "修改为", "换成", "换到", "切换为", "切换到", "to"} {
+				if strings.HasPrefix(strings.ToLower(name), prefix) {
+					name = strings.TrimSpace(name[len(prefix):])
+					name = strings.Trim(name, "“”\"'：: ，,")
+					break
+				}
+			}
 			if name != "" && len([]rune(name)) <= 50 {
 				return name
 			}

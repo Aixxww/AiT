@@ -4,32 +4,59 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
+        // ── 语义化 Token (引用 CSS 变量) ──
+        background:    'var(--color-background)',
+        foreground:    'var(--color-foreground)',
+        surface:       'var(--color-surface)',
+        'surface-alt': 'var(--color-surface-alt)',
+        panel:         'var(--color-panel)',
+        'panel-hover': 'var(--color-panel-hover)',
+
+        primary:    { DEFAULT: 'var(--color-primary)', foreground: 'var(--color-primary-fg)', dim: 'var(--color-primary-dim)', glow: 'var(--color-primary-glow)' },
+        accent:     { DEFAULT: 'var(--color-accent)' },
+        muted:      { DEFAULT: 'var(--color-muted)', foreground: 'var(--color-muted-fg)' },
+        border:     { DEFAULT: 'var(--color-border)', hover: 'var(--color-border-hover)' },
+        input:      { DEFAULT: 'var(--color-input)', ring: 'var(--color-ring)' },
+
+        // 交易色
+        profit:     { DEFAULT: 'var(--color-profit)', bg: 'var(--color-profit-bg)', border: 'var(--color-profit-border)' },
+        loss:       { DEFAULT: 'var(--color-loss)', bg: 'var(--color-loss-bg)', border: 'var(--color-loss-border)' },
+
+        // 状态色
+        warning:    { DEFAULT: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
+        info:       { DEFAULT: 'var(--color-info)', bg: 'var(--color-info-bg)' },
+
+        // 头部
+        header:     { DEFAULT: 'var(--color-header)', border: 'var(--color-header-border)' },
+
+        // ── 向后兼容别名 ──
         'ait-gold': {
-          DEFAULT: '#F0B90B',
-          dim: 'rgba(240, 185, 11, 0.1)',
-          glow: 'rgba(240, 185, 11, 0.5)',
+          DEFAULT: 'var(--color-primary)',
+          dim: 'var(--color-primary-dim)',
+          glow: 'var(--color-primary-glow)',
           highlight: '#FFD700',
         },
         'ait-bg': {
-          DEFAULT: '#05070A', // Deep Void
-          deeper: '#020304',  // Abyssal
-          lighter: '#0E1217', // Surface
+          DEFAULT: 'var(--color-background)',
+          deeper: '#020304',
+          lighter: 'var(--color-surface)',
         },
-        'ait-accent': '#00F0FF', // Cyan Cyber
+        'ait-accent': 'var(--color-accent)',
         'ait-text': {
-          DEFAULT: '#EAECEF',
-          main: '#EAECEF',
-          muted: '#848E9C',
+          DEFAULT: 'var(--color-foreground)',
+          main: 'var(--color-foreground)',
+          muted: 'var(--color-muted-fg)',
         },
-        'ait-success': '#0ECB81',
-        'ait-danger': '#F6465D',
+        'ait-success': 'var(--color-profit)',
+        'ait-danger': 'var(--color-loss)',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+        mono: ['IBM Plex Mono', 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(circle at center, var(--tw-gradient-stops))',
@@ -68,8 +95,16 @@ export default {
         },
       },
       boxShadow: {
-        'neon': '0 0 5px theme("colors.ait-gold.DEFAULT"), 0 0 20px theme("colors.ait-gold.dim")',
-        'neon-blue': '0 0 5px theme("colors.ait-accent"), 0 0 20px rgba(0, 240, 255, 0.2)',
+        'neon': '0 0 5px var(--color-primary), 0 0 20px var(--color-primary-glow)',
+        'neon-blue': '0 0 5px var(--color-accent), 0 0 20px var(--shadow-accent-glow)',
+        'glass': 'var(--shadow-glass)',
+        'glass-heavy': 'var(--shadow-glass-heavy)',
+      },
+      borderRadius: {
+        'glass-sm': 'var(--radius-sm)',
+        'glass-md': 'var(--radius-md)',
+        'glass-lg': 'var(--radius-lg)',
+        'glass-xl': 'var(--radius-xl)',
       },
     },
   },

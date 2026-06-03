@@ -62,12 +62,11 @@ export function TradersList({
     <div className="binance-card p-4 md:p-6">
       <div className="flex items-center justify-between mb-4 md:mb-5">
         <h2
-          className="text-lg md:text-xl font-bold flex items-center gap-2"
-          style={{ color: '#EAECEF' }}
+          className="text-lg md:text-xl font-bold flex items-center gap-2 text-foreground"
         >
           <Users
             className="w-5 h-5 md:w-6 md:h-6"
-            style={{ color: '#F0B90B' }}
+            style={{ color: 'var(--color-primary)' }}
           />
           {t('currentTraders', language)}
         </h2>
@@ -113,8 +112,7 @@ function TradersLoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded gap-3 md:gap-4 animate-pulse"
-          style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+          className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded gap-3 md:gap-4 animate-pulse bg-background border border-[var(--color-border)]"
         >
           <div className="flex items-center gap-3 md:gap-4">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-full skeleton"></div>
@@ -145,8 +143,7 @@ function TradersEmptyState({
 }) {
   return (
     <div
-      className="text-center py-12 md:py-16"
-      style={{ color: '#848E9C' }}
+      className="text-center py-12 md:py-16 text-muted-foreground"
     >
       <Bot className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 md:mb-4 opacity-50" />
       <div className="text-base md:text-lg font-semibold mb-2">
@@ -207,8 +204,7 @@ function TraderRow({
 
   return (
     <div
-      className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded transition-all hover:translate-y-[-1px] gap-3 md:gap-4"
-      style={{ background: '#0B0E11', border: '1px solid #2B3139' }}
+      className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded transition-all hover:translate-y-[-1px] gap-3 md:gap-4 bg-background border border-[var(--color-border)]"
     >
       <div className="flex items-center gap-3 md:gap-4">
         <div className="flex-shrink-0">
@@ -225,8 +221,7 @@ function TraderRow({
         </div>
         <div className="min-w-0">
           <div
-            className="font-bold text-base md:text-lg truncate"
-            style={{ color: '#EAECEF' }}
+            className="font-bold text-base md:text-lg truncate text-foreground"
           >
             {trader.trader_name}
           </div>
@@ -252,11 +247,11 @@ function TraderRow({
           <div
             className="flex items-center gap-1 px-2 py-1 rounded"
             style={{
-              background: 'rgba(240, 185, 11, 0.08)',
-              border: '1px solid rgba(240, 185, 11, 0.2)',
+              background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
             }}
           >
-            <span className="text-xs font-mono" style={{ color: '#F0B90B' }}>
+            <span className="text-xs font-mono" style={{ color: 'var(--color-primary)' }}>
               {isVisible ? walletAddr : truncateAddress(walletAddr)}
             </span>
             <button
@@ -269,9 +264,9 @@ function TraderRow({
               title={isVisible ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
             >
               {isVisible ? (
-                <EyeOff className="w-3 h-3" style={{ color: '#848E9C' }} />
+                <EyeOff className="w-3 h-3 text-muted-foreground" />
               ) : (
-                <Eye className="w-3 h-3" style={{ color: '#848E9C' }} />
+                <Eye className="w-3 h-3 text-muted-foreground" />
               )}
             </button>
             <button
@@ -284,9 +279,9 @@ function TraderRow({
               title={language === 'zh' ? '复制' : 'Copy'}
             >
               {isCopied ? (
-                <Check className="w-3 h-3" style={{ color: '#0ECB81' }} />
+                <Check className="w-3 h-3" style={{ color: 'var(--color-profit)' }} />
               ) : (
-                <Copy className="w-3 h-3" style={{ color: '#848E9C' }} />
+                <Copy className="w-3 h-3 text-muted-foreground" />
               )}
             </button>
           </div>
@@ -301,12 +296,12 @@ function TraderRow({
             style={
               trader.is_running
                 ? {
-                  background: 'rgba(14, 203, 129, 0.1)',
-                  color: '#0ECB81',
+                  background: 'color-mix(in srgb, var(--color-profit) 10%, transparent)',
+                  color: 'var(--color-profit)',
                 }
                 : {
-                  background: 'rgba(246, 70, 93, 0.1)',
-                  color: '#F6465D',
+                  background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                  color: 'var(--color-loss)',
                 }
             }
           >
@@ -345,7 +340,8 @@ function TraderRow({
               background: trader.is_running
                 ? 'rgba(132, 142, 156, 0.1)'
                 : 'rgba(255, 193, 7, 0.1)',
-              color: trader.is_running ? '#848E9C' : '#FFC107',
+              color: trader.is_running ? 'var(--color-muted-fg)' : '#FFC107',
+              // Note: #FFC107 is not in the color mapping
             }}
           >
             <Pencil className="w-3 h-3 md:w-4 md:h-4" />
@@ -363,12 +359,12 @@ function TraderRow({
             style={
               trader.is_running
                 ? {
-                  background: 'rgba(246, 70, 93, 0.1)',
-                  color: '#F6465D',
+                  background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                  color: 'var(--color-loss)',
                 }
                 : {
-                  background: 'rgba(14, 203, 129, 0.1)',
-                  color: '#0ECB81',
+                  background: 'color-mix(in srgb, var(--color-profit) 10%, transparent)',
+                  color: 'var(--color-profit)',
                 }
             }
           >
@@ -383,12 +379,12 @@ function TraderRow({
             style={
               trader.show_in_competition !== false
                 ? {
-                  background: 'rgba(14, 203, 129, 0.1)',
-                  color: '#0ECB81',
+                  background: 'color-mix(in srgb, var(--color-profit) 10%, transparent)',
+                  color: 'var(--color-profit)',
                 }
                 : {
                   background: 'rgba(132, 142, 156, 0.1)',
-                  color: '#848E9C',
+                  color: 'var(--color-muted-fg)',
                 }
             }
             title={trader.show_in_competition !== false ? '在竞技场显示' : '在竞技场隐藏'}
@@ -404,8 +400,8 @@ function TraderRow({
             onClick={() => onDeleteTrader(trader.trader_id)}
             className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105"
             style={{
-              background: 'rgba(246, 70, 93, 0.1)',
-              color: '#F6465D',
+              background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+              color: 'var(--color-loss)',
             }}
           >
             <Trash2 className="w-3 h-3 md:w-4 md:h-4" />

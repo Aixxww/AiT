@@ -14,7 +14,7 @@ export function FAQSearchBar({
   return (
     <div className="relative group">
       <Search
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-ait-text-muted group-focus-within:text-ait-gold transition-colors"
+        className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors"
       />
       <input
         type="text"
@@ -26,7 +26,7 @@ export function FAQSearchBar({
       {searchTerm && (
         <button
           onClick={() => onSearchChange('')}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-ait-text-muted hover:text-white transition-colors"
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="w-5 h-5" />
         </button>

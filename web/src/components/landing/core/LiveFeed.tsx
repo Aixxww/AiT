@@ -25,7 +25,7 @@ const generateLog = (id: number): LogEntry => {
             break;
         case 'ARB':
             msg = `Spread detected: BINANCE <> BYBIT (${(Math.random()).toFixed(3)}%)`
-            color = 'text-ait-gold'
+            color = 'text-primary'
             break;
         case 'LIQ':
             msg = `Liquidation Alert: ${pairs[Math.floor(Math.random() * 4)]} $${Math.floor(Math.random() * 100)}k REKT`
@@ -33,7 +33,7 @@ const generateLog = (id: number): LogEntry => {
             break;
         case 'NET':
             msg = `Block propagation latency < ${Math.floor(Math.random() * 10)}ms`
-            color = 'text-zinc-500'
+            color = 'text-muted-foreground'
             break;
         default:
             msg = `System optimization cycle complete. Allocating resources.`
@@ -62,19 +62,19 @@ export default function LiveFeed() {
     }, [])
 
     return (
-        <section className="w-full bg-[#020304] border-y border-zinc-800 py-1 overflow-hidden relative">
+        <section className="w-full bg-[#020304] border-y border-border py-1 overflow-hidden relative">
             <div className="absolute inset-0 bg-scanlines opacity-10 pointer-events-none"></div>
 
             <div className="max-w-[1920px] mx-auto px-4 flex flex-col md:flex-row gap-0 md:gap-8 items-stretch h-[240px] md:h-12 text-xs font-mono">
 
                 {/* Left Status Bar (Static) */}
-                <div className="hidden md:flex items-center gap-6 text-zinc-600 border-r border-zinc-900 pr-6 shrink-0">
+                <div className="hidden md:flex items-center gap-6 text-muted-foreground border-r border-zinc-900 pr-6 shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="font-bold text-zinc-400">WS_CONN: STABLE</span>
+                        <span className="font-bold text-muted-foreground">WS_CONN: STABLE</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-ait-gold">TPS: 48,291</span>
+                        <span className="text-primary">TPS: 48,291</span>
                     </div>
                 </div>
 
@@ -90,10 +90,10 @@ export default function LiveFeed() {
                                 animate={{ opacity: 1, x: 0 }}
                                 className="absolute inset-0 flex items-center gap-4"
                             >
-                                <span className="text-zinc-600">[{log.time}]</span>
+                                <span className="text-muted-foreground">[{log.time}]</span>
                                 <span className={`font-bold w-10 ${log.type === 'LIQ' ? 'text-red-500 bg-red-500/10 px-1 rounded' :
-                                    log.type === 'ARB' ? 'text-ait-gold bg-ait-gold/10 px-1 rounded' :
-                                        log.type === 'EXE' ? 'text-green-500' : 'text-zinc-500'
+                                    log.type === 'ARB' ? 'text-primary bg-primary-dim px-1 rounded' :
+                                        log.type === 'EXE' ? 'text-green-500' : 'text-muted-foreground'
                                     }`}>{log.type}</span>
                                 <span className={`${log.color}`}>{log.msg}</span>
                             </motion.div>
@@ -106,8 +106,8 @@ export default function LiveFeed() {
                             <div key={log.id} className="flex gap-2 w-full truncate border-b border-zinc-900/50 pb-1 last:border-0">
                                 <span className="text-zinc-700 w-16 shrink-0">{log.time.split('.')[0]}</span>
                                 <span className={`font-bold w-8 shrink-0 ${log.type === 'LIQ' ? 'text-red-500' :
-                                    log.type === 'ARB' ? 'text-ait-gold' :
-                                        'text-zinc-500'
+                                    log.type === 'ARB' ? 'text-primary' :
+                                        'text-muted-foreground'
                                     }`}>{log.type}</span>
                                 <span className={`${log.color} truncate`}>{log.msg}</span>
                             </div>

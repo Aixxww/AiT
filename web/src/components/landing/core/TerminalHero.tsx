@@ -83,7 +83,7 @@ export default function TerminalHero() {
             </div>
 
             {/* 3. Gradient Spots - Intensified for Mobile */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-ait-gold/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
+            <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-primary/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-ait-accent/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
             {/* Mobile Bottom Fade */}
@@ -105,50 +105,50 @@ export default function TerminalHero() {
                     {/* Top: System Health */}
                     <div className="space-y-6">
                         <div className="tech-border p-4 bg-black/40 backdrop-blur-sm">
-                            <h3 className="text-xs font-mono text-ait-gold mb-4 flex items-center gap-2">
+                            <h3 className="text-xs font-mono text-primary mb-4 flex items-center gap-2">
                                 <Activity className="w-3 h-3" /> SYSTEM_DIAGNOSTICS
                             </h3>
-                            <div className="space-y-3 font-mono text-[10px] text-zinc-400">
+                            <div className="space-y-3 font-mono text-[10px] text-muted-foreground">
                                 <div className="flex justify-between items-center">
                                     <span>KERNEL_LATENCY</span>
                                     <span className="text-ait-accent">12ms</span>
                                 </div>
-                                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
                                     <div className="w-[90%] h-full bg-ait-accent/50"></div>
                                 </div>
 
                                 <div className="flex justify-between items-center">
                                     <span>MEMORY_INTEGRITY</span>
-                                    <span className="text-ait-success">100%</span>
+                                    <span className="text-profit">100%</span>
                                 </div>
-                                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
                                     <div className="w-full h-full bg-ait-success/50"></div>
                                 </div>
 
                                 <div className="flex justify-between items-center">
                                     <span>UPTIME</span>
-                                    <span className="text-white">99.999%</span>
+                                    <span className="text-foreground">99.999%</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4 border border-zinc-800/50 rounded bg-zinc-900/20">
-                            <div className="flex items-center gap-3 text-zinc-500 mb-2">
+                        <div className="p-4 border border-border/50 rounded bg-surface/20">
+                            <div className="flex items-center gap-3 text-muted-foreground mb-2">
                                 <Shield className="w-4 h-4" />
                                 <span className="text-[10px] font-mono tracking-widest">SECURITY PROTOCOLS</span>
                             </div>
                             <div className="flex gap-1">
-                                <div className="h-1 flex-1 bg-ait-gold"></div>
-                                <div className="h-1 flex-1 bg-ait-gold"></div>
-                                <div className="h-1 flex-1 bg-ait-gold"></div>
-                                <div className="h-1 flex-1 bg-zinc-800"></div>
+                                <div className="h-1 flex-1 bg-primary"></div>
+                                <div className="h-1 flex-1 bg-primary"></div>
+                                <div className="h-1 flex-1 bg-primary"></div>
+                                <div className="h-1 flex-1 bg-surface-alt"></div>
                             </div>
-                            <div className="mt-2 text-right text-[10px] text-ait-gold/80 font-mono">LEVEL 3 ACTIVATE</div>
+                            <div className="mt-2 text-right text-[10px] text-primary/80 font-mono">LEVEL 3 ACTIVATE</div>
                         </div>
                     </div>
 
                     {/* Bottom: Network Log */}
-                    <div className="font-mono text-[10px] text-zinc-600 space-y-1 opacity-70">
+                    <div className="font-mono text-[10px] text-muted-foreground space-y-1 opacity-70">
                         <div>&gt; CONNECTING TO MAINNET... OK</div>
                         <div>&gt; SYNCING NODES (424/424)... OK</div>
                         <div>&gt; LOADING ASSETS... DONE</div>
@@ -163,13 +163,13 @@ export default function TerminalHero() {
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mb-8 inline-flex items-center gap-3 px-4 py-2 rounded-full border border-ait-gold/20 bg-ait-gold/5 backdrop-blur-md"
+                        className="mb-8 inline-flex items-center gap-3 px-4 py-2 rounded-full border border-ait-gold/20 bg-primary/5 backdrop-blur-md"
                     >
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ait-gold opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-ait-gold"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                         </span>
-                        <span className="text-xs font-mono text-ait-gold tracking-widest">AiT OPEN-SOURCE AGENTIC OS</span>
+                        <span className="text-xs font-mono text-primary tracking-widest">AiT OPEN-SOURCE AGENTIC OS</span>
                     </motion.div>
 
                     {/* Main Title - Massive & Impactful */}
@@ -180,7 +180,7 @@ export default function TerminalHero() {
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold via-white to-ait-gold animate-shimmer bg-[length:200%_auto] tracking-tight filter drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">TRADING</span>
                         </h1>
 
-                        <p className="max-w-xl text-zinc-200 md:text-zinc-400 text-lg mb-6 font-light leading-relaxed drop-shadow-md">
+                        <p className="max-w-xl text-zinc-200 md:text-muted-foreground text-lg mb-6 font-light leading-relaxed drop-shadow-md">
                             The World's First Open-Source Agentic Trading OS.
                             Deploy autonomous high-frequency trading agents powered by advanced LLMs.
                         </p>
@@ -189,7 +189,7 @@ export default function TerminalHero() {
                     {/* Market Access Strip - Prominent Display */}
                     {/* Market Access Strip - Prominent Display */}
                     <div className="flex flex-col gap-4 mb-14">
-                        <div className="text-ait-gold/80 font-mono text-xs tracking-[0.3em] uppercase flex items-center gap-2 ml-1">
+                        <div className="text-primary/80 font-mono text-xs tracking-[0.3em] uppercase flex items-center gap-2 ml-1">
                             <span className="relative flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ait-success opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-ait-success"></span>
@@ -200,9 +200,9 @@ export default function TerminalHero() {
                             {['CRYPTO', 'US STOCKS', 'FOREX', 'METALS'].map((market) => (
                                 <div key={market} className="relative group cursor-default">
                                     <div className="absolute -inset-0.5 bg-gradient-to-r from-ait-gold/20 to-blue-600/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                                    <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-zinc-900/80 border border-zinc-700 hover:border-ait-gold/50 transition-all duration-300 backdrop-blur-sm">
+                                    <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-surface/80 border border-border hover:border-ait-gold/50 transition-all duration-300 backdrop-blur-sm">
                                         <div className="w-1.5 h-1.5 rounded-full bg-ait-success shadow-[0_0_8px_rgba(74,222,128,0.6)] animate-pulse"></div>
-                                        <span className="text-lg md:text-xl font-bold text-white tracking-wider group-hover:text-ait-gold transition-colors">{market}</span>
+                                        <span className="text-lg md:text-xl font-bold text-foreground tracking-wider group-hover:text-primary transition-colors">{market}</span>
                                     </div>
                                 </div>
                             ))}
@@ -210,18 +210,18 @@ export default function TerminalHero() {
                     </div>
 
                     {/* Command Line Input Simulation */}
-                    <div className="w-full max-w-lg h-12 bg-black/50 border border-zinc-800 rounded flex items-center px-4 mb-10 font-mono text-sm shadow-2xl backdrop-blur-sm group hover:border-ait-gold/50 transition-colors cursor-text" onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}>
-                        <span className="text-ait-success mr-2">➜</span>
+                    <div className="w-full max-w-lg h-12 bg-black/50 border border-border rounded flex items-center px-4 mb-10 font-mono text-sm shadow-2xl backdrop-blur-sm group hover:border-ait-gold/50 transition-colors cursor-text" onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <span className="text-profit mr-2">➜</span>
                         <span className="text-ait-accent mr-2">~</span>
-                        <span className="text-zinc-500">deploy agent --strategy=hft</span>
-                        <span className="w-2 h-4 bg-ait-gold ml-1 animate-pulse"></span>
+                        <span className="text-muted-foreground">deploy agent --strategy=hft</span>
+                        <span className="w-2 h-4 bg-primary ml-1 animate-pulse"></span>
                     </div>
 
                     {/* CTA Buttons */}
                     <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
                         <button
                             onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}
-                            className="group relative overflow-hidden bg-ait-gold text-black px-8 py-4 font-bold font-mono tracking-wider hover:scale-105 transition-transform duration-200"
+                            className="group relative overflow-hidden bg-primary text-primary-foreground px-8 py-4 font-bold font-mono tracking-wider hover:scale-105 transition-transform duration-200"
                             style={{ clipPath: 'polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%)' }}
                         >
                             <span className="relative z-10 flex items-center gap-2">
@@ -260,16 +260,16 @@ export default function TerminalHero() {
             </div>
 
             {/* FLOATING TICKER FOOTER */}
-            <div className="absolute bottom-0 w-full bg-black/80 border-t border-zinc-800/50 backdrop-blur-md z-30 overflow-hidden py-2 flex items-center">
-                <div className="flex animate-marquee whitespace-nowrap gap-12 text-xs font-mono text-zinc-500 px-4">
-                    <span className="flex items-center gap-2"><Globe className="w-3 h-3 text-zinc-600" /> GLOBAL MARKET ACCESS</span>
-                    <span className="flex items-center gap-2 text-ait-gold"><Zap className="w-3 h-3" /> FLASH LOANS ENABLED</span>
+            <div className="absolute bottom-0 w-full bg-black/80 border-t border-border/50 backdrop-blur-md z-30 overflow-hidden py-2 flex items-center">
+                <div className="flex animate-marquee whitespace-nowrap gap-12 text-xs font-mono text-muted-foreground px-4">
+                    <span className="flex items-center gap-2"><Globe className="w-3 h-3 text-muted-foreground" /> GLOBAL MARKET ACCESS</span>
+                    <span className="flex items-center gap-2 text-primary"><Zap className="w-3 h-3" /> FLASH LOANS ENABLED</span>
                     <span className="flex items-center gap-2"><Wifi className="w-3 h-3 text-green-500" /> LOW LATENCY LINK: 12ms</span>
 
                     {/* Dynamic Coins */}
                     {Object.entries(prices).map(([symbol, price]) => (
                         <span key={symbol} className="flex items-center gap-2">
-                            {symbol.toUpperCase()}/USDT <span className="text-ait-success">${price}</span>
+                            {symbol.toUpperCase()}/USDT <span className="text-profit">${price}</span>
                         </span>
                     ))}
 
@@ -278,7 +278,7 @@ export default function TerminalHero() {
                     {/* Duplicate sequence for seamless loop effect (basic set) */}
                     {Object.entries(prices).map(([symbol, price]) => (
                         <span key={`${symbol} -dup`} className="flex items-center gap-2 md:hidden">
-                            {symbol.toUpperCase()}/USDT <span className="text-ait-success">${price}</span>
+                            {symbol.toUpperCase()}/USDT <span className="text-profit">${price}</span>
                         </span>
                     ))}
                 </div>
@@ -334,13 +334,13 @@ function CommunityStats() {
                     href={stat.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-col items-center justify-center p-3 rounded bg-black/40 border border-zinc-800/50 backdrop-blur-sm group hover:border-ait-gold/30 transition-all cursor-pointer hover:bg-white/5"
+                    className="flex flex-col items-center justify-center p-3 rounded bg-black/40 border border-border/50 backdrop-blur-sm group hover:border-ait-gold/30 transition-all cursor-pointer hover:bg-white/5"
                 >
                     <div className="flex items-center gap-2 mb-1">
                         <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                        <span className="text-[10px] font-mono text-zinc-500 tracking-wider">{stat.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground tracking-wider">{stat.label}</span>
                     </div>
-                    <span className="text-xl font-bold font-mono text-white group-hover:text-ait-gold transition-colors">{stat.value}</span>
+                    <span className="text-xl font-bold font-mono text-foreground group-hover:text-primary transition-colors">{stat.value}</span>
                 </a>
             ))}
         </div>

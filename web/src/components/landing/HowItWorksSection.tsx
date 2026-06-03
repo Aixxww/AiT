@@ -53,10 +53,10 @@ export default function HowItWorksSection({ language }: HowItWorksSectionProps) 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: '#EAECEF' }}>
+          <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-foreground">
             {t('howToStart', language)}
           </h2>
-          <p className="text-lg" style={{ color: '#848E9C' }}>
+          <p className="text-lg text-muted-foreground">
             {t('fourSimpleSteps', language)}
           </p>
         </motion.div>
@@ -96,7 +96,7 @@ export default function HowItWorksSection({ language }: HowItWorksSectionProps) 
                       }}
                       whileHover={{ scale: 1.1 }}
                     >
-                      <step.icon className="w-8 h-8" style={{ color: '#F0B90B' }} />
+                      <step.icon className="w-8 h-8" style={{ color: 'var(--color-primary)' }} />
                     </motion.div>
                   </div>
 
@@ -105,15 +105,15 @@ export default function HowItWorksSection({ language }: HowItWorksSectionProps) 
                     <div className="flex items-center gap-3 mb-2">
                       <span
                         className="text-sm font-mono font-bold"
-                        style={{ color: '#F0B90B' }}
+                        style={{ color: 'var(--color-primary)' }}
                       >
                         {step.number}
                       </span>
-                      <h3 className="text-xl font-bold" style={{ color: '#EAECEF' }}>
+                      <h3 className="text-xl font-bold text-foreground">
                         {step.title}
                       </h3>
                     </div>
-                    <p className="mb-4" style={{ color: '#848E9C' }}>
+                    <p className="mb-4 text-muted-foreground">
                       {step.desc}
                     </p>
 
@@ -122,11 +122,11 @@ export default function HowItWorksSection({ language }: HowItWorksSectionProps) 
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm"
                       style={{
                         background: 'rgba(0, 0, 0, 0.3)',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        border: '1px solid var(--color-border)',
                       }}
                     >
-                      <span style={{ color: '#5E6673' }}>$</span>
-                      <span style={{ color: '#EAECEF' }}>{step.code}</span>
+                      <span style={{ color: 'var(--color-muted-fg)' }}>$</span>
+                      <span className="text-foreground">{step.code}</span>
                     </div>
                   </div>
                 </div>
@@ -150,13 +150,13 @@ export default function HowItWorksSection({ language }: HowItWorksSectionProps) 
             className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(240, 185, 11, 0.1)' }}
           >
-            <AlertTriangle className="w-6 h-6" style={{ color: '#F0B90B' }} />
+            <AlertTriangle className="w-6 h-6" style={{ color: 'var(--color-primary)' }} />
           </div>
           <div>
-            <div className="font-semibold mb-2" style={{ color: '#F0B90B' }}>
+            <div className="font-semibold mb-2" style={{ color: 'var(--color-primary)' }}>
               {t('importantRiskWarning', language)}
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: '#5E6673' }}>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-muted-fg)' }}>
               {t('riskWarningText', language)}
             </p>
           </div>

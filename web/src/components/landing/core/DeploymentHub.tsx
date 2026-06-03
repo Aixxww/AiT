@@ -13,7 +13,7 @@ export default function DeploymentHub() {
     }
 
     return (
-        <section className="py-24 bg-black relative overflow-hidden border-t border-zinc-800">
+        <section className="py-24 bg-black relative overflow-hidden border-t border-border">
             {/* Background Grids */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
@@ -22,15 +22,15 @@ export default function DeploymentHub() {
 
                     {/* Left Column: Context */}
                     <div className="space-y-8">
-                        <div className="flex items-center gap-2 text-ait-gold font-mono text-xs tracking-[0.2em] uppercase">
+                        <div className="flex items-center gap-2 text-primary font-mono text-xs tracking-[0.2em] uppercase">
                             <Server className="w-4 h-4" /> System Deployment
                         </div>
 
-                        <h2 className="text-4xl md:text-6xl font-black text-white leading-tight">
+                        <h2 className="text-4xl md:text-6xl font-black text-foreground leading-tight">
                             DEPLOY <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold to-white">INSTANTLY</span>
                         </h2>
 
-                        <p className="text-zinc-400 text-lg leading-relaxed font-light">
+                        <p className="text-muted-foreground text-lg leading-relaxed font-light">
                             Initialize your own high-frequency trading node in seconds.
                             Our optimized installer handles all dependencies, bringing your autonomous agent online with a single command.
                         </p>
@@ -40,13 +40,13 @@ export default function DeploymentHub() {
                                 { icon: Command, label: "One-Line Install", desc: "No configuration needed" },
                                 { icon: Shield, label: "Secure Core", desc: "Sandboxed execution env" }
                             ].map((item, i) => (
-                                <div key={i} className="flex gap-4 items-start p-4 rounded bg-zinc-900/50 border border-zinc-800 hover:border-ait-gold/30 transition-colors group">
-                                    <div className="p-2 rounded bg-black border border-zinc-800 text-ait-gold group-hover:bg-ait-gold/10 transition-colors">
+                                <div key={i} className="flex gap-4 items-start p-4 rounded bg-surface/50 border border-border hover:border-ait-gold/30 transition-colors group">
+                                    <div className="p-2 rounded bg-black border border-border text-primary group-hover:bg-primary-dim transition-colors">
                                         <item.icon className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h4 className="text-white font-bold font-mono text-sm mb-1">{item.label}</h4>
-                                        <p className="text-zinc-500 text-xs">{item.desc}</p>
+                                        <h4 className="text-foreground font-bold font-mono text-sm mb-1">{item.label}</h4>
+                                        <p className="text-muted-foreground text-xs">{item.desc}</p>
                                     </div>
                                 </div>
                             ))}
@@ -63,15 +63,15 @@ export default function DeploymentHub() {
                         {/* Glow effect */}
                         <div className="absolute -inset-1 bg-gradient-to-r from-ait-gold/20 to-blue-500/20 rounded-xl blur-xl opacity-50"></div>
 
-                        <div className="relative rounded-xl overflow-hidden bg-[#0a0a0a] border border-zinc-800 shadow-2xl">
+                        <div className="relative rounded-xl overflow-hidden bg-[#0a0a0a] border border-border shadow-2xl">
                             {/* Terminal Header */}
-                            <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/80 border-b border-zinc-800">
+                            <div className="flex items-center justify-between px-4 py-3 bg-surface/80 border-b border-border">
                                 <div className="flex gap-2">
                                     <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                                     <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                                     <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
                                 </div>
-                                <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1.5">
+                                <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5">
                                     <Terminal className="w-3 h-3" />
                                     root@ait-os:~
                                 </div>
@@ -79,12 +79,12 @@ export default function DeploymentHub() {
 
                             {/* Terminal Content */}
                             <div className="p-8 font-mono text-sm md:text-base bg-black/50 backdrop-blur-sm min-h-[200px] flex flex-col justify-center">
-                                <div className="mb-2 text-zinc-500 text-xs tracking-wide"># Initialize NoFX Core Protocol</div>
+                                <div className="mb-2 text-muted-foreground text-xs tracking-wide"># Initialize NoFX Core Protocol</div>
                                 <div
-                                    className="group relative flex items-start gap-3 p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 hover:border-ait-gold/50 cursor-pointer transition-all hover:bg-zinc-900/80"
+                                    className="group relative flex items-start gap-3 p-4 rounded-lg bg-surface/50 border border-border hover:border-ait-gold/50 cursor-pointer transition-all hover:bg-surface/80"
                                     onClick={handleCopy}
                                 >
-                                    <span className="text-ait-gold mt-1"><ChevronRight className="w-4 h-4" /></span>
+                                    <span className="text-primary mt-1"><ChevronRight className="w-4 h-4" /></span>
                                     <code className="text-zinc-100 flex-1 break-all">
                                         {installCmd}
                                     </code>
@@ -101,7 +101,7 @@ export default function DeploymentHub() {
                                                     <Check className="w-3 h-3" />
                                                 </motion.div>
                                             ) : (
-                                                <div className="text-zinc-400 bg-zinc-800 p-1.5 rounded hover:text-white hover:bg-zinc-700">
+                                                <div className="text-muted-foreground bg-surface-alt p-1.5 rounded hover:text-foreground hover:bg-muted">
                                                     <Copy className="w-4 h-4" />
                                                 </div>
                                             )}
@@ -109,7 +109,7 @@ export default function DeploymentHub() {
                                     </div>
                                 </div>
                                 <div className="mt-4 flex gap-2">
-                                    <div className="w-2 h-4 bg-ait-gold animate-pulse"></div>
+                                    <div className="w-2 h-4 bg-primary animate-pulse"></div>
                                 </div>
                             </div>
                         </div>
