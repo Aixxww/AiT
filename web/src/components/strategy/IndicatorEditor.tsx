@@ -1,10 +1,10 @@
-import { Clock, Activity, TrendingUp, BarChart2, Info, Lock, ExternalLink, Zap, Check, AlertCircle, Key } from 'lucide-react'
+import { Clock, Activity, TrendingUp, BarChart2, Info, Lock, ExternalLink, Zap, Check } from 'lucide-react'
 import type { IndicatorConfig } from '../../types'
 import { indicator, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
 
-// Default API Key
-const DEFAULT_API_KEY = 'cm_568c67eae410d912c54c'
+const MIN_KLINE_COUNT = 10
+const MAX_KLINE_COUNT = 200
 
 interface IndicatorEditorProps {
   config: IndicatorConfig
@@ -114,10 +114,6 @@ export function IndicatorEditor({
     ensureRawKlines()
   }
 
-  // Check if any Binance feature is enabled
-  const hasBinanceEnabled = config.enable_quant_data || config.enable_oi_ranking || config.enable_netflow_ranking || config.enable_price_ranking
-  const hasApiKey = !!config.nofxos_api_key
-
   return (
     <div className="space-y-5">
       {/* ============================================ */}
@@ -158,17 +154,10 @@ export function IndicatorEditor({
 
             {/* Status & API Docs */}
             <div className="flex items-center gap-2">
-              {hasApiKey ? (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-profit) 15%, transparent)', color: 'var(--color-profit)' }}>
-                  <Check className="w-3 h-3" />
-                  {ts(indicator.connected, language)}
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-loss) 15%, transparent)', color: 'var(--color-loss)' }}>
-                  <AlertCircle className="w-3 h-3" />
-                  {ts(indicator.notConfigured, language)}
-                </span>
-              )}
+              <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-profit) 15%, transparent)', color: 'var(--color-profit)' }}>
+                <Check className="w-3 h-3" />
+                {ts(indicator.snapshotReady, language)}
+              </span>
               <a
                 href="https://binance-docs.github.io/apidocs/futures/en/"
                 target="_blank"
@@ -185,37 +174,8 @@ export function IndicatorEditor({
             </div>
           </div>
 
-          {/* API Key Input */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={config.nofxos_api_key || ''}
-                onChange={(e) => !disabled && onChange({ ...config, nofxos_api_key: e.target.value })}
-                disabled={disabled}
-                placeholder={ts(indicator.apiKeyPlaceholder, language)}
-                className="w-full pl-9 pr-3 py-2 rounded-lg text-sm font-mono"
-                style={{
-                  background: 'rgba(30, 35, 41, 0.8)',
-                  border: hasApiKey ? '1px solid color-mix(in srgb, var(--color-profit) 30%, transparent)' : '1px solid rgba(139, 92, 246, 0.3)',
-                  color: 'var(--foreground)',
-                }}
-              />
-            </div>
-            {!disabled && !config.nofxos_api_key && (
-              <button
-                type="button"
-                onClick={() => onChange({ ...config, nofxos_api_key: DEFAULT_API_KEY })}
-                className="px-3 py-2 rounded-lg text-xs font-medium transition-all hover:scale-[1.02]"
-                style={{
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  color: '#fff',
-                }}
-              >
-                {ts(indicator.fillDefault, language)}
-              </button>
-            )}
+          <div className="rounded-lg px-3 py-2 text-xs text-muted-foreground" style={{ background: 'rgba(30, 35, 41, 0.55)', border: '1px solid rgba(139, 92, 246, 0.25)' }}>
+            {ts(indicator.snapshotStoreDesc, language)}
           </div>
 
           {/* Binance Data Sources Grid */}
@@ -448,15 +408,6 @@ export function IndicatorEditor({
               </div>
             </div>
 
-            {/* Warning if features enabled but no API key */}
-            {hasBinanceEnabled && !hasApiKey && (
-              <div className="flex items-center gap-2 mt-3 p-2 rounded-lg" style={{ background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-loss) 20%, transparent)' }}>
-                <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-loss)' }} />
-                <span className="text-[10px]" style={{ color: 'var(--color-loss)' }}>
-                  {ts(indicator.configureApiKey, language)}
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -513,12 +464,18 @@ export function IndicatorEditor({
                     !disabled &&
                     onChange({
                       ...config,
-                      klines: { ...config.klines, primary_count: parseInt(e.target.value) || 30 },
+                      klines: {
+                        ...config.klines,
+                        primary_count: Math.min(
+                          MAX_KLINE_COUNT,
+                          Math.max(MIN_KLINE_COUNT, parseInt(e.target.value) || 30),
+                        ),
+                      },
                     })
                   }
                   disabled={disabled}
-                  min={10}
-                  max={30}
+                  min={MIN_KLINE_COUNT}
+                  max={MAX_KLINE_COUNT}
                   className="w-16 px-2 py-1 rounded text-xs text-center"
                   style={{ background: 'var(--color-panel)', border: '1px solid #2B3139', color: 'var(--foreground)' }}
                 />
