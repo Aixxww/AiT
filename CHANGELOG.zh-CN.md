@@ -14,6 +14,8 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
+- Hunter v7 Signal Router：新增 10 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
+- Hunter v7 实时验证命令（`cmd/hunter_v7_validate`）和实时验证报告
 - Hunter 双向选币：同时输出 LONG 和 SHORT 信号标的
 - Hunter R7 实测报告（2026-05-23），BOTH 方向首次实测
 - Hunter UNIUSDT 评估报告（2026-05-23）
@@ -25,6 +27,8 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 文档中心新增 Hunter 选币模块专区
 
 ### 变更
+- `hunter_v7` 接入统一 SnapshotEngine 热快照路径
+- 改进 Binance 快照 HTTP 代理处理，并修正 24h 涨跌幅百分比解析
 - 重组文档结构为逻辑分类
 - 更新所有 README 文件，添加适当的导航链接
 - 全面替换文档中 NOFX 品牌为 AiT（50+ 文件）

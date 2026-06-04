@@ -71,6 +71,28 @@ type CandidateCoin struct {
 	CapitalLevel int    `json:"-"` // 0=none, 1=weak, 2=moderate, 3=strong
 	CapitalTier  string `json:"-"` // "Tier-S PRIME SIGNAL" / "Tier-A" / "Tier-B LOW CONFIDENCE" / "Untiered"
 
+	// Hunter v7 structured signal context (set when source_type == "hunter_v7")
+	V7SetupType        string                      `json:"-"`
+	V7Status           string                      `json:"-"`
+	V7AIPriority       float64                     `json:"-"`
+	V7SetupScore       float64                     `json:"-"`
+	V7RiskScore        float64                     `json:"-"`
+	V7LiquidityScore   float64                     `json:"-"`
+	V7TimingScore      float64                     `json:"-"`
+	V7RegimeFitScore   float64                     `json:"-"`
+	V7RiskLevel        string                      `json:"-"`
+	V7EntryMode        string                      `json:"-"`
+	V7MarketRegime     string                      `json:"-"`
+	V7Confidence       string                      `json:"-"`
+	V7ReasonCodes      []string                    `json:"-"`
+	V7RiskTags         []string                    `json:"-"`
+	V7RequiredConfirms []string                    `json:"-"`
+	V7EntryZone        local.V7PriceZone           `json:"-"`
+	V7Invalidation     local.V7InvalidationRule    `json:"-"`
+	V7Targets          []local.V7Target            `json:"-"`
+	V7PriceContext     *local.V7PriceContext       `json:"-"`
+	V7DerivativesCtx   *local.V7DerivativesContext `json:"-"`
+
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
 	TradeSignal interface{} `json:"-"` // *engine.TradeSignal when using SnapshotEngine
 }
@@ -208,9 +230,9 @@ type OIDeltaData struct {
 type StrategyEngine struct {
 	config         *store.StrategyConfig
 	nofxosClient   nofxos.DataProvider
-	squareClient   *square.Client          // nil when square_heat not configured
+	squareClient   *square.Client            // nil when square_heat not configured
 	marketEnv      *market.MarketEnvironment // cached market regime classification (ADX-based)
-	snapshotEngine *SnapshotEngine         // nil = use legacy coin sources
+	snapshotEngine *SnapshotEngine           // nil = use legacy coin sources
 }
 
 // NewStrategyEngine creates strategy execution engine.
@@ -318,6 +340,23 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 			candidates = e.filterSniffCandidates(candidates, coinSource.HunterSniffer)
 		}
 
+	case "hunter_v7":
+		v7cfg := local.DefaultV7Config()
+		if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
+			v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
+		}
+		if coinSource.Hunter != nil && coinSource.Hunter.V7MinAIPriority > 0 {
+			v7cfg.MinAIPriority = coinSource.Hunter.V7MinAIPriority
+		}
+		if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
+			v7cfg.Aggressive = true
+		}
+		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
+			v7cfg.MaxOutput = coinSource.HunterLimit
+		}
+		signals := local.ScoreHunterV7(snap, v7cfg)
+		candidates = e.hunterV7SignalsToCandidateCoins(signals, coinSource.HunterDirection)
+
 	case "ai500":
 		limit := coinSource.AI500Limit
 		if limit <= 0 {
@@ -341,6 +380,66 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 
 	logger.Infof("📋 [Snapshot] %s → %d candidate coins", coinSource.SourceType, len(candidates))
 	return e.filterExcludedCoins(candidates), nil
+}
+
+// hunterV7SignalsToCandidateCoins converts Hunter v7 structured signals into
+// CandidateCoin while preserving the rich signal context for the AI prompt.
+func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7SignalOutput, direction string) []CandidateCoin {
+	var candidates []CandidateCoin
+	for _, sig := range signals {
+		if sig.Direction == "" {
+			continue
+		}
+		if direction != "" && direction != "BOTH" && string(sig.Direction) != direction {
+			continue
+		}
+
+		tags := make([]string, 0, 2+len(sig.ReasonCodes)+len(sig.RiskTags))
+		tags = append(tags, string(sig.SetupType), string(sig.Status))
+		tags = append(tags, sig.ReasonCodes...)
+		tags = append(tags, sig.RiskTags...)
+
+		cc := CandidateCoin{
+			Symbol:     sig.Symbol,
+			Sources:    []string{"hunter_v7"},
+			Direction:  string(sig.Direction),
+			SignalTags: tags,
+			LongTags:   nil,
+			ShortTags:  nil,
+
+			V7SetupType:        string(sig.SetupType),
+			V7Status:           string(sig.Status),
+			V7AIPriority:       sig.AIPriority,
+			V7SetupScore:       sig.SetupScore,
+			V7RiskScore:        sig.RiskScore,
+			V7LiquidityScore:   sig.LiquidityScore,
+			V7TimingScore:      sig.TimingScore,
+			V7RegimeFitScore:   sig.RegimeFitScore,
+			V7RiskLevel:        string(sig.RiskLevel),
+			V7EntryMode:        string(sig.EntryMode),
+			V7MarketRegime:     string(sig.MarketRegime),
+			V7Confidence:       sig.Confidence,
+			V7ReasonCodes:      append([]string{}, sig.ReasonCodes...),
+			V7RiskTags:         append([]string{}, sig.RiskTags...),
+			V7RequiredConfirms: append([]string{}, sig.RequiredConfirms...),
+			V7EntryZone:        sig.EntryZone,
+			V7Invalidation:     sig.Invalidation,
+			V7Targets:          append([]local.V7Target{}, sig.Targets...),
+			V7PriceContext:     sig.PriceCtx,
+			V7DerivativesCtx:   sig.DerivativesCtx,
+		}
+
+		if sig.Direction == local.V7DirLong {
+			cc.LongScore = sig.AIPriority
+			cc.LongTags = tags
+		} else {
+			cc.ShortScore = sig.AIPriority
+			cc.ShortTags = tags
+		}
+		cc.CapitalLevel, cc.CapitalTier = local.V7ConfidenceToCapitalLevel(sig.Confidence)
+		candidates = append(candidates, cc)
+	}
+	return candidates
 }
 
 // hunterScoresToCandidateCoins converts snapshot Hunter scores to CandidateCoin format.
@@ -634,38 +733,38 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 			}
 		}
 
-			if coinSource.UseSquareHeat && e.squareClient != nil {
-				limit := coinSource.SquareHeatLimit
-				if limit <= 0 {
-					limit = 10
-				}
-				symbols, err := e.squareClient.GetSquareHeatSymbols(limit)
-				if err != nil {
-					logger.Warnf("⚠ Square Heat unavailable in mixed mode: %v", err)
-				} else {
-					for _, sym := range symbols {
-						sym = market.Normalize(sym)
-						symbolSources[sym] = append(symbolSources[sym], "square_heat")
-					}
-					logger.Infof("🔥 Square Heat (mixed): contributed %d symbols", len(symbols))
-				}
+		if coinSource.UseSquareHeat && e.squareClient != nil {
+			limit := coinSource.SquareHeatLimit
+			if limit <= 0 {
+				limit = 10
 			}
+			symbols, err := e.squareClient.GetSquareHeatSymbols(limit)
+			if err != nil {
+				logger.Warnf("⚠ Square Heat unavailable in mixed mode: %v", err)
+			} else {
+				for _, sym := range symbols {
+					sym = market.Normalize(sym)
+					symbolSources[sym] = append(symbolSources[sym], "square_heat")
+				}
+				logger.Infof("🔥 Square Heat (mixed): contributed %d symbols", len(symbols))
+			}
+		}
 
-			if coinSource.UseHunter {
-				if limit := coinSource.HunterLimit; limit > 0 {
-					if localClient, ok := e.nofxosClient.(*local.Client); ok {
-						symbols, err := localClient.GetHunterTopRatedCoins(limit, coinSource.Hunter)
-						if err != nil {
-							logger.Warnf("⚠ Hunter unavailable in mixed mode: %v", err)
-						} else {
-							for _, sym := range symbols {
-								symbolSources[sym] = append(symbolSources[sym], "hunter")
-							}
-							logger.Infof("🎯 Hunter (mixed): contributed %d symbols", len(symbols))
+		if coinSource.UseHunter {
+			if limit := coinSource.HunterLimit; limit > 0 {
+				if localClient, ok := e.nofxosClient.(*local.Client); ok {
+					symbols, err := localClient.GetHunterTopRatedCoins(limit, coinSource.Hunter)
+					if err != nil {
+						logger.Warnf("⚠ Hunter unavailable in mixed mode: %v", err)
+					} else {
+						for _, sym := range symbols {
+							symbolSources[sym] = append(symbolSources[sym], "hunter")
 						}
+						logger.Infof("🎯 Hunter (mixed): contributed %d symbols", len(symbols))
 					}
 				}
 			}
+		}
 
 		for _, symbol := range coinSource.StaticCoins {
 			symbol = market.Normalize(symbol)

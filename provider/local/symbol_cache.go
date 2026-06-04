@@ -109,12 +109,13 @@ func (c *Client) fetchLSRHistParallel(symbol, period string, limit int) (float64
 // premiumIndex call for ALL symbols' funding rates.
 //
 // Phase 2 (~2-3s): Per-symbol data (OI, LSR, klines) via 10 concurrent
-// workers. Each worker spawns 8 parallel sub-goroutines (5 klines + 3 OI/LSR).
-// Total concurrency: 10 workers × 8 goroutines = 80, competing for 20 semaphore slots.
-// This prevents Binance 429 errors and eliminates cascading retry delays.
+// workers. Each worker spawns 9 parallel sub-goroutines (5 klines + 4 OI/LSR).
+// Total concurrency: 10 workers × 9 goroutines = 90, competing for 15 semaphore slots.
+// DisableKeepAlives on the shared HTTP client forces fresh TCP per request,
+// preventing CDN edge cascade failures.
 //
 // The `rl` parameter is accepted for signature compatibility but ignored;
-// concurrency is controlled by the worker pool size (10) and parallelSem (20).
+// concurrency is controlled by the worker pool size (10) and parallelSem (15).
 func BuildSymbolCaches(
 	c *Client,
 	symbols []string,
@@ -209,8 +210,8 @@ func BuildSymbolCaches(
 }
 
 // fetchSymbolDataPool fetches all per-symbol data in parallel sub-goroutines.
-// Uses fetchJSONParallel/fetchKlinesParallel which are throttled by parallelSem (20 slots).
-// With 10 workers, total concurrency is 10 × 8 = 80 goroutines competing for 20 slots.
+// Uses fetchJSONParallel/fetchKlinesParallel which are throttled by parallelSem (15 slots).
+// With 10 workers, total concurrency is 10 × 9 = 90 goroutines competing for 15 slots.
 func fetchSymbolDataPool(c *Client, sc *SymbolCache) {
 	symbol := sc.Symbol
 	var wg sync.WaitGroup

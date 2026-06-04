@@ -57,6 +57,7 @@ AiT 是一个支持加密货币和美股市场的全栈 AI 交易平台：
 | 模块 | 描述 | 文档 |
 |------|------|------|
 | **策略工作室** | 策略配置、币种选择、数据组装、AI 提示词 | [STRATEGY_MODULE.md](STRATEGY_MODULE.md) |
+| **Hunter v7 Signal Router** | 基于 SnapshotStore 的多形态选币引擎、JSON 信号协议和实时验证 | [HUNTER_V7_SIGNAL_ROUTER.zh-CN.md](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) |
 
 ### 模块概览
 
@@ -69,6 +70,15 @@ AiT 是一个支持加密货币和美股市场的全栈 AI 交易平台：
 - 风险控制强制执行
 
 **[阅读完整文档 →](STRATEGY_MODULE.md)**
+
+#### Hunter v7 Signal Router
+多形态 Alpha 选币路由器，包括：
+- SnapshotStore 热快照数据流
+- 10 类 setup 模块
+- `hunter_v7_signal_json` AIT prompt 协议
+- 实时验证命令与耗时口径
+
+**[阅读完整文档 →](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md)**
 
 ---
 

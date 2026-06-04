@@ -57,6 +57,7 @@ AiT is a full-stack AI trading platform for cryptocurrency and US stock markets:
 | Module | Description | Documentation |
 |--------|-------------|---------------|
 | **Strategy Studio** | Strategy configuration, coin selection, data assembly, AI prompts | [STRATEGY_MODULE.md](STRATEGY_MODULE.md) |
+| **Hunter v7 Signal Router** | SnapshotStore-based multi-setup coin selector, JSON signal protocol, and live validation workflow | [HUNTER_V7_SIGNAL_ROUTER.zh-CN.md](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) |
 
 ### Module Overview
 
@@ -69,6 +70,15 @@ Complete strategy configuration system including:
 - Risk control enforcement
 
 **[Read Full Documentation →](STRATEGY_MODULE.md)**
+
+#### Hunter v7 Signal Router
+Multi-setup alpha signal router covering:
+- SnapshotStore hot-snapshot data flow
+- 10 setup modules
+- `hunter_v7_signal_json` AIT prompt protocol
+- Live validation command and latency budget
+
+**[Read Documentation →](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md)**
 
 ---
 

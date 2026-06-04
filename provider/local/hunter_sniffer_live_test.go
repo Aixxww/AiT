@@ -104,7 +104,7 @@ func printSnifferResult(result *SnifferResult) {
 	log.Printf("")
 	log.Printf("  🔴 Blocked by Direction: %d", result.Stats.BlockedByDirection)
 	log.Printf("  🔴 Blocked by Score:     %d", result.Stats.BlockedByScore)
-	log.Printf("  🔴 Blocked by Squeeze:   %d", result.Stats.BlockedBySqueeze)
+	log.Printf("  🔴 Blocked by Compression: %d", result.Stats.BlockedByCompression)
 	log.Printf("  🔴 Blocked by Signal:    %d", result.Stats.BlockedBySignal)
 	log.Printf("  🔴 Blocked by Wall:      %d", result.Stats.BlockedByWall)
 	log.Printf("  🔴 Blocked by Wash:      %d", result.Stats.BlockedByWash)

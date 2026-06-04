@@ -169,7 +169,7 @@ type PromptSectionsConfig struct {
 
 // CoinSourceConfig coin source configuration
 type CoinSourceConfig struct {
-	// source type: "static" | "ai500" | "oi_top" | "oi_low" | "mixed"
+	// source type: "static" | "ai500" | "oi_top" | "oi_low" | "hunter" | "hunter_sniff" | "hunter_v7" | "mixed"
 	SourceType string `json:"source_type"`
 	// static coin list (used when source_type = "static")
 	StaticCoins []string `json:"static_coins,omitempty"`
@@ -228,14 +228,14 @@ type CoinSourceConfig struct {
 
 // IndicatorHubCfg configuration for the unified IndicatorHub scoring engine.
 type IndicatorHubCfg struct {
-	TechWeight   float64 `json:"tech_weight,omitempty"`    // default 40
-	QuantWeight  float64 `json:"quant_weight,omitempty"`   // default 40
-	SocialWeight float64 `json:"social_weight,omitempty"`  // default 20
+	TechWeight   float64 `json:"tech_weight,omitempty"`   // default 40
+	QuantWeight  float64 `json:"quant_weight,omitempty"`  // default 40
+	SocialWeight float64 `json:"social_weight,omitempty"` // default 20
 
-	DirectionMargin  float64 `json:"direction_margin,omitempty"`   // default 15
-	GradeSThreshold  float64 `json:"grade_s_threshold,omitempty"`  // default 80
-	GradeAThreshold  float64 `json:"grade_a_threshold,omitempty"`  // default 65
-	GradeBThreshold  float64 `json:"grade_b_threshold,omitempty"`  // default 50
+	DirectionMargin float64 `json:"direction_margin,omitempty"`  // default 15
+	GradeSThreshold float64 `json:"grade_s_threshold,omitempty"` // default 80
+	GradeAThreshold float64 `json:"grade_a_threshold,omitempty"` // default 65
+	GradeBThreshold float64 `json:"grade_b_threshold,omitempty"` // default 50
 
 	StopLossATR float64 `json:"stop_loss_atr,omitempty"` // default 2.0
 	TP1ATR      float64 `json:"tp1_atr,omitempty"`       // default 1.5
@@ -243,11 +243,11 @@ type IndicatorHubCfg struct {
 	TP3ATR      float64 `json:"tp3_atr,omitempty"`       // default 5.0
 
 	MaxSignalsPerCycle int     `json:"max_signals_per_cycle,omitempty"` // default 5
-	MinScore           float64 `json:"min_score,omitempty"`              // default 50
-	CooldownMinutes    int     `json:"cooldown_minutes,omitempty"`       // default 60
-	TopNForScoring     int     `json:"top_n_for_scoring,omitempty"`      // default 100
+	MinScore           float64 `json:"min_score,omitempty"`             // default 50
+	CooldownMinutes    int     `json:"cooldown_minutes,omitempty"`      // default 60
+	TopNForScoring     int     `json:"top_n_for_scoring,omitempty"`     // default 100
 
-	SocialEnabled    bool   `json:"social_enabled,omitempty"`       // default true
+	SocialEnabled    bool   `json:"social_enabled,omitempty"` // default true
 	LunarCrushAPIKey string `json:"lunarcrush_api_key,omitempty"`
 }
 
@@ -283,6 +283,12 @@ type HunterConfig struct {
 	BBWidthCacheTTL int `json:"bb_width_cache_ttl,omitempty"`
 	// OI lone breaker threshold percentage (default 15)
 	OILoneBreakerThreshold float64 `json:"oi_lone_breaker_threshold,omitempty"`
+
+	// Hunter v7 Signal Router configuration.
+	// These fields are only used when CoinSource.SourceType == "hunter_v7".
+	V7MaxOutput     int     `json:"v7_max_output,omitempty"`      // default 30 before product-level HunterLimit cap
+	V7MinAIPriority float64 `json:"v7_min_ai_priority,omitempty"` // default 55
+	V7Aggressive    bool    `json:"v7_aggressive,omitempty"`      // use aggressive priority weighting
 }
 
 // SnifferConfig tunable parameters for the Hunter Sniff mode (institutional ambush detector).
@@ -967,9 +973,7 @@ func (c *StrategyConfig) getEffectiveCoinCount() int {
 		count = c.CoinSource.OILowLimit
 	case "square_heat":
 		count = c.CoinSource.SquareHeatLimit
-	case "hunter":
-		count = c.CoinSource.HunterLimit
-	case "hunter_sniff":
+	case "hunter", "hunter_sniff", "hunter_v7":
 		count = c.CoinSource.HunterLimit
 	case "mixed":
 		if c.CoinSource.UseAI500 {

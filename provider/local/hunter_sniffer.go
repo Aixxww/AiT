@@ -10,19 +10,23 @@ import (
 // ============================================================================
 // Hunter Sniffer — Institutional Ambush Pattern Detector
 // ============================================================================
-// Post-Hunter middleware that filters raw scored coins through 3-condition
+// Post-Hunter middleware that filters raw scored coins through multi-condition
 // resonance logic to detect:
-//   - LONG Ambush: smart money accumulating in low-volatility zones
+//   - LONG Ambush: smart money accumulating (any volatility regime)
 //   - SHORT Distribution: smart money exiting at highs
 //
 // Filter gates (each direction):
 //   1. Direction & score quality
-//   2. Volatility squeeze (bb_squeeze_15m) — MUST
+//   2. Compression signals (bb_squeeze / oi_spike / oi_accumulation /
+//      range_compression) — FLEXIBLE scoring, threshold ≥ 2
 //   3. Smart money footprint (accumulation/distribution signals) — ANY ONE
+//      (optional when Gate 2 score ≥ 3, high-confidence mode)
 //   4. Wall filter (no opposing S/R nearby) — MUST NOT
 //   5. Wash trade filter — MUST NOT
 //
-// All tags already exist in Hunter — no new computation needed.
+// Gate 2 was redesigned from rigid bb_squeeze_15m to elastic compression
+// scoring to capture institutional ambush patterns in ALL volatility regimes,
+// not just during BB squeeze windows.
 
 // AmbushType classifies the institutional pattern detected.
 type AmbushType string
@@ -36,6 +40,18 @@ const (
 // Sniff mode requires higher quality than the base Hunter floor (10.0) because
 // the tag-based filters already provide signal specificity.
 const MinScoreSniffer = 20.0
+
+// CompressionScoreThreshold is the minimum compression score for Gate 2.
+// Score ≥ 2 means at least one substantive signal (oi_spike, oi_accumulation,
+// range_compression, or bb_squeeze) is present. This replaces the rigid
+// bb_squeeze_15m requirement with a flexible multi-signal scoring system.
+const CompressionScoreThreshold = 2
+
+// HighConfidenceCompressionScore is the threshold above which Gate 3 (smart
+// money signal) becomes optional. When compression_score ≥ 3, the compression
+// signals themselves already imply institutional activity (e.g., bb_squeeze_15m
+// alone scores 3, or oi_spike + range_compression scores 4).
+const HighConfidenceCompressionScore = 3
 
 // AmbushCandidate represents a coin that passed the sniff filter.
 type AmbushCandidate struct {
@@ -60,7 +76,7 @@ type SnifferStats struct {
 	ShortPassed          int
 	BlockedByDirection   int // Direction mismatch
 	BlockedByScore       int // Score too low
-	BlockedBySqueeze     int // Missing bb_squeeze_15m
+	BlockedByCompression int // Compression score < threshold (replaces BlockedBySqueeze)
 	BlockedBySignal      int // No accumulation/distribution signal
 	BlockedByWall        int // near_resistance or near_support blocking
 	BlockedByWash        int // Wash trade detected
@@ -114,8 +130,8 @@ func (c *Client) FilterAmbushCandidates(
 			result.Stats.BlockedByDirection++
 		case "score":
 			result.Stats.BlockedByScore++
-		case "squeeze":
-			result.Stats.BlockedBySqueeze++
+		case "compression":
+			result.Stats.BlockedByCompression++
 		case "signal":
 			result.Stats.BlockedBySignal++
 		case "wall":
@@ -130,9 +146,9 @@ func (c *Client) FilterAmbushCandidates(
 	// Log summary
 	log.Printf("[Sniffer] Scanned %d coins → LONG_AMBUSH: %d passed, SHORT_DIST: %d passed",
 		result.Stats.TotalScanned, result.Stats.LongPassed, result.Stats.ShortPassed)
-	log.Printf("[Sniffer] Blocked: direction=%d, score=%d, squeeze=%d, signal=%d, wall=%d, wash=%d",
+	log.Printf("[Sniffer] Blocked: direction=%d, score=%d, compression=%d, signal=%d, wall=%d, wash=%d",
 		result.Stats.BlockedByDirection, result.Stats.BlockedByScore,
-		result.Stats.BlockedBySqueeze, result.Stats.BlockedBySignal,
+		result.Stats.BlockedByCompression, result.Stats.BlockedBySignal,
 		result.Stats.BlockedByWall, result.Stats.BlockedByWash)
 
 	return result
@@ -155,14 +171,27 @@ func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandida
 		return nil
 	}
 
-	// Gate 2: Volatility Squeeze (REQUIRED)
-	if !hasTag(meta.LongTags, "bb_squeeze_15m") {
-		log.Printf("[Sniffer DEBUG] %s LONG_AMBUSH blocked: no bb_squeeze_15m (tags: %v)", sym, meta.LongTags)
+	// Gate 2: Elastic Compression Scoring (replaces rigid bb_squeeze_15m)
+	// Any combination of compression signals scoring ≥ 2 passes.
+	// Captures institutional ambush in ALL volatility regimes, not just BB squeeze.
+	compScore := computeCompressionScore(meta.LongTags)
+	if compScore < CompressionScoreThreshold {
+		log.Printf("[Sniffer DEBUG] %s LONG_AMBUSH blocked: compression_score=%d < %d (tags: %v)",
+			sym, compScore, CompressionScoreThreshold, meta.LongTags)
 		return nil
 	}
 
 	// Gate 3: Smart Money Footprint (ANY ONE required)
-	allLongSignals := []string{"oi_accumulation", "taker_sustained_buying", "lsr_reversal"}
+	// When compression_score ≥ HighConfidenceCompressionScore (3), Gate 3 is
+	// optional — the compression signals themselves imply institutional activity.
+	combinedTags := mergeTags(meta.LongTags, meta.ShortTags)
+	allLongSignals := []string{
+		"oi_accumulation",        // OI↑ + price↓ = classic accumulation
+		"taker_sustained_buying", // sustained aggressive buying
+		"lsr_reversal",           // LSR turning bullish
+		"oi_spike_1h",            // OI anomaly = new capital entering
+		"range_compression",      // volume + tight range = stealth buying
+	}
 	passedSignal := ""
 	for _, sig := range allLongSignals {
 		if hasTag(meta.LongTags, sig) {
@@ -171,13 +200,18 @@ func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandida
 		}
 	}
 	if passedSignal == "" {
-		log.Printf("[Sniffer DEBUG] %s LONG_AMBUSH blocked: no accumulation signal (tags: %v)", sym, meta.LongTags)
-		return nil
+		if compScore >= HighConfidenceCompressionScore {
+			// High-confidence mode: compression signal is strong enough on its own
+			passedSignal = fmt.Sprintf("high_confidence_compression(%d)", compScore)
+			log.Printf("[Sniffer] %s LONG_AMBUSH Gate 3 bypassed: compression_score=%d (high confidence)",
+				sym, compScore)
+		} else {
+			log.Printf("[Sniffer DEBUG] %s LONG_AMBUSH blocked: no accumulation signal (tags: %v)", sym, meta.LongTags)
+			return nil
+		}
 	}
 
 	// Gate 4: Anti-Crash-Wall Filter (MUST NOT have resistance overhead)
-	// Check BOTH LongTags and ShortTags — near_resistance tags live in ShortTags
-	combinedTags := mergeTags(meta.LongTags, meta.ShortTags)
 	if hasTag(combinedTags, "near_resistance_4h") {
 		log.Printf("[Sniffer DEBUG] %s LONG_AMBUSH blocked: near_resistance_4h in tags", sym)
 		return nil
@@ -197,11 +231,24 @@ func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandida
 		return nil
 	}
 
-	// ALL GATES PASSED
-	reasons := []string{
-		"bb_squeeze_15m:volatility_ice",
-		fmt.Sprintf("%s:smart_money_entry", passedSignal),
+	// ALL GATES PASSED — build reason list
+	reasons := []string{}
+	if hasTag(meta.LongTags, "bb_squeeze_15m") {
+		reasons = append(reasons, "bb_squeeze_15m:volatility_ice")
 	}
+	if hasTag(meta.LongTags, "bb_squeeze_5m") {
+		reasons = append(reasons, "bb_squeeze_5m:short_squeeze")
+	}
+	if hasTag(meta.LongTags, "oi_spike_1h") {
+		reasons = append(reasons, "oi_spike_1h:capital_inflow")
+	}
+	if hasTag(meta.LongTags, "range_compression") {
+		reasons = append(reasons, "range_compression:stealth_accumulation")
+	}
+	if hasTag(meta.LongTags, "squeeze_explosion_synergy") {
+		reasons = append(reasons, "squeeze_explosion_synergy:breakout_imminent")
+	}
+	reasons = append(reasons, fmt.Sprintf("%s:smart_money_entry", passedSignal))
 	if hasTag(combinedTags, "near_support_4h") {
 		reasons = append(reasons, "near_support_4h:support_zone")
 	}
@@ -209,7 +256,8 @@ func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandida
 		reasons = append(reasons, "near_support_1d:daily_support")
 	}
 
-	log.Printf("[Sniffer] %s LONG_AMBUSH PASSED (score=%.1f, reasons=%v)", sym, meta.LongScore, reasons)
+	log.Printf("[Sniffer] %s LONG_AMBUSH PASSED (score=%.1f, compression=%d, reasons=%v)",
+		sym, meta.LongScore, compScore, reasons)
 
 	return &AmbushCandidate{
 		Symbol:     sym,
@@ -237,14 +285,25 @@ func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *Ambush
 		return nil
 	}
 
-	// Gate 2: Volatility Squeeze (REQUIRED — high-level stall)
-	if !hasTag(meta.ShortTags, "bb_squeeze_15m") {
-		log.Printf("[Sniffer DEBUG] %s SHORT_DIST blocked: no bb_squeeze_15m (tags: %v)", sym, meta.ShortTags)
+	// Gate 2: Elastic Compression Scoring (replaces rigid bb_squeeze_15m)
+	compScore := computeCompressionScore(meta.ShortTags)
+	if compScore < CompressionScoreThreshold {
+		log.Printf("[Sniffer DEBUG] %s SHORT_DIST blocked: compression_score=%d < %d (tags: %v)",
+			sym, compScore, CompressionScoreThreshold, meta.ShortTags)
 		return nil
 	}
 
 	// Gate 3: Smart Money Distribution Footprint (ANY ONE required)
-	allShortSignals := []string{"oi_distribution", "taker_sustained_selling", "lsr_bearish_reversal", "lsr_bearish_strong"}
+	// When compression_score ≥ HighConfidenceCompressionScore, Gate 3 is optional.
+	combinedTags := mergeTags(meta.LongTags, meta.ShortTags)
+	allShortSignals := []string{
+		"oi_distribution",           // OI↑ + price↑ = distribution
+		"taker_sustained_selling",   // sustained aggressive selling
+		"lsr_bearish_reversal",      // LSR turning bearish
+		"lsr_bearish_strong",        // strong bearish signal
+		"oi_spike_1h",               // OI anomaly = new capital entering
+		"range_compression",         // volume + tight range = stealth positioning
+	}
 	passedSignal := ""
 	for _, sig := range allShortSignals {
 		if hasTag(meta.ShortTags, sig) {
@@ -253,12 +312,17 @@ func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *Ambush
 		}
 	}
 	if passedSignal == "" {
-		log.Printf("[Sniffer DEBUG] %s SHORT_DIST blocked: no distribution signal (tags: %v)", sym, meta.ShortTags)
-		return nil
+		if compScore >= HighConfidenceCompressionScore {
+			passedSignal = fmt.Sprintf("high_confidence_compression(%d)", compScore)
+			log.Printf("[Sniffer] %s SHORT_DIST Gate 3 bypassed: compression_score=%d (high confidence)",
+				sym, compScore)
+		} else {
+			log.Printf("[Sniffer DEBUG] %s SHORT_DIST blocked: no distribution signal (tags: %v)", sym, meta.ShortTags)
+			return nil
+		}
 	}
 
 	// Gate 4: Anti-Support-Floor Filter (MUST NOT have strong support below)
-	combinedTags := mergeTags(meta.LongTags, meta.ShortTags)
 	if hasTag(combinedTags, "near_support_4h") {
 		log.Printf("[Sniffer DEBUG] %s SHORT_DIST blocked: near_support_4h in tags", sym)
 		return nil
@@ -278,11 +342,24 @@ func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *Ambush
 		return nil
 	}
 
-	// ALL GATES PASSED
-	reasons := []string{
-		"bb_squeeze_15m:high_range_stall",
-		fmt.Sprintf("%s:smart_money_exit", passedSignal),
+	// ALL GATES PASSED — build reason list
+	reasons := []string{}
+	if hasTag(meta.ShortTags, "bb_squeeze_15m") {
+		reasons = append(reasons, "bb_squeeze_15m:high_range_stall")
 	}
+	if hasTag(meta.ShortTags, "bb_squeeze_5m") {
+		reasons = append(reasons, "bb_squeeze_5m:short_squeeze")
+	}
+	if hasTag(meta.ShortTags, "oi_spike_1h") {
+		reasons = append(reasons, "oi_spike_1h:capital_inflow")
+	}
+	if hasTag(meta.ShortTags, "range_compression") {
+		reasons = append(reasons, "range_compression:stealth_positioning")
+	}
+	if hasTag(meta.ShortTags, "squeeze_explosion_synergy") {
+		reasons = append(reasons, "squeeze_explosion_synergy:breakout_imminent")
+	}
+	reasons = append(reasons, fmt.Sprintf("%s:smart_money_exit", passedSignal))
 	if hasTag(combinedTags, "lsr_crowded_long") || hasTag(combinedTags, "lsr_crowded_long_favor_short") {
 		reasons = append(reasons, "lsr_crowded_long:crowd_trap")
 	}
@@ -290,7 +367,8 @@ func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *Ambush
 		reasons = append(reasons, "near_resistance_4h:resistance_zone")
 	}
 
-	log.Printf("[Sniffer] %s SHORT_DIST PASSED (score=%.1f, reasons=%v)", sym, meta.ShortScore, reasons)
+	log.Printf("[Sniffer] %s SHORT_DIST PASSED (score=%.1f, compression=%d, reasons=%v)",
+		sym, meta.ShortScore, compScore, reasons)
 
 	return &AmbushCandidate{
 		Symbol:     sym,
@@ -323,10 +401,43 @@ func mergeTags(a, b []string) []string {
 	return merged
 }
 
+// computeCompressionScore calculates a weighted compression signal score from tags.
+// Replaces the rigid bb_squeeze_15m check with a flexible multi-signal system.
+//
+// Scoring weights:
+//   bb_squeeze_15m            → 3 (strongest: volatility ice)
+//   bb_squeeze_5m             → 2 (short-term compression)
+//   oi_spike_1h               → 2 (OI anomaly)
+//   oi_surge_1h               → 1 (OI moderate change)
+//   oi_accumulation           → 2 (OI↑ + price↓ = classic stealth)
+//   oi_distribution           → 2 (OI↑ + price↑ = distribution)
+//   range_compression         → 2 (volume + tight range = stealth)
+//   squeeze_explosion_synergy → 1 (BB + OI dual signal)
+//
+// Threshold ≥ 2 means at least one substantive signal present.
+func computeCompressionScore(tags []string) int {
+	weights := map[string]int{
+		"bb_squeeze_15m":            3,
+		"bb_squeeze_5m":             2,
+		"oi_spike_1h":               2,
+		"oi_surge_1h":               1,
+		"oi_accumulation":           2,
+		"oi_distribution":           2,
+		"range_compression":         2,
+		"squeeze_explosion_synergy": 1,
+	}
+	score := 0
+	for _, tag := range tags {
+		if w, ok := weights[tag]; ok {
+			score += w
+		}
+	}
+	return score
+}
+
 // classifyBlockReason determines the primary reason a coin was blocked (for stats).
-// Evaluated in priority order: direction > score > squeeze > signal > wall > wash.
+// Evaluated in priority order: direction > score > compression > signal > wall > wash.
 func classifyBlockReason(coin nofxos.CoinData, meta *HunterCoinMeta) string {
-	// Check both directions — the coin might pass one but we only track the "primary" block
 	if meta.Direction == "LONG" {
 		return classifyLongBlock(meta)
 	}
@@ -340,10 +451,14 @@ func classifyLongBlock(meta *HunterCoinMeta) string {
 	if meta.LongScore < MinScoreSniffer {
 		return "score"
 	}
-	if !hasTag(meta.LongTags, "bb_squeeze_15m") {
-		return "squeeze"
+	compScore := computeCompressionScore(meta.LongTags)
+	if compScore < CompressionScoreThreshold {
+		return "compression"
 	}
-	longSignals := []string{"oi_accumulation", "taker_sustained_buying", "lsr_reversal"}
+	longSignals := []string{
+		"oi_accumulation", "taker_sustained_buying", "lsr_reversal",
+		"oi_spike_1h", "range_compression",
+	}
 	hasSignal := false
 	for _, sig := range longSignals {
 		if hasTag(meta.LongTags, sig) {
@@ -351,7 +466,7 @@ func classifyLongBlock(meta *HunterCoinMeta) string {
 			break
 		}
 	}
-	if !hasSignal {
+	if !hasSignal && compScore < HighConfidenceCompressionScore {
 		return "signal"
 	}
 	combined := mergeTags(meta.LongTags, meta.ShortTags)
@@ -368,10 +483,15 @@ func classifyShortBlock(meta *HunterCoinMeta) string {
 	if meta.ShortScore < MinScoreSniffer {
 		return "score"
 	}
-	if !hasTag(meta.ShortTags, "bb_squeeze_15m") {
-		return "squeeze"
+	compScore := computeCompressionScore(meta.ShortTags)
+	if compScore < CompressionScoreThreshold {
+		return "compression"
 	}
-	shortSignals := []string{"oi_distribution", "taker_sustained_selling", "lsr_bearish_reversal", "lsr_bearish_strong"}
+	shortSignals := []string{
+		"oi_distribution", "taker_sustained_selling",
+		"lsr_bearish_reversal", "lsr_bearish_strong",
+		"oi_spike_1h", "range_compression",
+	}
 	hasSignal := false
 	for _, sig := range shortSignals {
 		if hasTag(meta.ShortTags, sig) {
@@ -379,7 +499,7 @@ func classifyShortBlock(meta *HunterCoinMeta) string {
 			break
 		}
 	}
-	if !hasSignal {
+	if !hasSignal && compScore < HighConfidenceCompressionScore {
 		return "signal"
 	}
 	combined := mergeTags(meta.LongTags, meta.ShortTags)

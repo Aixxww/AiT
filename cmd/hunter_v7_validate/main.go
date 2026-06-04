@@ -1,0 +1,518 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"log"
+	"nofx/datafetch"
+	"nofx/kernel"
+	"nofx/market"
+	"nofx/provider/local"
+	"nofx/store"
+	"os"
+	"sort"
+	"strings"
+	"time"
+)
+
+type validationReport struct {
+	GeneratedAt       string                 `json:"generated_at"`
+	Snapshot          snapshotSummary        `json:"snapshot"`
+	Config            local.V7Config         `json:"config"`
+	FormatCheck       formatCheck            `json:"format_check"`
+	AIRecognition     aiRecognitionCheck     `json:"ai_recognition"`
+	OpportunityCover  opportunityCoverCheck  `json:"opportunity_cover"`
+	Signals           []local.V7SignalOutput `json:"signals"`
+	PromptPreviewPath string                 `json:"prompt_preview_path"`
+	Issues            []issue                `json:"issues"`
+}
+
+type snapshotSummary struct {
+	SymbolCount   int     `json:"symbol_count"`
+	UniverseCount int     `json:"universe_count"`
+	FetchMs       int64   `json:"fetch_ms"`
+	RestErrors    int     `json:"rest_errors"`
+	BTC24h        float64 `json:"btc_24h"`
+	ETH24h        float64 `json:"eth_24h"`
+	Regime        string  `json:"regime"`
+}
+
+type formatCheck struct {
+	JSONMarshalOK        bool     `json:"json_marshal_ok"`
+	JSONUnmarshalOK      bool     `json:"json_unmarshal_ok"`
+	MissingFieldCount    int      `json:"missing_field_count"`
+	ExecutableGapCount   int      `json:"executable_gap_count"`
+	RequiredSchemaFields []string `json:"required_schema_fields"`
+}
+
+type aiRecognitionCheck struct {
+	PromptContainsV7JSON     bool `json:"prompt_contains_v7_json"`
+	PromptContainsSetupType  bool `json:"prompt_contains_setup_type"`
+	PromptContainsEntryMode  bool `json:"prompt_contains_entry_mode"`
+	PromptContainsRiskLevel  bool `json:"prompt_contains_risk_level"`
+	PromptContainsConfirms   bool `json:"prompt_contains_confirmations"`
+	PromptContainsInvalid    bool `json:"prompt_contains_invalidation"`
+	PromptCandidateCoinCount int  `json:"prompt_candidate_coin_count"`
+	PromptBytes              int  `json:"prompt_bytes"`
+}
+
+type opportunityCoverCheck struct {
+	SignalCount     int            `json:"signal_count"`
+	LongCount       int            `json:"long_count"`
+	ShortCount      int            `json:"short_count"`
+	BySetupType     map[string]int `json:"by_setup_type"`
+	ByStatus        map[string]int `json:"by_status"`
+	ByRiskLevel     map[string]int `json:"by_risk_level"`
+	ByEntryMode     map[string]int `json:"by_entry_mode"`
+	ByMarketRegime  map[string]int `json:"by_market_regime"`
+	DistinctSetups  int            `json:"distinct_setups"`
+	HasMomentum     bool           `json:"has_momentum"`
+	HasReversal     bool           `json:"has_reversal"`
+	HasSqueeze      bool           `json:"has_squeeze"`
+	HasRange        bool           `json:"has_range"`
+	HasFunding      bool           `json:"has_funding"`
+	HasAccumulation bool           `json:"has_accumulation"`
+	HasDistribution bool           `json:"has_distribution"`
+}
+
+type issue struct {
+	Severity string `json:"severity"`
+	Symbol   string `json:"symbol,omitempty"`
+	Code     string `json:"code"`
+	Detail   string `json:"detail"`
+}
+
+func main() {
+	topDetail := flag.Int("top-detail", 220, "number of high-volume symbols with full OI/LSR/kline detail")
+	maxOutput := flag.Int("max-output", 30, "max Hunter v7 signals to output")
+	minPriority := flag.Float64("min-priority", 45, "minimum AI priority")
+	aggressive := flag.Bool("aggressive", true, "use aggressive AI priority weighting")
+	outDir := flag.String("out-dir", "reports", "output directory")
+	flag.Parse()
+
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	fetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
+		TopNForDetail: *topDetail,
+		MaxWorkers:    50,
+		Timeout:       15 * time.Second,
+	})
+	snap, err := fetcher.Fetch(ctx)
+	if err != nil {
+		log.Fatalf("fetch snapshot failed: %v", err)
+	}
+
+	cfg := local.DefaultV7Config()
+	cfg.MaxOutput = *maxOutput
+	cfg.MinAIPriority = *minPriority
+	cfg.Aggressive = *aggressive
+
+	universe := local.BuildV7Universe(snap)
+	regime := local.DetectV7MarketRegime(snap)
+	signals := local.ScoreHunterV7(snap, cfg)
+	candidates := signalsToCandidates(signals)
+	prompt := buildPrompt(candidates, signals)
+
+	now := time.Now()
+	stamp := now.Format("20060102-150405")
+	if err := os.MkdirAll(*outDir, 0755); err != nil {
+		log.Fatalf("create out dir failed: %v", err)
+	}
+	promptPath := fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", *outDir, stamp)
+	rawPath := fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", *outDir, stamp)
+	mdPath := fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", *outDir, stamp)
+
+	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
+		log.Fatalf("write prompt failed: %v", err)
+	}
+
+	report := validationReport{
+		GeneratedAt: now.Format("2006-01-02 15:04:05 MST"),
+		Snapshot: snapshotSummary{
+			SymbolCount:   snap.Meta.SymbolCount,
+			UniverseCount: len(universe),
+			FetchMs:       time.Since(start).Milliseconds(),
+			RestErrors:    snap.Meta.RestErrors,
+			BTC24h:        priceChange24h(snap, "BTCUSDT"),
+			ETH24h:        priceChange24h(snap, "ETHUSDT"),
+			Regime:        string(regime),
+		},
+		Config:            cfg,
+		Signals:           signals,
+		PromptPreviewPath: promptPath,
+	}
+	report.FormatCheck, report.Issues = validateFormat(signals)
+	report.AIRecognition = validatePrompt(prompt, len(candidates))
+	report.OpportunityCover = validateCoverage(signals)
+	report.Issues = append(report.Issues, promptIssues(report.AIRecognition)...)
+	report.Issues = append(report.Issues, coverageIssues(report.OpportunityCover)...)
+
+	raw, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		log.Fatalf("marshal report failed: %v", err)
+	}
+	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
+		log.Fatalf("write raw report failed: %v", err)
+	}
+	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
+		log.Fatalf("write markdown report failed: %v", err)
+	}
+
+	printConsoleSummary(report, rawPath, mdPath)
+}
+
+func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin {
+	candidates := make([]kernel.CandidateCoin, 0, len(signals))
+	for _, sig := range signals {
+		tags := append([]string{string(sig.SetupType), string(sig.Status)}, sig.ReasonCodes...)
+		tags = append(tags, sig.RiskTags...)
+		cc := kernel.CandidateCoin{
+			Symbol:             sig.Symbol,
+			Sources:            []string{"hunter_v7"},
+			Direction:          string(sig.Direction),
+			SignalTags:         tags,
+			V7SetupType:        string(sig.SetupType),
+			V7Status:           string(sig.Status),
+			V7AIPriority:       sig.AIPriority,
+			V7SetupScore:       sig.SetupScore,
+			V7RiskScore:        sig.RiskScore,
+			V7LiquidityScore:   sig.LiquidityScore,
+			V7TimingScore:      sig.TimingScore,
+			V7RegimeFitScore:   sig.RegimeFitScore,
+			V7RiskLevel:        string(sig.RiskLevel),
+			V7EntryMode:        string(sig.EntryMode),
+			V7MarketRegime:     string(sig.MarketRegime),
+			V7Confidence:       sig.Confidence,
+			V7ReasonCodes:      append([]string{}, sig.ReasonCodes...),
+			V7RiskTags:         append([]string{}, sig.RiskTags...),
+			V7RequiredConfirms: append([]string{}, sig.RequiredConfirms...),
+			V7EntryZone:        sig.EntryZone,
+			V7Invalidation:     sig.Invalidation,
+			V7Targets:          append([]local.V7Target{}, sig.Targets...),
+			V7PriceContext:     sig.PriceCtx,
+			V7DerivativesCtx:   sig.DerivativesCtx,
+		}
+		if sig.Direction == local.V7DirLong {
+			cc.LongScore = sig.AIPriority
+			cc.LongTags = tags
+		} else {
+			cc.ShortScore = sig.AIPriority
+			cc.ShortTags = tags
+		}
+		cc.CapitalLevel, cc.CapitalTier = local.V7ConfidenceToCapitalLevel(sig.Confidence)
+		candidates = append(candidates, cc)
+	}
+	return candidates
+}
+
+func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput) string {
+	cfg := store.GetDefaultStrategyConfig("zh")
+	cfg.CoinSource.SourceType = "hunter_v7"
+	cfg.CoinSource.HunterLimit = len(candidates)
+	cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: len(candidates), V7MinAIPriority: 45, V7Aggressive: true}
+	engine := kernel.NewStrategyEngine(&cfg)
+	md := make(map[string]*market.Data, len(signals)+1)
+	for _, sig := range signals {
+		price := 0.0
+		change1h := 0.0
+		change4h := 0.0
+		funding := 0.0
+		oi := 0.0
+		if sig.PriceCtx != nil {
+			price = sig.PriceCtx.Last
+			change1h = sig.PriceCtx.Change1h
+			change4h = sig.PriceCtx.Change4h
+		}
+		if sig.DerivativesCtx != nil {
+			funding = sig.DerivativesCtx.FundingRate
+			oi = sig.DerivativesCtx.OIValue
+		}
+		md[sig.Symbol] = &market.Data{
+			Symbol:        sig.Symbol,
+			CurrentPrice:  price,
+			PriceChange1h: change1h,
+			PriceChange4h: change4h,
+			FundingRate:   funding,
+			OpenInterest:  &market.OIData{Latest: oi},
+		}
+	}
+	ctx := &kernel.Context{
+		CurrentTime:    time.Now().Format("2006-01-02 15:04:05"),
+		RuntimeMinutes: 0,
+		CallCount:      1,
+		Account: kernel.AccountInfo{
+			TotalEquity:      1000,
+			AvailableBalance: 1000,
+		},
+		CandidateCoins: candidates,
+		MarketDataMap:  md,
+	}
+	return engine.BuildUserPrompt(ctx)
+}
+
+func validateFormat(signals []local.V7SignalOutput) (formatCheck, []issue) {
+	required := []string{
+		"symbol", "direction", "setup_type", "status", "setup_score", "risk_score",
+		"liquidity_score", "timing_score", "regime_fit_score", "ai_priority",
+		"reason_codes", "entry_mode", "entry_zone", "invalidation", "targets",
+		"required_confirmations", "confidence", "risk_level", "market_regime",
+		"price_context", "derivatives_context",
+	}
+	check := formatCheck{RequiredSchemaFields: required}
+	var issues []issue
+
+	data, err := json.Marshal(signals)
+	check.JSONMarshalOK = err == nil
+	if err != nil {
+		issues = append(issues, issue{Severity: "critical", Code: "json_marshal_failed", Detail: err.Error()})
+		return check, issues
+	}
+	var decoded []map[string]any
+	err = json.Unmarshal(data, &decoded)
+	check.JSONUnmarshalOK = err == nil
+	if err != nil {
+		issues = append(issues, issue{Severity: "critical", Code: "json_unmarshal_failed", Detail: err.Error()})
+		return check, issues
+	}
+
+	for i, sig := range signals {
+		symbol := sig.Symbol
+		if i < len(decoded) {
+			for _, field := range required {
+				if _, ok := decoded[i][field]; !ok {
+					check.MissingFieldCount++
+					issues = append(issues, issue{Severity: "critical", Symbol: symbol, Code: "missing_json_field", Detail: field})
+				}
+			}
+		}
+		if sig.Symbol == "" || sig.Direction == "" || sig.SetupType == "" || sig.Status == "" {
+			check.MissingFieldCount++
+			issues = append(issues, issue{Severity: "critical", Symbol: symbol, Code: "empty_identity_field", Detail: "symbol/direction/setup_type/status must be non-empty"})
+		}
+		if len(sig.ReasonCodes) == 0 {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "empty_reason_codes", Detail: "AI cannot understand why this setup was selected"})
+		}
+		if len(sig.RequiredConfirms) == 0 && needsConfirmations(sig) {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "missing_required_confirmations", Detail: "wait/conflict signal must tell AI what confirmation to wait for"})
+		}
+		if sig.EntryMode == "" {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "missing_entry_mode", Detail: "AI cannot distinguish immediate entry vs wait-confirm"})
+		}
+		if sig.Invalidation.Price <= 0 {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "missing_invalidation", Detail: "signal lacks a concrete invalidation price"})
+		}
+		if len(sig.Targets) == 0 {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "medium", Symbol: symbol, Code: "missing_targets", Detail: "signal lacks take-profit target context"})
+		}
+		if sig.PriceCtx == nil {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "medium", Symbol: symbol, Code: "missing_price_context", Detail: "AI loses price/ATR/change context"})
+		}
+		if sig.DerivativesCtx == nil {
+			check.ExecutableGapCount++
+			issues = append(issues, issue{Severity: "medium", Symbol: symbol, Code: "missing_derivatives_context", Detail: "AI loses OI/funding/LSR/taker context"})
+		}
+	}
+
+	return check, issues
+}
+
+func needsConfirmations(sig local.V7SignalOutput) bool {
+	if sig.Status == local.V7StatusWaitConfirm || sig.Status == local.V7StatusConflictWatch {
+		return true
+	}
+	switch sig.EntryMode {
+	case local.V7EntryImmediate:
+		return false
+	default:
+		return sig.EntryMode != ""
+	}
+}
+
+func validatePrompt(prompt string, candidateCount int) aiRecognitionCheck {
+	return aiRecognitionCheck{
+		PromptContainsV7JSON:     strings.Contains(prompt, "hunter_v7_signal_json: {"),
+		PromptContainsSetupType:  strings.Contains(prompt, "\"setup_type\""),
+		PromptContainsEntryMode:  strings.Contains(prompt, "\"entry_mode\""),
+		PromptContainsRiskLevel:  strings.Contains(prompt, "\"risk_level\""),
+		PromptContainsConfirms:   strings.Contains(prompt, "\"required_confirmations\""),
+		PromptContainsInvalid:    strings.Contains(prompt, "\"invalidation\""),
+		PromptCandidateCoinCount: candidateCount,
+		PromptBytes:              len([]byte(prompt)),
+	}
+}
+
+func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
+	c := opportunityCoverCheck{
+		SignalCount:    len(signals),
+		BySetupType:    map[string]int{},
+		ByStatus:       map[string]int{},
+		ByRiskLevel:    map[string]int{},
+		ByEntryMode:    map[string]int{},
+		ByMarketRegime: map[string]int{},
+	}
+	for _, sig := range signals {
+		if sig.Direction == local.V7DirLong {
+			c.LongCount++
+		} else if sig.Direction == local.V7DirShort {
+			c.ShortCount++
+		}
+		setup := string(sig.SetupType)
+		c.BySetupType[setup]++
+		c.ByStatus[string(sig.Status)]++
+		c.ByRiskLevel[string(sig.RiskLevel)]++
+		c.ByEntryMode[string(sig.EntryMode)]++
+		c.ByMarketRegime[string(sig.MarketRegime)]++
+		switch sig.SetupType {
+		case local.V7SetupLeaderMomentumLong, local.V7SetupTrendBreakoutLong:
+			c.HasMomentum = true
+		case local.V7SetupPullbackLong, local.V7SetupPanicReversalLong:
+			c.HasReversal = true
+		case local.V7SetupShortSqueezeLong, local.V7SetupLongSqueezeShort:
+			c.HasSqueeze = true
+		case local.V7SetupRangeReversion:
+			c.HasRange = true
+			c.HasReversal = true
+		case local.V7SetupFundingReversal:
+			c.HasFunding = true
+		case local.V7SetupAccumulationLong:
+			c.HasAccumulation = true
+		case local.V7SetupDistributionShort:
+			c.HasDistribution = true
+		}
+	}
+	c.DistinctSetups = len(c.BySetupType)
+	return c
+}
+
+func promptIssues(c aiRecognitionCheck) []issue {
+	var issues []issue
+	if !c.PromptContainsV7JSON {
+		issues = append(issues, issue{Severity: "critical", Code: "prompt_missing_v7_json", Detail: "AIT prompt does not contain hunter_v7_signal_json"})
+	}
+	if !c.PromptContainsSetupType || !c.PromptContainsEntryMode || !c.PromptContainsRiskLevel {
+		issues = append(issues, issue{Severity: "high", Code: "prompt_missing_core_v7_tags", Detail: "AIT prompt lacks one or more core v7 fields"})
+	}
+	if !c.PromptContainsConfirms || !c.PromptContainsInvalid {
+		issues = append(issues, issue{Severity: "high", Code: "prompt_missing_execution_fields", Detail: "AIT prompt lacks confirmations or invalidation fields"})
+	}
+	return issues
+}
+
+func coverageIssues(c opportunityCoverCheck) []issue {
+	var issues []issue
+	if c.SignalCount == 0 {
+		return []issue{{Severity: "critical", Code: "no_v7_signals", Detail: "v7 produced no real-time signals under current config"}}
+	}
+	if c.LongCount == 0 || c.ShortCount == 0 {
+		issues = append(issues, issue{Severity: "medium", Code: "single_direction_output", Detail: fmt.Sprintf("LONG=%d SHORT=%d; may be normal in one-sided markets but limits opportunity diversity", c.LongCount, c.ShortCount)})
+	}
+	if c.DistinctSetups < 2 && c.SignalCount >= 3 {
+		issues = append(issues, issue{Severity: "medium", Code: "single_setup_concentration", Detail: "signals concentrate in one setup type; verify router is not over-filtering other patterns"})
+	}
+	if !c.HasReversal && !c.HasMomentum && !c.HasSqueeze && !c.HasFunding && !c.HasAccumulation && !c.HasDistribution {
+		issues = append(issues, issue{Severity: "high", Code: "no_known_opportunity_family", Detail: "signals do not map to expected v7 opportunity families"})
+	}
+	return issues
+}
+
+func priceChange24h(snap *datafetch.Snapshot, symbol string) float64 {
+	if snap == nil || snap.Symbols == nil || snap.Symbols[symbol] == nil {
+		return 0
+	}
+	return snap.Symbols[symbol].PriceChange24h
+}
+
+func formatMarkdown(r validationReport, rawPath string) string {
+	var sb strings.Builder
+	sb.WriteString("# Hunter v7 实时信号 JSON 与 AIT 识别验证报告\n\n")
+	sb.WriteString(fmt.Sprintf("> 生成时间：%s\n", r.GeneratedAt))
+	sb.WriteString(fmt.Sprintf("> 原始 JSON：`%s`\n", rawPath))
+	sb.WriteString(fmt.Sprintf("> Prompt 预览：`%s`\n\n", r.PromptPreviewPath))
+
+	sb.WriteString("## 1. 结论\n\n")
+	if r.FormatCheck.JSONMarshalOK && r.FormatCheck.JSONUnmarshalOK && r.FormatCheck.MissingFieldCount == 0 && r.AIRecognition.PromptContainsV7JSON {
+		sb.WriteString("- JSON 结构可序列化/反序列化，核心字段完整，AIT prompt 已包含 `hunter_v7_signal_json`，AI 可以直接识别 v7 标签。\n")
+	} else {
+		sb.WriteString("- JSON 或 prompt 识别链路存在问题，需优先修复 critical/high 问题。\n")
+	}
+	sb.WriteString(fmt.Sprintf("- 本轮实时输出 %d 个信号：LONG=%d，SHORT=%d，setup=%d 类。\n",
+		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, r.OpportunityCover.DistinctSetups))
+	sb.WriteString(fmt.Sprintf("- 市场 regime=%s，BTC 24h=%+.2f%%，ETH 24h=%+.2f%%。\n\n",
+		r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h))
+
+	sb.WriteString("## 2. JSON / Prompt 校验\n\n")
+	sb.WriteString(fmt.Sprintf("| 项目 | 结果 |\n|---|---|\n| JSON marshal | %v |\n| JSON unmarshal | %v |\n| 缺字段数 | %d |\n| 执行性缺口 | %d |\n| Prompt 含 v7 JSON | %v |\n| Prompt bytes | %d |\n\n",
+		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
+		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON, r.AIRecognition.PromptBytes))
+
+	sb.WriteString("## 3. 实时信号\n\n")
+	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")
+	sb.WriteString("|---:|---|---|---|---|---:|---:|---:|---|---|\n")
+	for i, sig := range r.Signals {
+		if i >= 30 {
+			break
+		}
+		sb.WriteString(fmt.Sprintf("| %d | %s | %s | `%s` | `%s` | %.1f | %.1f | %.1f | `%s` | %s |\n",
+			i+1, sig.Symbol, sig.Direction, sig.SetupType, sig.Status, sig.AIPriority,
+			sig.TimingScore, sig.RiskScore, sig.EntryMode, strings.Join(sig.ReasonCodes, ", ")))
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("## 4. 机会覆盖\n\n")
+	sb.WriteString(fmt.Sprintf("- setup 分布：%s\n", sortedMap(r.OpportunityCover.BySetupType)))
+	sb.WriteString(fmt.Sprintf("- status 分布：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
+	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
+	sb.WriteString(fmt.Sprintf("- 覆盖家族：momentum=%v, reversal=%v, squeeze=%v, range=%v, funding=%v, accumulation=%v, distribution=%v\n\n",
+		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
+		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
+
+	sb.WriteString("## 5. 问题清单\n\n")
+	if len(r.Issues) == 0 {
+		sb.WriteString("- 未发现格式或识别阻断问题。\n")
+	} else {
+		sb.WriteString("| Severity | Symbol | Code | Detail |\n|---|---|---|---|\n")
+		for _, is := range r.Issues {
+			sb.WriteString(fmt.Sprintf("| %s | %s | `%s` | %s |\n", is.Severity, is.Symbol, is.Code, is.Detail))
+		}
+	}
+	return sb.String()
+}
+
+func sortedMap(m map[string]int) string {
+	if len(m) == 0 {
+		return "{}"
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", k, m[k]))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func printConsoleSummary(r validationReport, rawPath, mdPath string) {
+	fmt.Printf("Hunter v7 validation complete\n")
+	fmt.Printf("snapshot: symbols=%d universe=%d regime=%s BTC24h=%+.2f%% ETH24h=%+.2f%% rest_errors=%d\n",
+		r.Snapshot.SymbolCount, r.Snapshot.UniverseCount, r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h, r.Snapshot.RestErrors)
+	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
+		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
+	fmt.Printf("format: json=%v/%v missing=%d executable_gaps=%d prompt_v7_json=%v\n",
+		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
+		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON)
+	fmt.Printf("issues: %d\n", len(r.Issues))
+	fmt.Printf("raw: %s\nreport: %s\nprompt: %s\n", rawPath, mdPath, r.PromptPreviewPath)
+}

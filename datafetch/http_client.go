@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net"
 	"net/http"
@@ -140,11 +139,12 @@ type HTTPClient struct {
 // NewHTTPClient creates an HTTP client with connection pooling, rate limiting,
 // and circuit breaking for Binance API calls.
 func NewHTTPClient(baseURL string) *HTTPClient {
-	// Use DisableKeepAlives to force fresh DNS resolution per request.
-	// provider/local uses fetchJSON which creates a new http.Client per call,
-	// getting different (working) CloudFront edge IPs. Shared connection pools
-	// get stuck on broken edges. DisableKeepAlives mimics this behavior.
+	// DisableKeepAlives forces a fresh TCP connection per request, preventing
+	// HTTP/2 multiplexing from collapsing all concurrent streams onto one TCP
+	// connection that cascades on failure. Also ensures ProxyFromEnvironment
+	// is re-evaluated per connection for proper proxy tunneling.
 	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -174,7 +174,6 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 // Retries on transient network errors (connection reset, timeout, EOF).
 // Circuit breaker failure is only recorded after ALL retries are exhausted.
 func (c *HTTPClient) doPublic(path string) ([]byte, error) {
-	log.Printf("[doPublic] DEBUG: retry-enabled v2 path=%s", path)
 	if !c.breaker.Allow() {
 		return nil, fmt.Errorf("circuit breaker open for %s", path)
 	}

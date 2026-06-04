@@ -27,13 +27,13 @@ func (f *DataFetcher) fetchPerSymbolData(
 	all := make(map[string]*SymbolSnapshot, len(symbols))
 	for _, sym := range symbols {
 		ss := &SymbolSnapshot{
-			Symbol:  sym,
-			Klines:  make(map[string][]Kline),
-			Social:  SocialData{},
+			Symbol: sym,
+			Klines: make(map[string][]Kline),
+			Social: SocialData{},
 		}
 		if t, ok := tickers[sym]; ok {
 			ss.Price = parseFloat(t.LastPrice)
-			ss.PriceChange24h = parseFloat(t.PriceChange)
+			ss.PriceChange24h = parseFloat(t.PriceChangePercent)
 			ss.Volume24h = parseFloat(t.Volume)
 			ss.QuoteVolume24h = parseFloat(t.QuoteVolume)
 			ss.HighPrice24h = parseFloat(t.HighPrice)
@@ -107,8 +107,8 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	ss := base
 	if ss == nil {
 		ss = &SymbolSnapshot{
-			Symbol:  symbol,
-			Klines:  make(map[string][]Kline),
+			Symbol: symbol,
+			Klines: make(map[string][]Kline),
 		}
 	}
 
@@ -148,7 +148,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	} else {
 		if len(lsrData) >= 1 {
 			ss.LongShortRatio = lsrData[len(lsrData)-1] // newest
-			ss.LSROldest = lsrData[0]                    // oldest (for Hunter reversal)
+			ss.LSROldest = lsrData[0]                   // oldest (for Hunter reversal)
 		}
 		if len(lsrData) >= 2 {
 			ss.LSRPrev = lsrData[len(lsrData)-2]

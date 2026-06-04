@@ -20,11 +20,12 @@ import (
 )
 
 // maxParallelRequests caps total in-flight HTTP requests to avoid overwhelming
-// Binance. Binance enforces 1200 weight/min per IP. With 40 concurrent requests
-// and ~2s avg latency (Binance server-side), we get ~20 req/s = 1200 req/min
-// at ~1.5 weight/req avg ≈ 1800 weight/min theoretical. The 429 retry logic
-// with exponential backoff handles any overages gracefully.
-const maxParallelRequests = 40
+// Binance. Binance enforces 1200 weight/min per IP. With 15 concurrent requests
+// and ~2s avg latency, we get ~7.5 req/s = 450 req/min — well within limits.
+// Previously 40, but combined with HTTP/2 multiplexing over a single TCP
+// connection, a CDN edge failure would cascade-reset ALL 40 in-flight streams
+// simultaneously. 15 + DisableKeepAlives (fresh DNS per request) prevents this.
+const maxParallelRequests = 15
 
 // Default Binance USDT-M Futures base URL (public, no auth required).
 const (
@@ -67,6 +68,15 @@ func NewClient(binanceURL string) *Client {
 		parallelClient: &http.Client{
 			Timeout: DefaultTimeout,
 			Transport: &http.Transport{
+				// CRITICAL: Go does NOT inherit HTTP_PROXY/HTTPS_PROXY from env
+				// when a custom Transport is created. Without this line, all requests
+				// bypass the proxy and attempt direct connections — which fail with
+				// "connection reset by peer" in regions where Binance CDN is blocked.
+				// fetchJSON (ticker) uses http.Client{} (DefaultTransport with Proxy)
+				// and always worked; fetchJSONParallel (OI, LSR, klines) used this
+				// custom Transport WITHOUT Proxy → 100% OI failure. This one line
+				// is the actual fix.
+				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
 					Timeout:   10 * time.Second,
 					KeepAlive: 30 * time.Second,
@@ -77,6 +87,7 @@ func NewClient(binanceURL string) *Client {
 				IdleConnTimeout:     90 * time.Second,
 				TLSHandshakeTimeout: 10 * time.Second,
 				ForceAttemptHTTP2:   true,
+				DisableKeepAlives:   true,
 			},
 		},
 		parallelSem: make(chan struct{}, maxParallelRequests),

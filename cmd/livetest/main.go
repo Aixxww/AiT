@@ -98,7 +98,7 @@ func main() {
 		fmt.Printf("input=%d → LONG_AMBUSH:%d SHORT_DIST:%d\n", len(coins), lc, sc)
 		fmt.Printf("  blocked: dir=%d score=%d squeeze=%d signal=%d wall=%d wash=%d\n",
 			res.Stats.BlockedByDirection, res.Stats.BlockedByScore,
-			res.Stats.BlockedBySqueeze, res.Stats.BlockedBySignal,
+			res.Stats.BlockedByCompression, res.Stats.BlockedBySignal,
 			res.Stats.BlockedByWall, res.Stats.BlockedByWash)
 
 		snaps := []CoinSnapshot{}

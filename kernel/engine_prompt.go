@@ -1,8 +1,10 @@
 package kernel
 
 import (
+	"encoding/json"
 	"fmt"
 	"nofx/market"
+	"nofx/provider/local"
 	"nofx/provider/nofxos"
 	"nofx/store"
 	"strings"
@@ -390,6 +392,53 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			directionTag = fmt.Sprintf(" [%s]", coin.Direction)
 		}
 		sb.WriteString(fmt.Sprintf("### %d. %s%s%s\n\n", displayedCount, coin.Symbol, directionTag, sourceTags))
+
+		if coin.V7SetupType != "" {
+			if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
+				sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
+			}
+			sb.WriteString(fmt.Sprintf("Hunter v7 Signal Router: setup=%s | status=%s | regime=%s | entry_mode=%s | confidence=%s | risk=%s\n",
+				coin.V7SetupType, coin.V7Status, coin.V7MarketRegime, coin.V7EntryMode, coin.V7Confidence, coin.V7RiskLevel))
+			sb.WriteString(fmt.Sprintf("Hunter v7 Scores: ai_priority=%.1f | setup=%.1f | timing=%.1f | regime_fit=%.1f | liquidity=%.1f | risk=%.1f\n",
+				coin.V7AIPriority, coin.V7SetupScore, coin.V7TimingScore, coin.V7RegimeFitScore, coin.V7LiquidityScore, coin.V7RiskScore))
+			if len(coin.V7ReasonCodes) > 0 {
+				sb.WriteString(fmt.Sprintf("Hunter v7 reasons: %s\n", strings.Join(coin.V7ReasonCodes, ", ")))
+			}
+			if len(coin.V7RiskTags) > 0 {
+				sb.WriteString(fmt.Sprintf("Hunter v7 risk tags: %s\n", strings.Join(coin.V7RiskTags, ", ")))
+			}
+			if len(coin.V7RequiredConfirms) > 0 {
+				sb.WriteString(fmt.Sprintf("Hunter v7 required confirmations before entry: %s\n", strings.Join(coin.V7RequiredConfirms, ", ")))
+			}
+			if coin.V7EntryZone.Lower > 0 || coin.V7EntryZone.Upper > 0 {
+				sb.WriteString(fmt.Sprintf("Hunter v7 entry zone: %.6f ~ %.6f\n", coin.V7EntryZone.Lower, coin.V7EntryZone.Upper))
+			}
+			if coin.V7Invalidation.Price > 0 {
+				sb.WriteString(fmt.Sprintf("Hunter v7 invalidation: %.6f (%s)\n", coin.V7Invalidation.Price, coin.V7Invalidation.Reason))
+			}
+			if len(coin.V7Targets) > 0 {
+				var targets []string
+				for _, target := range coin.V7Targets {
+					targets = append(targets, fmt.Sprintf("%.6f(%s)", target.Price, target.Reason))
+				}
+				sb.WriteString(fmt.Sprintf("Hunter v7 targets: %s\n", strings.Join(targets, ", ")))
+			}
+			if coin.V7PriceContext != nil {
+				pc := coin.V7PriceContext
+				sb.WriteString(fmt.Sprintf("Hunter v7 price context: last=%.6f | 1h=%+.2f%% | 4h=%+.2f%% | 24h=%+.2f%% | ATR1h=%.6f | ATR4h=%.6f\n",
+					pc.Last, pc.Change1h, pc.Change4h, pc.Change24h, pc.ATR1h, pc.ATR4h))
+			}
+			if coin.V7DerivativesCtx != nil {
+				dc := coin.V7DerivativesCtx
+				sb.WriteString(fmt.Sprintf("Hunter v7 derivatives: OI=%.0f | OI1h=%+.2f%% | OI4h=%+.2f%% | funding=%.5f | LSR %.3f→%.3f | taker15m=%.3f\n",
+					dc.OIValue, dc.OIChange1h, dc.OIChange4h, dc.FundingRate, dc.LSROldest, dc.LSRNewest, dc.TakerBuy15m))
+			}
+			if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" {
+				sb.WriteString("Hunter v7 execution rule: do not enter immediately; wait for the listed confirmations or directional trigger.\n")
+			}
+			sb.WriteString("\n")
+		}
+
 		// Show Hunter signal tags for AI context
 		if len(coin.SignalTags) > 0 && coin.Direction != "" {
 			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
@@ -483,6 +532,63 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	sb.WriteString("Now please analyze and output your decision (Chain of Thought + JSON)\n")
 
 	return sb.String()
+}
+
+func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
+	type v7SignalForAI struct {
+		Symbol                string                      `json:"symbol"`
+		Direction             string                      `json:"direction"`
+		SetupType             string                      `json:"setup_type"`
+		Status                string                      `json:"status"`
+		MarketRegime          string                      `json:"market_regime"`
+		EntryMode             string                      `json:"entry_mode"`
+		Confidence            string                      `json:"confidence"`
+		RiskLevel             string                      `json:"risk_level"`
+		AIPriority            float64                     `json:"ai_priority"`
+		SetupScore            float64                     `json:"setup_score"`
+		TimingScore           float64                     `json:"timing_score"`
+		RegimeFitScore        float64                     `json:"regime_fit_score"`
+		LiquidityScore        float64                     `json:"liquidity_score"`
+		RiskScore             float64                     `json:"risk_score"`
+		ReasonCodes           []string                    `json:"reason_codes"`
+		RiskTags              []string                    `json:"risk_tags"`
+		RequiredConfirmations []string                    `json:"required_confirmations"`
+		EntryZone             local.V7PriceZone           `json:"entry_zone"`
+		Invalidation          local.V7InvalidationRule    `json:"invalidation"`
+		Targets               []local.V7Target            `json:"targets"`
+		PriceContext          *local.V7PriceContext       `json:"price_context,omitempty"`
+		DerivativesContext    *local.V7DerivativesContext `json:"derivatives_context,omitempty"`
+	}
+
+	payload := v7SignalForAI{
+		Symbol:                coin.Symbol,
+		Direction:             coin.Direction,
+		SetupType:             coin.V7SetupType,
+		Status:                coin.V7Status,
+		MarketRegime:          coin.V7MarketRegime,
+		EntryMode:             coin.V7EntryMode,
+		Confidence:            coin.V7Confidence,
+		RiskLevel:             coin.V7RiskLevel,
+		AIPriority:            coin.V7AIPriority,
+		SetupScore:            coin.V7SetupScore,
+		TimingScore:           coin.V7TimingScore,
+		RegimeFitScore:        coin.V7RegimeFitScore,
+		LiquidityScore:        coin.V7LiquidityScore,
+		RiskScore:             coin.V7RiskScore,
+		ReasonCodes:           coin.V7ReasonCodes,
+		RiskTags:              coin.V7RiskTags,
+		RequiredConfirmations: coin.V7RequiredConfirms,
+		EntryZone:             coin.V7EntryZone,
+		Invalidation:          coin.V7Invalidation,
+		Targets:               coin.V7Targets,
+		PriceContext:          coin.V7PriceContext,
+		DerivativesContext:    coin.V7DerivativesCtx,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func (e *StrategyEngine) formatPositionInfo(index int, pos PositionInfo, ctx *Context) string {

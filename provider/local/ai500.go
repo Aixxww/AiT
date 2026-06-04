@@ -491,8 +491,11 @@ func (c *Client) fetchJSONParallel(url string, target interface{}) error {
 		resp, err := c.parallelClient.Get(url)
 		if err != nil {
 			if attempt < maxRetries && isRetryableNetError(err) {
-				backoff := time.Duration(300*(1<<attempt)) * time.Millisecond
-				time.Sleep(backoff)
+				base := time.Duration(300*(1<<attempt)) * time.Millisecond
+				// Add jitter to break synchronized retry waves when many
+				// goroutines fail simultaneously (e.g. CDN edge failure).
+				jitter := time.Duration(time.Now().UnixNano()%200) * time.Millisecond
+				time.Sleep(base + jitter)
 				continue
 			}
 			return fmt.Errorf("local: GET %s failed: %w", url, err)

@@ -251,7 +251,8 @@ func (c *Client) computeOISpike(symbol string, sc *SymbolCache) (float64, []stri
 }
 
 // computeSqueezeExplosionPillar combines BB Width squeeze and OI spike into Pillar E'.
-// Synergy bonus: if both signals fire, extra +5 points.
+// Also includes range_compression detection (volume accumulation + price contraction).
+// Synergy bonus: if both BB squeeze + OI spike fire, extra +5 points.
 // Returns: (score [0-25], tags).
 func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache) (float64, []string) {
 	bbScore, bbTags := c.computeBBWidthSqueeze(symbol, sc)
@@ -266,10 +267,90 @@ func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache) (
 		allTags = append(allTags, "squeeze_explosion_synergy")
 	}
 
+	// Range compression: volume accumulation + price range contraction
+	// Detects stealth institutional accumulation regardless of volatility regime.
+	// Uses existing 1H kline data from SymbolCache — zero extra API calls.
+	rcScore, rcTags := detectRangeCompression(sc)
+	if rcScore > 0 {
+		totalScore += rcScore
+		allTags = append(allTags, rcTags...)
+	}
+
 	if totalScore > 25 {
 		totalScore = 25
 	}
 	return totalScore, allTags
+}
+
+// detectRangeCompression detects stealth accumulation: volume stays active while
+// price range contracts. This catches institutional buying patterns that BB squeeze
+// misses — e.g., market makers absorbing sell pressure in a tight range during
+// high-volatility environments.
+//
+// Algorithm:
+//   - Compare recent 3 × 1H bars vs remaining history (1H, 20 bars)
+//   - If recent range < 60% of historical range (price contraction)
+//   - AND recent volume > 80% of historical volume (no demand collapse)
+//   - → range_compression detected, score +2
+//
+// This uses existing SymbolCache.Klines["1h"] data — no additional API calls.
+func detectRangeCompression(sc *SymbolCache) (float64, []string) {
+	if sc == nil {
+		return 0, nil
+	}
+	klines1h := sc.Klines["1h"]
+	if len(klines1h) < 10 {
+		return 0, nil
+	}
+
+	// Split: recent 3 bars vs history
+	const recentN = 3
+	if len(klines1h) <= recentN {
+		return 0, nil
+	}
+	recent := klines1h[len(klines1h)-recentN:]
+	history := klines1h[:len(klines1h)-recentN]
+
+	// Compute average range: (High - Low) / Close * 100
+	avgRange := func(bars []klineBar) float64 {
+		if len(bars) == 0 {
+			return 0
+		}
+		sum := 0.0
+		for _, b := range bars {
+			if b.Close > 0 {
+				sum += (b.High - b.Low) / b.Close * 100
+			}
+		}
+		return sum / float64(len(bars))
+	}
+
+	// Compute average volume
+	avgVol := func(bars []klineBar) float64 {
+		if len(bars) == 0 {
+			return 0
+		}
+		sum := 0.0
+		for _, b := range bars {
+			sum += b.Volume
+		}
+		return sum / float64(len(bars))
+	}
+
+	recentRange := avgRange(recent)
+	histRange := avgRange(history)
+	recentVol := avgVol(recent)
+	histVol := avgVol(history)
+
+	// Condition 1: price range contracted (< 60% of historical average)
+	rangeCompressed := histRange > 0 && recentRange < histRange*0.60
+	// Condition 2: volume not collapsed (> 80% of historical average)
+	volActive := histVol > 0 && recentVol > histVol*0.80
+
+	if rangeCompressed && volActive {
+		return 2, []string{"range_compression"}
+	}
+	return 0, nil
 }
 
 // findHighLow scans a kline slice and returns the highest high and lowest low.

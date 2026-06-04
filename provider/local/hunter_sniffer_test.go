@@ -111,20 +111,41 @@ func TestFilterLongAmbush_BlockedByScore(t *testing.T) {
 	}
 }
 
-func TestFilterLongAmbush_BlockedBySqueeze(t *testing.T) {
-	// Missing bb_squeeze_15m in LongTags
+func TestFilterLongAmbush_BlockedByCompression(t *testing.T) {
+	// No compression signals at all (oi_accumulation alone scores 2 = passes now)
+	// Use only non-compression tags to ensure Gate 2 blocks.
 	coin := makeCoin("BNBUSDT", "LONG", 40, 10,
-		[]string{"oi_accumulation", "near_support_4h"},
+		[]string{"near_support_4h"},
 		nil,
 	)
 	meta := makeMeta("LONG", 40, 10,
-		[]string{"oi_accumulation", "near_support_4h"},
+		[]string{"near_support_4h"},
 		nil,
 	)
 
 	result := filterLongAmbush(coin, meta)
 	if result != nil {
-		t.Errorf("expected LONG_AMBUSH to be blocked by squeeze, got %+v", result)
+		t.Errorf("expected LONG_AMBUSH to be blocked by compression, got %+v", result)
+	}
+}
+
+func TestFilterLongAmbush_PassWithOICompression(t *testing.T) {
+	// With the new elastic scoring, oi_accumulation (score=2) alone should pass Gate 2
+	coin := makeCoin("SOLUSDT", "LONG", 45, 10,
+		[]string{"oi_accumulation", "near_support_4h"},
+		nil,
+	)
+	meta := makeMeta("LONG", 45, 10,
+		[]string{"oi_accumulation", "near_support_4h"},
+		nil,
+	)
+
+	result := filterLongAmbush(coin, meta)
+	if result == nil {
+		t.Fatal("expected LONG_AMBUSH to pass with oi_accumulation compression signal")
+	}
+	if result.AmbushType != LongAmbush {
+		t.Errorf("expected AmbushType=LONG_AMBUSH, got %s", result.AmbushType)
 	}
 }
 
@@ -230,7 +251,8 @@ func TestFilterAmbushCandidates_MixedResults(t *testing.T) {
 			nil,
 			[]string{"bb_squeeze_15m", "oi_distribution"},
 		),
-		// Blocked: no squeeze
+		// LONG_AMBUSH should pass under flexible compression scoring:
+		// oi_accumulation contributes compression_score=2 even without BB squeeze.
 		makeCoin("SOLUSDT", "LONG", 30, 10,
 			[]string{"oi_accumulation"},
 			nil,
@@ -254,8 +276,8 @@ func TestFilterAmbushCandidates_MixedResults(t *testing.T) {
 	client := &Client{}
 	result := client.FilterAmbushCandidates(coins, coinMeta)
 
-	if len(result.LongAmbush) != 1 {
-		t.Errorf("expected 1 LongAmbush, got %d", len(result.LongAmbush))
+	if len(result.LongAmbush) != 2 {
+		t.Errorf("expected 2 LongAmbush, got %d", len(result.LongAmbush))
 	}
 	if len(result.ShortDist) != 1 {
 		t.Errorf("expected 1 ShortDist, got %d", len(result.ShortDist))
@@ -263,8 +285,8 @@ func TestFilterAmbushCandidates_MixedResults(t *testing.T) {
 	if result.Stats.TotalScanned != 3 {
 		t.Errorf("expected TotalScanned=3, got %d", result.Stats.TotalScanned)
 	}
-	if result.Stats.LongPassed != 1 {
-		t.Errorf("expected LongPassed=1, got %d", result.Stats.LongPassed)
+	if result.Stats.LongPassed != 2 {
+		t.Errorf("expected LongPassed=2, got %d", result.Stats.LongPassed)
 	}
 	if result.Stats.ShortPassed != 1 {
 		t.Errorf("expected ShortPassed=1, got %d", result.Stats.ShortPassed)

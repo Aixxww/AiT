@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
+- Hunter v7 live validation command (`cmd/hunter_v7_validate`) and real-time validation report
 - Hunter bidirectional coin selection: simultaneous LONG and SHORT signal output
 - Hunter R7 live analysis report (2026-05-23) with BOTH direction scoring
 - Hunter evaluation report for UNIUSDT (2026-05-23)
@@ -25,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Wired `hunter_v7` into the unified SnapshotEngine hot-snapshot path
+- Improved Binance snapshot HTTP proxy handling and corrected 24h price-change percentage parsing
 - Reorganized documentation structure into logical categories
 - Updated all README files with proper navigation links
 - Replaced all NOFX branding with AiT across documentation (50+ files)

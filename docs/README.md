@@ -98,6 +98,8 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 
 | Document | Description | 描述 |
 |----------|-------------|------|
+| [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
+| [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md) | Live JSON/prompt validation for v7 | v7 实时 JSON、Prompt 识别、机会覆盖验证 |
 | [R7 实测报告](hunter-r7-live-analysis-20260523.md) | 双向选币首次实测 (LONG+SHORT) | 首轮双向信号分析 |
 | [R6 实测报告](hunter-r6-live-analysis-20260522.md) | v6 宁缺勿滥 + OI 门控 | 增强过滤逻辑 |
 | [R5 实测报告](hunter-r5-live-analysis-20260522.md) | v4 回测优化后首次实测 | 优化后效果验证 |

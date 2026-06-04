@@ -168,21 +168,21 @@ type AutoTrader struct {
 	lastResetTime         time.Time
 	stopUntil             time.Time
 	isRunning             bool
-	isRunningMutex        sync.RWMutex       // Mutex to protect isRunning flag
-	startTime             time.Time          // System start time
-	callCount             int                // AI call count
-	positionFirstSeenTime map[string]int64   // Position first seen time (symbol_side -> timestamp in milliseconds)
-	stopMonitorCh         chan struct{}      // Used to stop monitoring goroutine
-	monitorWg             sync.WaitGroup     // Used to wait for monitoring goroutine to finish
-	peakPnLCache          map[string]float64 // Peak profit cache (symbol -> peak P&L percentage)
-	peakPnLCacheMutex     sync.RWMutex       // Cache read-write lock
-	lastBalanceSyncTime   time.Time          // Last balance sync time
-	userID                string             // User ID
-	gridState             *GridState         // Grid trading state (only used when StrategyType == "grid_trading")
-	claw402WalletAddr     string             // Claw402 wallet address (derived from private key at start)
-	consecutiveAIFailures int                // Consecutive AI call failures
-	safeMode              bool               // Safe mode: no new positions, protect existing ones
-	safeModeReason        string             // Why safe mode was activated
+	isRunningMutex        sync.RWMutex           // Mutex to protect isRunning flag
+	startTime             time.Time              // System start time
+	callCount             int                    // AI call count
+	positionFirstSeenTime map[string]int64       // Position first seen time (symbol_side -> timestamp in milliseconds)
+	stopMonitorCh         chan struct{}          // Used to stop monitoring goroutine
+	monitorWg             sync.WaitGroup         // Used to wait for monitoring goroutine to finish
+	peakPnLCache          map[string]float64     // Peak profit cache (symbol -> peak P&L percentage)
+	peakPnLCacheMutex     sync.RWMutex           // Cache read-write lock
+	lastBalanceSyncTime   time.Time              // Last balance sync time
+	userID                string                 // User ID
+	gridState             *GridState             // Grid trading state (only used when StrategyType == "grid_trading")
+	claw402WalletAddr     string                 // Claw402 wallet address (derived from private key at start)
+	consecutiveAIFailures int                    // Consecutive AI call failures
+	safeMode              bool                   // Safe mode: no new positions, protect existing ones
+	safeModeReason        string                 // Why safe mode was activated
 	snapshotEngine        *kernel.SnapshotEngine // Unified IndicatorHub engine (nil = legacy mode)
 }
 
@@ -375,7 +375,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	coinSrc := config.StrategyConfig.CoinSource
 	needSnapshot := coinSrc.UseIndicatorHub ||
 		coinSrc.SourceType == "hunter" || coinSrc.SourceType == "hunter_sniff" ||
-		coinSrc.SourceType == "ai500"
+		coinSrc.SourceType == "hunter_v7" || coinSrc.SourceType == "ai500"
 	if needSnapshot {
 		hubCfg := engine.DefaultHubConfig()
 		ihCfg := coinSrc.IndicatorHub // may be nil for Hunter/AI500-only mode
