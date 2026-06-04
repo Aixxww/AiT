@@ -988,15 +988,6 @@ func (c *StrategyConfig) getEffectiveCoinCount() int {
 		if c.CoinSource.UseSquareHeat {
 			count += c.CoinSource.SquareHeatLimit
 		}
-		if c.CoinSource.UseAI500 {
-			count += c.CoinSource.AI500Limit
-		}
-		if c.CoinSource.UseOITop {
-			count += c.CoinSource.OITopLimit
-		}
-		if c.CoinSource.UseOILow {
-			count += c.CoinSource.OILowLimit
-		}
 	default:
 		count = c.CoinSource.AI500Limit
 	}

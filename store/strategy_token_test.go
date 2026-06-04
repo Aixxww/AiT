@@ -109,4 +109,19 @@ func TestGetEffectiveCoinCount(t *testing.T) {
 	if got := config.getEffectiveCoinCount(); got != 5 {
 		t.Errorf("ai500 coin count = %d, want 5", got)
 	}
+
+	config.CoinSource = CoinSourceConfig{
+		SourceType:      "mixed",
+		UseAI500:        true,
+		AI500Limit:      3,
+		UseOITop:        true,
+		OITopLimit:      4,
+		UseOILow:        true,
+		OILowLimit:      2,
+		UseSquareHeat:   true,
+		SquareHeatLimit: 5,
+	}
+	if got := config.getEffectiveCoinCount(); got != 14 {
+		t.Errorf("mixed coin count = %d, want 14", got)
+	}
 }

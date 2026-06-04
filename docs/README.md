@@ -15,14 +15,11 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | [Main README](../README.md) | Project overview, features, quick start | 项目概述、功能、快速入门 |
 | [Getting Started Index (EN)](getting-started/README.md) | All deployment options | 所有部署选项 |
 | [Getting Started Index (中文)](getting-started/README.zh-CN.md) | 所有部署选项 | All deployment options |
-| [Docker Deployment (EN)](getting-started/docker-deploy.en.md) | Deploy with Docker (recommended) | Docker 部署（推荐） |
-| [Docker Deployment (中文)](getting-started/docker-deploy.zh-CN.md) | Docker 部署指南（中文） | Docker deployment guide |
 | [Custom API (EN)](getting-started/custom-api.en.md) | Connect custom AI API providers | 连接自定义 AI API |
 | [Custom API (中文)](getting-started/custom-api.md) | 连接自定义 AI API 提供商 | Custom AI provider guide |
 
 **Quick Links:**
 - 📖 See all options → [Getting Started](getting-started/README.md) / [快速开始](getting-started/README.zh-CN.md)
-- 🐳 Want easiest setup? → [Docker (EN)](getting-started/docker-deploy.en.md) / [Docker (中文)](getting-started/docker-deploy.zh-CN.md)
 - 🤖 Custom AI model? → [Custom API (EN)](getting-started/custom-api.en.md) / [自定义 API](getting-started/custom-api.md)
 
 ---
@@ -49,32 +46,13 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 
 | Document | Description | 描述 |
 |----------|-------------|------|
-| [Code of Conduct](../CODE_OF_CONDUCT.md) | Community guidelines | 社区行为准则 |
 | [Security Policy](../SECURITY.md) | Report security vulnerabilities | 报告安全漏洞 |
-| [Bounty Guide](community/bounty-guide.md) | How to post bounty tasks | 如何发布悬赏任务 |
-| [Hyperliquid Bounty](community/bounty-hyperliquid.md) | Hyperliquid integration bounty | Hyperliquid 集成悬赏 |
-| [Aster Bounty](community/bounty-aster.md) | Aster DEX integration bounty | Aster DEX 集成悬赏 |
+| [Git Workflow](Git工作流规范.md) | Repository workflow and Git conventions | Git 工作流规范 |
 
 **Get Involved:**
 - 💬 [Telegram Community](https://t.me/nofx_dev_community)
 - 🐦 [Twitter @nofx_official](https://x.com/nofx_official)
 - 🐛 [Report Issues](https://github.com/Aixxww/AiT/issues)
-
----
-
-## 🌍 International / 国际化文档
-
-**Documentation in other languages**
-
-| Language | Main README | Status |
-|----------|-------------|--------|
-| 🇨🇳 Chinese (中文) | [README.md](i18n/zh-CN/README.md) | ✅ Complete |
-| 🇷🇺 Russian (Русский) | [README.md](i18n/ru/README.md) | ✅ Complete |
-| 🇺🇦 Ukrainian (Українська) | [README.md](i18n/uk/README.md) | ✅ Complete |
-| 🇯🇵 Japanese | [README.md](i18n/ja/README.md) | ✅ Complete |
-| 🇻🇳 Vietnamese | [README.md](i18n/vi/README.md) | ✅ Complete |
-| 🇰🇷 Korean | [README.md](i18n/ko/README.md) | ✅ Complete |
-| 🇬🇧 English | [README.md](../README.md) | ✅ Complete |
 
 ---
 
@@ -100,13 +78,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 |----------|-------------|------|
 | [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
 | [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md) | Live JSON/prompt validation for v7 | v7 实时 JSON、Prompt 识别、机会覆盖验证 |
-| [R7 实测报告](hunter-r7-live-analysis-20260523.md) | 双向选币首次实测 (LONG+SHORT) | 首轮双向信号分析 |
-| [R6 实测报告](hunter-r6-live-analysis-20260522.md) | v6 宁缺勿滥 + OI 门控 | 增强过滤逻辑 |
-| [R5 实测报告](hunter-r5-live-analysis-20260522.md) | v4 回测优化后首次实测 | 优化后效果验证 |
-| [回测报告](hunter-backtest-report-20260521.md) | 7天420样本回测 | t=6.367, p=0.001 |
-| [主策略文档](hunter-master-strategy.md) | 策略设计总览 | 信号体系与权重 |
-| [Agent 可行性分析](hunter-agent-feasibility.md) | 自进化 Agent 方案 | 技术路线评估 |
-| [Sniper 策略配置](hunter-sniper-strategy-v1.md) | 狙击策略 v1 | 精确入场方案 |
+| [Sniffer Gate 2 优化方案](sniffer-optimization-plan.md) | Flexible compression scoring plan for Sniffer Gate 2 | Sniffer Gate 2 弹性压缩评分优化方案 |
 
 ---
 
@@ -134,7 +106,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | [Changelog (EN)](../CHANGELOG.md) | Version history and updates | 版本历史和更新 |
 | [Changelog (中文)](../CHANGELOG.zh-CN.md) | 版本历史和更新 | Version history and updates |
 | [Security Policy](../SECURITY.md) | Vulnerability disclosure | 漏洞披露政策 |
-| [Code of Conduct](../CODE_OF_CONDUCT.md) | Community standards | 社区标准 |
+| [Git Workflow](Git工作流规范.md) | Repository workflow and conventions | Git 工作流规范 |
 
 ---
 
@@ -147,10 +119,9 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 - 🐛 **Report a bug** → [GitHub Issues](https://github.com/Aixxww/AiT/issues/new)
 - 💡 **Suggest a feature** → [Feature Request](https://github.com/Aixxww/AiT/issues/new?template=feature_request.md)
 - 🔒 **Report security issue** → [Security Policy](../SECURITY.md)
-- 💰 **Claim a bounty** → [Bounty Guide](community/bounty-guide.md)
-- 🤝 **Contribute code** → [Contributing Guide](../CONTRIBUTING.md)
+- 🤝 **Contribute code** → [Git Workflow](Git工作流规范.md)
 - 💬 **Ask questions** → [Telegram Community](https://t.me/nofx_dev_community)
-- 🔍 **Hunter 分析报告** → [Hunter 实测分析](hunter-r7-live-analysis-20260523.md)
+- 🔍 **Hunter 分析报告** → [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md)
 
 ### I'm looking for...
 - 🏗️ **System architecture** → [Architecture (EN)](architecture/README.md) / [架构文档](architecture/README.zh-CN.md)
@@ -158,7 +129,6 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 - 📊 **API documentation** → Coming soon
 - 🧪 **Testing guide** → Coming soon
 - 🔧 **Configuration examples** → [Custom API (EN)](getting-started/custom-api.en.md) / [自定义 API](getting-started/custom-api.md)
-- 🌐 **Multi-language docs** → [International section](#-international--国际化文档)
 
 ---
 
@@ -199,7 +169,7 @@ Found an error or want to improve the docs?
 
 1. **Small fixes** - Click "Edit" on GitHub and submit PR
 2. **New documentation** - Create an issue first to discuss
-3. **Translations** - See [Contributing Guide](../CONTRIBUTING.md)
+3. **Translations** - Follow the repository workflow in [Git Workflow](Git工作流规范.md)
 
 **Documentation Contributors:**
 - All documentation follows [Markdown Guide](https://www.markdownguide.org/)

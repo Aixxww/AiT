@@ -2,8 +2,8 @@ package main
 
 import (
 	"log/slog"
-	"nofx/api"
 	nofxiagent "nofx/agent"
+	"nofx/api"
 	"nofx/auth"
 	"nofx/backtest"
 	"nofx/config"
@@ -87,13 +87,13 @@ func main() {
 	auth.SetJWTSecret(cfg.JWTSecret)
 	logger.Info("🔑 JWT secret configured")
 
-	// WebSocket market monitor is NO LONGER USED
-	// All K-line data now comes from CoinAnk API instead of Binance WebSocket cache
-	// Commented out to reduce unnecessary connections:
+	// Legacy WebSocket market monitor is not started from main.
+	// Market data is fetched from Binance first with CoinAnk fallback; SnapshotStore/WS
+	// data sources are managed by trader datafetch components.
 	// go market.NewWSMonitor(150).Start(nil)
 	// logger.Info("📊 WebSocket market monitor started")
 	// time.Sleep(500 * time.Millisecond)
-	logger.Info("📊 Using CoinAnk API for all market data (WebSocket cache disabled)")
+	logger.Info("📊 Market data source: Binance first, CoinAnk fallback; trader SnapshotStore/WS managed separately")
 
 	// Create TraderManager
 	traderManager := manager.NewTraderManager()
@@ -126,10 +126,10 @@ func main() {
 				status = "✅ Running"
 			}
 			idShort := t.ID
-		if len(idShort) > 8 {
-			idShort = idShort[:8]
-		}
-		logger.Infof("  • %s [%s] %s - AI Model: %s, Exchange: %s",
+			if len(idShort) > 8 {
+				idShort = idShort[:8]
+			}
+			logger.Infof("  • %s [%s] %s - AI Model: %s, Exchange: %s",
 				t.Name, idShort, status, t.AIModelID, t.ExchangeID)
 		}
 	}
@@ -190,4 +190,3 @@ func newSharedMCPClient() mcp.AIClient {
 	}
 	return mcp.NewAIClientByProvider("deepseek")
 }
-

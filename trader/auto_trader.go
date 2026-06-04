@@ -708,7 +708,7 @@ func (at *AutoTrader) GetCandidateCoins() ([]kernel.CandidateCoin, error) {
 	if at.strategyEngine == nil {
 		return nil, fmt.Errorf("strategy engine not configured")
 	}
-	return at.strategyEngine.GetCandidateCoins()
+	return at.strategyEngine.GetCandidateCoinsWithSnapshot()
 }
 
 // GetStrategyConfig returns the current strategy config used by the trader.

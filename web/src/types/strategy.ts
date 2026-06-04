@@ -88,7 +88,7 @@ export interface GridStrategyConfig {
 }
 
 export interface CoinSourceConfig {
-  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'hunter' | 'hunter_sniff' | 'indicator_hub' | 'mixed';
+  source_type: 'static' | 'ai500' | 'oi_top' | 'oi_low' | 'square_heat' | 'hunter' | 'hunter_sniff' | 'hunter_v7' | 'indicator_hub' | 'mixed';
   static_coins?: string[];
   excluded_coins?: string[];   // 排除的币种列表
   use_ai500: boolean;
@@ -147,6 +147,10 @@ export interface HunterConfig {
   bb_width_coarse_filter?: number;
   bb_width_cache_ttl?: number;
   oi_lone_breaker_threshold?: number;
+  // Hunter v7 Signal Router fields
+  v7_max_output?: number;
+  v7_min_ai_priority?: number;
+  v7_aggressive?: boolean;
 }
 
 export interface IndicatorConfig {

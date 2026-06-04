@@ -239,8 +239,21 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 		var data *market.Data
 		var err error
 
+		if engine.GetSnapshotEngine() != nil {
+			// Prefer the shared SnapshotStore used by SnapshotEngine/Hunter v7.
+			// This keeps AI prompt construction from re-fetching candidate market
+			// data that was already collected for scoring.
+			data, err = buildMarketDataFromSnapshot(engine, coin.Symbol, timeframes, primaryTimeframe, klineCount)
+			if err != nil {
+				logger.Infof("⚠️  Snapshot data unavailable for %s, trying pre-fetched/fallback path: %v", coin.Symbol, err)
+				data = nil
+			} else {
+				logger.Infof("✅ %s: using SnapshotStore market data", coin.Symbol)
+			}
+		}
+
 		// Try Hunter pre-fetched klines first (avoids duplicate Binance API calls)
-		if coin.PreFetchedData != nil && len(coin.PreFetchedData.TimeframeKlines) > 0 {
+		if data == nil && coin.PreFetchedData != nil && len(coin.PreFetchedData.TimeframeKlines) > 0 {
 			data, err = market.BuildDataFromPreFetched(coin.Symbol, coin.PreFetchedData, timeframes, primaryTimeframe, klineCount)
 			if err != nil {
 				logger.Infof("⚠️  Pre-fetched data failed for %s, falling back to Binance: %v", coin.Symbol, err)
@@ -300,6 +313,27 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 
 	logger.Infof("📊 Successfully fetched multi-timeframe market data for %d coins", len(ctx.MarketDataMap))
 	return nil
+}
+
+func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timeframes []string, primaryTimeframe string, klineCount int) (*market.Data, error) {
+	if engine == nil || engine.GetSnapshotEngine() == nil {
+		return nil, fmt.Errorf("snapshot engine not configured")
+	}
+	snap := engine.GetSnapshotEngine().GetSnapshot()
+	if snap == nil || len(snap.Symbols) == 0 {
+		return nil, fmt.Errorf("snapshot is empty")
+	}
+
+	normalized := market.Normalize(symbol)
+	ss := snap.Symbols[normalized]
+	if ss == nil {
+		ss = snap.Symbols[symbol]
+	}
+	if ss == nil {
+		return nil, fmt.Errorf("%s not found in snapshot", normalized)
+	}
+
+	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount)
 }
 
 // ============================================================================

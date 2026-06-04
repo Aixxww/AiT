@@ -271,7 +271,7 @@ When releasing a new version, move [Unreleased] items to a new version section w
 ## Links
 
 - [Documentation](docs/README.md)
-- [Contributing Guidelines](CONTRIBUTING.md)
+- [Git Workflow](docs/Git工作流规范.md)
 - [Security Policy](SECURITY.md)
 - [GitHub Repository](https://github.com/Aixxww/AiT)
 

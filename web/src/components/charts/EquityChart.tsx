@@ -268,8 +268,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
 
         {/* Display Mode Toggle */}
         <div
-          className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto"
-          className="bg-background border border-border"
+          className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto bg-background border border-border"
         >
           <button
             onClick={() => setDisplayMode('dollar')}
@@ -394,12 +393,10 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
 
       {/* Footer Stats */}
       <div
-        className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3"
-        className="border-t border-border"
+        className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 border-t border-border"
       >
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
-          className="bg-primary-dim"
+          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
         >
           <div
             className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
@@ -413,8 +410,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
-          className="bg-primary-dim"
+          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
         >
           <div
             className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
@@ -428,8 +424,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
-          className="bg-primary-dim"
+          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
         >
           <div
             className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
@@ -443,8 +438,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
-          className="bg-primary-dim"
+          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
         >
           <div
             className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"

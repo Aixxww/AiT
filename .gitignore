@@ -144,6 +144,16 @@ coinselect_results.json
 
 PR_DESCRIPTION.md
 
+# Generated Hunter validation artifacts
+reports/hunter-v7-live-prompt-*.txt
+reports/hunter-v7-live-validation-raw-*.json
+reports/hunter-v7-live-validation-report-*.md
+reports/hunter-live-analysis-*.json
+reports/hunter-live-analysis-*.md
+hunter_live_result.json
+hunter_live_analysis_*.md
+hunter_round*_analysis_*.md
+
 # Go build artifacts
 /nofx-server
 .pids/

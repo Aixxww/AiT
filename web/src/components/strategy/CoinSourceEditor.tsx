@@ -28,6 +28,7 @@ export function CoinSourceEditor({
     { value: 'square_heat', icon: Flame, color: '#FF6A00' },
     { value: 'hunter', icon: Crosshair, color: '#A855F7' },
     { value: 'hunter_sniff', icon: Radar, color: '#E879F9' },
+    { value: 'hunter_v7', icon: Zap, color: '#22D3EE' },
     { value: 'indicator_hub', icon: Activity, color: '#3B82F6' },
   ] as const
 
@@ -792,6 +793,134 @@ export function CoinSourceEditor({
 
             <p className="text-xs pl-8 text-muted-foreground">
               {ts(coinSource.hunterDesc, language)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Hunter v7 Options - only for hunter_v7 mode */}
+      {config.source_type === 'hunter_v7' && (
+        <div className="p-4 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-medium text-ait-text">
+                {ts(coinSource.hunter_v7, language)} {ts(coinSource.dataSourceConfig, language)}
+              </span>
+              <BinanceBadge />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {ts(coinSource.hunterLimit, language)}:
+              </span>
+              <AiTSelect
+                value={config.hunter_limit || 10}
+                onChange={(val) =>
+                  !disabled &&
+                  onChange({ ...config, hunter_limit: parseInt(val) || 10 })
+                }
+                disabled={disabled}
+                options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {ts(coinSource.hunterDirection, language)}:
+              </span>
+              <AiTSelect
+                value={config.hunter_direction || 'BOTH'}
+                onChange={(val) =>
+                  !disabled &&
+                  onChange({ ...config, hunter_direction: val as 'LONG' | 'SHORT' | 'BOTH' })
+                }
+                disabled={disabled}
+                options={[
+                  { value: 'BOTH', label: ts(coinSource.hunterDirectionBoth, language) },
+                  { value: 'LONG', label: ts(coinSource.hunterDirectionLong, language) },
+                  { value: 'SHORT', label: ts(coinSource.hunterDirectionShort, language) },
+                ]}
+                className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {ts(coinSource.v7MaxOutput, language)}:
+                </span>
+                <AiTSelect
+                  value={config.hunter_config?.v7_max_output || 30}
+                  onChange={(val) =>
+                    !disabled &&
+                    onChange({
+                      ...config,
+                      hunter_config: {
+                        ...(config.hunter_config || {}),
+                        v7_max_output: parseInt(val) || 30,
+                      },
+                    })
+                  }
+                  disabled={disabled}
+                  options={[10, 20, 30, 40, 50, 75].map(n => ({ value: n, label: String(n) }))}
+                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {ts(coinSource.v7MinAIPriority, language)}:
+                </span>
+                <AiTSelect
+                  value={String(config.hunter_config?.v7_min_ai_priority || 55)}
+                  onChange={(val) =>
+                    !disabled &&
+                    onChange({
+                      ...config,
+                      hunter_config: {
+                        ...(config.hunter_config || {}),
+                        v7_min_ai_priority: Number(val) || 55,
+                      },
+                    })
+                  }
+                  disabled={disabled}
+                  options={[40, 45, 50, 55, 60, 65, 70].map(n => ({ value: String(n), label: String(n) }))}
+                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.hunter_config?.v7_aggressive || false}
+                onChange={(e) =>
+                  !disabled &&
+                  onChange({
+                    ...config,
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      v7_aggressive: e.target.checked,
+                    },
+                  })
+                }
+                disabled={disabled}
+                className="w-5 h-5 rounded accent-cyan-500"
+              />
+              <span className="text-sm text-ait-text">
+                {ts(coinSource.v7Aggressive, language)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {ts(coinSource.v7AggressiveDesc, language)}
+              </span>
+            </label>
+
+            <p className="text-xs text-muted-foreground">
+              {ts(coinSource.hunter_v7Desc, language)}
             </p>
           </div>
         </div>

@@ -376,7 +376,7 @@ AiT/
 
 欢迎提交 Issue 和 Pull Request。
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md) · [安全策略](SECURITY.md)
+详见 [Git 工作流规范](docs/Git工作流规范.md) · [安全策略](SECURITY.md)
 
 ---
 
