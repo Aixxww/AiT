@@ -69,6 +69,11 @@ type FuturesTrader struct {
 	cacheDuration time.Duration
 }
 
+const (
+	binanceTimestampSafetyOffsetMs = int64(1500)
+	binanceSignedRequestRecvWindow = int64(10000)
+)
+
 // NewFuturesTrader creates futures trader
 func NewFuturesTrader(apiKey, secretKey string, userId string, proxyURL ...string) *FuturesTrader {
 	client := futures.NewClient(apiKey, secretKey)
@@ -181,9 +186,24 @@ func syncBinanceServerTime(client *futures.Client) {
 	}
 
 	now := time.Now().UnixMilli()
-	offset := now - serverTime
+	rawOffset := now - serverTime
+	offset := rawOffset + binanceTimestampSafetyOffsetMs
 	client.TimeOffset = offset
-	logger.Infof("⏱ Binance server time synced, offset %dms", offset)
+	logger.Infof("⏱ Binance server time synced, raw_offset=%dms, applied_offset=%dms", rawOffset, offset)
+}
+
+func (t *FuturesTrader) resyncBinanceServerTime() {
+	syncBinanceServerTime(t.client)
+}
+
+func isBinanceTimestampError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "code=-1021") ||
+		strings.Contains(msg, "Timestamp for this request") ||
+		strings.Contains(msg, "outside of the recvWindow")
 }
 
 // Helper functions

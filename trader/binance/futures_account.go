@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/trader/types"
+	"github.com/adshao/go-binance/v2/futures"
 	"strconv"
 	"time"
 )
@@ -23,7 +24,12 @@ func (t *FuturesTrader) GetBalance() (map[string]interface{}, error) {
 
 	// Cache expired or doesn't exist, call API
 	logger.Infof("🔄 Cache expired, calling Binance API to get account balance...")
-	account, err := t.client.NewGetAccountService().Do(context.Background())
+	account, err := t.client.NewGetAccountService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	if isBinanceTimestampError(err) {
+		logger.Infof("⏱ Binance timestamp error while getting account balance, re-syncing server time and retrying once: %v", err)
+		t.resyncBinanceServerTime()
+		account, err = t.client.NewGetAccountService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	}
 	if err != nil {
 		logger.Infof("❌ Binance API call failed: %v", err)
 		return nil, fmt.Errorf("failed to get account info: %w", err)

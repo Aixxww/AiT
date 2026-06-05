@@ -44,7 +44,7 @@ export interface StrategyConfig {
   // Language setting: "zh" for Chinese, "en" for English
   // Determines the language used for data formatting and prompt generation
   language?: 'zh' | 'en';
-  prompt_compact_mode?: 'off' | 'hunter_v7_only' | 'all_candidates' | 'auto';
+  prompt_compact_mode?: 'off' | 'current_source' | 'hunter_v7_only' | 'all_candidates' | 'auto';
   coin_source: CoinSourceConfig;
   indicators: IndicatorConfig;
   custom_prompt?: string;

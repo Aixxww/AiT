@@ -53,24 +53,10 @@ load_env() {
     fi
 }
 
-# ─── Env var migration (AIT_ → AIT_) ─────────────────────────
-migrate_env_prefix() {
-    local env_file="$PROJECT_DIR/.env"
-    [[ -f "$env_file" ]] || return 0
-
-    if grep -q "^AIT_" "$env_file" 2>/dev/null; then
-        info "Migrating AIT_ → AIT_ prefix in .env..."
-        local tmp
-        tmp=$(sed 's/^AIT_/AIT_/g' "$env_file")
-        echo "$tmp" > "$env_file"
-        ok "Environment variables migrated"
-    fi
-}
-
 # ─── Port config ───────────────────────────────────────────────
-BACKEND_PORT="${AIT_BACKEND_PORT:-${AIT_BACKEND_PORT:-8080}}"
-FRONTEND_PORT="${AIT_FRONTEND_PORT:-${AIT_FRONTEND_PORT:-3000}}"
-TIMEZONE="${AIT_TIMEZONE:-${AIT_TIMEZONE:-Asia/Shanghai}}"
+BACKEND_PORT="${AIT_BACKEND_PORT:-8080}"
+FRONTEND_PORT="${AIT_FRONTEND_PORT:-3000}"
+TIMEZONE="${AIT_TIMEZONE:-Asia/Shanghai}"
 
 # ─── Process Management ───────────────────────────────────────
 save_pid() {
@@ -486,9 +472,6 @@ show_help() {
 main() {
     local mode="${1:-dev}"
     local cmd="${2:-start}"
-
-    # Migrate old env prefix
-    migrate_env_prefix
 
     case "$mode" in
         dev|development)

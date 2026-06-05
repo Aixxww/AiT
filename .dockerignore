@@ -16,8 +16,8 @@ docker-compose.yml
 *~
 
 # Build artifacts
-nofx
-nofx_test
+ait
+ait_test
 *.exe
 *.dll
 *.so

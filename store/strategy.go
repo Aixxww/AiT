@@ -106,8 +106,8 @@ type StrategyConfig struct {
 	// language setting: "zh" for Chinese, "en" for English
 	// This determines the language used for data formatting and prompt generation
 	Language string `json:"language,omitempty"`
-	// prompt compaction: "off" | "hunter_v7_only" | "all_candidates" | "auto"
-	// Empty defaults to "hunter_v7_only" for backward compatibility.
+	// prompt compaction: "off" | "current_source" | "hunter_v7_only" | "all_candidates" | "auto"
+	// Empty defaults to "current_source"; "hunter_v7_only" is kept as a legacy alias.
 	PromptCompactMode string `json:"prompt_compact_mode,omitempty"`
 	// coin source configuration
 	CoinSource CoinSourceConfig `json:"coin_source"`
@@ -433,7 +433,7 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 
 	config := StrategyConfig{
 		Language:          normalizedLang,
-		PromptCompactMode: "hunter_v7_only",
+		PromptCompactMode: "current_source",
 		CoinSource: CoinSourceConfig{
 			SourceType: "ai500",
 			UseAI500:   true,
@@ -971,17 +971,19 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 func (c *StrategyConfig) usesCompactPromptEstimate(numCoins, numTimeframes, klineCount int) bool {
 	mode := c.PromptCompactMode
 	if mode == "" {
-		mode = "hunter_v7_only"
+		mode = "current_source"
 	}
 	switch mode {
 	case "off":
 		return false
+	case "current_source", "hunter_v7_only":
+		return true
 	case "all_candidates":
 		return true
 	case "auto":
 		return c.CoinSource.SourceType == "hunter_v7" || numCoins*numTimeframes*klineCount >= 600
 	default:
-		return c.CoinSource.SourceType == "hunter_v7"
+		return true
 	}
 }
 

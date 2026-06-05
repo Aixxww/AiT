@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var snapshotReadyTimeout = 30 * time.Second
+var snapshotReadyTimeout = 3 * time.Minute
 
 // ============================================================================
 // Type Definitions

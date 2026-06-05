@@ -670,12 +670,14 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 func (e *StrategyEngine) shouldCompactCandidatePrompt(coin CandidateCoin, ctx *Context) bool {
 	mode := e.config.PromptCompactMode
 	if mode == "" {
-		mode = "hunter_v7_only"
+		mode = "current_source"
 	}
 
 	switch mode {
 	case "off":
 		return false
+	case "current_source", "hunter_v7_only":
+		return true
 	case "all_candidates":
 		return true
 	case "auto":
@@ -695,7 +697,7 @@ func (e *StrategyEngine) shouldCompactCandidatePrompt(coin CandidateCoin, ctx *C
 		}
 		return len(ctx.CandidateCoins)*timeframeCount*klineCount >= 600
 	default:
-		return coin.V7SetupType != ""
+		return true
 	}
 }
 

@@ -8,13 +8,10 @@
 CLAUDE.md
 
 # 编译产物
-nofx-auto
 *.exe
-nofx
 ait
 main
 ait-server
-nofx_test
 coinselect
 /engine_eval
 /livetest
@@ -51,7 +48,6 @@ data/
 
 # 决策日志
 decision_logs/
-nofx_test
 
 # Node.js
 web/node_modules/
@@ -155,6 +151,5 @@ hunter_live_analysis_*.md
 hunter_round*_analysis_*.md
 
 # Go build artifacts
-/nofx-server
 .pids/
 .logs/

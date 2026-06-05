@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-This directory contains the GitHub Actions workflows for the NOFX project.
+This directory contains the GitHub Actions workflows for the AIT project.
 
 ## 📚 Documentation Index
 

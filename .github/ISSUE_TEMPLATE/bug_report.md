@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug to help us improve NOFX
+about: Report a bug to help us improve AIT
 title: '[BUG] '
 labels: bug
 assignees: ''
@@ -65,9 +65,9 @@ docker compose logs -f backend
 
 **Manual/PM2 users:**
 ```bash
-# Terminal output where you ran: ./nofx
+# Terminal output where you ran: ./ait
 # OR PM2 logs:
-pm2 logs nofx --lines 100
+pm2 logs ait --lines 100
 ```
 
 **Backend Log Output:**
@@ -95,7 +95,7 @@ Paste backend logs here (last 50-100 lines around the error)
 
 **Backend:**
 - **Go Version:** [run: `go version`]
-- **NOFX Version:** [run: `git log -1 --oneline` or check release tag]
+- **AIT Version:** [run: `git log -1 --oneline` or check release tag]
 
 **Frontend:**
 - **Browser:** [e.g. Chrome 120, Firefox 121, Safari 17]
@@ -164,4 +164,4 @@ Paste backend logs here (last 50-100 lines around the error)
 **For UI Issues:**
 7. ✅ Hard refresh: Ctrl+Shift+R (or Cmd+Shift+R on Mac)
 8. ✅ Check browser console (F12) for errors
-9. ✅ Verify backend is running: `docker compose ps` or `ps aux | grep nofx`
+9. ✅ Verify backend is running: `docker compose ps` or `ps aux | grep ait`

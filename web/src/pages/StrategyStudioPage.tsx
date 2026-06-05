@@ -569,7 +569,8 @@ export function StrategyStudioPage() {
     }
   }
 
-  const tr = (key: string) => t(`strategyStudio.${key}`, language)
+  const tr = (key: string, params?: Record<string, string | number>) =>
+    t(`strategyStudio.${key}`, language, params)
 
   if (isLoading) {
     return (
@@ -586,6 +587,29 @@ export function StrategyStudioPage() {
 
   // Get current strategy type (default to ai_trading if not set)
   const currentStrategyType = editingConfig?.strategy_type || 'ai_trading'
+  const currentCoinSourceType = editingConfig?.coin_source?.source_type || 'static'
+  const compactModeValue =
+    editingConfig?.prompt_compact_mode === 'hunter_v7_only'
+      ? 'current_source'
+      : editingConfig?.prompt_compact_mode || 'current_source'
+  const coinSourceLabelMap: Record<string, Record<typeof language, string>> = {
+    static: { en: 'Static List', zh: '静态列表', id: 'Static List' },
+    ai500: { en: 'AI500 Local Snapshot Pool', zh: 'AI500 本地快照池', id: 'Pool Snapshot AI500' },
+    oi_top: { en: 'OI Increase', zh: 'OI 持仓增加', id: 'OI Naik' },
+    oi_low: { en: 'OI Decrease', zh: 'OI 持仓减少', id: 'OI Turun' },
+    square_heat: { en: 'Square Heat', zh: '广场热度', id: 'Square Heat' },
+    hunter: { en: 'Hunter', zh: '猎手选币', id: 'Hunter' },
+    hunter_sniff: { en: 'Hunter Sniff', zh: '庄家嗅探', id: 'Hunter Sniff' },
+    hunter_v7: { en: 'Hunter v7', zh: '猎手 v7', id: 'Hunter v7' },
+    indicator_hub: { en: 'Indicator Hub', zh: '多因子引擎', id: 'Indicator Hub' },
+    mixed: { en: 'Mixed Mode', zh: '混合模式', id: 'Mode Campuran' },
+  }
+  const currentCoinSourceLabel =
+    coinSourceLabelMap[currentCoinSourceType]?.[language] || currentCoinSourceType
+  const currentSourceCompactLabel =
+    currentCoinSourceType === 'hunter_v7'
+      ? tr('promptCompactHunterV7')
+      : tr('promptCompactCurrentSource', { source: currentCoinSourceLabel })
 
   const configSections = [
     // Grid Config - only for grid_trading
@@ -664,7 +688,7 @@ export function StrategyStudioPage() {
               <div className="text-xs text-muted-foreground mt-1">{tr('promptCompactModeDesc')}</div>
             </div>
             <AiTSelect
-              value={editingConfig.prompt_compact_mode || 'hunter_v7_only'}
+              value={compactModeValue}
               onChange={(value) =>
                 updateConfig(
                   'prompt_compact_mode',
@@ -673,7 +697,7 @@ export function StrategyStudioPage() {
               }
               disabled={selectedStrategy?.is_default}
               options={[
-                { value: 'hunter_v7_only', label: tr('promptCompactHunterV7') },
+                { value: 'current_source', label: currentSourceCompactLabel },
                 { value: 'auto', label: tr('promptCompactAuto') },
                 { value: 'all_candidates', label: tr('promptCompactAll') },
                 { value: 'off', label: tr('promptCompactOff') },
