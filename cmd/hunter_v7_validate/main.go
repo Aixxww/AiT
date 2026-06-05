@@ -2,19 +2,22 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 	"log"
-	"nofx/datafetch"
-	"nofx/kernel"
-	"nofx/market"
-	"nofx/provider/local"
-	"nofx/store"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 type validationReport struct {
@@ -89,6 +92,8 @@ func main() {
 	maxOutput := flag.Int("max-output", 30, "max Hunter v7 signals to output")
 	minPriority := flag.Float64("min-priority", 45, "minimum AI priority")
 	aggressive := flag.Bool("aggressive", true, "use aggressive AI priority weighting")
+	strategyID := flag.String("strategy-id", "", "strategy ID to load from data/data.db for prompt simulation")
+	dbPath := flag.String("db", "data/data.db", "SQLite database path")
 	outDir := flag.String("out-dir", "reports", "output directory")
 	flag.Parse()
 
@@ -110,12 +115,30 @@ func main() {
 	cfg.MaxOutput = *maxOutput
 	cfg.MinAIPriority = *minPriority
 	cfg.Aggressive = *aggressive
+	strategyCfg, err := loadStrategyConfig(*dbPath, *strategyID)
+	if err != nil {
+		log.Fatalf("load strategy config failed: %v", err)
+	}
+	if strategyCfg != nil {
+		if strategyCfg.CoinSource.Hunter != nil {
+			if strategyCfg.CoinSource.Hunter.V7MaxOutput > 0 {
+				cfg.MaxOutput = strategyCfg.CoinSource.Hunter.V7MaxOutput
+			}
+			if strategyCfg.CoinSource.Hunter.V7MinAIPriority > 0 {
+				cfg.MinAIPriority = strategyCfg.CoinSource.Hunter.V7MinAIPriority
+			}
+			cfg.Aggressive = strategyCfg.CoinSource.Hunter.V7Aggressive
+		}
+		if strategyCfg.CoinSource.HunterLimit > 0 && (cfg.MaxOutput <= 0 || strategyCfg.CoinSource.HunterLimit < cfg.MaxOutput) {
+			cfg.MaxOutput = strategyCfg.CoinSource.HunterLimit
+		}
+	}
 
 	universe := local.BuildV7Universe(snap)
 	regime := local.DetectV7MarketRegime(snap)
 	signals := local.ScoreHunterV7(snap, cfg)
 	candidates := signalsToCandidates(signals)
-	prompt := buildPrompt(candidates, signals)
+	prompt := buildPrompt(candidates, signals, strategyCfg)
 
 	now := time.Now()
 	stamp := now.Format("20060102-150405")
@@ -209,11 +232,39 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 	return candidates
 }
 
-func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput) string {
+func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error) {
+	if strings.TrimSpace(strategyID) == "" {
+		return nil, nil
+	}
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var configJSON string
+	if err := db.QueryRow("SELECT config FROM strategies WHERE id = ?", strategyID).Scan(&configJSON); err != nil {
+		return nil, err
+	}
+	var cfg store.StrategyConfig
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, strategyCfg *store.StrategyConfig) string {
 	cfg := store.GetDefaultStrategyConfig("zh")
-	cfg.CoinSource.SourceType = "hunter_v7"
-	cfg.CoinSource.HunterLimit = len(candidates)
-	cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: len(candidates), V7MinAIPriority: 45, V7Aggressive: true}
+	if strategyCfg != nil {
+		cfg = *strategyCfg
+	} else {
+		cfg.CoinSource.SourceType = "hunter_v7"
+		cfg.CoinSource.HunterLimit = len(candidates)
+		cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: len(candidates), V7MinAIPriority: 45, V7Aggressive: true}
+	}
+	if cfg.CoinSource.HunterLimit <= 0 || cfg.CoinSource.HunterLimit > len(candidates) {
+		cfg.CoinSource.HunterLimit = len(candidates)
+	}
 	engine := kernel.NewStrategyEngine(&cfg)
 	md := make(map[string]*market.Data, len(signals)+1)
 	for _, sig := range signals {
@@ -251,7 +302,9 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 		CandidateCoins: candidates,
 		MarketDataMap:  md,
 	}
-	return engine.BuildUserPrompt(ctx)
+	systemPrompt := engine.BuildSystemPrompt(1000, "balanced")
+	userPrompt := engine.BuildUserPrompt(ctx)
+	return systemPrompt + "\n\n--- USER PROMPT ---\n\n" + userPrompt
 }
 
 func validateFormat(signals []local.V7SignalOutput) (formatCheck, []issue) {

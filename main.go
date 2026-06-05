@@ -1,20 +1,20 @@
 package main
 
 import (
+	aitiagent "github.com/Aixxww/AiT/agent"
+	"github.com/Aixxww/AiT/api"
+	"github.com/Aixxww/AiT/auth"
+	"github.com/Aixxww/AiT/backtest"
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/crypto"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/manager"
+	"github.com/Aixxww/AiT/mcp"
+	_ "github.com/Aixxww/AiT/mcp/payment"
+	_ "github.com/Aixxww/AiT/mcp/provider"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/telegram"
 	"log/slog"
-	nofxiagent "nofx/agent"
-	"nofx/api"
-	"nofx/auth"
-	"nofx/backtest"
-	"nofx/config"
-	"nofx/crypto"
-	"nofx/logger"
-	"nofx/manager"
-	"nofx/mcp"
-	_ "nofx/mcp/payment"
-	_ "nofx/mcp/provider"
-	"nofx/store"
-	"nofx/telegram"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -31,7 +31,7 @@ func main() {
 	logger.Init(nil)
 
 	logger.Info("╔════════════════════════════════════════════════════════════╗")
-	logger.Info("║           🚀 NOFX - AI-Powered Trading System              ║")
+	logger.Info("║           🚀 AIT - AI-Powered Trading System              ║")
 	logger.Info("╚════════════════════════════════════════════════════════════╝")
 
 	// Initialize global configuration (loaded from .env)
@@ -148,12 +148,12 @@ func main() {
 		}
 	}()
 
-	// Start the NOFXi web agent on top of the current dev branch services.
-	nofxiAgent := nofxiagent.New(traderManager, st, nil, slog.Default())
-	nofxiAgent.Start()
-	defer nofxiAgent.Stop()
+	// Start the AITi web agent on top of the current dev branch services.
+	aitiAgent := aitiagent.New(traderManager, st, nil, slog.Default())
+	aitiAgent.Start()
+	defer aitiAgent.Stop()
 
-	agentWeb := nofxiagent.NewWebHandler(nofxiAgent, slog.Default())
+	agentWeb := aitiagent.NewWebHandler(aitiAgent, slog.Default())
 	server.RegisterAgentHandler(agentWeb)
 
 	// Start Telegram bot (if TELEGRAM_BOT_TOKEN is configured)
@@ -174,7 +174,7 @@ func main() {
 	}
 	logger.Info("✅ HTTP server stopped")
 
-	// nofxiAgent.Stop() is handled by defer above
+	// aitiAgent.Stop() is handled by defer above
 
 	// Stop all traders
 	traderManager.StopAll()

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 
 	"gorm.io/gorm"
 )

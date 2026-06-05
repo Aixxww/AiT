@@ -17,9 +17,9 @@ import "math"
 
 type distributionShortModule struct{}
 
-func (m *distributionShortModule) Name() string        { return "distribution_short" }
+func (m *distributionShortModule) Name() string           { return "distribution_short" }
 func (m *distributionShortModule) SetupType() V7SetupType { return V7SetupDistributionShort }
-func (m *distributionShortModule) Direction() V7Direction  { return V7DirShort }
+func (m *distributionShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *distributionShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	// Must have price data

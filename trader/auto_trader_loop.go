@@ -3,10 +3,10 @@ package trader
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/store"
-	"nofx/wallet"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/wallet"
 	"strings"
 	"time"
 )
@@ -428,8 +428,8 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 		// Use new SnapshotEngine if available, otherwise legacy
 		coins, err := at.strategyEngine.GetCandidateCoinsWithSnapshot()
 		if err != nil {
-			// Log warning but don't fail - equity snapshot should still be saved
-			at.logWarnf("⚠️ Failed to get candidate coins: %v (will use empty list)", err)
+			at.logWarnf("⚠️ Failed to get candidate coins: %v", err)
+			return nil, fmt.Errorf("failed to get candidate coins: %w", err)
 		} else {
 			candidateCoins = coins
 			logger.Infof("📋 [%s] Strategy engine fetched candidate coins: %d", at.name, len(candidateCoins))

@@ -92,7 +92,7 @@ AI 交易是**实验性**的，**不保证盈利**。请始终用小额资金测
 lsof -i :8080
 
 # 修改 .env 中的端口
-NOFX_BACKEND_PORT=8081
+AIT_BACKEND_PORT=8081
 ```
 
 ---
@@ -118,7 +118,7 @@ curl http://localhost:8080/api/health
 # 停止所有 AiT 进程
 docker compose down
 # 或
-pkill nofx
+pkill ait
 
 # 重启
 docker compose up -d
@@ -162,7 +162,7 @@ API 密钥存储在本地数据库中。永远不要分享您的数据库或 `.e
 可以！使用 `pg_dump` 或 `psql` 导出数据：
 ```bash
 docker compose exec postgres \
-  psql -U nofx -d nofx -c "SELECT * FROM trades;"
+  psql -U ait -d ait -c "SELECT * FROM trades;"
 ```
 
 ---
@@ -183,7 +183,7 @@ docker compose exec postgres \
 
 ### 在哪里可以获得帮助？
 - [GitHub Discussions](https://github.com/Aixxww/AiT/discussions)
-- [Telegram 社区](https://t.me/nofx_dev_community)
+- [Telegram 社区](https://t.me/ait_dev_community)
 - [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 
 ---

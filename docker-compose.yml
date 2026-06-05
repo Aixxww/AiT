@@ -1,10 +1,10 @@
 services:
   # Backend service (API and core logic)
-  nofx:
+  ait:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.backend
-    container_name: nofx-trading
+    container_name: ait-trading
     restart: unless-stopped
     stop_grace_period: 30s  # Allow the app 30 seconds for graceful shutdown
     ports:
@@ -20,7 +20,7 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
       - AI_MAX_TOKENS=8000
     networks:
-      - nofx-network
+      - ait-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 30s
@@ -29,18 +29,18 @@ services:
       start_period: 60s
 
   # Frontend service (static serving and proxy)
-  nofx-frontend:
+  ait-frontend:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.frontend
-    container_name: nofx-frontend
+    container_name: ait-frontend
     restart: unless-stopped
     ports:
       - "${AIT_FRONTEND_PORT:-3000}:80"
     networks:
-      - nofx-network
+      - ait-network
     depends_on:
-      - nofx
+      - ait
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
@@ -49,5 +49,5 @@ services:
       start_period: 5s
 
 networks:
-  nofx-network:
+  ait-network:
     driver: bridge

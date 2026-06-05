@@ -64,8 +64,8 @@ export function SetupPage() {
     localStorage.removeItem('auth_token')
     localStorage.removeItem('auth_user')
     localStorage.removeItem('user_id')
-    localStorage.removeItem('nofx_beginner_onboarding_completed')
-    localStorage.removeItem('nofx_beginner_wallet_address')
+    localStorage.removeItem('ait_beginner_onboarding_completed')
+    localStorage.removeItem('ait_beginner_wallet_address')
   }, [])
 
   const l = labels[language as keyof typeof labels] || labels.en

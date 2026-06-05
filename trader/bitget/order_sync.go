@@ -3,9 +3,9 @@ package bitget
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,7 +47,6 @@ func (t *BitgetTrader) GetTrades(startTime time.Time, limit int) ([]BitgetTrade,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fill history: %w", err)
 	}
-
 
 	// Bitget fill structure - supports both one-way and hedge mode
 	type BitgetFill struct {

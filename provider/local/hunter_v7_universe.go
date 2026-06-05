@@ -1,8 +1,8 @@
 package local
 
 import (
+	"github.com/Aixxww/AiT/datafetch"
 	"math"
-	"nofx/datafetch"
 	"sort"
 )
 
@@ -29,14 +29,14 @@ var coreLiquiditySymbols = map[string]bool{
 
 // V7UniverseEntry holds a single symbol's universe data plus derived context.
 type V7UniverseEntry struct {
-	Ctx     V7SymbolContext
+	Ctx V7SymbolContext
 	// Ranking dimensions used for dedup priority
-	VolRank   int // Quote volume rank
-	GainRank  int // 24h gain rank
-	LossRank  int // 24h loss rank
-	OIRank    int // |OI change| rank
-	FundRank  int // |funding| rank
-	BestRank  int // Best rank across all dimensions
+	VolRank  int // Quote volume rank
+	GainRank int // 24h gain rank
+	LossRank int // 24h loss rank
+	OIRank   int // |OI change| rank
+	FundRank int // |funding| rank
+	BestRank int // Best rank across all dimensions
 }
 
 // BuildV7Universe constructs the multi-source candidate pool from a Snapshot.
@@ -71,12 +71,12 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 
 	// Step 2: Rank by multiple dimensions
 	type ranked struct {
-		sym    string
-		ss     *datafetch.SymbolSnapshot
-		vol    float64 // quote volume
-		gain   float64 // 24h change
-		oiChg  float64 // |OI change 1h|
-		fund   float64 // |funding rate|
+		sym   string
+		ss    *datafetch.SymbolSnapshot
+		vol   float64 // quote volume
+		gain  float64 // 24h change
+		oiChg float64 // |OI change 1h|
+		fund  float64 // |funding rate|
 	}
 
 	var entries []ranked
@@ -184,9 +184,9 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 // buildSymbolContext derives all technical indicators for a single symbol.
 func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetch.Snapshot) *V7SymbolContext {
 	ctx := &V7SymbolContext{
-		Symbol:      sym,
+		Symbol:       sym,
 		CurrentPrice: ss.Price,
-		Change24h:   ss.PriceChange24h,
+		Change24h:    ss.PriceChange24h,
 	}
 
 	// Build lightweight snapshot data
@@ -339,13 +339,13 @@ func datafetchKlinesToKlineBar(dk []datafetch.Kline) []klineBar {
 	bars := make([]klineBar, len(dk))
 	for i, k := range dk {
 		bars[i] = klineBar{
-			OpenTime:             k.OpenTime,
-			Open:                 k.Open,
-			High:                 k.High,
-			Low:                  k.Low,
-			Close:                k.Close,
-			Volume:               k.Volume,
-			TakerBuyBaseVolume:   k.TakerBuy,
+			OpenTime:           k.OpenTime,
+			Open:               k.Open,
+			High:               k.High,
+			Low:                k.Low,
+			Close:              k.Close,
+			Volume:             k.Volume,
+			TakerBuyBaseVolume: k.TakerBuy,
 		}
 	}
 	return bars

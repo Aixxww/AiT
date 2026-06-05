@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/types"
 	"io"
 	"net/http"
-	"nofx/logger"
-	"nofx/trader/types"
 	"strconv"
 	"time"
 )

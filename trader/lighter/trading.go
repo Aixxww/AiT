@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"nofx/logger"
 	"strconv"
 	"strings"
 	"time"
 
+	tradertypes "github.com/Aixxww/AiT/trader/types"
 	"github.com/elliottech/lighter-go/types"
-	tradertypes "nofx/trader/types"
 )
 
 // OpenLong Open long position (implements Trader interface)
@@ -322,11 +322,11 @@ func (t *LighterTraderV2) CreateOrder(symbol string, isAsk bool, quantity float6
 
 // SendTxResponse Send transaction response
 type SendTxResponse struct {
-	Code                    int                    `json:"code"`
-	Message                 string                 `json:"message"`
-	TxHash                  string                 `json:"tx_hash"`
-	PredictedExecutionTime  int64                  `json:"predicted_execution_time_ms"`
-	Data                    map[string]interface{} `json:"data"`
+	Code                   int                    `json:"code"`
+	Message                string                 `json:"message"`
+	TxHash                 string                 `json:"tx_hash"`
+	PredictedExecutionTime int64                  `json:"predicted_execution_time_ms"`
+	Data                   map[string]interface{} `json:"data"`
 }
 
 // CreateOrderTxInfoAPI Order transaction info with CamelCase JSON tags (matching SDK) + hex signature
@@ -410,7 +410,7 @@ func (t *LighterTraderV2) submitOrder(txType int, txInfo string) (map[string]int
 		// Code 29500: internal server error: invalid signature (authenticated GET APIs)
 		if (sendResp.Code == 21120 || sendResp.Code == 29500) && strings.Contains(sendResp.Message, "invalid signature") {
 			if !t.apiKeyValid {
-				return nil, fmt.Errorf("API Key MISMATCH (code %d): The API key stored in NOFX does not match the one registered on Lighter. Please update your Lighter API key in Exchange settings at app.lighter.xyz", sendResp.Code)
+				return nil, fmt.Errorf("API Key MISMATCH (code %d): The API key stored in AIT does not match the one registered on Lighter. Please update your Lighter API key in Exchange settings at app.lighter.xyz", sendResp.Code)
 			}
 			return nil, fmt.Errorf("API Key signature invalid (code %d): Please verify your Lighter API Key in Exchange settings matches the key registered at app.lighter.xyz", sendResp.Code)
 		}
@@ -466,8 +466,8 @@ func (t *LighterTraderV2) pollForOrderIndex(symbol string, txHash string) (int64
 	return highestIndex, nil
 }
 
-// normalizeSymbol Convert NOFX symbol format to Lighter format
-// NOFX uses "BTC-PERP", "BTCUSDT", etc. Lighter uses "BTC", "ETH", etc.
+// normalizeSymbol Convert AIT symbol format to Lighter format
+// AIT uses "BTC-PERP", "BTCUSDT", etc. Lighter uses "BTC", "ETH", etc.
 func normalizeSymbol(symbol string) string {
 	// Remove common suffixes
 	s := strings.TrimSuffix(symbol, "-PERP")

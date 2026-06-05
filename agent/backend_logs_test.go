@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 )
 
 func TestReadBackendLogEntriesReturnsRecentErrorLines(t *testing.T) {
@@ -26,7 +26,7 @@ func TestReadBackendLogEntriesReturnsRecentErrorLines(t *testing.T) {
 	if err := os.MkdirAll("data", 0o755); err != nil {
 		t.Fatalf("MkdirAll(data) error = %v", err)
 	}
-	logPath := filepath.Join("data", "nofx_2099-01-01.log")
+	logPath := filepath.Join("data", "ait_2099-01-01.log")
 	content := strings.Join([]string{
 		"04-19 13:00:00 [INFO] api/server.go:590 API server starting",
 		"04-19 13:00:01 [ERRO] api/server.go:600 invalid signature for okx account",
@@ -40,7 +40,7 @@ func TestReadBackendLogEntriesReturnsRecentErrorLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readBackendLogEntries() error = %v", err)
 	}
-	if !strings.Contains(path, "nofx_2099-01-01.log") {
+	if !strings.Contains(path, "ait_2099-01-01.log") {
 		t.Fatalf("unexpected log path: %s", path)
 	}
 	if len(entries) != 1 || !strings.Contains(entries[0], "missing api key") {
@@ -64,7 +64,7 @@ func TestToolGetBackendLogsRequiresOwnedTrader(t *testing.T) {
 	if err := os.MkdirAll("data", 0o755); err != nil {
 		t.Fatalf("MkdirAll(data) error = %v", err)
 	}
-	logPath := filepath.Join("data", "nofx_2099-01-01.log")
+	logPath := filepath.Join("data", "ait_2099-01-01.log")
 	content := strings.Join([]string{
 		"04-19 13:00:00 [INFO] api/server.go:590 API server starting",
 		"04-19 13:00:01 [ERRO] trader/runtime.go:88 trader_id=trader-owned strategy execution failed",

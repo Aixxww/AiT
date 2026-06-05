@@ -1,8 +1,8 @@
-# 📖 NoFx Prompt Writing Guide
+# 📖 AiT Prompt Writing Guide
 
 **Version**: v1.0
 **Last Updated**: 2025-01-09
-**Compatible System Version**: NoFx v0.x+
+**Compatible System Version**: AiT v0.x+
 
 ---
 
@@ -96,7 +96,7 @@ Final Prompt = Your Custom Strategy (Complete Replacement)
 
 ### How Prompts Work
 
-NoFx builds a message containing market data every 3 minutes to send to the AI:
+AiT builds a message containing market data every 3 minutes to send to the AI:
 
 ```mermaid
 graph LR
@@ -1246,7 +1246,7 @@ If using Mode 3, must include in custom Prompt:
 **Step 1: View Actual Output**
 ```bash
 # View system logs, find actual Prompt sent to AI
-docker logs nofx-trader | grep "User Prompt"
+docker logs ait-trader | grep "User Prompt"
 ```
 
 **Step 2: Confirm Field Exists**
@@ -1391,7 +1391,7 @@ Chain of thought analysis
 **Investigation Steps**:
 1. View AI raw output in logs
    ```bash
-   docker logs nofx-trader | tail -100
+   docker logs ait-trader | tail -100
    ```
 2. Check if XML tags `<reasoning>` and `<decision>` used
 3. Check if JSON format correct
@@ -1416,7 +1416,7 @@ Chain of thought analysis
 **Investigation Steps**:
 1. View specific validation error message
    ```bash
-   docker logs nofx-trader | grep "Validation failed"
+   docker logs ait-trader | grep "Validation failed"
    ```
 2. Check if hard constraints violated
 
@@ -1445,7 +1445,7 @@ Chain of thought analysis
 **Investigation Steps**:
 1. View AI's chain of thought analysis (reasoning)
    ```bash
-   docker logs nofx-trader | grep -A 20 "<reasoning>"
+   docker logs ait-trader | grep -A 20 "<reasoning>"
    ```
 2. Check for ambiguities in Prompt
 3. Check if market data meets your entry conditions
@@ -1524,4 +1524,4 @@ Actual Behavior: [What actually happened]
 
 **Document Version**: v1.0
 **Last Updated**: 2025-01-09
-**Maintainer**: Nofx Team CoderMageFox
+**Maintainer**: AiT Team CoderMageFox

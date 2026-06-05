@@ -274,4 +274,3 @@ func listSkillDAGs() []SkillDAG {
 	}
 	return out
 }
-

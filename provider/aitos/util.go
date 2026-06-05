@@ -1,4 +1,4 @@
-package nofxos
+package aitos
 
 import "fmt"
 

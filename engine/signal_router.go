@@ -90,12 +90,12 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 		grade := determineGrade(set.FinalScore, r.cfg)
 
 		signal := &TradeSignal{
-			Symbol:     set.Symbol,
-			Direction:  set.Direction,
-			FinalScore: set.FinalScore,
-			Grade:      grade,
-			TechScore:  set.TechBullScore + set.TechBearScore,
-			QuantScore: set.QuantBullScore + set.QuantBearScore,
+			Symbol:      set.Symbol,
+			Direction:   set.Direction,
+			FinalScore:  set.FinalScore,
+			Grade:       grade,
+			TechScore:   set.TechBullScore + set.TechBearScore,
+			QuantScore:  set.QuantBullScore + set.QuantBearScore,
 			SocialScore: set.SocialBullScore + set.SocialBearScore,
 
 			EntryPrice: symSnap.Price,

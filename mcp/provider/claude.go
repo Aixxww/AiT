@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (

@@ -106,6 +106,9 @@ type StrategyConfig struct {
 	// language setting: "zh" for Chinese, "en" for English
 	// This determines the language used for data formatting and prompt generation
 	Language string `json:"language,omitempty"`
+	// prompt compaction: "off" | "hunter_v7_only" | "all_candidates" | "auto"
+	// Empty defaults to "hunter_v7_only" for backward compatibility.
+	PromptCompactMode string `json:"prompt_compact_mode,omitempty"`
 	// coin source configuration
 	CoinSource CoinSourceConfig `json:"coin_source"`
 	// quantitative data configuration
@@ -223,7 +226,7 @@ type CoinSourceConfig struct {
 	UseIndicatorHub bool             `json:"use_indicator_hub,omitempty"`
 	IndicatorHub    *IndicatorHubCfg `json:"indicator_hub,omitempty"`
 
-	// Note: API URLs are now built automatically using NofxOSAPIKey from IndicatorConfig
+	// Note: API URLs are now built automatically using AITOSAPIKey from IndicatorConfig
 }
 
 // IndicatorHubCfg configuration for the unified IndicatorHub scoring engine.
@@ -327,9 +330,9 @@ type IndicatorConfig struct {
 	// external data sources
 	ExternalDataSources []ExternalDataSource `json:"external_data_sources,omitempty"`
 
-	// ========== NofxOS Unified API Configuration ==========
-	// Unified API Key for all NofxOS data sources
-	NofxOSAPIKey string `json:"nofxos_api_key,omitempty"`
+	// ========== AITOS Unified API Configuration ==========
+	// Unified API Key for all AITOS data sources
+	AITOSAPIKey string `json:"aitos_api_key,omitempty"`
 
 	// quantitative data sources (capital flow, position changes, price changes)
 	EnableQuantData    bool `json:"enable_quant_data"`    // whether to enable quantitative data
@@ -429,7 +432,8 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 	}
 
 	config := StrategyConfig{
-		Language: normalizedLang,
+		Language:          normalizedLang,
+		PromptCompactMode: "hunter_v7_only",
 		CoinSource: CoinSourceConfig{
 			SourceType: "ai500",
 			UseAI500:   true,
@@ -461,8 +465,8 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 			RSIPeriods:        []int{7, 14},
 			ATRPeriods:        []int{14},
 			BOLLPeriods:       []int{20},
-			// NofxOS unified API key
-			NofxOSAPIKey: "cm_568c67eae410d912c54c",
+			// AITOS unified API key
+			AITOSAPIKey: "cm_568c67eae410d912c54c",
 			// Quant data
 			EnableQuantData:    true,
 			EnableQuantOI:      true,
@@ -822,30 +826,35 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 		klineCount = 20
 	}
 
-	// Per coin per timeframe: kline OHLCV rows
-	charsPerCoinTF := klineCount * 80 // each OHLCV line ~80 chars
+	var charsPerCoinTF int
+	if c.usesCompactPromptEstimate(numCoins, numTimeframes, klineCount) {
+		charsPerCoinTF = 260 // compact OHLCV + latest indicator summary per timeframe
+	} else {
+		// Per coin per timeframe: kline OHLCV rows
+		charsPerCoinTF = klineCount * 80 // each OHLCV line ~80 chars
 
-	// Add enabled indicator overhead per timeframe
-	indicatorCharsPerLine := 0
-	if c.Indicators.EnableEMA {
-		indicatorCharsPerLine += 20 // EMA values appended
+		// Add enabled indicator overhead per timeframe
+		indicatorCharsPerLine := 0
+		if c.Indicators.EnableEMA {
+			indicatorCharsPerLine += 20 // EMA values appended
+		}
+		if c.Indicators.EnableMACD {
+			indicatorCharsPerLine += 30
+		}
+		if c.Indicators.EnableRSI {
+			indicatorCharsPerLine += 15
+		}
+		if c.Indicators.EnableATR {
+			indicatorCharsPerLine += 15
+		}
+		if c.Indicators.EnableBOLL {
+			indicatorCharsPerLine += 25
+		}
+		if c.Indicators.EnableVolume {
+			indicatorCharsPerLine += 10
+		}
+		charsPerCoinTF += klineCount * indicatorCharsPerLine
 	}
-	if c.Indicators.EnableMACD {
-		indicatorCharsPerLine += 30
-	}
-	if c.Indicators.EnableRSI {
-		indicatorCharsPerLine += 15
-	}
-	if c.Indicators.EnableATR {
-		indicatorCharsPerLine += 15
-	}
-	if c.Indicators.EnableBOLL {
-		indicatorCharsPerLine += 25
-	}
-	if c.Indicators.EnableVolume {
-		indicatorCharsPerLine += 10
-	}
-	charsPerCoinTF += klineCount * indicatorCharsPerLine
 
 	totalMarketChars := numCoins * numTimeframes * charsPerCoinTF
 
@@ -939,11 +948,11 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 	}
 	if minLimit > 0 && total > minLimit {
 		if numTimeframes > 1 {
-			savedPerTF := (numCoins * klineCount * (80 + indicatorCharsPerLine)) / 4 * 115 / 100
+			savedPerTF := (numCoins * charsPerCoinTF) / 4 * 115 / 100
 			suggestions = append(suggestions, fmt.Sprintf("Reduce 1 timeframe to save ~%d tokens", savedPerTF))
 		}
 		if numCoins > 1 {
-			savedPerCoin := (numTimeframes * klineCount * (80 + indicatorCharsPerLine)) / 4 * 115 / 100
+			savedPerCoin := (numTimeframes * charsPerCoinTF) / 4 * 115 / 100
 			suggestions = append(suggestions, fmt.Sprintf("Reduce 1 coin to save ~%d tokens", savedPerCoin))
 		}
 		if klineCount > 15 {
@@ -956,6 +965,23 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 		Breakdown:   breakdown,
 		ModelLimits: modelLimits,
 		Suggestions: suggestions,
+	}
+}
+
+func (c *StrategyConfig) usesCompactPromptEstimate(numCoins, numTimeframes, klineCount int) bool {
+	mode := c.PromptCompactMode
+	if mode == "" {
+		mode = "hunter_v7_only"
+	}
+	switch mode {
+	case "off":
+		return false
+	case "all_candidates":
+		return true
+	case "auto":
+		return c.CoinSource.SourceType == "hunter_v7" || numCoins*numTimeframes*klineCount >= 600
+	default:
+		return c.CoinSource.SourceType == "hunter_v7"
 	}
 }
 

@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"nofx/config"
-	"nofx/crypto"
-	"nofx/logger"
-	"nofx/security"
-	"nofx/wallet"
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/crypto"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/security"
+	"github.com/Aixxww/AiT/wallet"
 
 	"github.com/gin-gonic/gin"
 )

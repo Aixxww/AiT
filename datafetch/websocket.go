@@ -16,16 +16,16 @@ import (
 
 // WSManager manages Binance WebSocket connections for real-time data.
 type WSManager struct {
-	baseURL   string
-	store     *Store
-	topN      int // top symbols for kline/aggTrade streams
+	baseURL string
+	store   *Store
+	topN    int // top symbols for kline/aggTrade streams
 
-	mu          sync.Mutex
-	conn        *websocket.Conn
-	connected   bool
-	stopCh      chan struct{}
-	backoff     time.Duration
-	maxBackoff  time.Duration
+	mu         sync.Mutex
+	conn       *websocket.Conn
+	connected  bool
+	stopCh     chan struct{}
+	backoff    time.Duration
+	maxBackoff time.Duration
 }
 
 // NewWSManager creates a new WebSocket manager.

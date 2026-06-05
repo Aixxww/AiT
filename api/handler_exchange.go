@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"nofx/config"
-	"nofx/crypto"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/crypto"
+	"github.com/Aixxww/AiT/logger"
 
 	"github.com/gin-gonic/gin"
 )

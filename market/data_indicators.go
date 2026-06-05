@@ -124,9 +124,9 @@ func calculateATR(klines []Kline, period int) float64 {
 type MarketRegime string
 
 const (
-	RegimeRanging  MarketRegime = "ranging"   // ADX < 20: sideways, mean-reversion dominates
-	RegimeTrending MarketRegime = "trending"   // ADX > 25: directional, trend-following dominates
-	RegimeNeutral  MarketRegime = "neutral"    // 20 <= ADX <= 25: transitional
+	RegimeRanging  MarketRegime = "ranging"  // ADX < 20: sideways, mean-reversion dominates
+	RegimeTrending MarketRegime = "trending" // ADX > 25: directional, trend-following dominates
+	RegimeNeutral  MarketRegime = "neutral"  // 20 <= ADX <= 25: transitional
 )
 
 // MarketEnvironment holds the market regime classification result.

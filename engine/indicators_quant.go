@@ -1,6 +1,6 @@
 package engine
 
-import "nofx/datafetch"
+import "github.com/Aixxww/AiT/datafetch"
 
 // ============================================================================
 // Quantitative Indicator Calculations

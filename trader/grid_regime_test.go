@@ -1,7 +1,7 @@
 package trader
 
 import (
-	"nofx/market"
+	"github.com/Aixxww/AiT/market"
 	"testing"
 )
 

@@ -1,8 +1,8 @@
 package agent
 
 import (
-	"nofx/logger"
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
 	"sync"
 	"time"
 )

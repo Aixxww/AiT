@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
-	"nofx/provider/coinank/coinank_enum"
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 )
 
 // excludedMainstreamCoins is the same set used by local/client.go.
@@ -28,10 +28,10 @@ var excludedMainstreamCoins = map[string]bool{
 
 // GetAI500Fallback fetches the CoinAnk Visual Screener (1h interval),
 // scores each coin by |priceChg|*0.50 + normalized(oiChg)*0.25 + normalized(voChg)*0.25,
-// applies a mainstream-coin penalty, and returns the top 30 as []nofxos.CoinData.
+// applies a mainstream-coin penalty, and returns the top 30 as []aitos.CoinData.
 //
 // This is intended as a fallback when the Binance ticker API is unavailable.
-func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]nofxos.CoinData, error) {
+func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]aitos.CoinData, error) {
 	// 1. Fetch Visual Screener data (1h interval)
 	entries, err := c.VisualScreener(ctx, coinank_enum.Hour1)
 	if err != nil {
@@ -43,7 +43,7 @@ func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]nofxos.CoinData
 
 	// 2. Convert baseCoin to BASEUSDT format and collect for scoring
 	type scoredEntry struct {
-		symbol  string
+		symbol   string
 		priceChg float64
 		oiChg    float64
 		voChg    float64
@@ -79,21 +79,39 @@ func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]nofxos.CoinData
 			minPctAbs, maxPctAbs = pctAbs, pctAbs
 			first = false
 		} else {
-			if oiLog < minOILog { minOILog = oiLog }
-			if oiLog > maxOILog { maxOILog = oiLog }
-			if voLog < minVoLog { minVoLog = voLog }
-			if voLog > maxVoLog { maxVoLog = voLog }
-			if pctAbs < minPctAbs { minPctAbs = pctAbs }
-			if pctAbs > maxPctAbs { maxPctAbs = pctAbs }
+			if oiLog < minOILog {
+				minOILog = oiLog
+			}
+			if oiLog > maxOILog {
+				maxOILog = oiLog
+			}
+			if voLog < minVoLog {
+				minVoLog = voLog
+			}
+			if voLog > maxVoLog {
+				maxVoLog = voLog
+			}
+			if pctAbs < minPctAbs {
+				minPctAbs = pctAbs
+			}
+			if pctAbs > maxPctAbs {
+				maxPctAbs = pctAbs
+			}
 		}
 	}
 
 	pctAbsRange := maxPctAbs - minPctAbs
 	oiLogRange := maxOILog - minOILog
 	voLogRange := maxVoLog - minVoLog
-	if pctAbsRange == 0 { pctAbsRange = 1 }
-	if oiLogRange == 0 { oiLogRange = 1 }
-	if voLogRange == 0 { voLogRange = 1 }
+	if pctAbsRange == 0 {
+		pctAbsRange = 1
+	}
+	if oiLogRange == 0 {
+		oiLogRange = 1
+	}
+	if voLogRange == 0 {
+		voLogRange = 1
+	}
 
 	// 4. Score each coin
 	for i := range pool {
@@ -107,8 +125,12 @@ func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]nofxos.CoinData
 		normVO := ((voLog - minVoLog) / voLogRange) * 100
 
 		score := normPctAbs*0.50 + normOI*0.25 + normVO*0.25
-		if score < 0 { score = 0 }
-		if score > 100 { score = 100 }
+		if score < 0 {
+			score = 0
+		}
+		if score > 100 {
+			score = 100
+		}
 
 		// Mainstream coin penalty
 		if excludedMainstreamCoins[p.symbol] {
@@ -122,17 +144,17 @@ func (c *CoinankClient) GetAI500Fallback(ctx context.Context) ([]nofxos.CoinData
 		return pool[i].score > pool[j].score
 	})
 
-	// 6. Return top 30 as []nofxos.CoinData
+	// 6. Return top 30 as []aitos.CoinData
 	topN := 30
 	if len(pool) < topN {
 		topN = len(pool)
 	}
 
 	now := time.Now().Unix()
-	coins := make([]nofxos.CoinData, 0, topN)
+	coins := make([]aitos.CoinData, 0, topN)
 	for i := 0; i < topN; i++ {
 		p := pool[i]
-		coins = append(coins, nofxos.CoinData{
+		coins = append(coins, aitos.CoinData{
 			Pair:        p.symbol,
 			Score:       p.score,
 			StartTime:   now,

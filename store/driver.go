@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/lib/pq"      // PostgreSQL driver
-	_ "modernc.org/sqlite"     // SQLite driver
+	_ "github.com/lib/pq"  // PostgreSQL driver
+	_ "modernc.org/sqlite" // SQLite driver
 )
 
 // DBType represents database type
@@ -81,7 +81,7 @@ func NewDBDriverFromEnv() (*DBDriver, error) {
 			Port:     port,
 			User:     getEnv("DB_USER", "postgres"),
 			Password: os.Getenv("DB_PASSWORD"),
-			DBName:   getEnv("DB_NAME", "nofx"),
+			DBName:   getEnv("DB_NAME", "ait"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		})
 

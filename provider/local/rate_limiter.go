@@ -16,7 +16,7 @@ type BinanceRateLimiter struct {
 	weightUsed  atomic.Int64
 	weightLimit int64         // 1200 default
 	windowStart atomic.Int64  // unix timestamp (seconds) of current window start
-	semaphore   chan struct{}  // concurrency limit
+	semaphore   chan struct{} // concurrency limit
 	mu          sync.Mutex    // protects waiters and window reset
 }
 

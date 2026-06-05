@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"nofx/datafetch"
+	"github.com/Aixxww/AiT/datafetch"
 	"testing"
 	"time"
 )
@@ -224,9 +224,9 @@ func TestNormalize(t *testing.T) {
 		{50, 0, 100, 50},
 		{0, 0, 100, 0},
 		{100, 0, 100, 100},
-		{75, 50, 100, 100},  // 75 is halfway between 50 and 100 → 50... wait no: (75-50)/(100-50)*100 = 50
-		{150, 0, 100, 100},  // clamped to 100
-		{-10, 0, 100, 0},    // clamped to 0
+		{75, 50, 100, 100}, // 75 is halfway between 50 and 100 → 50... wait no: (75-50)/(100-50)*100 = 50
+		{150, 0, 100, 100}, // clamped to 100
+		{-10, 0, 100, 0},   // clamped to 0
 	}
 
 	// Fix the expected for case 3 (index 3)
@@ -563,22 +563,22 @@ func generateTestKlines(n int, basePrice float64) []datafetch.Kline {
 
 func TestBuildSignalReasons(t *testing.T) {
 	set := &IndicatorSet{
-		RSI14:          25,
-		MACDHist:       0.5,
-		BBUpper:        110,
-		BBMiddle:       100,
-		BBLower:        90,
-		EMA20:          105,
-		EMA50:          102,
-		EMA200:         98,
-		OIScore:        20,
-		FundingScore:   -30,
-		TakerScore:     25,
-		VolumeScore:    60,
+		RSI14:           25,
+		MACDHist:        0.5,
+		BBUpper:         110,
+		BBMiddle:        100,
+		BBLower:         90,
+		EMA20:           105,
+		EMA50:           102,
+		EMA200:          98,
+		OIScore:         20,
+		FundingScore:    -30,
+		TakerScore:      25,
+		VolumeScore:     60,
 		SocialHeatScore: 75,
 		SocialSentiment: 65,
 		SocialVolumePct: 55,
-		FinalScore:     72,
+		FinalScore:      72,
 	}
 
 	bullSignals, bearSignals, reasons := buildSignalReasons(set)

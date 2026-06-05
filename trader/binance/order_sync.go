@@ -2,10 +2,10 @@ package binance
 
 import (
 	"fmt"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/trader/types"
 	"regexp"
 	"sort"
 	"strconv"

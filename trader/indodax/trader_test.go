@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // Test credentials - set via environment variables

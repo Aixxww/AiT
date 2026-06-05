@@ -71,13 +71,14 @@ func (f *DataFetcher) fetchPerSymbolData(
 
 	for _, sym := range topN {
 		sym := sym
+		base := all[sym]
 		sem <- struct{}{}
 		go func() {
 			defer func() { <-sem }()
 			if ctx.Err() != nil {
 				return
 			}
-			ss, err := f.fetchOneSymbol(ctx, sym, all[sym])
+			ss, err := f.fetchOneSymbol(ctx, sym, base)
 			if err != nil {
 				atomic.AddInt64(&errCount, 1)
 				return

@@ -13,9 +13,9 @@ package local
 
 type accumulationBreakoutLongModule struct{}
 
-func (m *accumulationBreakoutLongModule) Name() string        { return "accumulation_breakout_long" }
+func (m *accumulationBreakoutLongModule) Name() string           { return "accumulation_breakout_long" }
 func (m *accumulationBreakoutLongModule) SetupType() V7SetupType { return V7SetupAccumulationLong }
-func (m *accumulationBreakoutLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *accumulationBreakoutLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *accumulationBreakoutLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	// Must have price data

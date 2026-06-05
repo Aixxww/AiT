@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 var (

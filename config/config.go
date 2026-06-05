@@ -3,9 +3,9 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"nofx/logger"
-	"nofx/mcp"
-	"nofx/telemetry"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/telemetry"
 	"os"
 	"strconv"
 	"strings"
@@ -59,7 +59,7 @@ func Init() {
 		DBHost:    "localhost",
 		DBPort:    5432,
 		DBUser:    "postgres",
-		DBName:    "nofx",
+		DBName:    "ait",
 		DBSSLMode: "disable",
 	}
 

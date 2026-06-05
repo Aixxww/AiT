@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (

@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"nofx/provider/local"
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/local"
 )
 
 type CoinSnapshot struct {
@@ -109,7 +109,9 @@ func main() {
 			snaps = append(snaps, CoinSnapshot{c.Symbol, c.Coin.Score, "SHORT_DIST", 0, c.Meta.ShortScore, c.Reasons, nil, c.Meta.ShortTags, c.Coin.IncreasePercent})
 		}
 		for j, s := range snaps {
-			if j >= 5 { break }
+			if j >= 5 {
+				break
+			}
 			fmt.Printf("  #%d %s score=%.1f %s %v\n", j+1, s.Symbol, s.Score, s.Direction, s.SignalTags)
 		}
 		if len(snaps) == 0 {
@@ -125,51 +127,71 @@ func main() {
 	summary(all)
 }
 
-func limit(coins []nofxos.CoinData, n int) []nofxos.CoinData {
-	if len(coins) > n { return coins[:n] }
+func limit(coins []aitos.CoinData, n int) []aitos.CoinData {
+	if len(coins) > n {
+		return coins[:n]
+	}
 	return coins
 }
 func now() string { return time.Now().Format("15:04:05") }
 func sleep(s int) { time.Sleep(time.Duration(s) * time.Second) }
 
-func toSnapshots(coins []nofxos.CoinData, lc, sc *int) []CoinSnapshot {
+func toSnapshots(coins []aitos.CoinData, lc, sc *int) []CoinSnapshot {
 	snaps := make([]CoinSnapshot, 0, len(coins))
 	for _, c := range coins {
 		snaps = append(snaps, CoinSnapshot{c.Pair, c.Score, c.Direction, c.LongScore, c.ShortScore, c.SignalTags, c.LongTags, c.ShortTags, c.IncreasePercent})
-		if c.Direction == "LONG" { *lc++ } else if c.Direction == "SHORT" { *sc++ }
+		if c.Direction == "LONG" {
+			*lc++
+		} else if c.Direction == "SHORT" {
+			*sc++
+		}
 	}
 	return snaps
 }
 
-func printTop(coins []nofxos.CoinData, n int) {
+func printTop(coins []aitos.CoinData, n int) {
 	for i, c := range coins {
-		if i >= n { break }
+		if i >= n {
+			break
+		}
 		d := c.Direction
-		if d == "" { d = "-" }
+		if d == "" {
+			d = "-"
+		}
 		fmt.Printf("  #%d %s %.1f %s %v\n", i+1, c.Pair, c.Score, d, c.SignalTags)
 	}
 }
 
 func summary(rounds []TestRound) {
 	fmt.Println("\n════════════════════════════════════")
-	type S struct { Total, Long, Short, Unique int; MaxScore float64 }
+	type S struct {
+		Total, Long, Short, Unique int
+		MaxScore                   float64
+	}
 	m := map[string]*S{}
 	uniq := map[string]map[string]bool{}
 	for _, r := range rounds {
-		if m[r.Mode] == nil { m[r.Mode] = &S{}; uniq[r.Mode] = map[string]bool{} }
+		if m[r.Mode] == nil {
+			m[r.Mode] = &S{}
+			uniq[r.Mode] = map[string]bool{}
+		}
 		s := m[r.Mode]
 		s.Total += r.CoinCount
 		s.Long += r.LongCnt
 		s.Short += r.ShortCnt
 		for _, c := range r.Coins {
 			uniq[r.Mode][c.Symbol] = true
-			if c.Score > s.MaxScore { s.MaxScore = c.Score }
+			if c.Score > s.MaxScore {
+				s.MaxScore = c.Score
+			}
 		}
 		s.Unique = len(uniq[r.Mode])
 	}
-	for _, mode := range []string{"ai500","hunter","sniff"} {
+	for _, mode := range []string{"ai500", "hunter", "sniff"} {
 		s := m[mode]
-		if s == nil { continue }
+		if s == nil {
+			continue
+		}
 		fmt.Printf("[%s] scored=%d L/S=%d/%d unique=%d max=%.1f\n",
 			mode, s.Total, s.Long, s.Short, s.Unique, s.MaxScore)
 	}

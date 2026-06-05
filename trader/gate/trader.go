@@ -3,7 +3,7 @@ package gate
 import (
 	"context"
 	"fmt"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/trader/types"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +33,7 @@ type GateTrader struct {
 // NewGateTrader creates a new Gate trader instance
 func NewGateTrader(apiKey, secretKey string) *GateTrader {
 	config := gateapi.NewConfiguration()
-	config.AddDefaultHeader("X-Gate-Channel-Id", "nofx")
+	config.AddDefaultHeader("X-Gate-Channel-Id", "ait")
 	client := gateapi.NewAPIClient(config)
 
 	ctx := context.WithValue(context.Background(),

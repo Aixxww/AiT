@@ -1,12 +1,12 @@
-// Package nofxos provides data access to the NofxOS API (https://nofxos.ai)
+// Package aitos provides data access to the AITOS API (https://aitos.ai)
 // for quantitative trading data including AI500 scores, OI rankings,
 // fund flow (NetFlow), price rankings, and coin details.
-package nofxos
+package aitos
 
 import (
+	"github.com/Aixxww/AiT/security"
 	"io/ioutil"
 	"net/http"
-	"nofx/security"
 	"strings"
 	"sync"
 	"time"
@@ -14,12 +14,12 @@ import (
 
 // Default configuration
 const (
-	DefaultBaseURL = "https://nofxos.ai"
+	DefaultBaseURL = "https://aitos.ai"
 	DefaultTimeout = 30 * time.Second
 	DefaultAuthKey = ""
 )
 
-// Client is the NofxOS API client
+// Client is the AITOS API client
 type Client struct {
 	BaseURL string
 	AuthKey string
@@ -45,7 +45,7 @@ func DefaultClient() *Client {
 	return defaultClient
 }
 
-// NewClient creates a new NofxOS API client
+// NewClient creates a new AITOS API client
 func NewClient(baseURL, authKey string) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL

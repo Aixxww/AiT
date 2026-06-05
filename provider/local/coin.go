@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // openInterestSingle matches GET /fapi/v1/openInterest?symbol=X response.
@@ -19,7 +19,7 @@ type openInterestSingle struct {
 // public endpoints (24h ticker + current OI).
 // The include parameter is accepted for API-compatibility but is ignored —
 // all available data is always returned.
-func (c *Client) GetCoinData(symbol string, include string) (*nofxos.QuantData, error) {
+func (c *Client) GetCoinData(symbol string, include string) (*aitos.QuantData, error) {
 	if strings.TrimSpace(symbol) == "" {
 		return nil, fmt.Errorf("symbol is required")
 	}
@@ -32,13 +32,13 @@ func (c *Client) GetCoinData(symbol string, include string) (*nofxos.QuantData, 
 	const cachePrefix = "coin_"
 	cacheKey := cachePrefix + sym
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.(*nofxos.QuantData), nil
+		return hit.(*aitos.QuantData), nil
 	}
 
-	result := &nofxos.QuantData{
+	result := &aitos.QuantData{
 		Symbol:      sym,
 		PriceChange: make(map[string]float64),
-		OI:          make(map[string]*nofxos.OIData),
+		OI:          make(map[string]*aitos.OIData),
 	}
 
 	// ---- 24h ticker ----
@@ -49,7 +49,7 @@ func (c *Client) GetCoinData(symbol string, include string) (*nofxos.QuantData, 
 	}
 
 	result.Price = parseFloat(t.LastPrice)
-	// priceChangePercent is in %; QuantData expects decimal (x100 in nofxos)
+	// priceChangePercent is in %; QuantData expects decimal (x100 in aitos)
 	pctRaw := parseFloat(t.PriceChangePercent) / 100
 	result.PriceChange["24h"] = pctRaw
 	// We can't compute 1h/4h/8h/12h from the 24h ticker; fill only what we know.
@@ -68,7 +68,7 @@ func (c *Client) GetCoinData(symbol string, include string) (*nofxos.QuantData, 
 		// Continue without OI — not a fatal error
 	} else {
 		oiVal := parseFloat(oiResp.OpenInterest)
-		result.OI["binance"] = &nofxos.OIData{
+		result.OI["binance"] = &aitos.OIData{
 			CurrentOI: oiVal,
 		}
 	}
@@ -83,9 +83,9 @@ func (c *Client) GetCoinData(symbol string, include string) (*nofxos.QuantData, 
 // GetCoinDataBatch calls GetCoinData for every symbol in symbols and returns
 // a map keyed by normalized symbol name. Failures for individual coins are
 // logged and silently skipped.
-// This signature matches nofxos.Client exactly (no error return).
-func (c *Client) GetCoinDataBatch(symbols []string, include string) map[string]*nofxos.QuantData {
-	result := make(map[string]*nofxos.QuantData)
+// This signature matches aitos.Client exactly (no error return).
+func (c *Client) GetCoinDataBatch(symbols []string, include string) map[string]*aitos.QuantData {
+	result := make(map[string]*aitos.QuantData)
 	for _, sym := range symbols {
 		data, err := c.GetCoinData(sym, include)
 		if err != nil {

@@ -3,10 +3,10 @@ package bybit
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"math"
 	"net/http"
-	"nofx/logger"
 	"strconv"
 	"strings"
 	"sync"

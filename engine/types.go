@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"nofx/datafetch"
+	"github.com/Aixxww/AiT/datafetch"
 	"time"
 )
 
@@ -57,9 +57,9 @@ type IndicatorSet struct {
 	VolumeScore  float64 // 0-100 (volume anomaly magnitude)
 
 	// Social indicators (from LunarCrush)
-	SocialHeatScore  float64 // 0-100
-	SocialSentiment  float64 // -100 to 100
-	SocialVolumePct  float64 // 0-100
+	SocialHeatScore float64 // 0-100
+	SocialSentiment float64 // -100 to 100
+	SocialVolumePct float64 // 0-100
 
 	// Computed sub-scores
 	TechBullScore   float64 // 0-40 (bullish technical signals)
@@ -76,12 +76,12 @@ type IndicatorSet struct {
 
 // TradeSignal is the final output of the scoring engine.
 type TradeSignal struct {
-	Symbol    string
-	Direction int     // +1 LONG, -1 SHORT, 0 NEUTRAL
-	FinalScore float64 // 0-100
-	Grade     Grade
-	TechScore float64
-	QuantScore float64
+	Symbol      string
+	Direction   int     // +1 LONG, -1 SHORT, 0 NEUTRAL
+	FinalScore  float64 // 0-100
+	Grade       Grade
+	TechScore   float64
+	QuantScore  float64
 	SocialScore float64
 
 	EntryPrice float64
@@ -113,12 +113,12 @@ type HubConfig struct {
 	ATREnabled  bool // default true
 
 	// Quant indicator enable/disable
-	OIScoreEnabled  bool // default true
-	OISpikeEnabled  bool // default true
-	FundingEnabled  bool // default true
-	LSREnabled      bool // default true
-	TakerEnabled    bool // default true
-	VolumeEnabled   bool // default true
+	OIScoreEnabled bool // default true
+	OISpikeEnabled bool // default true
+	FundingEnabled bool // default true
+	LSREnabled     bool // default true
+	TakerEnabled   bool // default true
+	VolumeEnabled  bool // default true
 
 	// Grade thresholds
 	GradeSThreshold float64 // default 80

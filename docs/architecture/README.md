@@ -85,7 +85,7 @@ Multi-setup alpha signal router covering:
 ## Project Structure
 
 ```
-nofx/
+AiT/
 ├── main.go                    # Entry point
 ├── api/                       # HTTP API (Gin framework)
 ├── trader/                    # Trading execution layer

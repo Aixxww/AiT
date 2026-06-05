@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"nofx/auth"
-	"nofx/logger"
-	"nofx/store"
+	"github.com/Aixxww/AiT/auth"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -225,7 +225,6 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 	logger.Infof("✓ User %s password has been reset", user.Email)
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful, please login with new password"})
 }
-
 
 // adoptOrphanRecords re-assigns ai_models and exchanges whose user_id no longer
 // exists in the users table. This happens after account reset so the new user

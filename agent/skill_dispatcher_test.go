@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 func TestCreateTraderSkillCollectsMissingFieldsAndCreatesTrader(t *testing.T) {
@@ -747,7 +747,7 @@ func TestClassifySkillSessionInputUsesLLMOnlyForAmbiguousDeflection(t *testing.T
 	if got := a.classifySkillSessionInput(context.Background(), 0, "zh", session, "你能帮我看下报错吗"); got != "interrupt" {
 		t.Fatalf("expected ambiguous deflection to interrupt, got %q", got)
 	}
-	if !strings.Contains(client.lastSystemPrompt, "classify one user message while a NOFXi structured management flow is active") {
+	if !strings.Contains(client.lastSystemPrompt, "classify one user message while a AITi structured management flow is active") {
 		t.Fatalf("expected LLM classifier prompt, got %q", client.lastSystemPrompt)
 	}
 }
@@ -770,7 +770,7 @@ func TestClassifySkillSessionInputUsesLLMForUnmatchedActiveSessionInput(t *testi
 	if got := a.classifySkillSessionInput(context.Background(), 0, "zh", session, "新增一个"); got != "continue" {
 		t.Fatalf("expected unmatched active-session input to follow LLM decision, got %q", got)
 	}
-	if !strings.Contains(client.lastSystemPrompt, "classify one user message while a NOFXi structured management flow is active") {
+	if !strings.Contains(client.lastSystemPrompt, "classify one user message while a AITi structured management flow is active") {
 		t.Fatalf("expected LLM classifier prompt, got %q", client.lastSystemPrompt)
 	}
 }

@@ -1,10 +1,10 @@
 package api
 
 import (
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/crypto"
 	"log"
 	"net/http"
-	"nofx/config"
-	"nofx/crypto"
 
 	"github.com/gin-gonic/gin"
 )

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (
@@ -148,7 +148,7 @@ func (a *Agent) reviewTaskCompletion(ctx context.Context, userID int64, lang, te
 
 	recentConversationCtx := a.buildRecentConversationContext(userID, text)
 	outcomeJSON, _ := json.Marshal(outcome)
-	systemPrompt := `You are the task-level Plan-Execute-Review supervisor for NOFXi.
+	systemPrompt := `You are the task-level Plan-Execute-Review supervisor for AITi.
 You are reviewing the JSON result returned by one structured skill execution.
 Return JSON only. Do not return markdown.
 

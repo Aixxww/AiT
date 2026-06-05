@@ -2,12 +2,37 @@ package trader
 
 import (
 	"fmt"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 	"time"
 )
+
+type maxLeverageProvider interface {
+	GetMaxLeverage(symbol string) (int, error)
+}
+
+func (at *AutoTrader) resolveEffectiveLeverage(symbol string, requested int) int {
+	if requested <= 0 {
+		return requested
+	}
+	provider, ok := at.trader.(maxLeverageProvider)
+	if !ok {
+		return requested
+	}
+	maxLeverage, err := provider.GetMaxLeverage(symbol)
+	if err != nil {
+		logger.Infof("  ⚠️ Failed to resolve %s exchange max leverage, using requested %dx: %v", symbol, requested, err)
+		return requested
+	}
+	if maxLeverage > 0 && requested > maxLeverage {
+		logger.Infof("  ⚠️ %s leverage %dx exceeds exchange max %dx, using %dx for margin and order execution",
+			symbol, requested, maxLeverage, maxLeverage)
+		return maxLeverage
+	}
+	return requested
+}
 
 // executeDecisionWithRecord executes AI decision and records detailed information
 func (at *AutoTrader) executeDecisionWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
@@ -84,6 +109,10 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	if wasCapped {
 		decision.PositionSizeUSD = adjustedPositionSize
 	}
+
+	effectiveLeverage := at.resolveEffectiveLeverage(decision.Symbol, decision.Leverage)
+	decision.Leverage = effectiveLeverage
+	actionRecord.Leverage = effectiveLeverage
 
 	// ⚠️ Auto-adjust position size if insufficient margin
 	// Formula: totalRequired = positionSize/leverage + positionSize*0.001 + positionSize/leverage*0.01
@@ -204,6 +233,10 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	if wasCapped {
 		decision.PositionSizeUSD = adjustedPositionSize
 	}
+
+	effectiveLeverage := at.resolveEffectiveLeverage(decision.Symbol, decision.Leverage)
+	decision.Leverage = effectiveLeverage
+	actionRecord.Leverage = effectiveLeverage
 
 	// ⚠️ Auto-adjust position size if insufficient margin
 	// Formula: totalRequired = positionSize/leverage + positionSize*0.001 + positionSize/leverage*0.01

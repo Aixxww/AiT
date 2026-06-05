@@ -5,7 +5,7 @@ package safe
 
 import (
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"runtime/debug"
 )
 

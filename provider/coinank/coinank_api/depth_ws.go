@@ -3,7 +3,7 @@ package coinank_api
 import (
 	"context"
 	"encoding/json"
-	"nofx/provider/coinank/coinank_enum"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 
 	"golang.org/x/net/websocket"
 )

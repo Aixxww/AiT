@@ -2,7 +2,7 @@
 
 All notable changes to the AiT project will be documented in this file.
 
-> **Note:** AiT was formerly known as NOFX. Entries before v4.0.0 are preserved under their original naming.
+> **Note:** AiT was formerly known as AiT. Entries before v4.0.0 are preserved under their original naming.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -31,11 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved Binance snapshot HTTP proxy handling and corrected 24h price-change percentage parsing
 - Reorganized documentation structure into logical categories
 - Updated all README files with proper navigation links
-- Replaced all NOFX branding with AiT across documentation (50+ files)
+- Replaced all AiT branding with AiT across documentation (50+ files)
 - Updated GitHub repository URLs to Aixxww/AiT
 - Kernel engine optimizations (engine.go, engine_analysis.go, engine_position.go, engine_prompt.go)
 - Market data layer improvements (data.go, data_klines.go)
-- Provider module optimizations (local/client.go, local/hunter.go, nofxos/ai500.go)
+- Provider module optimizations (local client, Hunter, AI500 provider)
 
 ---
 
@@ -43,12 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — AiT Platform: Multi-AI, Multi-Exchange, Social Trading
 
-**Complete rebrand from NOFX to AiT with major feature additions.**
+**Complete rebrand from AiT to AiT with major feature additions.**
 
 #### Brand & Identity
-- Renamed project from NOFX to AiT across all code, configs, and UI
+- Renamed project from AiT to AiT across all code, configs, and UI
 - New logo and branding assets
-- Removed nofxos.ai dependency
+- Removed aitos.ai dependency
 
 #### Hunter Coin Selection Module (`provider/hunter/`)
 - Smart money flow detection with multi-timeframe analysis
@@ -107,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Complete System Redesign - Web-Based Configuration Platform**
 
-This is a **major breaking update** that completely transforms NOFX from a static config-based system to a modern web-based trading platform.
+This is a **major breaking update** that completely transforms AiT from a static config-based system to a modern web-based trading platform.
 
 #### Database-Driven Architecture
 - SQLite integration replacing static JSON config

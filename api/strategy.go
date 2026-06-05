@@ -3,14 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/mcp"
+	_ "github.com/Aixxww/AiT/mcp/payment"
+	_ "github.com/Aixxww/AiT/mcp/provider"
+	"github.com/Aixxww/AiT/store"
 	"net/http"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/mcp"
-	_ "nofx/mcp/payment"
-	_ "nofx/mcp/provider"
-	"nofx/store"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,11 +21,11 @@ import (
 func validateStrategyConfig(config *store.StrategyConfig) []string {
 	var warnings []string
 
-	// Validate NofxOS API key if any NofxOS feature is enabled
+	// Validate AITOS API key if any AITOS feature is enabled
 	if (config.Indicators.EnableQuantData || config.Indicators.EnableOIRanking ||
 		config.Indicators.EnableNetFlowRanking || config.Indicators.EnablePriceRanking) &&
-		config.Indicators.NofxOSAPIKey == "" {
-		warnings = append(warnings, "NofxOS API key is not configured. NofxOS data sources may not work properly.")
+		config.Indicators.AITOSAPIKey == "" {
+		warnings = append(warnings, "AITOS API key is not configured. AITOS data sources may not work properly.")
 	}
 
 	return warnings

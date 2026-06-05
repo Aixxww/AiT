@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"nofx/logger"
-	"nofx/store"
-	"nofx/trader"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/trader"
 
 	"github.com/gin-gonic/gin"
 )

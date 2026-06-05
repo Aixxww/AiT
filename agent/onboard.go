@@ -5,12 +5,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Aixxww/AiT/store"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"nofx/store"
 )
 
 var titleCaser = cases.Title(language.English)
+
 const setupExchangeAccountName = "Default"
 
 // Onboard handles first-time setup through natural language.
@@ -265,19 +266,19 @@ func (a *Agent) handleAIChoice(storeUserID string, userID int64, text string, st
 	lower := strings.ToLower(strings.TrimSpace(text))
 
 	models := map[string]struct{ provider, model, url string }{
-		"deepseek":  {"deepseek", "deepseek-chat", "https://api.deepseek.com/v1"},
-		"1":         {"deepseek", "deepseek-chat", "https://api.deepseek.com/v1"},
-		"qwen":      {"qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
+		"deepseek": {"deepseek", "deepseek-chat", "https://api.deepseek.com/v1"},
+		"1":        {"deepseek", "deepseek-chat", "https://api.deepseek.com/v1"},
+		"qwen":     {"qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
 		"通义":       {"qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-		"2":         {"qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-		"openai":    {"openai", "gpt-4o", "https://api.openai.com/v1"},
-		"gpt":       {"openai", "gpt-4o", "https://api.openai.com/v1"},
-		"3":         {"openai", "gpt-4o", "https://api.openai.com/v1"},
-		"claude":    {"claude", "claude-3-5-sonnet-20241022", "https://api.anthropic.com/v1"},
-		"4":         {"claude", "claude-3-5-sonnet-20241022", "https://api.anthropic.com/v1"},
-		"skip":      {"", "", ""},
+		"2":        {"qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
+		"openai":   {"openai", "gpt-4o", "https://api.openai.com/v1"},
+		"gpt":      {"openai", "gpt-4o", "https://api.openai.com/v1"},
+		"3":        {"openai", "gpt-4o", "https://api.openai.com/v1"},
+		"claude":   {"claude", "claude-3-5-sonnet-20241022", "https://api.anthropic.com/v1"},
+		"4":        {"claude", "claude-3-5-sonnet-20241022", "https://api.anthropic.com/v1"},
+		"skip":     {"", "", ""},
 		"跳过":       {"", "", ""},
-		"5":         {"", "", ""},
+		"5":        {"", "", ""},
 	}
 
 	choice, ok := models[lower]
@@ -413,7 +414,7 @@ func (a *Agent) createTraderFromSetupForStoreUser(storeUserID string, state *Set
 	}
 	trader := &store.Trader{
 		ID:         fmt.Sprintf("%s_%s_%d", exchangeIDShort, modelPart, time.Now().UnixNano()),
-		Name:       fmt.Sprintf("NOFXi-%s", titleCaser.String(state.Exchange)),
+		Name:       fmt.Sprintf("AITi-%s", titleCaser.String(state.Exchange)),
 		UserID:     storeUserID,
 		ExchangeID: exchangeID,
 		AIModelID:  aiModelID,
@@ -530,11 +531,11 @@ func containsAny(s string, words []string) bool {
 
 var setupMessages = map[string]map[string]string{
 	"welcome": {
-		"zh": "👋 你好！我是 *NOFXi*，你的 AI 交易 Agent。\n\n" +
+		"zh": "👋 你好！我是 *AITi*，你的 AI 交易 Agent。\n\n" +
 			"我发现你还没有配置交易所，让我帮你搞定吧！\n\n" +
 			"发送 *开始配置* 或 *setup* 开始\n" +
 			"发送 *取消* 随时退出",
-		"en": "👋 Hi! I'm *NOFXi*, your AI trading agent.\n\n" +
+		"en": "👋 Hi! I'm *AITi*, your AI trading agent.\n\n" +
 			"I see you haven't configured an exchange yet. Let me help!\n\n" +
 			"Send *setup* to begin\n" +
 			"Send *cancel* to exit anytime",

@@ -3,8 +3,8 @@ package binance
 import (
 	"context"
 	"fmt"
-	"nofx/logger"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/types"
 	"strconv"
 	"strings"
 

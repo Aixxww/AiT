@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 type capturedRequest struct {

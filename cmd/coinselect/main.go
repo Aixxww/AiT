@@ -6,15 +6,15 @@ import (
 	"os"
 	"time"
 
-	"nofx/provider/local"
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/local"
 )
 
 type RoundResult struct {
 	Round     int              `json:"round"`
 	Timestamp string           `json:"timestamp"`
 	Source    string           `json:"source"`
-	Coins     []nofxos.CoinData `json:"coins"`
+	Coins     []aitos.CoinData `json:"coins"`
 }
 
 func main() {

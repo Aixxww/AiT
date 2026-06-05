@@ -3,10 +3,10 @@ package kernel
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/mcp"
-	"nofx/store"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/store"
 	"regexp"
 	"strings"
 	"time"
@@ -93,7 +93,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	// Ensure OITopDataMap is initialized
 	if ctx.OITopDataMap == nil {
 		ctx.OITopDataMap = make(map[string]*OITopData)
-		oiPositions, err := engine.nofxosClient.GetOITopPositions()
+		oiPositions, err := engine.aitosClient.GetOITopPositions()
 		if err == nil {
 			for _, pos := range oiPositions {
 				ctx.OITopDataMap[pos.Symbol] = &OITopData{

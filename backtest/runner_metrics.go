@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	"nofx/logger"
-	"nofx/store"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
 )
 
 func (r *Runner) persistMetadata() {

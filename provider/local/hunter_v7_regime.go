@@ -1,8 +1,8 @@
 package local
 
 import (
+	"github.com/Aixxww/AiT/datafetch"
 	"math"
-	"nofx/datafetch"
 )
 
 // ============================================================================

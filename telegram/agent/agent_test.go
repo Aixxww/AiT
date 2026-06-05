@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 // mockLLM implements mcp.AIClient using pre-programmed LLMResponse objects.

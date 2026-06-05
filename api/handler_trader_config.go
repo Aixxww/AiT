@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 
 	"github.com/gin-gonic/gin"
 )

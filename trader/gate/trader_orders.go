@@ -2,9 +2,9 @@ package gate
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/types"
 	"math"
-	"nofx/logger"
-	"nofx/trader/types"
 	"strconv"
 	"strings"
 
@@ -70,7 +70,7 @@ func (t *GateTrader) OpenLong(symbol string, quantity float64, leverage int) (ma
 		Size:     size, // Positive for long
 		Price:    "0",  // Market order
 		Tif:      "ioc",
-		Text:     "t-nofx",
+		Text:     "t-ait",
 	}
 
 	logger.Infof("  [Gate] OpenLong: symbol=%s, size=%d, leverage=%d", symbol, size, leverage)
@@ -127,7 +127,7 @@ func (t *GateTrader) OpenShort(symbol string, quantity float64, leverage int) (m
 		Size:     -size, // Negative for short
 		Price:    "0",   // Market order
 		Tif:      "ioc",
-		Text:     "t-nofx",
+		Text:     "t-ait",
 	}
 
 	logger.Infof("  [Gate] OpenShort: symbol=%s, size=%d, leverage=%d", symbol, -size, leverage)
@@ -195,7 +195,7 @@ func (t *GateTrader) CloseLong(symbol string, quantity float64) (map[string]inte
 		Price:      "0",
 		Tif:        "ioc",
 		ReduceOnly: true,
-		Text:       "t-nofx-close",
+		Text:       "t-ait-close",
 	}
 
 	logger.Infof("  [Gate] CloseLong: symbol=%s, size=%d", symbol, -size)
@@ -268,7 +268,7 @@ func (t *GateTrader) CloseShort(symbol string, quantity float64) (map[string]int
 		Price:      "0",
 		Tif:        "ioc",
 		ReduceOnly: true,
-		Text:       "t-nofx-close",
+		Text:       "t-ait-close",
 	}
 
 	logger.Infof("  [Gate] CloseShort: symbol=%s, size=%d", symbol, size)

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Aixxww/AiT/trader/testutil"
+	"github.com/Aixxww/AiT/trader/types"
 	"github.com/stretchr/testify/assert"
-	"nofx/trader/testutil"
-	"nofx/trader/types"
 )
 
 // ============================================================

@@ -47,8 +47,8 @@ func TestIsStockSymbol(t *testing.T) {
 		{"JPM", true}, // 3 letters
 
 		// Mixed / edge cases
-		{"btc", false},  // lowercase crypto
-		{"aapl", true},  // lowercase stock (uppercased internally)
+		{"btc", false},    // lowercase crypto
+		{"aapl", true},    // lowercase stock (uppercased internally)
 		{"BTC123", false}, // not pure letters
 		{"123456", false}, // digits
 		{"", false},

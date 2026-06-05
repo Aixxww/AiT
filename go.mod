@@ -1,4 +1,4 @@
-module nofx
+module github.com/Aixxww/AiT
 
 go 1.25.3
 

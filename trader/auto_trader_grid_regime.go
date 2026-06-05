@@ -2,9 +2,9 @@ package trader
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
 	"math"
-	"nofx/logger"
-	"nofx/market"
 	"time"
 )
 

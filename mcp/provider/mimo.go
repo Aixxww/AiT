@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 func init() {

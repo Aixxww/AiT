@@ -6,13 +6,13 @@ import (
 	"sort"
 	"time"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // GetNetFlowRanking returns a NetFlowRankingData built as a proxy from
 // Binance 24h ticker data.
 //
-// NofxOS NetFlow separates "institution" vs "personal" futures fund flow.
+// AITOS NetFlow separates "institution" vs "personal" futures fund flow.
 // Binance does not expose that split publicly, so we approximate:
 //
 //	Institution flow proxy: top/bottom symbols by quoteVolume (smart money
@@ -20,13 +20,13 @@ import (
 //	Personal flow proxy:   top/bottom symbols by trade count (retail activity
 //	  correlates with number of trades).
 //
-// sign convention (matches nofxos):
+// sign convention (matches aitos):
 //
 //	positive amount = net inflow (buy pressure)
 //	negative amount = net outflow (sell pressure)
 //
 // result is cached for CacheTTLTicker (60 s).
-func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowRankingData, error) {
+func (c *Client) GetNetFlowRanking(duration string, limit int) (*aitos.NetFlowRankingData, error) {
 	if duration == "" {
 		duration = "1h"
 	}
@@ -36,10 +36,10 @@ func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowR
 
 	cacheKey := fmt.Sprintf("netflow_%s_%d", duration, limit)
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.(*nofxos.NetFlowRankingData), nil
+		return hit.(*aitos.NetFlowRankingData), nil
 	}
 
-	result := &nofxos.NetFlowRankingData{
+	result := &aitos.NetFlowRankingData{
 		Duration:  duration,
 		TimeRange: "latest",
 		FetchedAt: time.Now(),
@@ -54,11 +54,11 @@ func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowR
 	}
 
 	type flowItem struct {
-		symbol   string
-		price    float64
-		qv       float64 // quote volume (institution proxy)
-		count    float64  // trades (retail proxy)
-		pctChg   float64
+		symbol string
+		price  float64
+		qv     float64 // quote volume (institution proxy)
+		count  float64 // trades (retail proxy)
+		pctChg float64
 	}
 
 	var items []flowItem
@@ -86,7 +86,7 @@ func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowR
 	}
 
 	// Helper to pick top-N and bottom-N from a slice sorted by a getter
-	topBottom := func(data []flowItem, getter func(flowItem) float64, n int) (top, low []nofxos.NetFlowPosition) {
+	topBottom := func(data []flowItem, getter func(flowItem) float64, n int) (top, low []aitos.NetFlowPosition) {
 		sorted := make([]flowItem, len(data))
 		copy(sorted, data)
 		sort.SliceStable(sorted, func(i, j int) bool {
@@ -97,7 +97,7 @@ func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowR
 		}
 		for i := 0; i < n; i++ {
 			it := sorted[i]
-			top = append(top, nofxos.NetFlowPosition{
+			top = append(top, aitos.NetFlowPosition{
 				Rank:   i + 1,
 				Symbol: it.symbol,
 				Amount: getter(it),
@@ -114,7 +114,7 @@ func (c *Client) GetNetFlowRanking(duration string, limit int) (*nofxos.NetFlowR
 		}
 		for i := 0; i < lowN; i++ {
 			it := sorted[i]
-			low = append(low, nofxos.NetFlowPosition{
+			low = append(low, aitos.NetFlowPosition{
 				Rank:   i + 1,
 				Symbol: it.symbol,
 				Amount: getter(it),

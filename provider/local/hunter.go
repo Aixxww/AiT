@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"nofx/market"
-	"nofx/provider/nofxos"
-	"nofx/store"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/store"
 )
 
 // HunterCoinScore holds intermediate scoring for one coin in the Hunter system.
@@ -41,9 +41,9 @@ type HunterCoinScore struct {
 
 // Capital confirmation levels for tier classification.
 const (
-	CapitalLevelNone = 0 // No capital signal
-	CapitalLevelWeak = 1 // Level-1: oi_moderate / oi_surge_1h / pure LSR → Tier-B "LOW CONFIDENCE"
-	CapitalLevelMed  = 2 // Level-2: oi_spike_1h alone / oi_squeeze / oi_accumulation / oi_distribution → Tier-A
+	CapitalLevelNone   = 0 // No capital signal
+	CapitalLevelWeak   = 1 // Level-1: oi_moderate / oi_surge_1h / pure LSR → Tier-B "LOW CONFIDENCE"
+	CapitalLevelMed    = 2 // Level-2: oi_spike_1h alone / oi_squeeze / oi_accumulation / oi_distribution → Tier-A
 	CapitalLevelStrong = 3 // Level-3: oi_spike_1h + LSR confirmation → Tier-S "PRIME SIGNAL"
 )
 
@@ -1082,11 +1082,11 @@ func (c *Client) computeShortSmartMoneyScore(symbol string, klines []klineBar, s
 }
 
 // GetHunterList fetches all USDT perps, computes 4-pillar hunter scores,
-// and returns top 30 as []nofxos.CoinData.
-func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
+// and returns top 30 as []aitos.CoinData.
+func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 	const cacheKey = "hunter_list_v2" // v2: includes short-direction scoring
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.([]nofxos.CoinData), nil
+		return hit.([]aitos.CoinData), nil
 	}
 
 	// --- Step 1: Try Binance primary source ---
@@ -1449,7 +1449,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		topN = len(filtered)
 	}
 	now := time.Now().Unix()
-	coins := make([]nofxos.CoinData, 0, topN)
+	coins := make([]aitos.CoinData, 0, topN)
 	longCount, shortCount := 0, 0
 	for i := 0; i < topN; i++ {
 		p := filtered[i]
@@ -1459,7 +1459,7 @@ func (c *Client) GetHunterList() ([]nofxos.CoinData, error) {
 		} else {
 			longCount++
 		}
-		coins = append(coins, nofxos.CoinData{
+		coins = append(coins, aitos.CoinData{
 			Pair:            p.ticker.Symbol,
 			Score:           p.score.FinalScore,
 			StartTime:       now,

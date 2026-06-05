@@ -3,7 +3,7 @@ package bybit
 import (
 	"context"
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"strconv"
 	"strings"
 	"time"

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 )
 
 func (r *Runner) executeDecision(dec kernel.Decision, priceMap map[string]float64, ts int64, cycle int) (store.DecisionAction, []TradeEvent, string, error) {

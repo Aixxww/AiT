@@ -50,8 +50,8 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | [Git Workflow](Git工作流规范.md) | Repository workflow and Git conventions | Git 工作流规范 |
 
 **Get Involved:**
-- 💬 [Telegram Community](https://t.me/nofx_dev_community)
-- 🐦 [Twitter @nofx_official](https://x.com/nofx_official)
+- 💬 [Telegram Community](https://t.me/ait_dev_community)
+- 🐦 [Twitter @ait_official](https://x.com/ait_official)
 - 🐛 [Report Issues](https://github.com/Aixxww/AiT/issues)
 
 ---
@@ -120,7 +120,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 - 💡 **Suggest a feature** → [Feature Request](https://github.com/Aixxww/AiT/issues/new?template=feature_request.md)
 - 🔒 **Report security issue** → [Security Policy](../SECURITY.md)
 - 🤝 **Contribute code** → [Git Workflow](Git工作流规范.md)
-- 💬 **Ask questions** → [Telegram Community](https://t.me/nofx_dev_community)
+- 💬 **Ask questions** → [Telegram Community](https://t.me/ait_dev_community)
 - 🔍 **Hunter 分析报告** → [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md)
 
 ### I'm looking for...
@@ -157,8 +157,8 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 **Can't find what you're looking for?**
 
 1. **Search GitHub Issues** - Someone might have asked already
-2. **Join Telegram** - [AiT Developer Community](https://t.me/nofx_dev_community)
-3. **Ask on Twitter** - Mention [@nofx_official](https://x.com/nofx_official)
+2. **Join Telegram** - [AiT Developer Community](https://t.me/ait_dev_community)
+3. **Ask on Twitter** - Mention [@ait_official](https://x.com/ait_official)
 4. **Create an Issue** - [New Issue](https://github.com/Aixxww/AiT/issues/new)
 
 ---

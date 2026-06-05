@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"math"
 	"net/http"
-	"nofx/logger"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,7 +36,7 @@ const (
 
 // API channel configuration
 const (
-	kcPartnerID  = "NoFxFutures"
+	kcPartnerID  = "AiTFutures"
 	kcPartnerKey = "d7c05b0c-c81b-4630-8fa8-ca6d049d3aae"
 )
 

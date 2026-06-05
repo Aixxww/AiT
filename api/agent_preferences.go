@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"nofx/agent"
+	"github.com/Aixxww/AiT/agent"
 
 	"github.com/gin-gonic/gin"
 )

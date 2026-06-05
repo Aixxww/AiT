@@ -2,8 +2,8 @@ package kernel
 
 import (
 	"fmt"
-	"nofx/market"
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
 	"sort"
 	"strings"
 	"time"
@@ -91,11 +91,11 @@ func formatContextData(ctx *Context, lang Language) string {
 
 	// 7. OI ranking data (if available)
 	if ctx.OIRankingData != nil {
-		nofxosLang := nofxos.LangEnglish
+		aitosLang := aitos.LangEnglish
 		if lang == LangChinese {
-			nofxosLang = nofxos.LangChinese
+			aitosLang = aitos.LangChinese
 		}
-		sb.WriteString(nofxos.FormatOIRankingForAI(ctx.OIRankingData, nofxosLang))
+		sb.WriteString(aitos.FormatOIRankingForAI(ctx.OIRankingData, aitosLang))
 	}
 
 	return sb.String()
@@ -355,7 +355,6 @@ func formatKlineDataZH(symbol string, tfData map[string]*market.TimeframeSeriesD
 
 	return sb.String()
 }
-
 
 // getOIInterpretationZH returns OI change interpretation (Chinese)
 func getOIInterpretationZH(oiChange, priceChange string) string {
@@ -620,7 +619,6 @@ func formatKlineDataEN(symbol string, tfData map[string]*market.TimeframeSeriesD
 
 	return sb.String()
 }
-
 
 // getOIInterpretationEN returns OI change interpretation (English)
 func getOIInterpretationEN(oiChange, priceChange string) string {

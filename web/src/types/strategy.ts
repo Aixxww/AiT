@@ -44,6 +44,7 @@ export interface StrategyConfig {
   // Language setting: "zh" for Chinese, "en" for English
   // Determines the language used for data formatting and prompt generation
   language?: 'zh' | 'en';
+  prompt_compact_mode?: 'off' | 'hunter_v7_only' | 'all_candidates' | 'auto';
   coin_source: CoinSourceConfig;
   indicators: IndicatorConfig;
   custom_prompt?: string;
@@ -173,8 +174,8 @@ export interface IndicatorConfig {
   external_data_sources?: ExternalDataSource[];
 
   // ========== 数据源配置（由 Linux local provider 强制 Binance） ==========
-  // Legacy: nofxosApi key — now ignored at runtime, Binance public API used instead
-  nofxos_api_key?: string;
+  // Legacy: aitosApi key — now ignored at runtime, Binance public API used instead
+  aitos_api_key?: string;
 
   // 量化数据源（资金流向、持仓变化、价格变化）
   enable_quant_data?: boolean;

@@ -2,17 +2,17 @@ package trader
 
 import (
 	"fmt"
-	"nofx/store"
-	"nofx/trader/aster"
-	"nofx/trader/binance"
-	"nofx/trader/bitget"
-	"nofx/trader/bybit"
-	"nofx/trader/gate"
-	"nofx/trader/hyperliquid"
-	"nofx/trader/indodax"
-	"nofx/trader/kucoin"
-	"nofx/trader/lighter"
-	"nofx/trader/okx"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/trader/aster"
+	"github.com/Aixxww/AiT/trader/binance"
+	"github.com/Aixxww/AiT/trader/bitget"
+	"github.com/Aixxww/AiT/trader/bybit"
+	"github.com/Aixxww/AiT/trader/gate"
+	"github.com/Aixxww/AiT/trader/hyperliquid"
+	"github.com/Aixxww/AiT/trader/indodax"
+	"github.com/Aixxww/AiT/trader/kucoin"
+	"github.com/Aixxww/AiT/trader/lighter"
+	"github.com/Aixxww/AiT/trader/okx"
 )
 
 // NewTraderFromExchange creates a trader adapter from a persisted exchange account.

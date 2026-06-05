@@ -7,9 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"net/http"
-	"nofx/logger"
 	"strconv"
 	"strings"
 	"sync"
@@ -314,5 +314,5 @@ func (t *BitgetTrader) clearCache() {
 func genBitgetClientOid() string {
 	timestamp := time.Now().UnixNano() % 10000000000000
 	rand := time.Now().Nanosecond() % 100000
-	return fmt.Sprintf("nofx%d%05d", timestamp, rand)
+	return fmt.Sprintf("ait%d%05d", timestamp, rand)
 }

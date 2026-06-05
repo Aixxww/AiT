@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"nofx/mcp"
-	"nofx/mcp/provider"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/mcp/provider"
 )
 
 // ============================================================

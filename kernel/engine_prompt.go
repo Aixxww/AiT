@@ -3,10 +3,10 @@ package kernel
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/market"
-	"nofx/provider/local"
-	"nofx/provider/nofxos"
-	"nofx/store"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 	"strings"
 	"time"
 )
@@ -397,50 +397,14 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
 				sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
 			}
-			sb.WriteString(fmt.Sprintf("Hunter v7 Signal Router: setup=%s | status=%s | regime=%s | entry_mode=%s | confidence=%s | risk=%s\n",
-				coin.V7SetupType, coin.V7Status, coin.V7MarketRegime, coin.V7EntryMode, coin.V7Confidence, coin.V7RiskLevel))
-			sb.WriteString(fmt.Sprintf("Hunter v7 Scores: ai_priority=%.1f | setup=%.1f | timing=%.1f | regime_fit=%.1f | liquidity=%.1f | risk=%.1f\n",
-				coin.V7AIPriority, coin.V7SetupScore, coin.V7TimingScore, coin.V7RegimeFitScore, coin.V7LiquidityScore, coin.V7RiskScore))
-			if len(coin.V7ReasonCodes) > 0 {
-				sb.WriteString(fmt.Sprintf("Hunter v7 reasons: %s\n", strings.Join(coin.V7ReasonCodes, ", ")))
-			}
-			if len(coin.V7RiskTags) > 0 {
-				sb.WriteString(fmt.Sprintf("Hunter v7 risk tags: %s\n", strings.Join(coin.V7RiskTags, ", ")))
-			}
-			if len(coin.V7RequiredConfirms) > 0 {
-				sb.WriteString(fmt.Sprintf("Hunter v7 required confirmations before entry: %s\n", strings.Join(coin.V7RequiredConfirms, ", ")))
-			}
-			if coin.V7EntryZone.Lower > 0 || coin.V7EntryZone.Upper > 0 {
-				sb.WriteString(fmt.Sprintf("Hunter v7 entry zone: %.6f ~ %.6f\n", coin.V7EntryZone.Lower, coin.V7EntryZone.Upper))
-			}
-			if coin.V7Invalidation.Price > 0 {
-				sb.WriteString(fmt.Sprintf("Hunter v7 invalidation: %.6f (%s)\n", coin.V7Invalidation.Price, coin.V7Invalidation.Reason))
-			}
-			if len(coin.V7Targets) > 0 {
-				var targets []string
-				for _, target := range coin.V7Targets {
-					targets = append(targets, fmt.Sprintf("%.6f(%s)", target.Price, target.Reason))
-				}
-				sb.WriteString(fmt.Sprintf("Hunter v7 targets: %s\n", strings.Join(targets, ", ")))
-			}
-			if coin.V7PriceContext != nil {
-				pc := coin.V7PriceContext
-				sb.WriteString(fmt.Sprintf("Hunter v7 price context: last=%.6f | 1h=%+.2f%% | 4h=%+.2f%% | 24h=%+.2f%% | ATR1h=%.6f | ATR4h=%.6f\n",
-					pc.Last, pc.Change1h, pc.Change4h, pc.Change24h, pc.ATR1h, pc.ATR4h))
-			}
-			if coin.V7DerivativesCtx != nil {
-				dc := coin.V7DerivativesCtx
-				sb.WriteString(fmt.Sprintf("Hunter v7 derivatives: OI=%.0f | OI1h=%+.2f%% | OI4h=%+.2f%% | funding=%.5f | LSR %.3f→%.3f | taker15m=%.3f\n",
-					dc.OIValue, dc.OIChange1h, dc.OIChange4h, dc.FundingRate, dc.LSROldest, dc.LSRNewest, dc.TakerBuy15m))
-			}
 			if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" {
-				sb.WriteString("Hunter v7 execution rule: do not enter immediately; wait for the listed confirmations or directional trigger.\n")
+				sb.WriteString("v7_execution_gate: wait for required confirmations / directional trigger before entry.\n")
 			}
 			sb.WriteString("\n")
 		}
 
 		// Show Hunter signal tags for AI context
-		if len(coin.SignalTags) > 0 && coin.Direction != "" {
+		if coin.V7SetupType == "" && len(coin.SignalTags) > 0 && coin.Direction != "" {
 			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
 		}
 		// RUSH alert: highlight extreme 15m taker pressure for AI attention
@@ -496,7 +460,11 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			}
 			sb.WriteString("\n")
 		}
-		sb.WriteString(e.formatMarketData(marketData))
+		if e.shouldCompactCandidatePrompt(coin, ctx) {
+			sb.WriteString(e.formatCompactMarketData(marketData))
+		} else {
+			sb.WriteString(e.formatMarketData(marketData))
+		}
 
 		if ctx.QuantDataMap != nil {
 			if quantData, hasQuant := ctx.QuantDataMap[coin.Symbol]; hasQuant {
@@ -508,24 +476,24 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	sb.WriteString("\n")
 
 	// Get language for market data formatting
-	nofxosLang := nofxos.LangEnglish
+	aitosLang := aitos.LangEnglish
 	if e.GetLanguage() == LangChinese {
-		nofxosLang = nofxos.LangChinese
+		aitosLang = aitos.LangChinese
 	}
 
 	// OI Ranking data (market-wide open interest changes)
 	if ctx.OIRankingData != nil {
-		sb.WriteString(nofxos.FormatOIRankingForAI(ctx.OIRankingData, nofxosLang))
+		sb.WriteString(aitos.FormatOIRankingForAI(ctx.OIRankingData, aitosLang))
 	}
 
 	// NetFlow Ranking data (market-wide fund flow)
 	if ctx.NetFlowRankingData != nil {
-		sb.WriteString(nofxos.FormatNetFlowRankingForAI(ctx.NetFlowRankingData, nofxosLang))
+		sb.WriteString(aitos.FormatNetFlowRankingForAI(ctx.NetFlowRankingData, aitosLang))
 	}
 
 	// Price Ranking data (market-wide gainers/losers)
 	if ctx.PriceRankingData != nil {
-		sb.WriteString(nofxos.FormatPriceRankingForAI(ctx.PriceRankingData, nofxosLang))
+		sb.WriteString(aitos.FormatPriceRankingForAI(ctx.PriceRankingData, aitosLang))
 	}
 
 	sb.WriteString("---\n\n")
@@ -699,6 +667,38 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 	return ""
 }
 
+func (e *StrategyEngine) shouldCompactCandidatePrompt(coin CandidateCoin, ctx *Context) bool {
+	mode := e.config.PromptCompactMode
+	if mode == "" {
+		mode = "hunter_v7_only"
+	}
+
+	switch mode {
+	case "off":
+		return false
+	case "all_candidates":
+		return true
+	case "auto":
+		if coin.V7SetupType != "" {
+			return true
+		}
+		klineCount := e.config.Indicators.Klines.PrimaryCount
+		if klineCount <= 0 {
+			klineCount = 30
+		}
+		timeframeCount := len(ctx.Timeframes)
+		if timeframeCount == 0 {
+			timeframeCount = len(e.config.Indicators.Klines.SelectedTimeframes)
+		}
+		if timeframeCount == 0 {
+			timeframeCount = 1
+		}
+		return len(ctx.CandidateCoins)*timeframeCount*klineCount >= 600
+	default:
+		return coin.V7SetupType != ""
+	}
+}
+
 // ============================================================================
 // Market Data Formatting
 // ============================================================================
@@ -811,6 +811,104 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 	}
 
 	return sb.String()
+}
+
+func (e *StrategyEngine) formatCompactMarketData(data *market.Data) string {
+	var sb strings.Builder
+	indicators := e.config.Indicators
+
+	sb.WriteString(fmt.Sprintf("=== %s compact market data ===\n", data.Symbol))
+	parts := []string{fmt.Sprintf("price=%.6f", data.CurrentPrice)}
+	if indicators.EnableEMA && data.CurrentEMA20 > 0 {
+		parts = append(parts, fmt.Sprintf("ema20=%.6f", data.CurrentEMA20))
+	}
+	if indicators.EnableMACD {
+		parts = append(parts, fmt.Sprintf("macd=%.4f", data.CurrentMACD))
+	}
+	if indicators.EnableRSI && data.CurrentRSI7 > 0 {
+		parts = append(parts, fmt.Sprintf("rsi7=%.1f", data.CurrentRSI7))
+	}
+	if indicators.EnableOI && data.OpenInterest != nil {
+		parts = append(parts, fmt.Sprintf("oi_latest=%.2f oi_avg=%.2f", data.OpenInterest.Latest, data.OpenInterest.Average))
+	}
+	if indicators.EnableFundingRate {
+		parts = append(parts, fmt.Sprintf("funding=%.5f", data.FundingRate))
+	}
+	sb.WriteString(strings.Join(parts, " | "))
+	sb.WriteString("\n")
+
+	if len(data.TimeframeData) > 0 {
+		timeframeOrder := []string{"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w"}
+		for _, tf := range timeframeOrder {
+			if tfData, ok := data.TimeframeData[tf]; ok {
+				if summary := compactTimeframeSummary(tfData, indicators); summary != "" {
+					sb.WriteString(fmt.Sprintf("%s: %s\n", strings.ToUpper(tf), summary))
+				}
+			}
+		}
+	}
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func compactTimeframeSummary(data *market.TimeframeSeriesData, indicators store.IndicatorConfig) string {
+	if data == nil {
+		return ""
+	}
+	parts := make([]string, 0, 8)
+	if len(data.Klines) > 0 {
+		last := data.Klines[len(data.Klines)-1]
+		parts = append(parts, fmt.Sprintf("last_o/h/l/c=%.6f/%.6f/%.6f/%.6f", last.Open, last.High, last.Low, last.Close))
+		parts = append(parts, fmt.Sprintf("vol=%.2f", last.Volume))
+		if len(data.Klines) >= 4 {
+			prev := data.Klines[len(data.Klines)-4]
+			if prev.Close != 0 {
+				parts = append(parts, fmt.Sprintf("chg3=%+.2f%%", (last.Close/prev.Close-1)*100))
+			}
+		}
+	} else if len(data.MidPrices) > 0 {
+		last := data.MidPrices[len(data.MidPrices)-1]
+		parts = append(parts, fmt.Sprintf("last=%.6f", last))
+	}
+	if indicators.EnableEMA {
+		if v, ok := lastFloat(data.EMA20Values); ok {
+			parts = append(parts, fmt.Sprintf("ema20=%.6f", v))
+		}
+		if v, ok := lastFloat(data.EMA50Values); ok {
+			parts = append(parts, fmt.Sprintf("ema50=%.6f", v))
+		}
+	}
+	if indicators.EnableMACD {
+		if v, ok := lastFloat(data.MACDValues); ok {
+			parts = append(parts, fmt.Sprintf("macd=%.4f", v))
+		}
+	}
+	if indicators.EnableRSI {
+		if v, ok := lastFloat(data.RSI7Values); ok {
+			parts = append(parts, fmt.Sprintf("rsi7=%.1f", v))
+		}
+		if v, ok := lastFloat(data.RSI14Values); ok {
+			parts = append(parts, fmt.Sprintf("rsi14=%.1f", v))
+		}
+	}
+	if indicators.EnableATR && data.ATR14 > 0 {
+		parts = append(parts, fmt.Sprintf("atr14=%.6f", data.ATR14))
+	}
+	if indicators.EnableBOLL {
+		if upper, ok := lastFloat(data.BOLLUpper); ok {
+			mid, _ := lastFloat(data.BOLLMiddle)
+			lower, _ := lastFloat(data.BOLLLower)
+			parts = append(parts, fmt.Sprintf("boll=%.6f/%.6f/%.6f", upper, mid, lower))
+		}
+	}
+	return strings.Join(parts, " | ")
+}
+
+func lastFloat(values []float64) (float64, bool) {
+	if len(values) == 0 {
+		return 0, false
+	}
+	return values[len(values)-1], true
 }
 
 func (e *StrategyEngine) formatTimeframeSeriesData(sb *strings.Builder, data *market.TimeframeSeriesData, indicators store.IndicatorConfig) {

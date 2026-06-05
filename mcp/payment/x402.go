@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/crypto/sha3"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (
@@ -39,9 +39,9 @@ const (
 
 // X402v2PaymentRequired is the structure of the Payment-Required header (x402 v2).
 type X402v2PaymentRequired struct {
-	X402Version int              `json:"x402Version"`
+	X402Version int                `json:"x402Version"`
 	Accepts     []X402AcceptOption `json:"accepts"`
-	Resource    *X402Resource    `json:"resource"`
+	Resource    *X402Resource      `json:"resource"`
 }
 
 // X402AcceptOption is a payment option from the x402 v2 header.
@@ -483,7 +483,7 @@ func X402BuildRequest(url string, jsonData []byte) (*http.Request, error) {
 		return nil, fmt.Errorf("fail to build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Client-ID", "nofx")
+	req.Header.Set("X-Client-ID", "ait")
 	return req, nil
 }
 

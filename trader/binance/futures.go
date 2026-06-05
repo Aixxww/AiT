@@ -7,10 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/Aixxww/AiT/hook"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"net/http"
-	"nofx/hook"
-	"nofx/logger"
 	"strings"
 	"sync"
 	"time"
@@ -60,6 +60,11 @@ type FuturesTrader struct {
 	positionsCacheTime  time.Time
 	positionsCacheMutex sync.RWMutex
 
+	// Per-symbol maximum leverage cache from Binance leverage brackets.
+	maxLeverageCache      map[string]int
+	maxLeverageCacheTime  map[string]time.Time
+	maxLeverageCacheMutex sync.RWMutex
+
 	// Cache validity period (15 seconds)
 	cacheDuration time.Duration
 }
@@ -83,8 +88,10 @@ func NewFuturesTrader(apiKey, secretKey string, userId string, proxyURL ...strin
 	// Sync time to avoid "Timestamp ahead" error
 	syncBinanceServerTime(client)
 	trader := &FuturesTrader{
-		client:        client,
-		cacheDuration: 15 * time.Second, // 15-second cache
+		client:               client,
+		maxLeverageCache:     make(map[string]int),
+		maxLeverageCacheTime: make(map[string]time.Time),
+		cacheDuration:        15 * time.Second, // 15-second cache
 	}
 
 	// Set dual-side position mode (Hedge Mode)

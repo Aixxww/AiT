@@ -1,7 +1,7 @@
-// Package local provides a local data provider that replaces the NofxOS API
-// (https://nofxos.ai) using Binance public futures endpoints.
+// Package local provides a local data provider that replaces the AITOS API
+// (https://aitos.ai) using Binance public futures endpoints.
 //
-// All public method signatures match nofxos.Client so the two are
+// All public method signatures match aitos.Client so the two are
 // interchangeable at the call site once the engine references an interface.
 package local
 
@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 )
 
 // maxParallelRequests caps total in-flight HTTP requests to avoid overwhelming
@@ -34,7 +34,7 @@ const (
 )
 
 // Client is a Binance-backed local data provider.
-// It implements the same public method set as nofxos.Client so it can be
+// It implements the same public method set as aitos.Client so it can be
 // dropped into the strategy engine without changing call sites.
 type Client struct {
 	BinanceURL string
@@ -202,12 +202,12 @@ func isUSDTPerp(symbol string) bool {
 
 // klineBar represents a single Binance kline (candlestick).
 type klineBar struct {
-	OpenTime  int64
-	Open      float64
-	High      float64
-	Low       float64
-	Close     float64
-	Volume    float64
+	OpenTime           int64
+	Open               float64
+	High               float64
+	Low                float64
+	Close              float64
+	Volume             float64
 	Trades             int64
 	TakerBuyBaseVolume float64
 	TakerBuyQuoteVol   float64
@@ -322,17 +322,17 @@ var excludedMainstreamCoins = map[string]bool{
 // v6: excludedTokenizedAssets filters out tokenized commodities/stocks
 // that behave differently from crypto and shouldn't be scored by Hunter.
 var excludedTokenizedAssets = map[string]bool{
-	"CLUSDT": true,    // 原油
-	"XAUUSDT": true,   // 黄金
-	"XAGUSDT": true,   // 白银
-	"EWYUSDT": true,   // 韩国ETF
-	"NVDAUSDT": true,  // 英伟达
-	"MUUSDT": true,    // 美光
-	"INTCUSDT": true,  // 英特尔
-	"PAXGUSDT": true,  // Pax Gold
-	"SPCXUSDT": true,  // S&P 500
-	"BABAUSDT": true,  // 阿里巴巴
-	"TSLAUSDT": true,  // 特斯拉
+	"CLUSDT":     true, // 原油
+	"XAUUSDT":    true, // 黄金
+	"XAGUSDT":    true, // 白银
+	"EWYUSDT":    true, // 韩国ETF
+	"NVDAUSDT":   true, // 英伟达
+	"MUUSDT":     true, // 美光
+	"INTCUSDT":   true, // 英特尔
+	"PAXGUSDT":   true, // Pax Gold
+	"SPCXUSDT":   true, // S&P 500
+	"BABAUSDT":   true, // 阿里巴巴
+	"TSLAUSDT":   true, // 特斯拉
 	"NATGASUSDT": true, // 天然气
 }
 

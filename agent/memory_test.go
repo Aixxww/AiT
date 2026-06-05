@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"nofx/mcp"
-	"nofx/store"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/store"
 )
 
 type fakeAIClient struct {
@@ -33,7 +33,7 @@ func (f *fakeAIClient) CallWithRequestFull(req *mcp.Request) (*mcp.LLMResponse, 
 }
 
 func TestMaybeCompressHistoryKeepsRecentThreeRounds(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "nofxi-test.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "aiti-test.db"))
 	if err != nil {
 		t.Fatalf("store.New() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestNormalizeTaskStateDropsExecutionLevelOpenLoops(t *testing.T) {
 }
 
 func TestMaybeUpdateTaskStateIncrementallyPersistsShortConversationFacts(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "nofxi-test.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "aiti-test.db"))
 	if err != nil {
 		t.Fatalf("store.New() error = %v", err)
 	}

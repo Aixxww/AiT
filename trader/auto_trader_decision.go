@@ -2,12 +2,12 @@ package trader
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/telemetry"
 	"math"
-	"nofx/telemetry"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
 	"time"
 )
 

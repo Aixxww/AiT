@@ -50,18 +50,18 @@ func ResolveV7Conflicts(signals []V7SignalOutput) []V7SignalOutput {
 			if bestLong.AIPriority > 60 && bestShort.AIPriority > 60 {
 				// High conflict: mark as conflict_watch
 				conflict := V7SignalOutput{
-					Symbol:       bestLong.Symbol,
-					Direction:    bestLong.Direction, // primary direction
-					SetupType:    bestLong.SetupType,
-					Status:       V7StatusConflictWatch,
-					SetupScore:   maxFloat(bestLong.SetupScore, bestShort.SetupScore),
-					AIPriority:   (bestLong.AIPriority + bestShort.AIPriority) / 2,
-					MarketRegime: bestLong.MarketRegime,
-					Confidence:   "C",
-					ReasonCodes:  []string{"directional_conflict"},
-					RiskTags:     []string{"do_not_market_chase"},
-					EntryMode:    V7EntryWaitConfirm,
-					PriceCtx:     bestLong.PriceCtx,
+					Symbol:         bestLong.Symbol,
+					Direction:      bestLong.Direction, // primary direction
+					SetupType:      bestLong.SetupType,
+					Status:         V7StatusConflictWatch,
+					SetupScore:     maxFloat(bestLong.SetupScore, bestShort.SetupScore),
+					AIPriority:     (bestLong.AIPriority + bestShort.AIPriority) / 2,
+					MarketRegime:   bestLong.MarketRegime,
+					Confidence:     "C",
+					ReasonCodes:    []string{"directional_conflict"},
+					RiskTags:       []string{"do_not_market_chase"},
+					EntryMode:      V7EntryWaitConfirm,
+					PriceCtx:       bestLong.PriceCtx,
 					DerivativesCtx: bestLong.DerivativesCtx,
 					RequiredConfirms: []string{
 						"wait_for_directional_break",

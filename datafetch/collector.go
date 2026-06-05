@@ -8,8 +8,8 @@ import (
 
 // CollectorConfig holds configuration for the DataCollector.
 type CollectorConfig struct {
-	BinanceURL     string        // "https://fapi.binance.com"
-	BinanceWSURL   string        // "wss://fstream.binance.com"
+	BinanceURL     string // "https://fapi.binance.com"
+	BinanceWSURL   string // "wss://fstream.binance.com"
 	LunarCrushKey  string
 	LunarCrushBase string        // "https://lunarcrush.com/api4"
 	RestInterval   time.Duration // 30s

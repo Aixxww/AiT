@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/engine"
+	"github.com/Aixxww/AiT/provider/local"
 	"math"
-	"nofx/datafetch"
-	"nofx/engine"
-	"nofx/provider/local"
 	"os"
 	"sort"
 	"strings"
@@ -15,35 +15,35 @@ import (
 
 // EvalResult is the output of a single evaluation round.
 type EvalResult struct {
-	Timestamp     string          `json:"timestamp"`
-	SnapshotMeta  SnapshotReport  `json:"snapshot"`
-	NewSignals    []SignalReport  `json:"new_engine_signals"`
-	OldSignals    []OldSignalReport `json:"old_engine_signals"`
-	Comparison    ComparisonReport `json:"comparison"`
-	Top50Scores   []ScoreEntry    `json:"top50_scores"`
+	Timestamp    string            `json:"timestamp"`
+	SnapshotMeta SnapshotReport    `json:"snapshot"`
+	NewSignals   []SignalReport    `json:"new_engine_signals"`
+	OldSignals   []OldSignalReport `json:"old_engine_signals"`
+	Comparison   ComparisonReport  `json:"comparison"`
+	Top50Scores  []ScoreEntry      `json:"top50_scores"`
 }
 
 type SnapshotReport struct {
-	TotalSymbols   int    `json:"total_symbols"`
-	DetailedSymbols int   `json:"detailed_symbols"`
-	FetchDuration  string `json:"fetch_duration"`
-	WSConnected    bool   `json:"ws_connected"`
-	SocialFresh    bool   `json:"social_fresh"`
+	TotalSymbols    int    `json:"total_symbols"`
+	DetailedSymbols int    `json:"detailed_symbols"`
+	FetchDuration   string `json:"fetch_duration"`
+	WSConnected     bool   `json:"ws_connected"`
+	SocialFresh     bool   `json:"social_fresh"`
 }
 
 type SignalReport struct {
-	Rank       int      `json:"rank"`
-	Symbol     string   `json:"symbol"`
-	Direction  string   `json:"direction"`
-	FinalScore float64  `json:"final_score"`
-	Grade      string   `json:"grade"`
-	TechScore  float64  `json:"tech_score"`
-	QuantScore float64  `json:"quant_score"`
-	SocScore   float64  `json:"social_score"`
-	Entry      float64  `json:"entry_price"`
-	SL         float64  `json:"stop_loss"`
-	TP1        float64  `json:"tp1"`
-	TP2        float64  `json:"tp2"`
+	Rank        int      `json:"rank"`
+	Symbol      string   `json:"symbol"`
+	Direction   string   `json:"direction"`
+	FinalScore  float64  `json:"final_score"`
+	Grade       string   `json:"grade"`
+	TechScore   float64  `json:"tech_score"`
+	QuantScore  float64  `json:"quant_score"`
+	SocScore    float64  `json:"social_score"`
+	Entry       float64  `json:"entry_price"`
+	SL          float64  `json:"stop_loss"`
+	TP1         float64  `json:"tp1"`
+	TP2         float64  `json:"tp2"`
 	BullSignals []string `json:"bull_signals"`
 	BearSignals []string `json:"bear_signals"`
 	Reasons     []string `json:"reasons"`
@@ -75,14 +75,14 @@ type ScoreEntry struct {
 }
 
 type ComparisonReport struct {
-	NewTotalSignals   int     `json:"new_total_signals"`
-	OldTotalSignals   int     `json:"old_total_signals"`
-	NewUniqueSymbols  int     `json:"new_unique_symbols"`
-	OldUniqueSymbols  int     `json:"old_unique_symbols"`
-	OverlapSymbols    int     `json:"overlap_symbols"`
-	OverlapPct        float64 `json:"overlap_pct"`
-	NewAvgScore       float64 `json:"new_avg_score"`
-	OldAvgScore       float64 `json:"old_avg_score"`
+	NewTotalSignals  int     `json:"new_total_signals"`
+	OldTotalSignals  int     `json:"old_total_signals"`
+	NewUniqueSymbols int     `json:"new_unique_symbols"`
+	OldUniqueSymbols int     `json:"old_unique_symbols"`
+	OverlapSymbols   int     `json:"overlap_symbols"`
+	OverlapPct       float64 `json:"overlap_pct"`
+	NewAvgScore      float64 `json:"new_avg_score"`
+	OldAvgScore      float64 `json:"old_avg_score"`
 }
 
 func main() {

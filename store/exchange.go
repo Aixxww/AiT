@@ -2,8 +2,8 @@ package store
 
 import (
 	"fmt"
-	"nofx/crypto"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/crypto"
+	"github.com/Aixxww/AiT/logger"
 	"time"
 
 	"github.com/google/uuid"

@@ -3,7 +3,7 @@
 ## 概述
 
 ### 基础信息
-- **Base URL**: `https://nofxos.ai`
+- **Base URL**: `https://aitos.ai`
 - **响应格式**: JSON
 - **缓存时间**: 15秒（所有数据接口）
 - **限流**: 每个IP每秒最多30次请求
@@ -662,35 +662,35 @@ GET /api/coin/ETHUSDT?include=netflow,oi
 
 ```bash
 # 方式1: Query参数认证
-curl "https://nofxos.ai/api/ai500/list?auth=your_api_key"
+curl "https://aitos.ai/api/ai500/list?auth=your_api_key"
 
 # 方式2: Header认证
-curl "https://nofxos.ai/api/ai500/list" \
+curl "https://aitos.ai/api/ai500/list" \
   -H "Authorization: Bearer your_api_key"
 
 # 获取1小时涨跌幅榜
-curl "https://nofxos.ai/api/price/ranking?duration=1h&limit=20&auth=your_api_key"
+curl "https://aitos.ai/api/price/ranking?duration=1h&limit=20&auth=your_api_key"
 
 # 获取多个时间周期涨跌幅榜
-curl "https://nofxos.ai/api/price/ranking?duration=1h,4h,24h&limit=10&auth=your_api_key"
+curl "https://aitos.ai/api/price/ranking?duration=1h,4h,24h&limit=10&auth=your_api_key"
 
 # 获取BTC详细数据
-curl "https://nofxos.ai/api/coin/BTC?auth=your_api_key"
+curl "https://aitos.ai/api/coin/BTC?auth=your_api_key"
 
 # 只获取BTC的资金流和OI数据
-curl "https://nofxos.ai/api/coin/BTC?include=netflow,oi&auth=your_api_key"
+curl "https://aitos.ai/api/coin/BTC?include=netflow,oi&auth=your_api_key"
 
 # 获取4小时OI增加排行Top50
-curl "https://nofxos.ai/api/oi/top-ranking?duration=4h&limit=50&auth=your_api_key"
+curl "https://aitos.ai/api/oi/top-ranking?duration=4h&limit=50&auth=your_api_key"
 
 # 获取24小时OI减少排行Top30
-curl "https://nofxos.ai/api/oi/low-ranking?duration=24h&limit=30&auth=your_api_key"
+curl "https://aitos.ai/api/oi/low-ranking?duration=24h&limit=30&auth=your_api_key"
 
 # 获取机构合约资金流入排行
-curl "https://nofxos.ai/api/netflow/top-ranking?type=institution&trade=future&duration=1h&auth=your_api_key"
+curl "https://aitos.ai/api/netflow/top-ranking?type=institution&trade=future&duration=1h&auth=your_api_key"
 
 # 获取散户现货资金流出排行
-curl "https://nofxos.ai/api/netflow/low-ranking?type=personal&trade=spot&duration=4h&auth=your_api_key"
+curl "https://aitos.ai/api/netflow/low-ranking?type=personal&trade=spot&duration=4h&auth=your_api_key"
 ```
 
 ### Python 示例
@@ -698,7 +698,7 @@ curl "https://nofxos.ai/api/netflow/low-ranking?type=personal&trade=spot&duratio
 ```python
 import requests
 
-BASE_URL = "https://nofxos.ai"
+BASE_URL = "https://aitos.ai"
 API_KEY = "your_api_key"
 
 # 方式1: Query参数认证
@@ -779,7 +779,7 @@ if __name__ == "__main__":
 ### JavaScript/TypeScript 示例
 
 ```typescript
-const BASE_URL = "https://nofxos.ai";
+const BASE_URL = "https://aitos.ai";
 const API_KEY = "your_api_key";
 
 // 通用请求函数

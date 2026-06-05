@@ -183,10 +183,27 @@ export function CoinSourceEditor({
           {sourceTypes.map(({ value, icon: Icon, color }) => (
             <button
               key={value}
-              onClick={() =>
-                !disabled &&
-                onChange({ ...config, source_type: value as CoinSourceConfig['source_type'] })
-              }
+              onClick={() => {
+                if (disabled) return
+                const sourceType = value as CoinSourceConfig['source_type']
+                if (sourceType === 'hunter_v7') {
+                  onChange({
+                    ...config,
+                    source_type: sourceType,
+                    use_hunter: true,
+                    hunter_limit: config.hunter_limit || 10,
+                    hunter_direction: config.hunter_direction || 'BOTH',
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      v7_max_output: config.hunter_config?.v7_max_output ?? 30,
+                      v7_min_ai_priority: config.hunter_config?.v7_min_ai_priority ?? 50,
+                      v7_aggressive: config.hunter_config?.v7_aggressive ?? true,
+                    },
+                  })
+                  return
+                }
+                onChange({ ...config, source_type: sourceType })
+              }}
               disabled={disabled}
               className={`p-4 rounded-lg border transition-all ${config.source_type === value
                 ? 'ring-2 ring-ait-gold bg-primary-dim'
@@ -854,7 +871,7 @@ export function CoinSourceEditor({
                   {ts(coinSource.v7MaxOutput, language)}:
                 </span>
                 <AiTSelect
-                  value={config.hunter_config?.v7_max_output || 30}
+                  value={config.hunter_config?.v7_max_output ?? 30}
                   onChange={(val) =>
                     !disabled &&
                     onChange({
@@ -876,7 +893,7 @@ export function CoinSourceEditor({
                   {ts(coinSource.v7MinAIPriority, language)}:
                 </span>
                 <AiTSelect
-                  value={String(config.hunter_config?.v7_min_ai_priority || 55)}
+                  value={String(config.hunter_config?.v7_min_ai_priority ?? 50)}
                   onChange={(val) =>
                     !disabled &&
                     onChange({
@@ -897,7 +914,7 @@ export function CoinSourceEditor({
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={config.hunter_config?.v7_aggressive || false}
+                checked={config.hunter_config?.v7_aggressive ?? true}
                 onChange={(e) =>
                   !disabled &&
                   onChange({

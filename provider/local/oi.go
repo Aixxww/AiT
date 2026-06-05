@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // openInterestResp matches Binance /fapi/v1/openInterest response.
@@ -36,7 +36,7 @@ type oiHistEntry struct {
 // 5. Sort by delta: biggest increase → TopPositions, biggest decrease → LowPositions.
 // 6. Clamp to top |limit| entries in each bucket.
 // 7. Cache for CacheTTLHistory (5 min).
-func (c *Client) GetOIRanking(duration string, limit int) (*nofxos.OIRankingData, error) {
+func (c *Client) GetOIRanking(duration string, limit int) (*aitos.OIRankingData, error) {
 	if duration == "" {
 		duration = "1h"
 	}
@@ -46,10 +46,10 @@ func (c *Client) GetOIRanking(duration string, limit int) (*nofxos.OIRankingData
 
 	cacheKey := fmt.Sprintf("oi_ranking_%s_%d", duration, limit)
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.(*nofxos.OIRankingData), nil
+		return hit.(*aitos.OIRankingData), nil
 	}
 
-	result := &nofxos.OIRankingData{
+	result := &aitos.OIRankingData{
 		Duration:  duration,
 		TimeRange: "latest",
 		FetchedAt: time.Now(),
@@ -81,7 +81,7 @@ func (c *Client) GetOIRanking(duration string, limit int) (*nofxos.OIRankingData
 		lowStart = 0
 	}
 	// take bottom 'limit' entries (sorted ascending by OIDeltaPercent = biggest decreases)
-	lowPositions := make([]nofxos.OIPosition, limit)
+	lowPositions := make([]aitos.OIPosition, limit)
 	for i := 0; i < limit && lowStart+i < len(positions); i++ {
 		lowPositions[i] = positions[lowStart+i]
 	}
@@ -96,7 +96,7 @@ func (c *Client) GetOIRanking(duration string, limit int) (*nofxos.OIRankingData
 
 // GetOITopPositions is a convenience wrapper returning the first 20 OI
 // increase positions (1h).
-func (c *Client) GetOITopPositions() ([]nofxos.OIPosition, error) {
+func (c *Client) GetOITopPositions() ([]aitos.OIPosition, error) {
 	data, err := c.GetOIRanking("1h", 20)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (c *Client) GetOITopPositions() ([]nofxos.OIPosition, error) {
 
 // GetOILowPositions is a convenience wrapper returning the first 20 OI
 // decrease positions (1h).
-func (c *Client) GetOILowPositions() ([]nofxos.OIPosition, error) {
+func (c *Client) GetOILowPositions() ([]aitos.OIPosition, error) {
 	data, err := c.GetOIRanking("1h", 20)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (c *Client) GetOILowPositions() ([]nofxos.OIPosition, error) {
 }
 
 // fetchOIPositions returns OIPosition entries for the top-50-volume USDT perps.
-func (c *Client) fetchOIPositions(period string) ([]nofxos.OIPosition, error) {
+func (c *Client) fetchOIPositions(period string) ([]aitos.OIPosition, error) {
 	// Step 1 — all tickers
 	url := c.BinanceURL + "/fapi/v1/ticker/24hr"
 	var tickers []binanceTicker
@@ -125,10 +125,10 @@ func (c *Client) fetchOIPositions(period string) ([]nofxos.OIPosition, error) {
 
 	// Step 2 — filter USDT perps, sort by quoteVolume desc, take top 50
 	type symVol struct {
-		symbol  string
-		qv      float64
-		price   float64
-		pctChg  float64
+		symbol string
+		qv     float64
+		price  float64
+		pctChg float64
 	}
 	var filtered []symVol
 	for _, t := range tickers {
@@ -154,11 +154,11 @@ func (c *Client) fetchOIPositions(period string) ([]nofxos.OIPosition, error) {
 
 	// Step 3 — fetch OI history (period, limit=2) for each symbol
 	type oiDelta struct {
-		sym          symVol
-		currentOI    float64
-		oiDelta      float64 // absolute change in base units
-		oiDeltaVal   float64 // change in USDT value
-		oiDeltaPct   float64 // percent change
+		sym        symVol
+		currentOI  float64
+		oiDelta    float64 // absolute change in base units
+		oiDeltaVal float64 // change in USDT value
+		oiDeltaPct float64 // percent change
 	}
 
 	var results []oiDelta
@@ -205,9 +205,9 @@ func (c *Client) fetchOIPositions(period string) ([]nofxos.OIPosition, error) {
 	})
 
 	// Build OIPosition slice
-	positions := make([]nofxos.OIPosition, len(results))
+	positions := make([]aitos.OIPosition, len(results))
 	for i, r := range results {
-		positions[i] = nofxos.OIPosition{
+		positions[i] = aitos.OIPosition{
 			Symbol:            r.sym.symbol,
 			Rank:              i + 1,
 			Price:             r.sym.price,

@@ -129,9 +129,9 @@ Run multiple AI models simultaneously:
 ## 🆘 Need Help?
 
 **Can't find what you need?**
-- 💬 [Telegram Community](https://t.me/nofx_dev_community)
+- 💬 [Telegram Community](https://t.me/ait_dev_community)
 - 🐛 [GitHub Issues](https://github.com/Aixxww/AiT/issues)
-- 🐦 [Twitter @nofx_official](https://x.com/nofx_official)
+- 🐦 [Twitter @ait_official](https://x.com/ait_official)
 
 ---
 

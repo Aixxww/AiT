@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"nofx/logger"
-	"nofx/mcp/payment"
-	"nofx/wallet"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp/payment"
+	"github.com/Aixxww/AiT/wallet"
 
 	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/gin-gonic/gin"

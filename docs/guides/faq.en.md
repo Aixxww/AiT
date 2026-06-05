@@ -92,7 +92,7 @@ See [Issue #202](https://github.com/Aixxww/AiT/issues/202) and [Troubleshooting 
 lsof -i :8080
 
 # Change port in .env
-NOFX_BACKEND_PORT=8081
+AIT_BACKEND_PORT=8081
 ```
 
 ---
@@ -118,7 +118,7 @@ If not, check [Troubleshooting Guide](TROUBLESHOOTING.md#-frontend-cant-connect-
 # Stop all AiT processes
 docker compose down
 # OR
-pkill nofx
+pkill ait
 
 # Restart
 docker compose up -d
@@ -162,7 +162,7 @@ API keys are stored in local databases. Never share your databases or `.env` fil
 Yes! Use `pg_dump` or `psql` to export data:
 ```bash
 docker compose exec postgres \
-  psql -U nofx -d nofx -c "SELECT * FROM trades;"
+  psql -U ait -d ait -c "SELECT * FROM trades;"
 ```
 
 ---
@@ -183,7 +183,7 @@ See the comprehensive [Troubleshooting Guide](TROUBLESHOOTING.md) for:
 
 ### Where can I get help?
 - [GitHub Discussions](https://github.com/Aixxww/AiT/discussions)
-- [Telegram Community](https://t.me/nofx_dev_community)
+- [Telegram Community](https://t.me/ait_dev_community)
 - [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 
 ---

@@ -184,8 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (result.success && result.data) {
         // Clear stale onboarding state so new users always see the welcome flow
-        localStorage.removeItem('nofx_beginner_onboarding_completed')
-        localStorage.removeItem('nofx_beginner_wallet_address')
+        localStorage.removeItem('ait_beginner_onboarding_completed')
+        localStorage.removeItem('ait_beginner_wallet_address')
 
         const userInfo = { id: result.data.user_id, email: result.data.email }
         handlePostAuthSuccess(result.data.token, userInfo, mode)

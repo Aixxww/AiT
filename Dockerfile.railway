@@ -2,10 +2,10 @@
 # Extract content from existing images and merge into a single container
 
 # Extract binary from backend image
-FROM ghcr.io/nofxaios/nofx/nofx-backend:latest AS backend
+FROM ghcr.io/aixxww/ait/ait-backend:latest AS backend
 
 # Extract static files from frontend image
-FROM ghcr.io/nofxaios/nofx/nofx-frontend:latest AS frontend
+FROM ghcr.io/aixxww/ait/ait-frontend:latest AS frontend
 
 # Final image
 FROM alpine:latest
@@ -13,7 +13,7 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates tzdata sqlite nginx openssl gettext
 
 # Copy backend binary
-COPY --from=backend /app/nofx /app/nofx
+COPY --from=backend /app/ait /app/ait
 
 # Copy TA-Lib libraries
 COPY --from=backend /usr/local/lib/libta_lib* /usr/local/lib/

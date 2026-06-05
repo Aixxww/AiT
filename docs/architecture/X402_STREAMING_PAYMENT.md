@@ -81,7 +81,7 @@ Claw402Client.Call()
 
 ### Request Identification
 
-Every request carries an `X-Client-ID: nofx` header (`x402.go:473`), allowing claw402 to identify the request source for logging and monitoring.
+Every request carries an `X-Client-ID: ait` header (`x402.go:473`), allowing claw402 to identify the request source for logging and monitoring.
 
 ### Model Routing
 

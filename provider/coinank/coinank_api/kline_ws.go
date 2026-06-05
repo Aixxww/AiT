@@ -3,8 +3,8 @@ package coinank_api
 import (
 	"context"
 	"encoding/json"
-	"nofx/provider/coinank"
-	"nofx/provider/coinank/coinank_enum"
+	"github.com/Aixxww/AiT/provider/coinank"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 	"strconv"
 	"strings"
 

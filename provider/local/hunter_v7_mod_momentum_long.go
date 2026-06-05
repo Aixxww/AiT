@@ -13,9 +13,9 @@ package local
 
 type leaderMomentumLongModule struct{}
 
-func (m *leaderMomentumLongModule) Name() string        { return "leader_momentum_long" }
+func (m *leaderMomentumLongModule) Name() string           { return "leader_momentum_long" }
 func (m *leaderMomentumLongModule) SetupType() V7SetupType { return V7SetupLeaderMomentumLong }
-func (m *leaderMomentumLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *leaderMomentumLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *leaderMomentumLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	if ctx.CurrentPrice <= 0 {

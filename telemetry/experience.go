@@ -22,11 +22,11 @@ type AIUsageEvent struct {
 	OutputTokens  int
 }
 
-func Init(_ bool, _ string)                   {}
-func SetInstallationID(_ string)              {}
-func GetInstallationID() string               { return "" }
-func SetEnabled(_ bool)                       {}
-func IsEnabled() bool                         { return false }
-func TrackTrade(_ TradeEvent)                 {}
-func TrackStartup(_ string)                   {}
-func TrackAIUsage(_ AIUsageEvent)             {}
+func Init(_ bool, _ string)       {}
+func SetInstallationID(_ string)  {}
+func GetInstallationID() string   { return "" }
+func SetEnabled(_ bool)           {}
+func IsEnabled() bool             { return false }
+func TrackTrade(_ TradeEvent)     {}
+func TrackStartup(_ string)       {}
+func TrackAIUsage(_ AIUsageEvent) {}

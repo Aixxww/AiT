@@ -66,7 +66,7 @@ AiT 是一个开源的全自动 AI 交易系统，专为加密货币合约交易
 ├─────────────────────────────────────────────────────┤
 │           Market Data Providers                      │
 │   Binance · Coinank · Hyperliquid · TwelveData       │
-│   NofxOS · Local Cache · Square Heat                 │
+│   AITOS · Local Cache · Square Heat                 │
 ├─────────────────────────────────────────────────────┤
 │           Exchange Connectors                        │
 │   Binance · Bybit · OKX · Bitget · KuCoin · Gate     │

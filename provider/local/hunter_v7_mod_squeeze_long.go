@@ -11,9 +11,9 @@ package local
 
 type shortSqueezeLongModule struct{}
 
-func (m *shortSqueezeLongModule) Name() string        { return "short_squeeze_long" }
+func (m *shortSqueezeLongModule) Name() string           { return "short_squeeze_long" }
 func (m *shortSqueezeLongModule) SetupType() V7SetupType { return V7SetupShortSqueezeLong }
-func (m *shortSqueezeLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *shortSqueezeLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *shortSqueezeLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	if ctx.CurrentPrice <= 0 {

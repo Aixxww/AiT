@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Aixxww/AiT/logger"
 	"github.com/gin-gonic/gin"
-	"nofx/logger"
 )
 
 type APIErrorResponse struct {
-	Error      string            `json:"error"`
-	ErrorKey   string            `json:"error_key,omitempty"`
+	Error       string            `json:"error"`
+	ErrorKey    string            `json:"error_key,omitempty"`
 	ErrorParams map[string]string `json:"error_params,omitempty"`
 }
 

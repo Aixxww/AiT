@@ -1,11 +1,11 @@
 package trader
 
 import (
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 	"math"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
 )
 
 // ============================================================================

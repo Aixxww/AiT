@@ -1,6 +1,6 @@
 package engine
 
-import "nofx/datafetch"
+import "github.com/Aixxww/AiT/datafetch"
 
 // computeSocialIndicators computes social indicators from the snapshot.
 func computeSocialIndicators(snap *datafetch.SymbolSnapshot) *IndicatorSet {

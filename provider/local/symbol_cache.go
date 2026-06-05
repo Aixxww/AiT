@@ -2,8 +2,8 @@ package local
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
 	"log"
-	"nofx/datafetch"
 	"sort"
 	"strconv"
 	"sync"
@@ -14,26 +14,26 @@ import (
 // one parallel pass. This eliminates the ~20 sequential API calls per coin
 // that the old scoring pipeline required.
 type SymbolCache struct {
-	Symbol      string
-	Ticker      binanceTicker
-	Price       float64
-	Klines      map[string][]klineBar // key: "5m","15m","1h","4h","1d"
-	OICurrent   float64               // current open interest in USDT notional
-	OIDelta4h   float64               // OI change % over 4h
-	OIDelta1h   float64               // OI change % over 1h (for spike detection)
-	LSROldest   float64               // oldest long/short ratio in window
-	LSRNewest   float64               // newest long/short ratio in window
-	FundingRate     float64   // last funding rate
-	OIHist1hChanges []float64 // period-over-period % changes from 13 hourly OI entries (for spike detection)
+	Symbol          string
+	Ticker          binanceTicker
+	Price           float64
+	Klines          map[string][]klineBar // key: "5m","15m","1h","4h","1d"
+	OICurrent       float64               // current open interest in USDT notional
+	OIDelta4h       float64               // OI change % over 4h
+	OIDelta1h       float64               // OI change % over 1h (for spike detection)
+	LSROldest       float64               // oldest long/short ratio in window
+	LSRNewest       float64               // newest long/short ratio in window
+	FundingRate     float64               // last funding rate
+	OIHist1hChanges []float64             // period-over-period % changes from 13 hourly OI entries (for spike detection)
 	FetchTime       time.Time
 }
 
 // Binance weight costs for the data we fetch per symbol.
 const (
-	weightKlines20   = 1  // limit<=100 costs 1 weight
-	weightOIHist     = 2  // openInterestHist costs 2
-	weightLSR        = 2  // topLongShortPositionRatio costs 2
-	weightPremiumIdx = 1  // premiumIndex costs 1
+	weightKlines20   = 1 // limit<=100 costs 1 weight
+	weightOIHist     = 2 // openInterestHist costs 2
+	weightLSR        = 2 // topLongShortPositionRatio costs 2
+	weightPremiumIdx = 1 // premiumIndex costs 1
 	// Total per symbol: 5 klines + 3 OI + 1 LSR + 1 FR = 10 calls, 13 weight
 	// (5 × 1) + (3 × 2) + (1 × 2) + (1 × 1) = 13
 	weightPerSymbol = 13
@@ -420,11 +420,11 @@ func CachesToSnapshot(caches map[string]*SymbolCache) *datafetch.Snapshot {
 			LowPrice24h:    low24h,
 			TradeCount24h:  t.Count,
 
-			FundingRate:  sc.FundingRate,
-			OI:           sc.OICurrent,
-			OIDelta1h:    sc.OIDelta1h,
-			OIDelta4h:    sc.OIDelta4h,
-			OISpikeData:  sc.OIHist1hChanges,
+			FundingRate:    sc.FundingRate,
+			OI:             sc.OICurrent,
+			OIDelta1h:      sc.OIDelta1h,
+			OIDelta4h:      sc.OIDelta4h,
+			OISpikeData:    sc.OIHist1hChanges,
 			LongShortRatio: sc.LSRNewest,
 			LSRPrev:        sc.LSROldest,
 		}

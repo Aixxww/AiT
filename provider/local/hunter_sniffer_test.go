@@ -3,15 +3,15 @@ package local
 import (
 	"testing"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-func makeCoin(pair, direction string, longScore, shortScore float64, longTags, shortTags []string) nofxos.CoinData {
-	return nofxos.CoinData{
+func makeCoin(pair, direction string, longScore, shortScore float64, longTags, shortTags []string) aitos.CoinData {
+	return aitos.CoinData{
 		Pair:       pair,
 		Direction:  direction,
 		LongScore:  longScore,
@@ -202,7 +202,7 @@ func TestFilterShortDist_BlockedByWall(t *testing.T) {
 
 func TestFilterAmbushCandidates_Empty(t *testing.T) {
 	// All coins filtered: one has low score, other has no squeeze
-	coins := []nofxos.CoinData{
+	coins := []aitos.CoinData{
 		makeCoin("BTCUSDT", "LONG", 10, 5,
 			[]string{"oi_accumulation"},
 			nil,
@@ -240,7 +240,7 @@ func TestFilterAmbushCandidates_Empty(t *testing.T) {
 }
 
 func TestFilterAmbushCandidates_MixedResults(t *testing.T) {
-	coins := []nofxos.CoinData{
+	coins := []aitos.CoinData{
 		// LONG_AMBUSH should pass
 		makeCoin("BTCUSDT", "LONG", 40, 10,
 			[]string{"bb_squeeze_15m", "oi_accumulation", "near_support_4h"},

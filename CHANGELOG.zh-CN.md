@@ -2,7 +2,7 @@
 
 AiT 项目的所有重要更改都将记录在此文件中。
 
-> **说明：** AiT 前身为 NOFX。v4.0.0 之前的条目保留原始命名。
+> **说明：** AiT 前身为 AiT。v4.0.0 之前的条目保留原始命名。
 
 本文件格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
@@ -31,11 +31,11 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 改进 Binance 快照 HTTP 代理处理，并修正 24h 涨跌幅百分比解析
 - 重组文档结构为逻辑分类
 - 更新所有 README 文件，添加适当的导航链接
-- 全面替换文档中 NOFX 品牌为 AiT（50+ 文件）
+- 全面替换文档中 AiT 品牌为 AiT（50+ 文件）
 - 更新 GitHub 仓库地址为 Aixxww/AiT
 - 内核引擎优化（engine.go、engine_analysis.go、engine_position.go、engine_prompt.go）
 - 市场数据层改进（data.go、data_klines.go）
-- Provider 模块优化（local/client.go、local/hunter.go、nofxos/ai500.go）
+- Provider 模块优化（local client、Hunter、AI500 provider）
 
 ---
 
@@ -43,12 +43,12 @@ AiT 项目的所有重要更改都将记录在此文件中。
 
 ### 新增 — AiT 平台：多AI、多交易所、社交交易
 
-**从 NOFX 完全更名为 AiT，新增大量核心功能。**
+**从 AiT 完全更名为 AiT，新增大量核心功能。**
 
 #### 品牌与标识
-- 项目从 NOFX 更名为 AiT，覆盖所有代码、配置和界面
+- 项目从 AiT 更名为 AiT，覆盖所有代码、配置和界面
 - 全新 Logo 和品牌资产
-- 移除 nofxos.ai 依赖
+- 移除 aitos.ai 依赖
 
 #### Hunter 猎手选币模块 (`provider/hunter/`)
 - 聪明钱流动检测，支持多时间框架分析
@@ -107,7 +107,7 @@ AiT 项目的所有重要更改都将记录在此文件中。
 
 **系统完全重新设计 - 基于 Web 的配置平台**
 
-这是一个**重大破坏性更新**，将 NOFX 从基于静态配置的系统完全转变为现代化的 Web 交易平台。
+这是一个**重大破坏性更新**，将 AiT 从基于静态配置的系统完全转变为现代化的 Web 交易平台。
 
 #### 数据库驱动架构
 - SQLite 集成，取代静态 JSON 配置
@@ -273,7 +273,7 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - [文档](docs/README.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全策略](SECURITY.md)
-- [GitHub 仓库](https://github.com/NoFxAiOS/nofx)
+- [GitHub 仓库](https://github.com/Aixxww/AiT)
 
 ---
 

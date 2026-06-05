@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"nofx/market"
+	"github.com/Aixxww/AiT/market"
 )
 
 type timeframeSeries struct {

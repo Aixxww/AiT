@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"nofx/logger"
-	"nofx/market"
-	"nofx/provider/alpaca"
-	"nofx/provider/coinank/coinank_api"
-	"nofx/provider/coinank/coinank_enum"
-	"nofx/provider/hyperliquid"
-	"nofx/provider/twelvedata"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/alpaca"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_api"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
+	"github.com/Aixxww/AiT/provider/hyperliquid"
+	"github.com/Aixxww/AiT/provider/twelvedata"
 
 	"github.com/gin-gonic/gin"
 )

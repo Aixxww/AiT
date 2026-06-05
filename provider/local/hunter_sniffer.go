@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // ============================================================================
@@ -56,7 +56,7 @@ const HighConfidenceCompressionScore = 3
 // AmbushCandidate represents a coin that passed the sniff filter.
 type AmbushCandidate struct {
 	Symbol     string
-	Coin       nofxos.CoinData // Original Hunter data
+	Coin       aitos.CoinData  // Original Hunter data
 	Meta       *HunterCoinMeta // Bidirectional scores+tags
 	AmbushType AmbushType
 	Reasons    []string // Which conditions passed (for log/backtest)
@@ -90,7 +90,7 @@ type SnifferStats struct {
 // Input: raw coin list from GetHunterList(), coinMeta from GetHunterCoinsWithData().
 // Output: SnifferResult with separated Long Ambush and Short Distribution pools.
 func (c *Client) FilterAmbushCandidates(
-	coins []nofxos.CoinData,
+	coins []aitos.CoinData,
 	coinMeta map[string]*HunterCoinMeta,
 ) *SnifferResult {
 	result := &SnifferResult{
@@ -158,7 +158,7 @@ func (c *Client) FilterAmbushCandidates(
 // LONG Ambush Filter — Smart Money Accumulation Detector
 // ============================================================================
 
-func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandidate {
+func filterLongAmbush(coin aitos.CoinData, meta *HunterCoinMeta) *AmbushCandidate {
 	sym := coin.Pair
 
 	// Gate 1: Direction & Score Quality
@@ -272,7 +272,7 @@ func filterLongAmbush(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandida
 // SHORT Distribution Filter — Smart Money Exit Detector
 // ============================================================================
 
-func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *AmbushCandidate {
+func filterShortDistribution(coin aitos.CoinData, meta *HunterCoinMeta) *AmbushCandidate {
 	sym := coin.Pair
 
 	// Gate 1: Direction & Score Quality
@@ -297,12 +297,12 @@ func filterShortDistribution(coin nofxos.CoinData, meta *HunterCoinMeta) *Ambush
 	// When compression_score ≥ HighConfidenceCompressionScore, Gate 3 is optional.
 	combinedTags := mergeTags(meta.LongTags, meta.ShortTags)
 	allShortSignals := []string{
-		"oi_distribution",           // OI↑ + price↑ = distribution
-		"taker_sustained_selling",   // sustained aggressive selling
-		"lsr_bearish_reversal",      // LSR turning bearish
-		"lsr_bearish_strong",        // strong bearish signal
-		"oi_spike_1h",               // OI anomaly = new capital entering
-		"range_compression",         // volume + tight range = stealth positioning
+		"oi_distribution",         // OI↑ + price↑ = distribution
+		"taker_sustained_selling", // sustained aggressive selling
+		"lsr_bearish_reversal",    // LSR turning bearish
+		"lsr_bearish_strong",      // strong bearish signal
+		"oi_spike_1h",             // OI anomaly = new capital entering
+		"range_compression",       // volume + tight range = stealth positioning
 	}
 	passedSignal := ""
 	for _, sig := range allShortSignals {
@@ -405,14 +405,15 @@ func mergeTags(a, b []string) []string {
 // Replaces the rigid bb_squeeze_15m check with a flexible multi-signal system.
 //
 // Scoring weights:
-//   bb_squeeze_15m            → 3 (strongest: volatility ice)
-//   bb_squeeze_5m             → 2 (short-term compression)
-//   oi_spike_1h               → 2 (OI anomaly)
-//   oi_surge_1h               → 1 (OI moderate change)
-//   oi_accumulation           → 2 (OI↑ + price↓ = classic stealth)
-//   oi_distribution           → 2 (OI↑ + price↑ = distribution)
-//   range_compression         → 2 (volume + tight range = stealth)
-//   squeeze_explosion_synergy → 1 (BB + OI dual signal)
+//
+//	bb_squeeze_15m            → 3 (strongest: volatility ice)
+//	bb_squeeze_5m             → 2 (short-term compression)
+//	oi_spike_1h               → 2 (OI anomaly)
+//	oi_surge_1h               → 1 (OI moderate change)
+//	oi_accumulation           → 2 (OI↑ + price↓ = classic stealth)
+//	oi_distribution           → 2 (OI↑ + price↑ = distribution)
+//	range_compression         → 2 (volume + tight range = stealth)
+//	squeeze_explosion_synergy → 1 (BB + OI dual signal)
 //
 // Threshold ≥ 2 means at least one substantive signal present.
 func computeCompressionScore(tags []string) int {
@@ -437,7 +438,7 @@ func computeCompressionScore(tags []string) int {
 
 // classifyBlockReason determines the primary reason a coin was blocked (for stats).
 // Evaluated in priority order: direction > score > compression > signal > wall > wash.
-func classifyBlockReason(coin nofxos.CoinData, meta *HunterCoinMeta) string {
+func classifyBlockReason(coin aitos.CoinData, meta *HunterCoinMeta) string {
 	if meta.Direction == "LONG" {
 		return classifyLongBlock(meta)
 	}

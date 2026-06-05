@@ -2,7 +2,7 @@ package session
 
 import (
 	"fmt"
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 	"strings"
 )
 

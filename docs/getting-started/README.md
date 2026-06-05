@@ -81,7 +81,7 @@ For single-tenant/self-hosted usage, you can enable strict admin-only access:
 }
 ```
 2) Set environment variables (Docker compose already wired):
-- `NOFX_ADMIN_PASSWORD` — admin password (plaintext; hashed on startup)
+- `AIT_ADMIN_PASSWORD` — admin password (plaintext; hashed on startup)
 
 3) Login at `/login` using the admin password. All non-essential endpoints are blocked to unauthenticated users while admin mode is enabled.
 
@@ -114,7 +114,7 @@ For single-tenant/self-hosted usage, you can enable strict admin-only access:
 
 **Need more help?**
 - 📖 [FAQ](../guides/faq.zh-CN.md)
-- 💬 [Telegram Community](https://t.me/nofx_dev_community)
+- 💬 [Telegram Community](https://t.me/ait_dev_community)
 - 🐛 [GitHub Issues](https://github.com/Aixxww/AiT/issues)
 
 ---

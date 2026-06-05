@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"nofx/datafetch"
-	"nofx/engine"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/engine"
+	"github.com/Aixxww/AiT/logger"
 	"sync"
 	"time"
 )
@@ -26,6 +26,7 @@ type SnapshotEngine struct {
 type snapshotDataSource struct {
 	store     *datafetch.Store
 	collector *datafetch.DataCollector
+	maxAge    time.Duration
 
 	mu      sync.Mutex
 	started bool
@@ -84,11 +85,13 @@ func getSnapshotDataSource(dataCfg datafetch.CollectorConfig) (*snapshotDataSour
 }
 
 func newSnapshotDataSource(dataCfg datafetch.CollectorConfig) *snapshotDataSource {
+	dataCfg = normalizeCollectorConfig(dataCfg)
 	store := datafetch.NewStore()
 	collector := datafetch.NewDataCollector(dataCfg, store)
 	return &snapshotDataSource{
 		store:     store,
 		collector: collector,
+		maxAge:    dataCfg.RestInterval * 2,
 	}
 }
 
@@ -253,6 +256,86 @@ func (se *SnapshotEngine) GetStore() *datafetch.Store {
 // Used by StrategyEngine to feed snapshot-based Hunter/AI500 scorers.
 func (se *SnapshotEngine) GetSnapshot() *datafetch.Snapshot {
 	return se.dataStore.Current()
+}
+
+// MaxSnapshotAge returns the freshness guard for REST-backed snapshots.
+func (se *SnapshotEngine) MaxSnapshotAge() time.Duration {
+	if se == nil || se.source == nil || se.source.maxAge <= 0 {
+		return time.Minute
+	}
+	return se.source.maxAge
+}
+
+// WaitForSnapshot waits briefly for the collector's first snapshot.
+// Startup cycles can race the initial Binance REST fetch; without this wait,
+// snapshot-based sources are reported as "no candidates" before data exists.
+func (se *SnapshotEngine) WaitForSnapshot(timeout time.Duration) *datafetch.Snapshot {
+	if se == nil || se.dataStore == nil {
+		return nil
+	}
+	if snap := se.GetSnapshot(); snap != nil && len(snap.Symbols) > 0 {
+		return snap
+	}
+	if timeout <= 0 {
+		return nil
+	}
+
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if snap := se.GetSnapshot(); snap != nil && len(snap.Symbols) > 0 {
+				return snap
+			}
+			if time.Now().After(deadline) {
+				return nil
+			}
+		}
+	}
+}
+
+// WaitForFreshSnapshot waits for a non-empty snapshot that is recent enough for
+// a live trading decision. If REST refresh stalls, callers must fail the cycle
+// instead of scoring stale market data.
+func (se *SnapshotEngine) WaitForFreshSnapshot(timeout, maxAge time.Duration) *datafetch.Snapshot {
+	if se == nil || se.dataStore == nil {
+		return nil
+	}
+	if snap := se.GetSnapshot(); snapshotIsFresh(snap, maxAge) {
+		return snap
+	}
+	if timeout <= 0 {
+		return nil
+	}
+
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if snap := se.GetSnapshot(); snapshotIsFresh(snap, maxAge) {
+				return snap
+			}
+			if time.Now().After(deadline) {
+				return nil
+			}
+		}
+	}
+}
+
+func snapshotIsFresh(snap *datafetch.Snapshot, maxAge time.Duration) bool {
+	if snap == nil || len(snap.Symbols) == 0 || snap.CreatedAt.IsZero() {
+		return false
+	}
+	if maxAge <= 0 {
+		return true
+	}
+	return time.Since(snap.CreatedAt) <= maxAge
 }
 
 // GetEngine returns the underlying MainEngine (for diagnostics).

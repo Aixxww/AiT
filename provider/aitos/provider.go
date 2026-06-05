@@ -1,7 +1,7 @@
-package nofxos
+package aitos
 
 // DataProvider is the interface for market data providers.
-// Both nofxos.Client (direct API) and local.Client (Binance-backed)
+// Both aitos.Client (direct API) and local.Client (Binance-backed)
 // implement this interface, so the engine can use either transparently.
 type DataProvider interface {
 	// AI500 coin scoring

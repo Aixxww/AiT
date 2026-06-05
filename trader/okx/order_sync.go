@@ -3,9 +3,9 @@ package okx
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 	"sort"
 	"strconv"
 	"strings"

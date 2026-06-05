@@ -3,9 +3,9 @@ package manager
 import (
 	"context"
 	"fmt"
-	"nofx/logger"
-	"nofx/store"
-	"nofx/trader"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/trader"
 	"sort"
 	"sync"
 	"time"
@@ -766,7 +766,7 @@ func resolveTraderDataWalletKey(st *store.Store, userID string, selectedModel *s
 	}
 
 	// Fallback: find any configured claw402 model for this user so that paid
-	// NofxAI data sources work even when a non-claw402 model (e.g. deepseek) is
+	// AiTAI data sources work even when a non-claw402 model (e.g. deepseek) is
 	// selected as the AI brain.
 	preferredID := ""
 	walletKey, err := st.AIModel().ResolveClaw402WalletKey(userID, preferredID)

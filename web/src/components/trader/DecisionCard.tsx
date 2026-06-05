@@ -425,12 +425,36 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                   {t('aiThinking', language)}
                 </span>
               </div>
-              <span
-                className="text-xs px-2 py-0.5 rounded"
-                style={{ background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }}
-              >
-                {showCoT ? t('collapse', language) : t('expand', language)}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(decision.cot_trace, 'AI Thinking')
+                  }}
+                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  style={{ background: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)' }}
+                  title="Copy to clipboard"
+                >
+                  <span>📋</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    downloadAsFile(decision.cot_trace, `ai-thinking-cycle-${decision.cycle_number}.txt`)
+                  }}
+                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  style={{ background: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)' }}
+                  title="Download as file"
+                >
+                  <span>💾</span>
+                </button>
+                <span
+                  className="text-xs px-2 py-0.5 rounded"
+                  style={{ background: 'color-mix(in srgb, var(--color-primary) 15%, transparent)', color: 'var(--color-primary)' }}
+                >
+                  {showCoT ? t('collapse', language) : t('expand', language)}
+                </span>
+              </div>
             </button>
             {showCoT && (
               <div

@@ -15,9 +15,9 @@ package local
 
 type rangeReversionModule struct{}
 
-func (m *rangeReversionModule) Name() string        { return "range_reversion" }
+func (m *rangeReversionModule) Name() string           { return "range_reversion" }
 func (m *rangeReversionModule) SetupType() V7SetupType { return V7SetupRangeReversion }
-func (m *rangeReversionModule) Direction() V7Direction  { return V7DirLong }
+func (m *rangeReversionModule) Direction() V7Direction { return V7DirLong }
 
 func (m *rangeReversionModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	if ctx.CurrentPrice <= 0 {

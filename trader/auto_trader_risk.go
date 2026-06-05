@@ -2,8 +2,8 @@ package trader
 
 import (
 	"fmt"
-	"nofx/kernel"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
 	"strings"
 	"time"
 )

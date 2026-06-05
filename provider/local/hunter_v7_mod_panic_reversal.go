@@ -13,9 +13,9 @@ package local
 
 type panicReversalLongModule struct{}
 
-func (m *panicReversalLongModule) Name() string        { return "panic_reversal_long" }
+func (m *panicReversalLongModule) Name() string           { return "panic_reversal_long" }
 func (m *panicReversalLongModule) SetupType() V7SetupType { return V7SetupPanicReversalLong }
-func (m *panicReversalLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *panicReversalLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *panicReversalLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	// Must have price data

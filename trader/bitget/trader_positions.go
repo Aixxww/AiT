@@ -3,7 +3,7 @@ package bitget
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/trader/types"
 	"strconv"
 	"time"
 )

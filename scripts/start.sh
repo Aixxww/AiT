@@ -53,24 +53,24 @@ load_env() {
     fi
 }
 
-# ─── Env var migration (NOFX_ → AIT_) ─────────────────────────
+# ─── Env var migration (AIT_ → AIT_) ─────────────────────────
 migrate_env_prefix() {
     local env_file="$PROJECT_DIR/.env"
     [[ -f "$env_file" ]] || return 0
 
-    if grep -q "^NOFX_" "$env_file" 2>/dev/null; then
-        info "Migrating NOFX_ → AIT_ prefix in .env..."
+    if grep -q "^AIT_" "$env_file" 2>/dev/null; then
+        info "Migrating AIT_ → AIT_ prefix in .env..."
         local tmp
-        tmp=$(sed 's/^NOFX_/AIT_/g' "$env_file")
+        tmp=$(sed 's/^AIT_/AIT_/g' "$env_file")
         echo "$tmp" > "$env_file"
         ok "Environment variables migrated"
     fi
 }
 
 # ─── Port config ───────────────────────────────────────────────
-BACKEND_PORT="${AIT_BACKEND_PORT:-${NOFX_BACKEND_PORT:-8080}}"
-FRONTEND_PORT="${AIT_FRONTEND_PORT:-${NOFX_FRONTEND_PORT:-3000}}"
-TIMEZONE="${AIT_TIMEZONE:-${NOFX_TIMEZONE:-Asia/Shanghai}}"
+BACKEND_PORT="${AIT_BACKEND_PORT:-${AIT_BACKEND_PORT:-8080}}"
+FRONTEND_PORT="${AIT_FRONTEND_PORT:-${AIT_FRONTEND_PORT:-3000}}"
+TIMEZONE="${AIT_TIMEZONE:-${AIT_TIMEZONE:-Asia/Shanghai}}"
 
 # ─── Process Management ───────────────────────────────────────
 save_pid() {
@@ -126,7 +126,7 @@ cleanup() {
 
 # ─── Health Check ──────────────────────────────────────────────
 wait_for_backend() {
-    local max_attempts=30
+    local max_attempts="${AIT_BACKEND_HEALTH_WAIT_SECONDS:-120}"
     local attempt=1
 
     info "Waiting for backend on :$BACKEND_PORT..."

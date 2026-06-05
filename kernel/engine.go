@@ -4,20 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/hyperliquid"
+	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/provider/square"
+	"github.com/Aixxww/AiT/security"
+	"github.com/Aixxww/AiT/store"
 	"io"
 	"net/http"
-	"nofx/datafetch"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/provider/hyperliquid"
-	"nofx/provider/local"
-	"nofx/provider/nofxos"
-	"nofx/provider/square"
-	"nofx/security"
-	"nofx/store"
 	"strings"
 	"time"
 )
+
+var snapshotReadyTimeout = 30 * time.Second
 
 // ============================================================================
 // Type Definitions
@@ -145,9 +147,9 @@ type Context struct {
 	MultiTFMarket      map[string]map[string]*market.Data `json:"-"`
 	OITopDataMap       map[string]*OITopData              `json:"-"`
 	QuantDataMap       map[string]*QuantData              `json:"-"`
-	OIRankingData      *nofxos.OIRankingData              `json:"-"` // Market-wide OI ranking data
-	NetFlowRankingData *nofxos.NetFlowRankingData         `json:"-"` // Market-wide fund flow ranking data
-	PriceRankingData   *nofxos.PriceRankingData           `json:"-"` // Market-wide price gainers/losers
+	OIRankingData      *aitos.OIRankingData               `json:"-"` // Market-wide OI ranking data
+	NetFlowRankingData *aitos.NetFlowRankingData          `json:"-"` // Market-wide fund flow ranking data
+	PriceRankingData   *aitos.PriceRankingData            `json:"-"` // Market-wide price gainers/losers
 	BTCETHLeverage     int                                `json:"-"`
 	AltcoinLeverage    int                                `json:"-"`
 	Timeframes         []string                           `json:"-"`
@@ -229,7 +231,7 @@ type OIDeltaData struct {
 // StrategyEngine strategy execution engine
 type StrategyEngine struct {
 	config         *store.StrategyConfig
-	nofxosClient   nofxos.DataProvider
+	aitosClient    aitos.DataProvider
 	squareClient   *square.Client            // nil when square_heat not configured
 	marketEnv      *market.MarketEnvironment // cached market regime classification (ADX-based)
 	snapshotEngine *SnapshotEngine           // nil = use legacy coin sources
@@ -243,8 +245,8 @@ func NewStrategyEngine(config *store.StrategyConfig) *StrategyEngine {
 	logger.Info("📊 Using local Binance-backed data provider (AI500/OI/NetFlow/Price)")
 
 	e := &StrategyEngine{
-		config:       config,
-		nofxosClient: client,
+		config:      config,
+		aitosClient: client,
 	}
 
 	// Initialize Binance Square heat client when square_heat source is configured
@@ -312,8 +314,19 @@ func (e *StrategyEngine) GetCandidateCoinsWithSnapshot() ([]CandidateCoin, error
 
 	snap := e.snapshotEngine.GetSnapshot()
 	if snap == nil || len(snap.Symbols) == 0 {
-		logger.Info("📋 Snapshot 为空，等待 DataCollector 下一轮")
-		return nil, nil // 不 fallback 到 legacy，避免重复拉数据
+		logger.Info("📋 Snapshot 为空，等待 DataCollector 首轮快照")
+		snap = e.snapshotEngine.WaitForSnapshot(snapshotReadyTimeout)
+	}
+	if snap == nil || len(snap.Symbols) == 0 {
+		return nil, fmt.Errorf("snapshot not ready after waiting for initial DataCollector fetch")
+	}
+	maxAge := e.snapshotEngine.MaxSnapshotAge()
+	if !snapshotIsFresh(snap, maxAge) {
+		logger.Infof("📋 Snapshot 已过期(age=%s, max=%s)，等待 DataCollector 刷新", time.Since(snap.CreatedAt).Round(time.Second), maxAge)
+		snap = e.snapshotEngine.WaitForFreshSnapshot(snapshotReadyTimeout, maxAge)
+	}
+	if !snapshotIsFresh(snap, maxAge) {
+		return nil, fmt.Errorf("snapshot stale after waiting for DataCollector refresh")
 	}
 
 	return e.scoreFromSnapshot(snap)
@@ -469,7 +482,7 @@ func (e *StrategyEngine) hunterScoresToCandidateCoins(scores []local.HunterCoinS
 }
 
 // ai500CoinsToCandidateCoins converts snapshot AI500 results to CandidateCoin format.
-func (e *StrategyEngine) ai500CoinsToCandidateCoins(coins []nofxos.CoinData) []CandidateCoin {
+func (e *StrategyEngine) ai500CoinsToCandidateCoins(coins []aitos.CoinData) []CandidateCoin {
 	var candidates []CandidateCoin
 	for _, c := range coins {
 		candidates = append(candidates, CandidateCoin{
@@ -752,7 +765,7 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 
 		if coinSource.UseHunter {
 			if limit := coinSource.HunterLimit; limit > 0 {
-				if localClient, ok := e.nofxosClient.(*local.Client); ok {
+				if localClient, ok := e.aitosClient.(*local.Client); ok {
 					symbols, err := localClient.GetHunterTopRatedCoins(limit, coinSource.Hunter)
 					if err != nil {
 						logger.Warnf("⚠ Hunter unavailable in mixed mode: %v", err)
@@ -884,7 +897,7 @@ func (e *StrategyEngine) getAI500Coins(limit int) ([]CandidateCoin, error) {
 		limit = 30
 	}
 
-	symbols, err := e.nofxosClient.GetTopRatedCoins(limit)
+	symbols, err := e.aitosClient.GetTopRatedCoins(limit)
 	if err != nil {
 		return nil, err
 	}
@@ -903,9 +916,9 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 	if limit <= 0 {
 		limit = 10
 	}
-	localClient, ok := e.nofxosClient.(*local.Client)
+	localClient, ok := e.aitosClient.(*local.Client)
 	if !ok {
-		return nil, fmt.Errorf("hunter source requires local.Client, got %T", e.nofxosClient)
+		return nil, fmt.Errorf("hunter source requires local.Client, got %T", e.aitosClient)
 	}
 	symbols, preFetched, coinMeta, err := localClient.GetHunterCoinsWithData(limit, e.config.CoinSource.Hunter)
 	if err != nil {
@@ -945,9 +958,9 @@ func (e *StrategyEngine) getHunterSniffCoins(limit int, snifferCfg *store.Sniffe
 	if limit <= 0 {
 		limit = 10
 	}
-	localClient, ok := e.nofxosClient.(*local.Client)
+	localClient, ok := e.aitosClient.(*local.Client)
 	if !ok {
-		return nil, fmt.Errorf("hunter_sniff source requires local.Client, got %T", e.nofxosClient)
+		return nil, fmt.Errorf("hunter_sniff source requires local.Client, got %T", e.aitosClient)
 	}
 
 	// Step 1: Get raw scored coins from Hunter
@@ -1003,7 +1016,7 @@ func (e *StrategyEngine) getOITopCoins(limit int) ([]CandidateCoin, error) {
 		limit = 10
 	}
 
-	positions, err := e.nofxosClient.GetOITopPositions()
+	positions, err := e.aitosClient.GetOITopPositions()
 	if err != nil {
 		return nil, err
 	}
@@ -1027,7 +1040,7 @@ func (e *StrategyEngine) getOILowCoins(limit int) ([]CandidateCoin, error) {
 		limit = 10
 	}
 
-	positions, err := e.nofxosClient.GetOILowPositions()
+	positions, err := e.aitosClient.GetOILowPositions()
 	if err != nil {
 		return nil, err
 	}
@@ -1184,32 +1197,32 @@ func (e *StrategyEngine) FetchQuantData(symbol string) (*QuantData, error) {
 		return nil, nil
 	}
 
-	// Use nofxos client with unified API key
+	// Use aitos client with unified API key
 	include := "oi,price"
 	if e.config.Indicators.EnableQuantNetflow {
 		include = "netflow,oi,price"
 	}
 
-	nofxosData, err := e.nofxosClient.GetCoinData(symbol, include)
+	aitosData, err := e.aitosClient.GetCoinData(symbol, include)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch quant data: %w", err)
 	}
 
-	if nofxosData == nil {
+	if aitosData == nil {
 		return nil, nil
 	}
 
-	// Convert nofxos.QuantData to kernel.QuantData
+	// Convert aitos.QuantData to kernel.QuantData
 	quantData := &QuantData{
-		Symbol:      nofxosData.Symbol,
-		Price:       nofxosData.Price,
-		PriceChange: nofxosData.PriceChange,
+		Symbol:      aitosData.Symbol,
+		Price:       aitosData.Price,
+		PriceChange: aitosData.PriceChange,
 	}
 
 	// Convert OI data
-	if nofxosData.OI != nil {
+	if aitosData.OI != nil {
 		quantData.OI = make(map[string]*OIData)
-		for exchange, oiData := range nofxosData.OI {
+		for exchange, oiData := range aitosData.OI {
 			if oiData != nil {
 				kData := &OIData{
 					CurrentOI: oiData.CurrentOI,
@@ -1232,18 +1245,18 @@ func (e *StrategyEngine) FetchQuantData(symbol string) (*QuantData, error) {
 	}
 
 	// Convert Netflow data
-	if nofxosData.Netflow != nil {
+	if aitosData.Netflow != nil {
 		quantData.Netflow = &NetflowData{}
-		if nofxosData.Netflow.Institution != nil {
+		if aitosData.Netflow.Institution != nil {
 			quantData.Netflow.Institution = &FlowTypeData{
-				Future: nofxosData.Netflow.Institution.Future,
-				Spot:   nofxosData.Netflow.Institution.Spot,
+				Future: aitosData.Netflow.Institution.Future,
+				Spot:   aitosData.Netflow.Institution.Spot,
 			}
 		}
-		if nofxosData.Netflow.Personal != nil {
+		if aitosData.Netflow.Personal != nil {
 			quantData.Netflow.Personal = &FlowTypeData{
-				Future: nofxosData.Netflow.Personal.Future,
-				Spot:   nofxosData.Netflow.Personal.Spot,
+				Future: aitosData.Netflow.Personal.Future,
+				Spot:   aitosData.Netflow.Personal.Spot,
 			}
 		}
 	}
@@ -1274,7 +1287,7 @@ func (e *StrategyEngine) FetchQuantDataBatch(symbols []string) map[string]*Quant
 }
 
 // FetchOIRankingData fetches market-wide OI ranking data
-func (e *StrategyEngine) FetchOIRankingData() *nofxos.OIRankingData {
+func (e *StrategyEngine) FetchOIRankingData() *aitos.OIRankingData {
 	indicators := e.config.Indicators
 	if !indicators.EnableOIRanking {
 		return nil
@@ -1292,7 +1305,7 @@ func (e *StrategyEngine) FetchOIRankingData() *nofxos.OIRankingData {
 
 	logger.Infof("📊 Fetching OI ranking data (duration: %s, limit: %d)", duration, limit)
 
-	data, err := e.nofxosClient.GetOIRanking(duration, limit)
+	data, err := e.aitosClient.GetOIRanking(duration, limit)
 	if err != nil {
 		logger.Warnf("⚠️  Failed to fetch OI ranking data: %v", err)
 		return nil
@@ -1305,7 +1318,7 @@ func (e *StrategyEngine) FetchOIRankingData() *nofxos.OIRankingData {
 }
 
 // FetchNetFlowRankingData fetches market-wide NetFlow ranking data
-func (e *StrategyEngine) FetchNetFlowRankingData() *nofxos.NetFlowRankingData {
+func (e *StrategyEngine) FetchNetFlowRankingData() *aitos.NetFlowRankingData {
 	indicators := e.config.Indicators
 	if !indicators.EnableNetFlowRanking {
 		return nil
@@ -1323,7 +1336,7 @@ func (e *StrategyEngine) FetchNetFlowRankingData() *nofxos.NetFlowRankingData {
 
 	logger.Infof("💰 Fetching NetFlow ranking data (duration: %s, limit: %d)", duration, limit)
 
-	data, err := e.nofxosClient.GetNetFlowRanking(duration, limit)
+	data, err := e.aitosClient.GetNetFlowRanking(duration, limit)
 	if err != nil {
 		logger.Warnf("⚠️  Failed to fetch NetFlow ranking data: %v", err)
 		return nil
@@ -1337,7 +1350,7 @@ func (e *StrategyEngine) FetchNetFlowRankingData() *nofxos.NetFlowRankingData {
 }
 
 // FetchPriceRankingData fetches market-wide price ranking data (gainers/losers)
-func (e *StrategyEngine) FetchPriceRankingData() *nofxos.PriceRankingData {
+func (e *StrategyEngine) FetchPriceRankingData() *aitos.PriceRankingData {
 	indicators := e.config.Indicators
 	if !indicators.EnablePriceRanking {
 		return nil
@@ -1355,7 +1368,7 @@ func (e *StrategyEngine) FetchPriceRankingData() *nofxos.PriceRankingData {
 
 	logger.Infof("📈 Fetching Price ranking data (durations: %s, limit: %d)", durations, limit)
 
-	data, err := e.nofxosClient.GetPriceRanking(durations, limit)
+	data, err := e.aitosClient.GetPriceRanking(durations, limit)
 	if err != nil {
 		logger.Warnf("⚠️  Failed to fetch Price ranking data: %v", err)
 		return nil

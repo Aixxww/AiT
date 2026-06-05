@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"nofx/logger"
-	"nofx/market"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
 
 	"github.com/gin-gonic/gin"
 )

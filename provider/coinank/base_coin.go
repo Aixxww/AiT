@@ -3,7 +3,7 @@ package coinank
 import (
 	"context"
 	"encoding/json"
-	"nofx/provider/coinank/coinank_enum"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 )
 
 // ListCoin list all support coin from coinank, response is list of coin symbol

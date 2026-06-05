@@ -3,7 +3,7 @@ package binance
 import (
 	"context"
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"strconv"
 	"time"
 
@@ -130,8 +130,82 @@ func (t *FuturesTrader) SetMarginMode(symbol string, isCrossMargin bool) error {
 	return nil
 }
 
+const maxLeverageCacheTTL = 30 * time.Minute
+
+// GetMaxLeverage returns the exchange-supported max initial leverage for a symbol.
+func (t *FuturesTrader) GetMaxLeverage(symbol string) (int, error) {
+	if symbol == "" {
+		return 0, fmt.Errorf("symbol is required")
+	}
+
+	t.maxLeverageCacheMutex.RLock()
+	if t.maxLeverageCache != nil {
+		if maxLev, ok := t.maxLeverageCache[symbol]; ok && maxLev > 0 {
+			if cachedAt, ok := t.maxLeverageCacheTime[symbol]; ok && time.Since(cachedAt) < maxLeverageCacheTTL {
+				t.maxLeverageCacheMutex.RUnlock()
+				return maxLev, nil
+			}
+		}
+	}
+	t.maxLeverageCacheMutex.RUnlock()
+
+	brackets, err := t.client.NewGetLeverageBracketService().
+		Symbol(symbol).
+		Do(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get leverage bracket: %w", err)
+	}
+
+	maxLeverage := 0
+	for _, item := range brackets {
+		if item.Symbol != "" && item.Symbol != symbol {
+			continue
+		}
+		for _, bracket := range item.Brackets {
+			if bracket.InitialLeverage > maxLeverage {
+				maxLeverage = bracket.InitialLeverage
+			}
+		}
+	}
+	if maxLeverage <= 0 {
+		return 0, fmt.Errorf("max leverage not found for %s", symbol)
+	}
+
+	t.maxLeverageCacheMutex.Lock()
+	if t.maxLeverageCache == nil {
+		t.maxLeverageCache = make(map[string]int)
+	}
+	if t.maxLeverageCacheTime == nil {
+		t.maxLeverageCacheTime = make(map[string]time.Time)
+	}
+	t.maxLeverageCache[symbol] = maxLeverage
+	t.maxLeverageCacheTime[symbol] = time.Now()
+	t.maxLeverageCacheMutex.Unlock()
+
+	return maxLeverage, nil
+}
+
+func (t *FuturesTrader) clampLeverageToExchangeLimit(symbol string, leverage int) int {
+	if leverage <= 0 {
+		return leverage
+	}
+	maxLeverage, err := t.GetMaxLeverage(symbol)
+	if err != nil {
+		logger.Infof("  ⚠️ Failed to get %s max leverage, trying requested %dx: %v", symbol, leverage, err)
+		return leverage
+	}
+	if maxLeverage > 0 && leverage > maxLeverage {
+		logger.Infof("  ⚠️ %s requested leverage %dx exceeds Binance max %dx, auto-adjusting to %dx",
+			symbol, leverage, maxLeverage, maxLeverage)
+		return maxLeverage
+	}
+	return leverage
+}
+
 // SetLeverage sets leverage (with smart detection and cooldown period)
 func (t *FuturesTrader) SetLeverage(symbol string, leverage int) error {
+	leverage = t.clampLeverageToExchangeLimit(symbol, leverage)
+
 	// First try to get current leverage (from position information)
 	currentLeverage := 0
 	positions, err := t.GetPositions()
@@ -301,4 +375,3 @@ func (t *FuturesTrader) FormatPrice(symbol string, price float64) (string, error
 	format := fmt.Sprintf("%%.%df", precision)
 	return fmt.Sprintf(format, price), nil
 }
-

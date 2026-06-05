@@ -2,8 +2,8 @@ package trader
 
 import (
 	"fmt"
-	"nofx/logger"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // Re-export types for backward compatibility

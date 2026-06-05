@@ -3,14 +3,14 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/Aixxww/AiT/auth"
+	"github.com/Aixxww/AiT/backtest"
+	"github.com/Aixxww/AiT/crypto"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/manager"
+	"github.com/Aixxww/AiT/store"
 	"net"
 	"net/http"
-	"nofx/auth"
-	"nofx/backtest"
-	"nofx/crypto"
-	"nofx/logger"
-	"nofx/manager"
-	"nofx/store"
 	"strings"
 	"time"
 
@@ -293,7 +293,7 @@ StrategyConfig fields:
   indicators.rsi_periods: [7,14] default
   indicators.atr_periods: [14] default
   indicators.boll_periods: [20] default
-  indicators.nofxos_api_key: ALWAYS "cm_568c67eae410d912c54c"
+  indicators.aitos_api_key: ALWAYS "cm_568c67eae410d912c54c"
   indicators.enable_quant_data: ALWAYS true
   indicators.enable_quant_oi: ALWAYS true
   indicators.enable_quant_netflow: ALWAYS true

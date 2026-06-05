@@ -3,10 +3,10 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/auth"
-	"nofx/logger"
-	"nofx/mcp"
-	"nofx/telegram/session"
+	"github.com/Aixxww/AiT/auth"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/telegram/session"
 	"strings"
 )
 
@@ -19,7 +19,7 @@ var apiRequestTool = mcp.Tool{
 	Type: "function",
 	Function: mcp.FunctionDef{
 		Name:        "api_request",
-		Description: "Call the NOFX trading system REST API",
+		Description: "Call the AIT trading system REST API",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

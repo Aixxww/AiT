@@ -4,48 +4,48 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"math"
 	"net/http"
 	"net/url"
-	"nofx/logger"
 	"strings"
 	"sync"
 	"time"
 
+	tradertypes "github.com/Aixxww/AiT/trader/types"
 	lighterClient "github.com/elliottech/lighter-go/client"
 	lighterHTTP "github.com/elliottech/lighter-go/client/http"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	tradertypes "nofx/trader/types"
 )
 
 // AccountInfo LIGHTER account information
 type AccountInfo struct {
-	AccountIndex     int64   `json:"account_index"`
-	Index            int64   `json:"index"` // Same as account_index
-	L1Address        string  `json:"l1_address"`
-	AvailableBalance string  `json:"available_balance"`
-	Collateral       string  `json:"collateral"`
-	CrossAssetValue  string  `json:"cross_asset_value"`
-	TotalEquity      string  `json:"total_equity"`
-	UnrealizedPnl    string  `json:"unrealized_pnl"`
+	AccountIndex     int64                 `json:"account_index"`
+	Index            int64                 `json:"index"` // Same as account_index
+	L1Address        string                `json:"l1_address"`
+	AvailableBalance string                `json:"available_balance"`
+	Collateral       string                `json:"collateral"`
+	CrossAssetValue  string                `json:"cross_asset_value"`
+	TotalEquity      string                `json:"total_equity"`
+	UnrealizedPnl    string                `json:"unrealized_pnl"`
 	Positions        []LighterPositionInfo `json:"positions"`
 }
 
 // LighterPositionInfo Position info from Lighter account API
 type LighterPositionInfo struct {
-	MarketID              int     `json:"market_id"`
-	Symbol                string  `json:"symbol"`
-	Sign                  int     `json:"sign"`                    // 1 = long, -1 = short
-	Position              string  `json:"position"`                // Position size
-	AvgEntryPrice         string  `json:"avg_entry_price"`         // Entry price
-	PositionValue         string  `json:"position_value"`          // Position value in USD
-	LiquidationPrice      string  `json:"liquidation_price"`
-	UnrealizedPnl         string  `json:"unrealized_pnl"`
-	RealizedPnl           string  `json:"realized_pnl"`
-	InitialMarginFraction string  `json:"initial_margin_fraction"` // e.g. "5.00" means 5% = 20x leverage
-	AllocatedMargin       string  `json:"allocated_margin"`
-	MarginMode            int     `json:"margin_mode"`             // 0 = cross, 1 = isolated
+	MarketID              int    `json:"market_id"`
+	Symbol                string `json:"symbol"`
+	Sign                  int    `json:"sign"`            // 1 = long, -1 = short
+	Position              string `json:"position"`        // Position size
+	AvgEntryPrice         string `json:"avg_entry_price"` // Entry price
+	PositionValue         string `json:"position_value"`  // Position value in USD
+	LiquidationPrice      string `json:"liquidation_price"`
+	UnrealizedPnl         string `json:"unrealized_pnl"`
+	RealizedPnl           string `json:"realized_pnl"`
+	InitialMarginFraction string `json:"initial_margin_fraction"` // e.g. "5.00" means 5% = 20x leverage
+	AllocatedMargin       string `json:"allocated_margin"`
+	MarginMode            int    `json:"margin_mode"` // 0 = cross, 1 = isolated
 }
 
 // AccountResponse LIGHTER account API response
@@ -78,9 +78,9 @@ type LighterTraderV2 struct {
 	apiKeyValid      bool   // Whether API key has been validated against server
 
 	// Authentication token
-	authToken     string
-	tokenExpiry   time.Time
-	accountMutex  sync.RWMutex
+	authToken    string
+	tokenExpiry  time.Time
+	accountMutex sync.RWMutex
 
 	// Market info cache
 	symbolPrecision map[string]SymbolPrecision
@@ -132,7 +132,7 @@ func NewLighterTraderV2(walletAddr, apiKeyPrivateKeyHex string, apiKeyIndex int,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		baseURL: baseURL,
+		baseURL:          baseURL,
 		testnet:          testnet,
 		chainID:          chainID,
 		httpClient:       httpClient,
@@ -165,9 +165,9 @@ func NewLighterTraderV2(walletAddr, apiKeyPrivateKeyHex string, apiKeyIndex int,
 	if err := trader.checkClient(); err != nil {
 		trader.apiKeyValid = false
 		logger.Warnf("⚠️  API Key verification FAILED: %v", err)
-		logger.Warnf("⚠️  ❌ The API key stored in NOFX does NOT match the API key registered on Lighter.")
+		logger.Warnf("⚠️  ❌ The API key stored in AIT does NOT match the API key registered on Lighter.")
 		logger.Warnf("⚠️  ❌ ALL trading operations (open/close positions, cancel orders) WILL FAIL with 'invalid signature' error.")
-		logger.Warnf("⚠️  🔧 To fix: Update your Lighter API key in NOFX Exchange settings with the correct key from app.lighter.xyz")
+		logger.Warnf("⚠️  🔧 To fix: Update your Lighter API key in AIT Exchange settings with the correct key from app.lighter.xyz")
 		// Don't fail here, allow trader to continue for read operations (balance, positions)
 	} else {
 		trader.apiKeyValid = true

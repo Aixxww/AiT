@@ -2,8 +2,8 @@ package local
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
 	"math"
-	"nofx/datafetch"
 	"sort"
 	"strconv"
 )
@@ -30,8 +30,8 @@ func computePercentileOI(sortedOI []float64, percentile float64) float64 {
 // This replaces GetHunterList + BuildSymbolCaches — zero API calls, pure CPU.
 // The cfg parameter is reserved for future OI threshold tuning; pass nil-safe defaults.
 type HunterSnapshotConfig struct {
-	MinOIValue  float64 // default 500_000 (lowered from 2M — 100% filter rate in tests)
-	MaxSymbols  int     // default 50
+	MinOIValue float64 // default 500_000 (lowered from 2M — 100% filter rate in tests)
+	MaxSymbols int     // default 50
 }
 
 // ScoreHunterFromSnapshot computes Hunter 4-pillar scores from a datafetch.Snapshot.
@@ -250,9 +250,9 @@ func snapPositionScore(ss *datafetch.SymbolSnapshot, direction string) (float64,
 
 	// Multi-timeframe ATR-based support/resistance
 	tfs := []struct {
-		name      string
+		name       string
 		multiplier float64
-		weight    float64
+		weight     float64
 	}{
 		{"4h", 1.5, 0.35},
 		{"1d", 2.0, 0.25},

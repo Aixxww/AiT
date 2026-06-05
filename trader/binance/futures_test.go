@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Aixxww/AiT/trader/testutil"
+	"github.com/Aixxww/AiT/trader/types"
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/stretchr/testify/assert"
-	"nofx/trader/testutil"
-	"nofx/trader/types"
 )
 
 // ============================================================
@@ -243,6 +243,32 @@ func NewBinanceFuturesTestSuite(t *testing.T) *BinanceFuturesTestSuite {
 				"symbol":           r.FormValue("symbol"),
 			}
 
+		// Mock Leverage Bracket - /fapi/v1/leverageBracket
+		case path == "/fapi/v1/leverageBracket":
+			symbol := r.FormValue("symbol")
+			if symbol == "" {
+				symbol = "BTCUSDT"
+			}
+			maxLeverage := 20
+			if symbol == "GUAUSDT" {
+				maxLeverage = 10
+			}
+			respBody = []map[string]interface{}{
+				{
+					"symbol": symbol,
+					"brackets": []map[string]interface{}{
+						{
+							"bracket":          1,
+							"initialLeverage":  maxLeverage,
+							"notionalCap":      50000,
+							"notionalFloor":    0,
+							"maintMarginRatio": 0.01,
+							"cum":              0,
+						},
+					},
+				},
+			}
+
 		// Mock SetMarginType - /fapi/v1/marginType
 		case path == "/fapi/v1/marginType":
 			respBody = map[string]interface{}{
@@ -413,6 +439,64 @@ func TestCalculatePositionSize(t *testing.T) {
 			assert.InDelta(t, tt.wantQuantity, quantity, 0.0001, "calculated position size is incorrect")
 		})
 	}
+}
+
+func TestSetLeverageClampsToBinanceSymbolLimit(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
+	var requestedLeverage int
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/fapi/v1/leverageBracket":
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"symbol": "GUAUSDT",
+					"brackets": []map[string]interface{}{
+						{
+							"bracket":          1,
+							"initialLeverage":  10,
+							"notionalCap":      50000,
+							"notionalFloor":    0,
+							"maintMarginRatio": 0.01,
+							"cum":              0,
+						},
+					},
+				},
+			})
+		case "/fapi/v2/positionRisk":
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		case "/fapi/v1/leverage":
+			fmt.Sscanf(r.FormValue("leverage"), "%d", &requestedLeverage)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"leverage":         requestedLeverage,
+				"maxNotionalValue": "50000",
+				"symbol":           "GUAUSDT",
+			})
+		default:
+			json.NewEncoder(w).Encode(map[string]interface{}{})
+		}
+	}))
+	defer mockServer.Close()
+
+	client := futures.NewClient("test_api_key", "test_secret_key")
+	client.BaseURL = mockServer.URL
+	client.HTTPClient = mockServer.Client()
+	ft := &FuturesTrader{
+		client:               client,
+		maxLeverageCache:     make(map[string]int),
+		maxLeverageCacheTime: make(map[string]time.Time),
+		cacheDuration:        0,
+	}
+
+	err = ft.SetLeverage("GUAUSDT", 20)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, requestedLeverage)
 }
 
 // TestGetBrOrderID tests order ID generation

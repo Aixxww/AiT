@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 )
 
 var urlPattern = regexp.MustCompile(`https://[^\s"'<>]+`)

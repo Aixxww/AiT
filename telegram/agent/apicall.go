@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"io"
 	"net/http"
-	"nofx/logger"
 	"strings"
 	"time"
 )
 
-// apiCallTool executes HTTP requests against the NOFX API server.
+// apiCallTool executes HTTP requests against the AIT API server.
 // This is the only tool available to the agent.
 type apiCallTool struct {
 	baseURL string
@@ -85,4 +85,3 @@ func (t *apiCallTool) execute(req *apiRequest) string {
 	}
 	return string(body)
 }
-

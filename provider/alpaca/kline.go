@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/config"
 	"io"
 	"net/http"
 	"net/url"
-	"nofx/config"
 	"time"
 )
 

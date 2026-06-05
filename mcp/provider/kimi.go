@@ -3,7 +3,7 @@ package provider
 import (
 	"net/http"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (

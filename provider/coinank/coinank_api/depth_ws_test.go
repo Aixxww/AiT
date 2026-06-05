@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"nofx/provider/coinank/coinank_enum"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 	"testing"
 	"time"
 )

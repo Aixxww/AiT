@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"nofx/datafetch"
-	"nofx/engine"
-	"nofx/provider/local"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/engine"
+	"github.com/Aixxww/AiT/provider/local"
 	"os"
 	"sort"
 	"strings"

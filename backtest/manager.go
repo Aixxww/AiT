@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 
-	"nofx/mcp"
-	"nofx/store"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/store"
 )
 
 type Manager struct {

@@ -1,9 +1,9 @@
 package local
 
 import (
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/provider/aitos"
 	"math"
-	"nofx/datafetch"
-	"nofx/provider/nofxos"
 	"sort"
 	"time"
 )
@@ -11,7 +11,7 @@ import (
 // ScoreAI500FromSnapshot computes AI500 scores from a datafetch.Snapshot.
 // This replaces GetAI500List which made its own Binance API calls.
 // Zero API calls — pure in-memory computation from pre-fetched data.
-func ScoreAI500FromSnapshot(snap *datafetch.Snapshot, limit int) ([]nofxos.CoinData, error) {
+func ScoreAI500FromSnapshot(snap *datafetch.Snapshot, limit int) ([]aitos.CoinData, error) {
 	if snap == nil || len(snap.Symbols) == 0 {
 		return nil, nil
 	}
@@ -20,12 +20,12 @@ func ScoreAI500FromSnapshot(snap *datafetch.Snapshot, limit int) ([]nofxos.CoinD
 	}
 
 	type scored struct {
-		symbol    string
-		ss        *datafetch.SymbolSnapshot
-		pctAbs    float64
-		qvLog     float64
-		cntLog    float64
-		rawScore  float64
+		symbol   string
+		ss       *datafetch.SymbolSnapshot
+		pctAbs   float64
+		qvLog    float64
+		cntLog   float64
+		rawScore float64
 	}
 
 	// ---- Step 1: Collect raw values ----
@@ -56,20 +56,38 @@ func ScoreAI500FromSnapshot(snap *datafetch.Snapshot, limit int) ([]nofxos.CoinD
 	minCnt, maxCnt := pool[0].cntLog, pool[0].cntLog
 
 	for _, p := range pool {
-		if p.pctAbs < minPct { minPct = p.pctAbs }
-		if p.pctAbs > maxPct { maxPct = p.pctAbs }
-		if p.qvLog < minQV { minQV = p.qvLog }
-		if p.qvLog > maxQV { maxQV = p.qvLog }
-		if p.cntLog < minCnt { minCnt = p.cntLog }
-		if p.cntLog > maxCnt { maxCnt = p.cntLog }
+		if p.pctAbs < minPct {
+			minPct = p.pctAbs
+		}
+		if p.pctAbs > maxPct {
+			maxPct = p.pctAbs
+		}
+		if p.qvLog < minQV {
+			minQV = p.qvLog
+		}
+		if p.qvLog > maxQV {
+			maxQV = p.qvLog
+		}
+		if p.cntLog < minCnt {
+			minCnt = p.cntLog
+		}
+		if p.cntLog > maxCnt {
+			maxCnt = p.cntLog
+		}
 	}
 
 	pctRange := maxPct - minPct
 	qvRange := maxQV - minQV
 	cntRange := maxCnt - minCnt
-	if pctRange == 0 { pctRange = 1 }
-	if qvRange == 0 { qvRange = 1 }
-	if cntRange == 0 { cntRange = 1 }
+	if pctRange == 0 {
+		pctRange = 1
+	}
+	if qvRange == 0 {
+		qvRange = 1
+	}
+	if cntRange == 0 {
+		cntRange = 1
+	}
 
 	// ---- Step 3: Compute scores ----
 	for i := range pool {
@@ -108,10 +126,10 @@ func ScoreAI500FromSnapshot(snap *datafetch.Snapshot, limit int) ([]nofxos.CoinD
 	}
 
 	now := time.Now().Unix()
-	coins := make([]nofxos.CoinData, 0, topN)
+	coins := make([]aitos.CoinData, 0, topN)
 	for i := 0; i < topN; i++ {
 		p := pool[i]
-		coins = append(coins, nofxos.CoinData{
+		coins = append(coins, aitos.CoinData{
 			Pair:            p.symbol,
 			Score:           p.rawScore,
 			StartTime:       now,

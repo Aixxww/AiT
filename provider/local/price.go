@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // GetPriceRanking returns top gainers and losers based on Binance 24h
@@ -17,7 +17,7 @@ import (
 // endpoints — left as future work.
 //
 // Results are cached for CacheTTLTicker (60 s).
-func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRankingData, error) {
+func (c *Client) GetPriceRanking(durations string, limit int) (*aitos.PriceRankingData, error) {
 	if strings.TrimSpace(durations) == "" {
 		durations = "1h"
 	}
@@ -27,7 +27,7 @@ func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRank
 
 	cacheKey := fmt.Sprintf("price_%s_%d", durations, limit)
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.(*nofxos.PriceRankingData), nil
+		return hit.(*aitos.PriceRankingData), nil
 	}
 
 	// Fetch all tickers
@@ -57,12 +57,12 @@ func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRank
 	}
 
 	if len(pool) == 0 {
-		empty := &nofxos.PriceRankingData{Durations: map[string]*nofxos.PriceRankingDuration{}}
+		empty := &aitos.PriceRankingData{Durations: map[string]*aitos.PriceRankingDuration{}}
 		return empty, nil
 	}
 
 	// Sort by pct descending for gains, ascending for losses
-	makeDuration := func(tag string) *nofxos.PriceRankingDuration {
+	makeDuration := func(tag string) *aitos.PriceRankingDuration {
 		// Top gainers
 		sortedDesc := make([]scored, len(pool))
 		copy(sortedDesc, pool)
@@ -73,9 +73,9 @@ func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRank
 		if n > len(sortedDesc) {
 			n = len(sortedDesc)
 		}
-		top := make([]nofxos.PriceRankingItem, n)
+		top := make([]aitos.PriceRankingItem, n)
 		for i := 0; i < n; i++ {
-			top[i] = nofxos.PriceRankingItem{
+			top[i] = aitos.PriceRankingItem{
 				Pair:       tag + "_" + sortedDesc[i].symbol,
 				Symbol:     sortedDesc[i].symbol,
 				PriceDelta: sortedDesc[i].pct,
@@ -89,23 +89,23 @@ func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRank
 		sort.SliceStable(sortedAsc, func(i, j int) bool {
 			return sortedAsc[i].pct < sortedAsc[j].pct
 		})
-		low := make([]nofxos.PriceRankingItem, n)
+		low := make([]aitos.PriceRankingItem, n)
 		for i := 0; i < n; i++ {
-			low[i] = nofxos.PriceRankingItem{
+			low[i] = aitos.PriceRankingItem{
 				Pair:       tag + "_" + sortedAsc[i].symbol,
 				Symbol:     sortedAsc[i].symbol,
 				PriceDelta: sortedAsc[i].pct,
 				Price:      sortedAsc[i].price,
 			}
 		}
-		return &nofxos.PriceRankingDuration{Top: top, Low: low}
+		return &aitos.PriceRankingDuration{Top: top, Low: low}
 	}
 
 	// Build entries for each requested duration tag
 	// In a real implementation each duration would fetch klines for that period.
 	// For now, all durations share the same 24h ticker snapshot.
 	durationTags := strings.Split(durations, ",")
-	durMap := make(map[string]*nofxos.PriceRankingDuration)
+	durMap := make(map[string]*aitos.PriceRankingDuration)
 	for _, tag := range durationTags {
 		tag = strings.TrimSpace(tag)
 		if tag == "" {
@@ -114,7 +114,7 @@ func (c *Client) GetPriceRanking(durations string, limit int) (*nofxos.PriceRank
 		durMap[tag] = makeDuration(tag)
 	}
 
-	result := &nofxos.PriceRankingData{
+	result := &aitos.PriceRankingData{
 		Durations: durMap,
 		FetchedAt: time.Now(),
 	}

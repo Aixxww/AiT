@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"nofx/kernel"
-	"nofx/store"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/store"
 )
 
 func testRiskAutoTrader() *AutoTrader {

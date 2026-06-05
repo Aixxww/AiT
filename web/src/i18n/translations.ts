@@ -1098,6 +1098,14 @@ export const translations = {
       tokenExceedWarning: 'Token estimate exceeds 128K. AI requests may fail for some models.',
       tokenEstimating: 'Estimating...',
       tokenTooltip: 'Based on 200K context',
+      promptCompression: 'Token Compression',
+      promptCompactMode: 'Prompt compact mode',
+      promptCompactModeDesc: 'Controls how candidate market data is rendered for the LLM.',
+      promptCompactHunterV7: 'Hunter v7 only',
+      promptCompactAuto: 'Auto',
+      promptCompactAll: 'All candidates',
+      promptCompactOff: 'Off',
+      promptCompactReloadHint: 'Saved changes affect newly loaded trader configs; restart a running trader to apply immediately.',
     },
 
     // Metric Tooltip
@@ -2451,6 +2459,14 @@ export const translations = {
       tokenExceedWarning: 'Token 估算超过 128K，部分模型请求可能失败',
       tokenEstimating: '预估中...',
       tokenTooltip: '基于 200K 上下文计算',
+      promptCompression: 'Token 压缩',
+      promptCompactMode: 'Prompt 压缩模式',
+      promptCompactModeDesc: '控制候选币市场数据如何发送给 LLM。',
+      promptCompactHunterV7: '仅猎手 v7',
+      promptCompactAuto: '自动',
+      promptCompactAll: '全部候选币',
+      promptCompactOff: '关闭',
+      promptCompactReloadHint: '保存后会写入策略配置；运行中的交易员需重启后立即生效。',
     },
 
     // Metric Tooltip
@@ -3602,6 +3618,14 @@ export const translations = {
       tokenExceedWarning: 'Estimasi token melebihi 128K. Permintaan AI mungkin gagal untuk beberapa model.',
       tokenEstimating: 'Mengestimasi...',
       tokenTooltip: 'Berdasarkan konteks 200K',
+      promptCompression: 'Kompresi Token',
+      promptCompactMode: 'Mode ringkas prompt',
+      promptCompactModeDesc: 'Mengontrol cara data pasar kandidat dikirim ke LLM.',
+      promptCompactHunterV7: 'Hunter v7 saja',
+      promptCompactAuto: 'Otomatis',
+      promptCompactAll: 'Semua kandidat',
+      promptCompactOff: 'Mati',
+      promptCompactReloadHint: 'Perubahan tersimpan berlaku pada konfigurasi trader yang dimuat ulang; mulai ulang trader aktif untuk menerapkan segera.',
     },
 
     // Metric Tooltip

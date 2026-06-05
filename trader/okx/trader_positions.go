@@ -3,7 +3,7 @@ package okx
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"strconv"
 	"time"
 )

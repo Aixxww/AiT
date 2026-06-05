@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 func TestIsConfigOrTraderIntent(t *testing.T) {
@@ -451,21 +451,21 @@ func (d *directReplyAIClient) CallWithRequest(req *mcp.Request) (string, error) 
 	if len(systemPrompts) > 0 {
 		d.lastSystemPrompt = strings.Join(systemPrompts, "\n")
 	}
-	if strings.Contains(d.lastSystemPrompt, "first-pass router for NOFXi") {
+	if strings.Contains(d.lastSystemPrompt, "first-pass router for AITi") {
 		d.routerPrompt = d.lastSystemPrompt
 		if strings.Contains(d.lastUserPrompt, "你好") {
 			return `{"action":"direct_answer","answer":"你好，我在。想聊策略、配置还是排障？"}`, nil
 		}
 		return `{"action":"defer","answer":""}`, nil
 	}
-	if strings.Contains(d.lastSystemPrompt, "lightweight skill router for NOFXi") {
+	if strings.Contains(d.lastSystemPrompt, "lightweight skill router for AITi") {
 		d.skillRouterPrompt = d.lastSystemPrompt
 		if strings.Contains(d.lastUserPrompt, "运行中的trader") || strings.Contains(d.lastUserPrompt, "有没有 trader 在跑") {
 			return `{"route":"skill","skill":"trader_management","action":"query","filter":"running_only"}`, nil
 		}
 		return `{"route":"planner","skill":"","action":"","filter":""}`, nil
 	}
-	if strings.Contains(d.lastSystemPrompt, "step selector for NOFXi") || strings.Contains(d.lastSystemPrompt, "planning module for NOFXi") {
+	if strings.Contains(d.lastSystemPrompt, "step selector for AITi") || strings.Contains(d.lastSystemPrompt, "planning module for AITi") {
 		d.plannerPrompt = d.lastSystemPrompt
 		return `{"goal":"test goal","steps":[{"id":"step_1","type":"respond","instruction":"ok"}]}`, nil
 	}
@@ -625,7 +625,7 @@ func TestThinkAndActPrioritizesActiveExecutionStateOverDirectReply(t *testing.T)
 	if strings.Contains(resp, "你好，我在") {
 		t.Fatalf("expected active execution state to bypass direct reply gate, got %q", resp)
 	}
-	if !strings.Contains(client.plannerPrompt, "step selector for NOFXi") {
+	if !strings.Contains(client.plannerPrompt, "step selector for AITi") {
 		t.Fatalf("expected planner prompt when execution state is active, got %q", client.plannerPrompt)
 	}
 }

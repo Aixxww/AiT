@@ -2,7 +2,7 @@ package agent
 
 var i18nMessages = map[string]map[string]string{
 	"help": {
-		"zh": "🤖 *NOFXi — 你的 AI 交易 Agent*\n\n" +
+		"zh": "🤖 *AITi — 你的 AI 交易 Agent*\n\n" +
 			"*交易:* /buy /sell /long /short + 交易对 数量 杠杆\n" +
 			"*查询:* /positions /balance /pnl /traders\n" +
 			"*分析:* /analyze BTC\n" +
@@ -10,7 +10,7 @@ var i18nMessages = map[string]map[string]string{
 			"*策略:* /strategy\n" +
 			"*系统:* /status /help\n\n" +
 			"直接跟我说话就行，中英文都可以 💬",
-		"en": "🤖 *NOFXi — Your AI Trading Agent*\n\n" +
+		"en": "🤖 *AITi — Your AI Trading Agent*\n\n" +
 			"*Trade:* /buy /sell /long /short + symbol qty leverage\n" +
 			"*Query:* /positions /balance /pnl /traders\n" +
 			"*Analyze:* /analyze BTC\n" +
@@ -20,8 +20,8 @@ var i18nMessages = map[string]map[string]string{
 			"Just talk to me in any language 💬",
 	},
 	"status": {
-		"zh": "📊 *NOFXi 状态*\n\n• Traders: %d/%d 运行中\n• 监控: %d 个交易对\n• AI: %s\n• 时间: %s",
-		"en": "📊 *NOFXi Status*\n\n• Traders: %d/%d running\n• Watching: %d symbols\n• AI: %s\n• Time: %s",
+		"zh": "📊 *AITi 状态*\n\n• Traders: %d/%d 运行中\n• 监控: %d 个交易对\n• AI: %s\n• 时间: %s",
+		"en": "📊 *AITi Status*\n\n• Traders: %d/%d running\n• Watching: %d symbols\n• AI: %s\n• Time: %s",
 	},
 	"no_traders": {
 		"zh": "📭 暂无 Trader。请在 Web UI 中创建和配置。",
@@ -68,8 +68,8 @@ var i18nMessages = map[string]map[string]string{
 		"en": "⚠️ Sentinel not enabled.",
 	},
 	"system_prompt": {
-		"zh": "你是 NOFXi，一个专业的 AI 交易 Agent。简洁、专业、用中文回复。使用交易相关 emoji。",
-		"en": "You are NOFXi, a professional AI trading agent. Be concise, professional. Use trading emojis.",
+		"zh": "你是 AITi，一个专业的 AI 交易 Agent。简洁、专业、用中文回复。使用交易相关 emoji。",
+		"en": "You are AITi, a professional AI trading agent. Be concise, professional. Use trading emojis.",
 	},
 }
 

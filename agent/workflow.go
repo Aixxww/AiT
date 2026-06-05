@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (
@@ -330,7 +330,7 @@ func (a *Agent) generateWorkflowSummary(ctx context.Context, userID int64, lang 
 	}
 	stageCtx, cancel := withPlannerStageTimeout(ctx, directReplyTimeout)
 	defer cancel()
-	systemPrompt := `You are summarizing a finished workflow for NOFXi.
+	systemPrompt := `You are summarizing a finished workflow for AITi.
 Return one short user-facing summary in the user's language.
 Do not mention internal DAG, scheduler, or JSON.`
 	userPrompt := fmt.Sprintf("Language: %s\nOriginal request: %s\nCompleted tasks:\n- %s", lang, session.OriginalRequest, strings.Join(completed, "\n- "))
@@ -380,7 +380,7 @@ func looksLikeMultiTaskIntent(text string) bool {
 func (a *Agent) decomposeWorkflowIntentWithLLM(ctx context.Context, userID int64, lang, text string) (workflowDecomposition, error) {
 	stageCtx, cancel := withPlannerStageTimeout(ctx, directReplyTimeout)
 	defer cancel()
-	systemPrompt := `You decompose one NOFXi user request into a small task graph.
+	systemPrompt := `You decompose one AITi user request into a small task graph.
 Return JSON only. No markdown.
 Only use these skills: trader_management, strategy_management, model_management, exchange_management.
 Only use one atomic action per task.

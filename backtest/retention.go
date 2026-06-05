@@ -1,7 +1,7 @@
 package backtest
 
 import (
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"os"
 	"sort"
 	"time"

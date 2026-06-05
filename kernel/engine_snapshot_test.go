@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"nofx/datafetch"
-	"nofx/engine"
-	"nofx/store"
+	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/engine"
+	"github.com/Aixxww/AiT/store"
 )
 
 func TestSnapshotEngineRegistryReusesDataSource(t *testing.T) {
@@ -84,6 +84,103 @@ func TestBuildMarketDataFromSnapshotUsesSharedStore(t *testing.T) {
 	}
 	if data.OpenInterest == nil || math.Abs(data.OpenInterest.Latest-123) > 1e-9 {
 		t.Fatalf("open interest latest = %v, want 123", data.OpenInterest)
+	}
+}
+
+func TestSnapshotEngineWaitForSnapshotWaitsForInitialFetch(t *testing.T) {
+	snapshotEngine := newSnapshotEngine(engine.DefaultHubConfig(), datafetch.CollectorConfig{})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		snapshotEngine.dataStore.Swap(&datafetch.Snapshot{
+			Symbols: map[string]*datafetch.SymbolSnapshot{
+				"BTCUSDT": {Symbol: "BTCUSDT", Price: 100},
+			},
+			CreatedAt: time.Now(),
+		})
+	}()
+
+	snap := snapshotEngine.WaitForSnapshot(time.Second)
+	if snap == nil {
+		t.Fatalf("expected delayed snapshot, got nil")
+	}
+	if len(snap.Symbols) != 1 {
+		t.Fatalf("snapshot symbols = %d, want 1", len(snap.Symbols))
+	}
+}
+
+func TestSnapshotEngineWaitForFreshSnapshotSkipsStaleSnapshot(t *testing.T) {
+	snapshotEngine := newSnapshotEngine(engine.DefaultHubConfig(), datafetch.CollectorConfig{})
+	snapshotEngine.dataStore.Swap(&datafetch.Snapshot{
+		Symbols: map[string]*datafetch.SymbolSnapshot{
+			"OLDUSDT": {Symbol: "OLDUSDT", Price: 1},
+		},
+		CreatedAt: time.Now().Add(-time.Minute),
+	})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		snapshotEngine.dataStore.Swap(&datafetch.Snapshot{
+			Symbols: map[string]*datafetch.SymbolSnapshot{
+				"NEWUSDT": {Symbol: "NEWUSDT", Price: 2},
+			},
+			CreatedAt: time.Now(),
+		})
+	}()
+
+	snap := snapshotEngine.WaitForFreshSnapshot(time.Second, 500*time.Millisecond)
+	if snap == nil {
+		t.Fatalf("expected fresh snapshot, got nil")
+	}
+	if _, ok := snap.Symbols["NEWUSDT"]; !ok {
+		t.Fatalf("expected fresh NEWUSDT snapshot, got %#v", snap.Symbols)
+	}
+}
+
+func TestGetCandidateCoinsWithSnapshotErrorsWhenInitialSnapshotMissing(t *testing.T) {
+	oldTimeout := snapshotReadyTimeout
+	snapshotReadyTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { snapshotReadyTimeout = oldTimeout })
+
+	strategyCfg := store.GetDefaultStrategyConfig("en")
+	strategyCfg.CoinSource.SourceType = "hunter_v7"
+	strategyEngine := NewStrategyEngine(&strategyCfg)
+	snapshotEngine := newSnapshotEngine(engine.DefaultHubConfig(), datafetch.CollectorConfig{})
+	strategyEngine.SetSnapshotEngine(snapshotEngine)
+
+	_, err := strategyEngine.GetCandidateCoinsWithSnapshot()
+	if err == nil {
+		t.Fatalf("expected missing snapshot error")
+	}
+	if got := err.Error(); got != "snapshot not ready after waiting for initial DataCollector fetch" {
+		t.Fatalf("error = %q", got)
+	}
+}
+
+func TestGetCandidateCoinsWithSnapshotErrorsWhenSnapshotStale(t *testing.T) {
+	oldTimeout := snapshotReadyTimeout
+	snapshotReadyTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { snapshotReadyTimeout = oldTimeout })
+
+	strategyCfg := store.GetDefaultStrategyConfig("en")
+	strategyCfg.CoinSource.SourceType = "hunter_v7"
+	strategyEngine := NewStrategyEngine(&strategyCfg)
+	snapshotEngine := newSnapshotEngine(engine.DefaultHubConfig(), datafetch.CollectorConfig{})
+	snapshotEngine.source.maxAge = 50 * time.Millisecond
+	strategyEngine.SetSnapshotEngine(snapshotEngine)
+	snapshotEngine.dataStore.Swap(&datafetch.Snapshot{
+		Symbols: map[string]*datafetch.SymbolSnapshot{
+			"BTCUSDT": {Symbol: "BTCUSDT", Price: 100},
+		},
+		CreatedAt: time.Now().Add(-time.Minute),
+	})
+
+	_, err := strategyEngine.GetCandidateCoinsWithSnapshot()
+	if err == nil {
+		t.Fatalf("expected stale snapshot error")
+	}
+	if got := err.Error(); got != "snapshot stale after waiting for DataCollector refresh" {
+		t.Fatalf("error = %q", got)
 	}
 }
 

@@ -3,9 +3,9 @@ package kucoin
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
-	"nofx/store"
-	"nofx/trader/types"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/trader/types"
 	"sort"
 	"strings"
 	"time"

@@ -3,9 +3,9 @@ package testutil
 import (
 	"testing"
 
+	"github.com/Aixxww/AiT/trader/types"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	"nofx/trader/types"
 )
 
 // TraderTestSuite Generic Trader interface test suite (base suite)

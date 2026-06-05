@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/trader/types"
 	"io"
 	"net/http"
-	"nofx/trader/types"
 	"strconv"
 	"time"
 )

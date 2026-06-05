@@ -40,6 +40,7 @@ import { PublishSettingsEditor } from '../components/strategy/PublishSettingsEdi
 import { GridConfigEditor, defaultGridConfig } from '../components/strategy/GridConfigEditor'
 import { TokenEstimateBar } from '../components/strategy/TokenEstimateBar'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
+import { AiTSelect } from '../components/ui/select'
 import { t } from '../i18n/translations'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -51,6 +52,7 @@ export function StrategyStudioPage() {
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null)
   const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(null)
+  const editingConfigRef = useRef<StrategyConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [estimatedTokens, setEstimatedTokens] = useState(0)
@@ -67,6 +69,7 @@ export function StrategyStudioPage() {
     coinSource: true,
     indicators: false,
     riskControl: false,
+    promptCompression: false,
     promptSections: false,
     customPrompt: false,
     publishSettings: false,
@@ -95,6 +98,10 @@ export function StrategyStudioPage() {
   } | null>(null)
   const [isRunningAiTest, setIsRunningAiTest] = useState(false)
   const gridConfigCacheRef = useRef<Record<string, GridStrategyConfig>>({})
+
+  useEffect(() => {
+    editingConfigRef.current = editingConfig
+  }, [editingConfig])
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
@@ -411,7 +418,8 @@ export function StrategyStudioPage() {
 
   // Save strategy
   const handleSaveStrategy = async () => {
-    if (!token || !selectedStrategy || !editingConfig) return
+    const latestEditingConfig = editingConfigRef.current || editingConfig
+    if (!token || !selectedStrategy || !latestEditingConfig) return
     if (estimatedTokens >= 128000 && currentStrategyType === 'ai_trading') {
       notify.warning(tr('tokenExceedWarning'))
       // continue with save
@@ -420,7 +428,7 @@ export function StrategyStudioPage() {
     try {
       // Always sync the config language with the current interface language
       const configWithLanguage = {
-        ...editingConfig,
+        ...latestEditingConfig,
         language: language as 'zh' | 'en',
       }
       const response = await fetch(
@@ -458,10 +466,12 @@ export function StrategyStudioPage() {
   ) => {
     setEditingConfig((prev) => {
       if (!prev) return prev
-      return {
+      const next = {
         ...prev,
         [section]: value,
       }
+      editingConfigRef.current = next
+      return next
     })
     setHasChanges(true)
   }
@@ -638,6 +648,43 @@ export function StrategyStudioPage() {
           disabled={selectedStrategy?.is_default}
           language={language}
         />
+      ),
+    },
+    {
+      key: 'promptCompression' as const,
+      icon: Zap,
+      color: 'var(--color-warning)',
+      title: tr('promptCompression'),
+      forStrategyType: 'ai_trading' as const,
+      content: editingConfig && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-foreground">{tr('promptCompactMode')}</div>
+              <div className="text-xs text-muted-foreground mt-1">{tr('promptCompactModeDesc')}</div>
+            </div>
+            <AiTSelect
+              value={editingConfig.prompt_compact_mode || 'hunter_v7_only'}
+              onChange={(value) =>
+                updateConfig(
+                  'prompt_compact_mode',
+                  value as StrategyConfig['prompt_compact_mode']
+                )
+              }
+              disabled={selectedStrategy?.is_default}
+              options={[
+                { value: 'hunter_v7_only', label: tr('promptCompactHunterV7') },
+                { value: 'auto', label: tr('promptCompactAuto') },
+                { value: 'all_candidates', label: tr('promptCompactAll') },
+                { value: 'off', label: tr('promptCompactOff') },
+              ]}
+              className="w-48 px-3 py-2 rounded bg-background border border-border text-foreground"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {tr('promptCompactReloadHint')}
+          </p>
+        </div>
       ),
     },
     {

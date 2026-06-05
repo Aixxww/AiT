@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"nofx/provider/local"
+	"github.com/Aixxww/AiT/provider/local"
 
 	"github.com/gin-gonic/gin"
 )

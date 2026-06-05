@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 )
 
 const (

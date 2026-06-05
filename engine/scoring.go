@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"nofx/datafetch"
+	"github.com/Aixxww/AiT/datafetch"
 )
 
 // ============================================================================
@@ -30,7 +30,8 @@ func clamp(value, min, max float64) float64 {
 
 // calcFinalScore computes the weighted final score from all sub-scores.
 // Sub-scores are normalized to 0-100 before weighting:
-//   Tech  max 40 → /40*100,  Quant max 40 → /40*100,  Social max 20 → /20*100
+//
+//	Tech  max 40 → /40*100,  Quant max 40 → /40*100,  Social max 20 → /20*100
 func calcFinalScore(set *IndicatorSet, cfg HubConfig) float64 {
 	// Normalize each sub-score to 0-100 first
 	normTBull := set.TechBullScore / 40 * 100

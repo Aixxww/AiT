@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/safe"
 	"io"
 	"log/slog"
 	"net/http"
-	"nofx/safe"
 	"regexp"
 	"time"
 )
@@ -43,7 +43,7 @@ var binanceClient = &http.Client{
 	},
 }
 
-// WebHandler provides HTTP endpoints for the NOFXi agent.
+// WebHandler provides HTTP endpoints for the AITi agent.
 type WebHandler struct {
 	agent  *Agent
 	logger *slog.Logger
@@ -55,7 +55,7 @@ func NewWebHandler(agent *Agent, logger *slog.Logger) *WebHandler {
 
 // HandleHealth handles GET /api/agent/health.
 func (w *WebHandler) HandleHealth(rw http.ResponseWriter, r *http.Request) {
-	writeJSON(rw, 200, map[string]string{"status": "ok", "agent": "NOFXi", "time": time.Now().Format(time.RFC3339)})
+	writeJSON(rw, 200, map[string]string{"status": "ok", "agent": "AITi", "time": time.Now().Format(time.RFC3339)})
 }
 
 // HandleChat handles POST /api/agent/chat.

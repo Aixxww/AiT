@@ -1,12 +1,12 @@
-package nofxos
+package aitos
 
 import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/mcp/payment"
 	"net/http"
-	"nofx/mcp"
-	"nofx/mcp/payment"
 	"os"
 	"strings"
 	"time"
@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Claw402DataClient wraps nofxos API calls through claw402's x402 payment gateway.
-// Instead of calling nofxos.ai directly, it calls claw402.ai/api/v1/nofx/...
+// Claw402DataClient wraps aitos API calls through claw402's x402 payment gateway.
+// Instead of calling aitos.ai directly, it calls claw402.ai/api/v1/ait/...
 // and pays with USDC for each request.
 type Claw402DataClient struct {
 	claw402URL string
@@ -24,7 +24,7 @@ type Claw402DataClient struct {
 	logger     mcp.Logger
 }
 
-// NewClaw402DataClient creates a client that routes nofxos requests through claw402.
+// NewClaw402DataClient creates a client that routes aitos requests through claw402.
 // privateKeyHex is the wallet private key (0x-prefixed hex string).
 func NewClaw402DataClient(claw402URL, privateKeyHex string, logger mcp.Logger) (*Claw402DataClient, error) {
 	if claw402URL == "" {
@@ -53,24 +53,24 @@ func NewClaw402DataClient(claw402URL, privateKeyHex string, logger mcp.Logger) (
 	}, nil
 }
 
-// endpoint mapping: nofxos path → claw402 path
+// endpoint mapping: aitos path → claw402 path
 var endpointMap = map[string]string{
-	"/api/ai500/list":  "/api/v1/nofx/ai500/list",
-	"/api/ai500/stats": "/api/v1/nofx/ai500/stats",
+	"/api/ai500/list":  "/api/v1/ait/ai500/list",
+	"/api/ai500/stats": "/api/v1/ait/ai500/stats",
 }
 
-// mapEndpoint converts a nofxos endpoint to a claw402 endpoint.
+// mapEndpoint converts a aitos endpoint to a claw402 endpoint.
 // For endpoints not in the static map, applies the general pattern:
-// /api/xxx → /api/v1/nofx/xxx
-func mapEndpoint(nofxosPath string) string {
-	if mapped, ok := endpointMap[nofxosPath]; ok {
+// /api/xxx → /api/v1/ait/xxx
+func mapEndpoint(aitosPath string) string {
+	if mapped, ok := endpointMap[aitosPath]; ok {
 		return mapped
 	}
-	// General pattern: /api/xxx → /api/v1/nofx/xxx
-	if strings.HasPrefix(nofxosPath, "/api/") {
-		return "/api/v1/nofx/" + strings.TrimPrefix(nofxosPath, "/api/")
+	// General pattern: /api/xxx → /api/v1/ait/xxx
+	if strings.HasPrefix(aitosPath, "/api/") {
+		return "/api/v1/ait/" + strings.TrimPrefix(aitosPath, "/api/")
 	}
-	return nofxosPath
+	return aitosPath
 }
 
 // DoRequest makes a GET request through claw402 with x402 payment.
@@ -91,7 +91,7 @@ func (c *Claw402DataClient) DoRequest(endpoint string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("X-Client-ID", "nofx")
+		req.Header.Set("X-Client-ID", "ait")
 		return req, nil
 	}
 

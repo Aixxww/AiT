@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 )
 
 var (

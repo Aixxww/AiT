@@ -2,7 +2,7 @@ package market
 
 import (
 	"fmt"
-	"nofx/datafetch"
+	"github.com/Aixxww/AiT/datafetch"
 )
 
 // BuildDataFromSymbolSnapshot constructs market.Data from the shared

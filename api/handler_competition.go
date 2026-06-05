@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"nofx/logger"
-	"nofx/store"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/store"
 
 	"github.com/gin-gonic/gin"
 )

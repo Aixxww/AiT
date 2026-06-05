@@ -1,7 +1,7 @@
 package binance
 
 import (
-	"nofx/store"
+	"github.com/Aixxww/AiT/store"
 	"os"
 	"testing"
 	"time"

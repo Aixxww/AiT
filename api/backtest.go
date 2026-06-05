@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"nofx/backtest"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/provider/nofxos"
-	"nofx/store"
+	"github.com/Aixxww/AiT/backtest"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/store"
 
 	"github.com/gin-gonic/gin"
 )
@@ -671,7 +671,7 @@ func (s *Server) resolveStrategyCoins(strategyConfig *store.StrategyConfig) ([]s
 			limit = 30
 		}
 		logger.Infof("📊 Fetching AI500 coins with limit=%d", limit)
-		coins, err := nofxos.DefaultClient().GetTopRatedCoins(limit)
+		coins, err := aitos.DefaultClient().GetTopRatedCoins(limit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get AI500 coins: %w", err)
 		}
@@ -685,7 +685,7 @@ func (s *Server) resolveStrategyCoins(strategyConfig *store.StrategyConfig) ([]s
 		}
 
 	case "oi_top":
-		coins, err := nofxos.DefaultClient().GetOITopSymbols()
+		coins, err := aitos.DefaultClient().GetOITopSymbols()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get OI Top coins: %w", err)
 		}
@@ -711,7 +711,7 @@ func (s *Server) resolveStrategyCoins(strategyConfig *store.StrategyConfig) ([]s
 			if limit <= 0 {
 				limit = 30
 			}
-			coins, err := nofxos.DefaultClient().GetTopRatedCoins(limit)
+			coins, err := aitos.DefaultClient().GetTopRatedCoins(limit)
 			if err != nil {
 				logger.Warnf("Failed to get AI500 coins: %v", err)
 			} else {
@@ -727,7 +727,7 @@ func (s *Server) resolveStrategyCoins(strategyConfig *store.StrategyConfig) ([]s
 
 		// Get from OI Top
 		if coinSource.UseOITop {
-			coins, err := nofxos.DefaultClient().GetOITopSymbols()
+			coins, err := aitos.DefaultClient().GetOITopSymbols()
 			if err != nil {
 				logger.Warnf("Failed to get OI Top coins: %v", err)
 			} else {

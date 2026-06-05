@@ -10,22 +10,22 @@ import (
 	"strings"
 	"time"
 
-	"nofx/engine"
-	"nofx/provider/local"
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/engine"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/local"
 )
 
 type EngineResult struct {
-	Engine    string         `json:"engine"`
-	Timestamp string         `json:"timestamp"`
-	Count     int            `json:"count"`
-	LongCount int            `json:"long_count"`
-	ShortCount int           `json:"short_count"`
-	MinScore  float64        `json:"min_score"`
-	MaxScore  float64        `json:"max_score"`
-	AvgScore  float64        `json:"avg_score"`
-	MedianScore float64      `json:"median_score"`
-	Coins     []CoinSnapshot `json:"coins"`
+	Engine      string         `json:"engine"`
+	Timestamp   string         `json:"timestamp"`
+	Count       int            `json:"count"`
+	LongCount   int            `json:"long_count"`
+	ShortCount  int            `json:"short_count"`
+	MinScore    float64        `json:"min_score"`
+	MaxScore    float64        `json:"max_score"`
+	AvgScore    float64        `json:"avg_score"`
+	MedianScore float64        `json:"median_score"`
+	Coins       []CoinSnapshot `json:"coins"`
 }
 
 type CoinSnapshot struct {
@@ -108,7 +108,7 @@ func main() {
 	fmt.Println("\n原始数据已保存到 docs/engine_live_test_raw_20260529.json")
 }
 
-func buildAI500Result(coins []nofxos.CoinData, ts string) EngineResult {
+func buildAI500Result(coins []aitos.CoinData, ts string) EngineResult {
 	result := EngineResult{
 		Engine:    "ai500",
 		Timestamp: ts,
@@ -154,7 +154,7 @@ func buildAI500Result(coins []nofxos.CoinData, ts string) EngineResult {
 	return result
 }
 
-func buildHunterResult(coins []nofxos.CoinData, ts string) EngineResult {
+func buildHunterResult(coins []aitos.CoinData, ts string) EngineResult {
 	result := EngineResult{
 		Engine:    "hunter",
 		Timestamp: ts,

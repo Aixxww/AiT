@@ -1,14 +1,14 @@
 package telegram
 
 import (
-	"nofx/api"
-	"nofx/config"
-	"nofx/logger"
-	"nofx/mcp"
-	_ "nofx/mcp/payment"
-	_ "nofx/mcp/provider"
-	"nofx/store"
-	"nofx/telegram/agent"
+	"github.com/Aixxww/AiT/api"
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
+	_ "github.com/Aixxww/AiT/mcp/payment"
+	_ "github.com/Aixxww/AiT/mcp/provider"
+	"github.com/Aixxww/AiT/store"
+	"github.com/Aixxww/AiT/telegram/agent"
 	"os"
 	"strings"
 	"sync"
@@ -373,7 +373,7 @@ func statusMsg(st *store.Store, userID string, apiPort int, lang string) string 
 
 	// All configured — show ready state.
 	if lang == "zh" {
-		return `✅ *NOFX 就绪，开始交易吧！*
+		return `✅ *AIT 就绪，开始交易吧！*
 
 直接告诉我你想做什么：
 
@@ -384,7 +384,7 @@ func statusMsg(st *store.Store, userID string, apiPort int, lang string) string 
 
 /help 查看更多 · /lang 切换语言`
 	}
-	return `✅ *NOFX is ready!*
+	return `✅ *AIT is ready!*
 
 Just tell me what you want:
 
@@ -416,7 +416,7 @@ func parseLangChoice(text string) string {
 
 func helpMsg(lang string) string {
 	if lang == "zh" {
-		return `*NOFX 使用指南*
+		return `*AIT 使用指南*
 
 *查询*
 • "查看我的持仓"
@@ -437,7 +437,7 @@ func helpMsg(lang string) string {
 /lang  — 切换语言
 /help  — 帮助`
 	}
-	return `*NOFX Help*
+	return `*AIT Help*
 
 *Query*
 • "Show my positions"

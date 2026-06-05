@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // binanceTicker holds the fields we actually use from the
@@ -30,7 +30,7 @@ type binanceTicker struct {
 
 // GetAI500List fetches all USDT-perpetual 24h tickers from Binance,
 // computes a composite score emphasising volatility over raw volume,
-// and returns the top 30 as []nofxos.CoinData.
+// and returns the top 30 as []aitos.CoinData.
 //
 // Algorithm (log-compressed, anti-wash-trading):
 //
@@ -43,11 +43,11 @@ type binanceTicker struct {
 // Coins with trade count > 5M (wash-trading bots) receive a 0.6x penalty.
 // Mainstream coins are down-weighted by 30% so the list favours smaller,
 // higher-beta names that are more relevant to the AI trading strategy.
-func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
+func (c *Client) GetAI500List() ([]aitos.CoinData, error) {
 	// ---- cache check ----
 	const cacheKey = "ai500_list"
 	if hit, ok := c.cache.Get(cacheKey); ok {
-		return hit.([]nofxos.CoinData), nil
+		return hit.([]aitos.CoinData), nil
 	}
 
 	// ---- fetch tickers ----
@@ -96,7 +96,7 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 
 	if len(pool) == 0 {
 		log.Printf("ℹ️  Local AI500: 0 USDT perps found")
-		return []nofxos.CoinData{}, nil
+		return []aitos.CoinData{}, nil
 	}
 
 	// Compute log-space min/max for volume and activity
@@ -193,11 +193,11 @@ func (c *Client) GetAI500List() ([]nofxos.CoinData, error) {
 	}
 
 	now := time.Now().Unix()
-	coins := make([]nofxos.CoinData, 0, topN)
+	coins := make([]aitos.CoinData, 0, topN)
 	for i := 0; i < topN; i++ {
 		p := pool[i]
 		price := parseFloat(p.ticker.LastPrice)
-		coins = append(coins, nofxos.CoinData{
+		coins = append(coins, aitos.CoinData{
 			Pair:            p.ticker.Symbol,
 			Score:           p.finalScore,
 			StartTime:       now,
@@ -312,7 +312,7 @@ func parseFloat(s string) float64 {
 //   - Funding rate overheated (overleveraged longs): -10
 //
 // Parallelised: up to 5 concurrent API calls via semaphore.
-func (c *Client) applySignalBonus(coins []nofxos.CoinData) {
+func (c *Client) applySignalBonus(coins []aitos.CoinData) {
 	if len(coins) == 0 {
 		return
 	}
@@ -334,7 +334,7 @@ func (c *Client) applySignalBonus(coins []nofxos.CoinData) {
 
 // computeSignalBonus computes signal bonuses for a single coin.
 // Safe for concurrent use (uses fetchJSONParallel which creates its own http.Client).
-func (c *Client) computeSignalBonus(coin *nofxos.CoinData) {
+func (c *Client) computeSignalBonus(coin *aitos.CoinData) {
 	symbol := coin.Pair
 	bonus := 0.0
 	var tags []string
@@ -413,7 +413,7 @@ func (c *Client) computeSignalBonus(coin *nofxos.CoinData) {
 //   - OI increase + price increase (bullish accumulation): +10
 //   - Funding rate negative (shorts paying longs): +8 to +15
 //   - Funding rate overheated (overleveraged longs): -10
-func (c *Client) applySignalBonusFromCache(coin *nofxos.CoinData, sc *SymbolCache) {
+func (c *Client) applySignalBonusFromCache(coin *aitos.CoinData, sc *SymbolCache) {
 	bonus := 0.0
 	var tags []string
 

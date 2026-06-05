@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 const (
@@ -1037,7 +1037,7 @@ func (a *Agent) classifySkillSessionIntentWithLLM(ctx context.Context, userID in
 	}
 	currentStep, _ := currentSkillDAGStep(session)
 	recentConversationCtx := a.buildRecentConversationContext(userID, text)
-	systemPrompt := `You classify one user message while a NOFXi structured management flow is active.
+	systemPrompt := `You classify one user message while a AITi structured management flow is active.
 Return JSON only. No markdown.
 
 Possible decisions:
@@ -1238,7 +1238,7 @@ func (a *Agent) tryDirectAnswer(ctx context.Context, userID int64, lang, text st
 	taskStateCtx := buildTaskStateContext(a.getTaskState(userID))
 	executionState := normalizeExecutionState(a.getExecutionState(userID))
 	executionJSON, _ := json.Marshal(executionState)
-	systemPrompt := `You are the first-pass router for NOFXi.
+	systemPrompt := `You are the first-pass router for AITi.
 Decide whether the assistant can answer the user's message directly without using skills, tools, or planning.
 Return JSON only. Do not return markdown.
 
@@ -1435,7 +1435,7 @@ func (a *Agent) decideNextStep(ctx context.Context, userID int64, lang string, s
 	taskStateCtx := buildTaskStateContext(a.getTaskState(userID))
 	recentConversationCtx := a.buildRecentConversationContext(userID, state.Goal)
 
-	systemPrompt := `You are the step selector for NOFXi.
+	systemPrompt := `You are the step selector for AITi.
 Return JSON only. Do not return markdown.
 
 You are operating in ReAct mode: Thought -> Action -> Observation.
@@ -1625,7 +1625,7 @@ func (a *Agent) createExecutionPlan(ctx context.Context, userID int64, lang, use
 		taskStateCtx = ""
 	}
 
-	systemPrompt := `You are the planning module for NOFXi.
+	systemPrompt := `You are the planning module for AITi.
 Return JSON only. Do not return markdown.
 
 Create a minimal safe execution plan using these step types only:
@@ -2050,7 +2050,7 @@ func parseRFC3339(value string) time.Time {
 func (a *Agent) replanAfterStep(ctx context.Context, userID int64, lang string, state ExecutionState, completedStep PlanStep) (replannerDecision, error) {
 	obsJSON, _ := json.Marshal(buildObservationContext(state))
 	stepsJSON, _ := json.Marshal(state.Steps)
-	systemPrompt := `You are the replanning module for NOFXi.
+	systemPrompt := `You are the replanning module for AITi.
 Return JSON only.
 
 Decide what to do after a plan step completed.
@@ -2341,7 +2341,7 @@ func (a *Agent) executeReasonStep(ctx context.Context, userID int64, lang, goal 
 	startedAt := time.Now()
 	resp, err := a.aiClient.CallWithRequest(&mcp.Request{
 		Messages: []mcp.Message{
-			mcp.NewSystemMessage("You are the reasoning module for NOFXi. Return one short paragraph only. No markdown, no bullet list."),
+			mcp.NewSystemMessage("You are the reasoning module for AITi. Return one short paragraph only. No markdown, no bullet list."),
 			mcp.NewUserMessage(fmt.Sprintf("Language: %s\nGoal: %s\nReasoning task: %s\nObservations JSON: %s\nPersistent preferences: %s\nTask state: %s", lang, goal, step.Instruction, string(obsJSON), a.buildPersistentPreferencesContext(userID), buildTaskStateContext(a.getTaskState(userID)))),
 		},
 		Ctx: stageCtx,
@@ -2417,7 +2417,7 @@ func (a *Agent) thinkAndActLegacy(ctx context.Context, userID int64, lang, text 
 		userPrompt = preferencesCtx + "\n\n---\n" + userPrompt
 	}
 	if enrichment != "" {
-		userPrompt = text + "\n\n---\n[NOFXi System Context - real-time data for reference]\n" + enrichment
+		userPrompt = text + "\n\n---\n[AITi System Context - real-time data for reference]\n" + enrichment
 		if preferencesCtx != "" {
 			userPrompt = preferencesCtx + "\n\n---\n" + userPrompt
 		}

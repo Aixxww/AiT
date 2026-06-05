@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"nofx/datafetch"
+	"github.com/Aixxww/AiT/datafetch"
 	"sort"
 )
 

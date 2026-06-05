@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"nofx/logger"
-	"nofx/provider/square"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/provider/square"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,9 +21,9 @@ func (s *Server) handleSquareHeat(c *gin.Context) {
 	if err != nil {
 		logger.Warnf("⚠️ Square Heat API error: %v", err)
 		c.JSON(http.StatusOK, gin.H{
-			"items":     []interface{}{},
+			"items":      []interface{}{},
 			"updated_at": nil,
-			"error":     fmt.Sprintf("Square Monitor unavailable: %v", err),
+			"error":      fmt.Sprintf("Square Monitor unavailable: %v", err),
 		})
 		return
 	}

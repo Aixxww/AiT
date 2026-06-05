@@ -79,7 +79,7 @@ export default function DeploymentHub() {
 
                             {/* Terminal Content */}
                             <div className="p-8 font-mono text-sm md:text-base bg-black/50 backdrop-blur-sm min-h-[200px] flex flex-col justify-center">
-                                <div className="mb-2 text-muted-foreground text-xs tracking-wide"># Initialize NoFX Core Protocol</div>
+                                <div className="mb-2 text-muted-foreground text-xs tracking-wide"># Initialize AiT Core Protocol</div>
                                 <div
                                     className="group relative flex items-start gap-3 p-4 rounded-lg bg-surface/50 border border-border hover:border-ait-gold/50 cursor-pointer transition-all hover:bg-surface/80"
                                     onClick={handleCopy}

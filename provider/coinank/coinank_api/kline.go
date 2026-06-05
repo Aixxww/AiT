@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Aixxww/AiT/provider/coinank"
+	"github.com/Aixxww/AiT/provider/coinank/coinank_enum"
 	"io"
 	"net/http"
 	"net/url"
-	"nofx/provider/coinank"
-	"nofx/provider/coinank/coinank_enum"
 	"strconv"
 	"time"
 )

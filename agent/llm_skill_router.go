@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"nofx/mcp"
+	"github.com/Aixxww/AiT/mcp"
 )
 
 type llmSkillRouteDecision struct {
@@ -30,7 +30,7 @@ func (a *Agent) tryLLMSkillRoute(ctx context.Context, storeUserID string, userID
 	taskStateCtx := buildTaskStateContext(a.getTaskState(userID))
 	executionState := normalizeExecutionState(a.getExecutionState(userID))
 	executionJSON, _ := json.Marshal(executionState)
-	systemPrompt := `You are the lightweight skill router for NOFXi.
+	systemPrompt := `You are the lightweight skill router for AITi.
 Decide whether the user's message should go to a structured skill or continue to the planner.
 Return JSON only. Do not return markdown.
 

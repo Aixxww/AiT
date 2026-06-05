@@ -3,10 +3,10 @@ package trader
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/kernel"
-	"nofx/logger"
-	"nofx/market"
-	"nofx/store"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 	"sync"
 	"time"
 )

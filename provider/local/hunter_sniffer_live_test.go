@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"nofx/provider/nofxos"
+	"github.com/Aixxww/AiT/provider/aitos"
 )
 
 // TestHunterSniffer_LiveData runs the sniffer against real Binance data.
@@ -165,18 +165,18 @@ func formatReasons(reasons []string) string {
 func getKeyTags(tags []string) []string {
 	key := []string{}
 	priority := map[string]bool{
-		"bb_squeeze_15m":        true,
-		"oi_accumulation":       true,
-		"taker_sustained_buying": true,
-		"taker_sustained_selling": true,
-		"oi_distribution":       true,
-		"lsr_reversal":          true,
-		"lsr_bearish_reversal":  true,
-		"lsr_bearish_strong":    true,
-		"near_support_4h":       true,
-		"near_resistance_4h":    true,
+		"bb_squeeze_15m":            true,
+		"oi_accumulation":           true,
+		"taker_sustained_buying":    true,
+		"taker_sustained_selling":   true,
+		"oi_distribution":           true,
+		"lsr_reversal":              true,
+		"lsr_bearish_reversal":      true,
+		"lsr_bearish_strong":        true,
+		"near_support_4h":           true,
+		"near_resistance_4h":        true,
 		"squeeze_explosion_synergy": true,
-		"oi_spike_1h":           true,
+		"oi_spike_1h":               true,
 	}
 	for _, t := range tags {
 		if priority[t] {
@@ -197,8 +197,8 @@ func repeat(s string, n int) string {
 	return result
 }
 
-// Ensure nofxos is used
-var _ nofxos.CoinData
+// Ensure aitos is used
+var _ aitos.CoinData
 
 // Ensure fmt is used
 var _ = fmt.Sprintf

@@ -3,7 +3,7 @@ package bitget
 import (
 	"encoding/json"
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 	"strconv"
 	"strings"
 	"time"

@@ -2,7 +2,7 @@ package kernel
 
 import (
 	"fmt"
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 )
 
 // ============================================================================

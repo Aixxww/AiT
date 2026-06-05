@@ -19,7 +19,7 @@ package main
 
 import (
     "fmt"
-    "nofx/mcp"
+    "github.com/Aixxww/AiT/mcp"
 )
 
 func main() {
@@ -277,7 +277,7 @@ package main
 import (
     "fmt"
     "log"
-    "nofx/mcp"
+    "github.com/Aixxww/AiT/mcp"
     "os"
 )
 
@@ -425,7 +425,7 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "nofx/mcp"
+    "github.com/Aixxww/AiT/mcp"
     "os"
 )
 

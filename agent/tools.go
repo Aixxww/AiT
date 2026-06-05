@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"nofx/kernel"
-	"nofx/mcp"
-	"nofx/safe"
-	"nofx/security"
-	"nofx/store"
+	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/safe"
+	"github.com/Aixxww/AiT/security"
+	"github.com/Aixxww/AiT/store"
 )
 
 // cachedTools holds the static tool definitions (built once, reused per message).
@@ -586,7 +586,7 @@ func (a *Agent) toolGetExchangeConfigs(storeUserID string) string {
 }
 
 func latestBackendLogFilePath() string {
-	matches, err := filepath.Glob(filepath.Join("data", "nofx_*.log"))
+	matches, err := filepath.Glob(filepath.Join("data", "ait_*.log"))
 	if err != nil || len(matches) == 0 {
 		return ""
 	}

@@ -1,8 +1,8 @@
 export type UserMode = 'beginner' | 'advanced'
 
-const USER_MODE_KEY = 'nofx_user_mode'
-const BEGINNER_WALLET_ADDRESS_KEY = 'nofx_beginner_wallet_address'
-const BEGINNER_ONBOARDING_COMPLETED_KEY = 'nofx_beginner_onboarding_completed'
+const USER_MODE_KEY = 'ait_user_mode'
+const BEGINNER_WALLET_ADDRESS_KEY = 'ait_beginner_wallet_address'
+const BEGINNER_ONBOARDING_COMPLETED_KEY = 'ait_beginner_onboarding_completed'
 
 export function getUserMode(): UserMode | null {
   const value = localStorage.getItem(USER_MODE_KEY)

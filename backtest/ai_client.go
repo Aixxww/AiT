@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"nofx/mcp"
-	_ "nofx/mcp/payment"
-	_ "nofx/mcp/provider"
+	"github.com/Aixxww/AiT/mcp"
+	_ "github.com/Aixxww/AiT/mcp/payment"
+	_ "github.com/Aixxww/AiT/mcp/provider"
 )
 
 // configureMCPClient creates/clones an MCP client based on configuration (returns mcp.AIClient interface).

@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"nofx/logger"
+	"github.com/Aixxww/AiT/logger"
 
 	"github.com/gin-gonic/gin"
 )

@@ -11,9 +11,9 @@ package local
 
 type trendBreakoutLongModule struct{}
 
-func (m *trendBreakoutLongModule) Name() string        { return "trend_breakout_long" }
+func (m *trendBreakoutLongModule) Name() string           { return "trend_breakout_long" }
 func (m *trendBreakoutLongModule) SetupType() V7SetupType { return V7SetupTrendBreakoutLong }
-func (m *trendBreakoutLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *trendBreakoutLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *trendBreakoutLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	if ctx.CurrentPrice <= 0 {
