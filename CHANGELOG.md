@@ -32,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Wired `hunter_v7` into the unified SnapshotEngine hot-snapshot path
-- Refined Hunter v7 prompt rules after live loss review: `entry_zone` is not reclaim confirmation, far single TP is de-emphasized, TP1/trailing protection is preferred, and low-timing or weak C-grade signals are blocked from forced entries
 - Open execution now checks order-book or live market reference price before RR/slippage validation to reduce stale signal price drift
 - Updated frontend to a cyber-style light/dark theme with improved mobile navigation, dashboard contrast, and prompt editor readability
 - Improved Binance snapshot HTTP proxy handling and corrected 24h price-change percentage parsing

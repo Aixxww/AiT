@@ -149,6 +149,8 @@ reports/hunter-live-analysis-*.md
 hunter_live_result.json
 hunter_live_analysis_*.md
 hunter_round*_analysis_*.md
+reports/live-*-review-*.md
+reports/live-loss-*.md
 
 # Go build artifacts
 .pids/
