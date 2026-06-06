@@ -417,6 +417,10 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	for key := range at.positionFirstSeenTime {
 		if !currentPositionKeys[key] {
 			delete(at.positionFirstSeenTime, key)
+			parts := strings.Split(key, "_")
+			if len(parts) == 2 {
+				at.ClearPeakPnLCache(parts[0], parts[1])
+			}
 		}
 	}
 

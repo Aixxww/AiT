@@ -34,6 +34,33 @@ func (at *AutoTrader) resolveEffectiveLeverage(symbol string, requested int) int
 	return requested
 }
 
+func (at *AutoTrader) resolveOpenExecutionPrice(symbol, side string, fallbackPrice float64) float64 {
+	if gridTrader, ok := at.trader.(GridTrader); ok {
+		bids, asks, err := gridTrader.GetOrderBook(symbol, 5)
+		if err == nil {
+			switch side {
+			case "long":
+				if len(asks) > 0 && len(asks[0]) > 0 && asks[0][0] > 0 {
+					return asks[0][0]
+				}
+			case "short":
+				if len(bids) > 0 && len(bids[0]) > 0 && bids[0][0] > 0 {
+					return bids[0][0]
+				}
+			}
+		} else {
+			logger.Infof("  ⚠️ Failed to get %s order book for execution price validation: %v", symbol, err)
+		}
+	}
+
+	if at.trader != nil {
+		if price, err := at.trader.GetMarketPrice(symbol); err == nil && price > 0 {
+			return price
+		}
+	}
+	return fallbackPrice
+}
+
 // executeDecisionWithRecord executes AI decision and records detailed information
 func (at *AutoTrader) executeDecisionWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	switch decision.Action {
@@ -80,7 +107,8 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	if err != nil {
 		return err
 	}
-	if err := at.validateOpenDecision(decision, marketData.CurrentPrice, "long"); err != nil {
+	executionPrice := at.resolveOpenExecutionPrice(decision.Symbol, "long", marketData.CurrentPrice)
+	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
 		return err
 	}
 
@@ -136,9 +164,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	}
 
 	// Calculate quantity with adjusted position size
-	quantity := actualPositionSize / marketData.CurrentPrice
+	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
-	actionRecord.Price = marketData.CurrentPrice
+	actionRecord.Price = executionPrice
 
 	// Set margin mode
 	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
@@ -159,8 +187,10 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 
 	logger.Infof("  ✓ Position opened successfully, order ID: %v, quantity: %.4f", order["orderId"], quantity)
 
+	at.ClearPeakPnLCache(decision.Symbol, "long")
+
 	// Record order to database and poll for confirmation
-	at.recordAndConfirmOrder(order, decision.Symbol, "open_long", quantity, marketData.CurrentPrice, decision.Leverage, 0)
+	at.recordAndConfirmOrder(order, decision.Symbol, "open_long", quantity, executionPrice, decision.Leverage, 0)
 
 	// Record position opening time
 	posKey := decision.Symbol + "_long"
@@ -204,7 +234,8 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	if err != nil {
 		return err
 	}
-	if err := at.validateOpenDecision(decision, marketData.CurrentPrice, "short"); err != nil {
+	executionPrice := at.resolveOpenExecutionPrice(decision.Symbol, "short", marketData.CurrentPrice)
+	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		return err
 	}
 
@@ -260,9 +291,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	}
 
 	// Calculate quantity with adjusted position size
-	quantity := actualPositionSize / marketData.CurrentPrice
+	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
-	actionRecord.Price = marketData.CurrentPrice
+	actionRecord.Price = executionPrice
 
 	// Set margin mode
 	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
@@ -283,8 +314,10 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 
 	logger.Infof("  ✓ Position opened successfully, order ID: %v, quantity: %.4f", order["orderId"], quantity)
 
+	at.ClearPeakPnLCache(decision.Symbol, "short")
+
 	// Record order to database and poll for confirmation
-	at.recordAndConfirmOrder(order, decision.Symbol, "open_short", quantity, marketData.CurrentPrice, decision.Leverage, 0)
+	at.recordAndConfirmOrder(order, decision.Symbol, "open_short", quantity, executionPrice, decision.Leverage, 0)
 
 	// Record position opening time
 	posKey := decision.Symbol + "_short"
@@ -361,6 +394,8 @@ func (at *AutoTrader) executeCloseLongWithRecord(decision *kernel.Decision, acti
 	// Record order to database and poll for confirmation
 	at.recordAndConfirmOrder(order, decision.Symbol, "close_long", quantity, marketData.CurrentPrice, 0, entryPrice)
 
+	at.ClearPeakPnLCache(decision.Symbol, "long")
+
 	logger.Infof("  ✓ Position closed successfully")
 	return nil
 }
@@ -424,6 +459,8 @@ func (at *AutoTrader) executeCloseShortWithRecord(decision *kernel.Decision, act
 
 	// Record order to database and poll for confirmation
 	at.recordAndConfirmOrder(order, decision.Symbol, "close_short", quantity, marketData.CurrentPrice, 0, entryPrice)
+
+	at.ClearPeakPnLCache(decision.Symbol, "short")
 
 	logger.Infof("  ✓ Position closed successfully")
 	return nil

@@ -78,6 +78,8 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 |----------|-------------|------|
 | [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
 | [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md) | Live JSON/prompt validation for v7 | v7 实时 JSON、Prompt 识别、机会覆盖验证 |
+| [Hunter v7 亏损根因复盘](../reports/live-loss-trade-root-cause-review-20260606.md) | Live loss root-cause review and prompt/risk fixes | 实盘亏损订单根因、提示词和执行层修复建议 |
+| [实盘周期 #106 复盘](../reports/live-cycle-106-review-20260606.md) | Position protector TP1/trailing review | 自适应持仓保护器 TP1 和移动保护复盘 |
 | [Sniffer Gate 2 优化方案](sniffer-optimization-plan.md) | Flexible compression scoring plan for Sniffer Gate 2 | Sniffer Gate 2 弹性压缩评分优化方案 |
 
 ---
@@ -121,7 +123,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 - 🔒 **Report security issue** → [Security Policy](../SECURITY.md)
 - 🤝 **Contribute code** → [Git Workflow](Git工作流规范.md)
 - 💬 **Ask questions** → [Telegram Community](https://t.me/ait_dev_community)
-- 🔍 **Hunter 分析报告** → [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md)
+- 🔍 **Hunter 分析报告** → [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md) / [周期 #106 复盘](../reports/live-cycle-106-review-20260606.md)
 
 ### I'm looking for...
 - 🏗️ **System architecture** → [Architecture (EN)](architecture/README.md) / [架构文档](architecture/README.zh-CN.md)

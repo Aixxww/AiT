@@ -183,6 +183,8 @@ export const riskControl = {
   riskParameters: { zh: '风险参数', en: 'Risk Parameters', es: 'Parámetros de Riesgo' },
   minRiskReward: { zh: '最小风险回报比', en: 'Min Risk/Reward Ratio', es: 'Ratio Riesgo/Recompensa Mínimo' },
   minRiskRewardDesc: { zh: '开仓要求的最低盈亏比', en: 'Minimum profit ratio for entry', es: 'Ratio mínimo para entrada' },
+  maxEntryPriceDeviation: { zh: '最大入场价偏离（代码强制）', en: 'Max Entry Price Drift (CODE ENFORCED)', es: 'Desviación Máxima de Entrada (CÓDIGO)' },
+  maxEntryPriceDeviationDesc: { zh: 'AI 决策价与下单前可执行价的最大允许偏离', en: 'Maximum allowed drift between AI decision price and pre-order executable price', es: 'Desviación máxima entre precio AI y ejecutable' },
   maxMarginUsage: { zh: '最大保证金使用率（代码强制）', en: 'Max Margin Usage (CODE ENFORCED)', es: 'Uso Máximo de Margen (CÓDIGO)' },
   maxMarginUsageDesc: { zh: '保证金使用率上限，由代码强制执行', en: 'Maximum margin utilization, enforced by code', es: 'Límite de margen' },
   entryRequirements: { zh: '开仓要求', en: 'Entry Requirements', es: 'Requisitos de Entrada' },

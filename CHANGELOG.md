@@ -2,7 +2,7 @@
 
 All notable changes to the AiT project will be documented in this file.
 
-> **Note:** AiT was formerly known as AiT. Entries before v4.0.0 are preserved under their original naming.
+> **Note:** Historical entries have been normalized to AiT branding.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
 - Hunter v7 live validation command (`cmd/hunter_v7_validate`) and real-time validation report
+- Adaptive position protector with TP1/TP2 partial protection, profit giveback trailing protection, and state cleanup after close
+- Max entry price deviation risk control to limit drift between the AI decision price and the executable market reference
+- Strategy prompt token compression switch with current-strategy-aware UI labels
+- Copy/save actions for recent decision AI analysis, with copy feedback moved to auto-dismiss toast notifications
 - Hunter bidirectional coin selection: simultaneous LONG and SHORT signal output
 - Hunter R7 live analysis report (2026-05-23) with BOTH direction scoring
 - Hunter evaluation report for UNIUSDT (2026-05-23)
@@ -28,14 +32,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Wired `hunter_v7` into the unified SnapshotEngine hot-snapshot path
+- Refined Hunter v7 prompt rules after live loss review: `entry_zone` is not reclaim confirmation, far single TP is de-emphasized, TP1/trailing protection is preferred, and low-timing or weak C-grade signals are blocked from forced entries
+- Open execution now checks order-book or live market reference price before RR/slippage validation to reduce stale signal price drift
+- Updated frontend to a cyber-style light/dark theme with improved mobile navigation, dashboard contrast, and prompt editor readability
 - Improved Binance snapshot HTTP proxy handling and corrected 24h price-change percentage parsing
 - Reorganized documentation structure into logical categories
 - Updated all README files with proper navigation links
-- Replaced all AiT branding with AiT across documentation (50+ files)
+- Normalized AiT branding across documentation (50+ files)
 - Updated GitHub repository URLs to Aixxww/AiT
 - Kernel engine optimizations (engine.go, engine_analysis.go, engine_position.go, engine_prompt.go)
 - Market data layer improvements (data.go, data_klines.go)
 - Provider module optimizations (local client, Hunter, AI500 provider)
+
+### Fixed
+- Binance USD-M stop-loss/take-profit trigger prices now use symbol precision formatting to avoid precision errors on altcoin orders
+- Binance leverage setup falls back to the exchange-supported leverage cap when a requested leverage is invalid for small-cap symbols
+- Fixed persistence for strategy data-source fields such as AI priority threshold and aggressive mode
+- Fixed Binance timestamp offset handling when local requests are ahead of server time
 
 ---
 
@@ -43,10 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — AiT Platform: Multi-AI, Multi-Exchange, Social Trading
 
-**Complete rebrand from AiT to AiT with major feature additions.**
+**AiT platform release with major feature additions.**
 
 #### Brand & Identity
-- Renamed project from AiT to AiT across all code, configs, and UI
+- Unified project branding across code, configs, and UI
 - New logo and branding assets
 - Removed aitos.ai dependency
 

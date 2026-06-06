@@ -742,8 +742,7 @@ export function StrategyStudioPage() {
             onChange={(e) => updateConfig('custom_prompt', e.target.value)}
             disabled={selectedStrategy?.is_default}
             placeholder={tr('customPromptPlaceholder')}
-            className="w-full h-32 px-3 py-2 rounded-lg resize-none font-mono text-xs bg-background text-foreground"
-            style={{ border: '1px solid var(--color-border)' }}
+            className="premium-input w-full h-32 resize-none text-xs"
           />
         </div>
       ),

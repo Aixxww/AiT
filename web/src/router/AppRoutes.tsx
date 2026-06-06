@@ -72,9 +72,7 @@ function LoadingScreen() {
   const { language } = useLanguage()
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-background"
-    >
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <img
           src="/icons/ait.svg"
@@ -158,9 +156,7 @@ function AppChrome({
   )
 
   return (
-    <div
-      className="min-h-screen bg-background text-foreground"
-    >
+    <div className="ait-app-shell min-h-screen text-foreground">
       <HeaderBar
         isLoggedIn={!!user}
         currentPage={currentPage}
@@ -404,7 +400,10 @@ export function AppRoutes() {
     <>
       <LegacyHashRedirect />
       <Routes>
-        <Route path={ROUTES.home} element={<Navigate to={ROUTES.login} replace />} />
+        <Route
+          path={ROUTES.home}
+          element={<Navigate to={ROUTES.login} replace />}
+        />
         <Route path={ROUTES.login} element={<LoginPage />} />
         <Route path={ROUTES.register} element={<RegisterPage />} />
         <Route path={ROUTES.resetPassword} element={<ResetPasswordPage />} />
@@ -496,11 +495,23 @@ export function AppRoutes() {
         />
         <Route
           path={ROUTES.traders}
-          element={isAuthenticated ? <TradersRoute /> : <Navigate to={ROUTES.login} replace />}
+          element={
+            isAuthenticated ? (
+              <TradersRoute />
+            ) : (
+              <Navigate to={ROUTES.login} replace />
+            )
+          }
         />
         <Route
           path={ROUTES.dashboard}
-          element={isAuthenticated ? <DashboardRoute /> : <Navigate to={ROUTES.login} replace />}
+          element={
+            isAuthenticated ? (
+              <DashboardRoute />
+            ) : (
+              <Navigate to={ROUTES.login} replace />
+            )
+          }
         />
         <Route
           path={ROUTES.strategy}

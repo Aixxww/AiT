@@ -255,6 +255,38 @@ export function RiskControlEditor({
 
           <div
             className="p-4 rounded-lg"
+            style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
+          >
+            <label className="block text-sm mb-1 text-foreground">
+              {ts(riskControl.maxEntryPriceDeviation, language)}
+            </label>
+            <p className="text-xs mb-2 text-muted-foreground">
+              {ts(riskControl.maxEntryPriceDeviationDesc, language)}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                value={config.max_entry_price_deviation_pct ?? 0.5}
+                onChange={(e) =>
+                  updateField('max_entry_price_deviation_pct', parseFloat(e.target.value))
+                }
+                disabled={disabled}
+                min={0.1}
+                max={2}
+                step={0.1}
+                className="flex-1 accent-yellow-500"
+              />
+              <span
+                className="w-14 text-center font-mono"
+                style={{ color: '#F0B90B' }}
+              >
+                {(config.max_entry_price_deviation_pct ?? 0.5).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+
+          <div
+            className="p-4 rounded-lg"
             style={{ background: 'var(--background)', border: '1px solid #0ECB81' }}
           >
             <label className="block text-sm mb-1 text-foreground">

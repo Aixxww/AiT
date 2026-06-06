@@ -21,9 +21,10 @@ export function Tooltip({ content, children }: TooltipProps) {
         <div
           className="absolute z-10 px-3 py-2 text-sm rounded-lg shadow-lg w-64 left-1/2 transform -translate-x-1/2 bottom-full mb-2"
           style={{
-            background: 'var(--color-border)',
+            background: 'var(--color-panel-hover)',
             color: 'var(--foreground)',
-            border: '1px solid #474D57',
+            border: '1px solid var(--color-border-hover)',
+            boxShadow: 'var(--shadow-lg)',
           }}
         >
           {content}
@@ -34,7 +35,7 @@ export function Tooltip({ content, children }: TooltipProps) {
               height: 0,
               borderLeft: '6px solid transparent',
               borderRight: '6px solid transparent',
-              borderTop: '6px solid var(--color-border)',
+              borderTop: '6px solid var(--color-panel-hover)',
             }}
           />
         </div>

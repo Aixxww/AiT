@@ -236,4 +236,5 @@ export interface RiskControlConfig {
   min_position_size: number;       // Min position size in USDT (CODE ENFORCED)
   min_risk_reward_ratio: number;   // Min take_profit / stop_loss ratio (AI guided)
   min_confidence: number;          // Min AI confidence to open position (AI guided)
+  max_entry_price_deviation_pct?: number; // Max decision price vs execution price drift, percent (CODE ENFORCED)
 }

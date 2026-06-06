@@ -2,7 +2,7 @@
 
 AiT 项目的所有重要更改都将记录在此文件中。
 
-> **说明：** AiT 前身为 AiT。v4.0.0 之前的条目保留原始命名。
+> **说明：** 历史条目已统一迁移为 AiT 品牌表述。
 
 本文件格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
@@ -16,6 +16,10 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ### 新增
 - Hunter v7 Signal Router：新增 10 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
 - Hunter v7 实时验证命令（`cmd/hunter_v7_validate`）和实时验证报告
+- 自适应持仓保护器：支持 TP1/TP2 分批保护、盈利回撤移动保护和平仓后状态清理
+- 风控参数新增最大入场价格偏离校验，限制 AI 决策价格与实际可成交价格的滑点偏差
+- 策略 Prompt Token 压缩开关，支持按当前策略显示适配文案
+- 最近决策的 AI 分析区复制/保存操作，复制成功改为自动消失的 toast 提示
 - Hunter 双向选币：同时输出 LONG 和 SHORT 信号标的
 - Hunter R7 实测报告（2026-05-23），BOTH 方向首次实测
 - Hunter UNIUSDT 评估报告（2026-05-23）
@@ -28,14 +32,23 @@ AiT 项目的所有重要更改都将记录在此文件中。
 
 ### 变更
 - `hunter_v7` 接入统一 SnapshotEngine 热快照路径
+- Hunter v7 策略提示词经过实盘亏损复盘后收敛：明确 `entry_zone` 不是 reclaim、弱化单一远端 TP、优先使用 TP1/移动保护，并禁止低 timing / 低质量 C 级信号强行开仓
+- 开仓执行前优先用盘口最优价或市场实时价复核 RR 和滑点，减少 LLM 使用旧信号价造成的执行偏差
+- 前端 UI 更新为可切换明暗主题的赛博风格，并增强移动端导航、看板文字对比度和 Prompt 编辑器可读性
 - 改进 Binance 快照 HTTP 代理处理，并修正 24h 涨跌幅百分比解析
 - 重组文档结构为逻辑分类
 - 更新所有 README 文件，添加适当的导航链接
-- 全面替换文档中 AiT 品牌为 AiT（50+ 文件）
+- 全面统一文档中的 AiT 品牌表述（50+ 文件）
 - 更新 GitHub 仓库地址为 Aixxww/AiT
 - 内核引擎优化（engine.go、engine_analysis.go、engine_position.go、engine_prompt.go）
 - 市场数据层改进（data.go、data_klines.go）
 - Provider 模块优化（local client、Hunter、AI500 provider）
+
+### 修复
+- Binance U 本位合约止损/止盈触发价改用交易对精度格式化，避免山寨币因触发价小数位超限导致挂单失败
+- Binance 杠杆设置失败时会读取交易所杠杆上限并降级到有效杠杆，避免部分小币种 20x 无效导致开仓失败
+- 修复策略保存时 `max_ai_priority`、激进模式等数据源配置字段未正确持久化的问题
+- 修复 Binance 时间戳请求超前服务器时间时的时间偏移同步问题
 
 ---
 
@@ -43,10 +56,10 @@ AiT 项目的所有重要更改都将记录在此文件中。
 
 ### 新增 — AiT 平台：多AI、多交易所、社交交易
 
-**从 AiT 完全更名为 AiT，新增大量核心功能。**
+**AiT 平台发布，新增大量核心功能。**
 
 #### 品牌与标识
-- 项目从 AiT 更名为 AiT，覆盖所有代码、配置和界面
+- 项目品牌、代码、配置和界面统一为 AiT
 - 全新 Logo 和品牌资产
 - 移除 aitos.ai 依赖
 

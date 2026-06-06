@@ -16,6 +16,9 @@ interface PositionHistoryProps {
   traderId: string
 }
 
+const historyPanelBackground =
+  'linear-gradient(135deg, var(--color-panel) 0%, color-mix(in srgb, var(--color-panel-hover) 84%, var(--color-surface)) 100%)'
+
 // Format number with proper decimals (for large numbers)
 function formatNumber(value: number, decimals: number = 2): string {
   if (Math.abs(value) >= 1000000) {
@@ -72,16 +75,14 @@ function StatCard({
     <div
       className="rounded-lg p-4 transition-all duration-200 hover:scale-[1.02]"
       style={{
-        background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+        background: historyPanelBackground,
         border: '1px solid var(--color-border)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">{icon}</span>
-        <span className="text-xs text-muted-foreground">
-          {title}
-        </span>
+        <span className="text-xs text-muted-foreground">{title}</span>
         {metricKey && (
           <MetricTooltip metricKey={metricKey} language={language} size={12} />
         )}
@@ -94,15 +95,11 @@ function StatCard({
           {value}
         </span>
         {suffix && (
-          <span className="text-sm text-muted-foreground">
-            {suffix}
-          </span>
+          <span className="text-sm text-muted-foreground">{suffix}</span>
         )}
       </div>
       {subtitle && (
-        <div className="text-xs mt-1 text-muted-foreground">
-          {subtitle}
-        </div>
+        <div className="text-xs mt-1 text-muted-foreground">{subtitle}</div>
       )}
     </div>
   )
@@ -114,7 +111,11 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
   const winRate = stat.win_rate || 0
   const pnlColor = totalPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
   const winRateColor =
-    winRate >= 60 ? 'var(--color-profit)' : winRate >= 40 ? 'var(--color-primary)' : 'var(--color-loss)'
+    winRate >= 60
+      ? 'var(--color-profit)'
+      : winRate >= 40
+        ? 'var(--color-primary)'
+        : 'var(--color-loss)'
 
   return (
     <div
@@ -131,17 +132,16 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
       </div>
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <div className="text-xs text-muted-foreground">
-            Win Rate
-          </div>
-          <div className="font-mono font-semibold" style={{ color: winRateColor }}>
+          <div className="text-xs text-muted-foreground">Win Rate</div>
+          <div
+            className="font-mono font-semibold"
+            style={{ color: winRateColor }}
+          >
             {winRate.toFixed(1)}%
           </div>
         </div>
         <div className="text-right min-w-[80px]">
-          <div className="text-xs text-muted-foreground">
-            P&L
-          </div>
+          <div className="text-xs text-muted-foreground">P&L</div>
           <div className="font-mono font-semibold" style={{ color: pnlColor }}>
             {totalPnl >= 0 ? '+' : ''}
             {formatNumber(totalPnl)}
@@ -153,7 +153,13 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
 }
 
 // Direction Stats Card
-function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language: Language }) {
+function DirectionStatsCard({
+  stat,
+  language,
+}: {
+  stat: DirectionStats
+  language: Language
+}) {
   const isLong = (stat.side || '').toLowerCase() === 'long'
   const iconColor = isLong ? 'var(--color-profit)' : 'var(--color-loss)'
   const totalPnl = stat.total_pnl || 0
@@ -166,16 +172,13 @@ function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language
     <div
       className="rounded-lg p-4"
       style={{
-        background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+        background: historyPanelBackground,
         border: `1px solid ${iconColor}33`,
       }}
     >
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl">{isLong ? '📈' : '📉'}</span>
-        <span
-          className="font-bold uppercase"
-          style={{ color: iconColor }}
-        >
+        <span className="font-bold uppercase" style={{ color: iconColor }}>
           {stat.side || 'Unknown'}
         </span>
       </div>
@@ -219,7 +222,12 @@ function DirectionStatsCard({ stat, language }: { stat: DirectionStats; language
           <div className="text-xs mb-1 text-muted-foreground">
             {t('positionHistory.avgPnL', language)}
           </div>
-          <div className="font-mono font-semibold" style={{ color: avgPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
+          <div
+            className="font-mono font-semibold"
+            style={{
+              color: avgPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+            }}
+          >
             {avgPnl >= 0 ? '+' : ''}
             {formatNumber(avgPnl)}
           </div>
@@ -239,9 +247,16 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
   const pnlColor = isProfitable ? 'var(--color-profit)' : 'var(--color-loss)'
 
   // Calculate holding time
-  const entryTime = position.entry_time ? new Date(position.entry_time).getTime() : 0
-  const exitTime = position.exit_time ? new Date(position.exit_time).getTime() : 0
-  const holdingMinutes = entryTime && exitTime && exitTime > entryTime ? (exitTime - entryTime) / 60000 : 0
+  const entryTime = position.entry_time
+    ? new Date(position.entry_time).getTime()
+    : 0
+  const exitTime = position.exit_time
+    ? new Date(position.exit_time).getTime()
+    : 0
+  const holdingMinutes =
+    entryTime && exitTime && exitTime > entryTime
+      ? (exitTime - entryTime) / 60000
+      : 0
 
   // Calculate PnL percentage based on entry price
   const entryPrice = position.entry_price || 0
@@ -316,7 +331,8 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
 
       {/* Fee - show more precision for small fees */}
       <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground">
-        -{((position.fee || 0) < 0.01 && (position.fee || 0) > 0)
+        -
+        {(position.fee || 0) < 0.01 && (position.fee || 0) > 0
           ? (position.fee || 0).toFixed(4)
           : (position.fee || 0).toFixed(2)}
       </td>
@@ -406,7 +422,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       switch (sortBy) {
         case 'time':
           comparison =
-            new Date(a.exit_time || 0).getTime() - new Date(b.exit_time || 0).getTime()
+            new Date(a.exit_time || 0).getTime() -
+            new Date(b.exit_time || 0).getTime()
           break
         case 'pnl':
           comparison = (a.realized_pnl || 0) - (b.realized_pnl || 0)
@@ -414,8 +431,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         case 'pnl_pct': {
           const aPrice = a.entry_price || 1
           const bPrice = b.entry_price || 1
-          const aPct = ((a.exit_price || 0) - aPrice) / aPrice * 100
-          const bPct = ((b.exit_price || 0) - bPrice) / bPrice * 100
+          const aPct = (((a.exit_price || 0) - aPrice) / aPrice) * 100
+          const bPct = (((b.exit_price || 0) - bPrice) / bPrice) * 100
           comparison = aPct - bPct
           break
         }
@@ -455,9 +472,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
 
   if (loading) {
     return (
-      <div
-        className="flex items-center justify-center p-12 text-muted-foreground"
-      >
+      <div className="flex items-center justify-center p-12 text-muted-foreground">
         <div className="animate-spin mr-3">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
             <circle
@@ -486,7 +501,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         className="rounded-lg p-6 text-center"
         style={{
           background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--color-loss) 30%, transparent)',
+          border:
+            '1px solid color-mix(in srgb, var(--color-loss) 30%, transparent)',
           color: 'var(--color-loss)',
         }}
       >
@@ -500,7 +516,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       <div
         className="rounded-lg p-12 text-center"
         style={{
-          background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+          background: historyPanelBackground,
           border: '1px solid var(--color-border)',
         }}
       >
@@ -524,7 +540,10 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="📊"
             title={t('positionHistory.totalTrades', language)}
             value={stats.total_trades || 0}
-            subtitle={t('positionHistory.winLoss', language, { win: stats.win_trades || 0, loss: stats.loss_trades || 0 })}
+            subtitle={t('positionHistory.winLoss', language, {
+              win: stats.win_trades || 0,
+              loss: stats.loss_trades || 0,
+            })}
             language={language}
           />
           <StatCard
@@ -545,8 +564,15 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           <StatCard
             icon="💰"
             title={t('positionHistory.totalPnL', language)}
-            value={((stats.total_pnl || 0) >= 0 ? '+' : '') + formatNumber(stats.total_pnl || 0)}
-            color={(stats.total_pnl || 0) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'}
+            value={
+              ((stats.total_pnl || 0) >= 0 ? '+' : '') +
+              formatNumber(stats.total_pnl || 0)
+            }
+            color={
+              (stats.total_pnl || 0) >= 0
+                ? 'var(--color-profit)'
+                : 'var(--color-loss)'
+            }
             subtitle={`${t('positionHistory.fee', language)}: -${formatNumber(stats.total_fee || 0)}`}
             metricKey="total_return"
             language={language}
@@ -555,7 +581,13 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="📈"
             title={t('positionHistory.profitFactor', language)}
             value={(stats.profit_factor || 0).toFixed(2)}
-            color={(stats.profit_factor || 0) >= 1.5 ? 'var(--color-profit)' : (stats.profit_factor || 0) >= 1 ? 'var(--color-primary)' : 'var(--color-loss)'}
+            color={
+              (stats.profit_factor || 0) >= 1.5
+                ? 'var(--color-profit)'
+                : (stats.profit_factor || 0) >= 1
+                  ? 'var(--color-primary)'
+                  : 'var(--color-loss)'
+            }
             subtitle={t('positionHistory.profitFactorDesc', language)}
             metricKey="profit_factor"
             language={language}
@@ -563,8 +595,16 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           <StatCard
             icon="⚖️"
             title={t('positionHistory.plRatio', language)}
-            value={profitLossRatio === Infinity ? '∞' : profitLossRatio.toFixed(2)}
-            color={profitLossRatio >= 1.5 ? 'var(--color-profit)' : profitLossRatio >= 1 ? 'var(--color-primary)' : 'var(--color-loss)'}
+            value={
+              profitLossRatio === Infinity ? '∞' : profitLossRatio.toFixed(2)
+            }
+            color={
+              profitLossRatio >= 1.5
+                ? 'var(--color-profit)'
+                : profitLossRatio >= 1
+                  ? 'var(--color-primary)'
+                  : 'var(--color-loss)'
+            }
             subtitle={t('positionHistory.plRatioDesc', language)}
             metricKey="expectancy"
             language={language}
@@ -579,7 +619,13 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             icon="📉"
             title={t('positionHistory.sharpeRatio', language)}
             value={(stats.sharpe_ratio || 0).toFixed(2)}
-            color={(stats.sharpe_ratio || 0) >= 1 ? 'var(--color-profit)' : (stats.sharpe_ratio || 0) >= 0 ? 'var(--color-primary)' : 'var(--color-loss)'}
+            color={
+              (stats.sharpe_ratio || 0) >= 1
+                ? 'var(--color-profit)'
+                : (stats.sharpe_ratio || 0) >= 0
+                  ? 'var(--color-primary)'
+                  : 'var(--color-loss)'
+            }
             subtitle={t('positionHistory.sharpeRatioDesc', language)}
             metricKey="sharpe_ratio"
             language={language}
@@ -589,7 +635,13 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             title={t('positionHistory.maxDrawdown', language)}
             value={(stats.max_drawdown_pct || 0).toFixed(1)}
             suffix="%"
-            color={(stats.max_drawdown_pct || 0) <= 10 ? 'var(--color-profit)' : (stats.max_drawdown_pct || 0) <= 20 ? 'var(--color-primary)' : 'var(--color-loss)'}
+            color={
+              (stats.max_drawdown_pct || 0) <= 10
+                ? 'var(--color-profit)'
+                : (stats.max_drawdown_pct || 0) <= 20
+                  ? 'var(--color-primary)'
+                  : 'var(--color-loss)'
+            }
             metricKey="max_drawdown"
             language={language}
           />
@@ -611,8 +663,17 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           <StatCard
             icon="💵"
             title={t('positionHistory.netPnL', language)}
-            value={((stats.total_pnl || 0) - (stats.total_fee || 0) >= 0 ? '+' : '') + formatNumber((stats.total_pnl || 0) - (stats.total_fee || 0))}
-            color={(stats.total_pnl || 0) - (stats.total_fee || 0) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'}
+            value={
+              ((stats.total_pnl || 0) - (stats.total_fee || 0) >= 0
+                ? '+'
+                : '') +
+              formatNumber((stats.total_pnl || 0) - (stats.total_fee || 0))
+            }
+            color={
+              (stats.total_pnl || 0) - (stats.total_fee || 0) >= 0
+                ? 'var(--color-profit)'
+                : 'var(--color-loss)'
+            }
             subtitle={t('positionHistory.netPnLDesc', language)}
             language={language}
           />
@@ -623,7 +684,11 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       {directionStats.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {directionStats.map((stat) => (
-            <DirectionStatsCard key={stat.side} stat={stat} language={language} />
+            <DirectionStatsCard
+              key={stat.side}
+              stat={stat}
+              language={language}
+            />
           ))}
         </div>
       )}
@@ -633,7 +698,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         <div
           className="rounded-lg p-4"
           style={{
-            background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+            background: historyPanelBackground,
             border: '1px solid var(--color-border)',
           }}
         >
@@ -655,7 +720,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       <div
         className="rounded-lg overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, var(--color-panel) 0%, #181C21 100%)',
+          background: historyPanelBackground,
           border: '1px solid var(--color-border)',
         }}
       >
@@ -672,12 +737,18 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               value={filterSymbol}
               onChange={(val) => setFilterSymbol(val)}
               options={[
-                { value: 'all', label: t('positionHistory.allSymbols', language) },
-                ...uniqueSymbols.map(s => ({ value: s, label: (s || '').replace('USDT', '') }))
+                {
+                  value: 'all',
+                  label: t('positionHistory.allSymbols', language),
+                },
+                ...uniqueSymbols.map((s) => ({
+                  value: s,
+                  label: (s || '').replace('USDT', ''),
+                })),
               ]}
               className="rounded px-3 py-1.5 text-sm"
               style={{
-                background: 'var(--background)',
+                background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
                 color: 'var(--foreground)',
               }}
@@ -688,15 +759,24 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             <span className="text-sm text-muted-foreground">
               {t('positionHistory.side', language)}:
             </span>
-            <div className="flex rounded overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <div
+              className="flex rounded overflow-hidden"
+              style={{ border: '1px solid var(--color-border)' }}
+            >
               {['all', 'LONG', 'SHORT'].map((side) => (
                 <button
                   key={side}
                   onClick={() => setFilterSide(side)}
                   className="px-3 py-1.5 text-sm capitalize transition-colors"
                   style={{
-                    background: filterSide === side ? 'var(--color-border)' : 'transparent',
-                    color: filterSide === side ? 'var(--foreground)' : 'var(--color-muted-fg)',
+                    background:
+                      filterSide === side
+                        ? 'var(--color-surface-alt)'
+                        : 'transparent',
+                    color:
+                      filterSide === side
+                        ? 'var(--foreground)'
+                        : 'var(--color-muted-fg)',
                   }}
                 >
                   {side === 'all' ? t('positionHistory.all', language) : side}
@@ -712,19 +792,34 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             <AiTSelect
               value={`${sortBy}-${sortOrder}`}
               onChange={(val) => {
-                const [by, order] = val.split('-') as ['time' | 'pnl' | 'pnl_pct', 'asc' | 'desc']
+                const [by, order] = val.split('-') as [
+                  'time' | 'pnl' | 'pnl_pct',
+                  'asc' | 'desc',
+                ]
                 setSortBy(by)
                 setSortOrder(order)
               }}
               options={[
-                { value: 'time-desc', label: t('positionHistory.latestFirst', language) },
-                { value: 'time-asc', label: t('positionHistory.oldestFirst', language) },
-                { value: 'pnl-desc', label: t('positionHistory.highestPnL', language) },
-                { value: 'pnl-asc', label: t('positionHistory.lowestPnL', language) },
+                {
+                  value: 'time-desc',
+                  label: t('positionHistory.latestFirst', language),
+                },
+                {
+                  value: 'time-asc',
+                  label: t('positionHistory.oldestFirst', language),
+                },
+                {
+                  value: 'pnl-desc',
+                  label: t('positionHistory.highestPnL', language),
+                },
+                {
+                  value: 'pnl-asc',
+                  label: t('positionHistory.lowestPnL', language),
+                },
               ]}
               className="rounded px-3 py-1.5 text-sm"
               style={{
-                background: 'var(--background)',
+                background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
                 color: 'var(--foreground)',
               }}
@@ -737,49 +832,31 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           <table className="w-full">
             <thead>
               <tr className="bg-background">
-                <th
-                  className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.symbol', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.entry', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.exit', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.qty', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.value', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.pnl', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.fee', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.duration', language)}
                 </th>
-                <th
-                  className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <th className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('positionHistory.closedAt', language)}
                 </th>
               </tr>
@@ -795,12 +872,18 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
         {/* Footer with Pagination */}
         <div
           className="flex flex-wrap items-center justify-between gap-4 p-4 text-sm"
-          style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-muted-fg)' }}
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            color: 'var(--color-muted-fg)',
+          }}
         >
           {/* Left: Count info */}
           <div className="flex items-center gap-4">
             <span>
-              {t('positionHistory.showingPositions', language, { count: totalFilteredCount, total: positions.length })}
+              {t('positionHistory.showingPositions', language, {
+                count: totalFilteredCount,
+                total: positions.length,
+              })}
             </span>
             {totalFilteredCount > 0 && (
               <span>
@@ -808,16 +891,25 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 <span
                   style={{
                     color:
-                      filteredAndSortedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0) >= 0
+                      filteredAndSortedPositions.reduce(
+                        (sum, p) => sum + (p.realized_pnl || 0),
+                        0
+                      ) >= 0
                         ? 'var(--color-profit)'
                         : 'var(--color-loss)',
                   }}
                 >
-                  {filteredAndSortedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0) >= 0
+                  {filteredAndSortedPositions.reduce(
+                    (sum, p) => sum + (p.realized_pnl || 0),
+                    0
+                  ) >= 0
                     ? '+'
                     : ''}
                   {formatNumber(
-                    filteredAndSortedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0)
+                    filteredAndSortedPositions.reduce(
+                      (sum, p) => sum + (p.realized_pnl || 0),
+                      0
+                    )
                   )}
                 </span>
               </span>
@@ -841,7 +933,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 ]}
                 className="rounded px-2 py-1 text-sm"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
                   color: 'var(--foreground)',
                 }}
@@ -856,7 +948,10 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === 1 ? 'transparent' : 'var(--color-border)',
+                    background:
+                      currentPage === 1
+                        ? 'transparent'
+                        : 'var(--color-surface-alt)',
                     color: 'var(--foreground)',
                   }}
                 >
@@ -867,7 +962,10 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === 1 ? 'transparent' : 'var(--color-border)',
+                    background:
+                      currentPage === 1
+                        ? 'transparent'
+                        : 'var(--color-surface-alt)',
                     color: 'var(--foreground)',
                   }}
                 >
@@ -877,11 +975,16 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   {currentPage} / {totalPages}
                 </span>
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === totalPages ? 'transparent' : 'var(--color-border)',
+                    background:
+                      currentPage === totalPages
+                        ? 'transparent'
+                        : 'var(--color-surface-alt)',
                     color: 'var(--foreground)',
                   }}
                 >
@@ -892,7 +995,10 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
                   style={{
-                    background: currentPage === totalPages ? 'transparent' : 'var(--color-border)',
+                    background:
+                      currentPage === totalPages
+                        ? 'transparent'
+                        : 'var(--color-surface-alt)',
                     color: 'var(--foreground)',
                   }}
                 >

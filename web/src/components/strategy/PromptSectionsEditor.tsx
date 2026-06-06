@@ -148,11 +148,8 @@ export function PromptSectionsEditor({
                     onChange={(e) => updateSection(sectionKey, e.target.value)}
                     disabled={disabled}
                     rows={6}
-                    className="w-full px-3 py-2 rounded-lg resize-y font-mono text-xs"
+                    className="premium-input w-full resize-y text-xs"
                     style={{
-                      background: '#1E2329',
-                      border: '1px solid #2B3139',
-                      color: 'var(--foreground)',
                       minHeight: '120px',
                     }}
                   />

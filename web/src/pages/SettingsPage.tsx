@@ -44,27 +44,35 @@ function AppearanceTab() {
   const themeOptions = [
     {
       mode: 'pro-dark' as const,
-      label: 'Pro Dark',
-      description: 'Terminal style',
-      preview: { bg: '#0A0D10', surface: '#171C24', accent: '#F0B90B' },
+      label: 'Cyber Dark',
+      description: 'Neon night',
+      preview: { bg: '#08111B', surface: '#0E1A28', accent: '#35E6FF' },
     },
     {
       mode: 'pro-light' as const,
-      label: 'Pro Light',
-      description: 'Clean finance',
-      preview: { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#D4A00A' },
+      label: 'Cyber Light',
+      description: 'Daylight grid',
+      preview: { bg: '#EDF7FB', surface: '#FFFFFF', accent: '#007EA7' },
     },
     {
       mode: 'glass-dark' as const,
       label: 'Glass Dark',
-      description: 'Liquid glass',
-      preview: { bg: '#0A0C12', surface: 'rgba(18,22,34,0.45)', accent: '#F0B90B' },
+      description: 'Neon glass',
+      preview: {
+        bg: '#08111B',
+        surface: 'rgba(17,33,52,0.72)',
+        accent: '#FF4FD8',
+      },
     },
     {
       mode: 'glass-light' as const,
       label: 'Glass Light',
-      description: 'Frosted glass',
-      preview: { bg: '#F0F2F5', surface: 'rgba(255,255,255,0.50)', accent: '#D4A00A' },
+      description: 'Frosted cyber',
+      preview: {
+        bg: '#EDF7FB',
+        surface: 'rgba(255,255,255,0.72)',
+        accent: '#D92FBF',
+      },
     },
     {
       mode: 'system' as const,
@@ -84,22 +92,37 @@ function AppearanceTab() {
               key={option.mode}
               onClick={() => setMode(option.mode)}
               className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
-                ${mode === option.mode
-                  ? 'border-primary bg-primary-dim'
-                  : 'border-border hover:border-border-hover bg-surface'}`}
+                ${
+                  mode === option.mode
+                    ? 'border-primary bg-primary-dim'
+                    : 'border-border hover:border-border-hover bg-surface'
+                }`}
             >
               {option.preview ? (
-                <div className="w-full h-12 rounded-lg overflow-hidden relative" style={{ background: option.preview.bg }}>
-                  <div className="absolute bottom-0 left-0 right-0 h-6 rounded-t" style={{ background: option.preview.surface }} />
-                  <div className="absolute top-1 left-1 w-2 h-2 rounded-full" style={{ background: option.preview.accent }} />
+                <div
+                  className="w-full h-12 rounded-lg overflow-hidden relative"
+                  style={{ background: option.preview.bg }}
+                >
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-6 rounded-t"
+                    style={{ background: option.preview.surface }}
+                  />
+                  <div
+                    className="absolute top-1 left-1 w-2 h-2 rounded-full"
+                    style={{ background: option.preview.accent }}
+                  />
                 </div>
               ) : (
                 <div className="w-full h-12 rounded-lg bg-gradient-to-br from-surface to-panel flex items-center justify-center">
                   <Monitor size={20} className="text-muted-foreground" />
                 </div>
               )}
-              <span className="text-xs font-medium text-foreground">{option.label}</span>
-              <span className="text-[10px] text-muted-foreground">{option.description}</span>
+              <span className="text-xs font-medium text-foreground">
+                {option.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {option.description}
+              </span>
               {mode === option.mode && (
                 <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
               )}
@@ -110,9 +133,18 @@ function AppearanceTab() {
 
       <div className="text-xs text-muted-foreground p-3 rounded-lg bg-surface-alt border border-border">
         {mode === 'system' ? (
-          <>Following system preference. Currently: <span className="font-medium text-foreground">{isDark ? 'Dark' : 'Light'}</span></>
+          <>
+            Following system preference. Currently:{' '}
+            <span className="font-medium text-foreground">
+              {isDark ? 'Dark' : 'Light'}
+            </span>
+          </>
         ) : (
-          <>{mode.startsWith('glass') ? 'Liquid glass with translucent panels and depth effects.' : 'Professional terminal-style with high information density.'}</>
+          <>
+            {mode.startsWith('glass')
+              ? 'Cyber glass with translucent panels and neon depth.'
+              : 'High-density cyber interface with adaptive day/night contrast.'}
+          </>
         )}
       </div>
     </div>
@@ -160,12 +192,12 @@ export function SettingsPage() {
   // Fetch data when tabs are visited
   useEffect(() => {
     if (activeTab === 'models') {
-      refreshModelConfigs()
-        .catch(() => toast.error('Failed to load AI models'))
+      refreshModelConfigs().catch(() => toast.error('Failed to load AI models'))
     }
     if (activeTab === 'exchanges') {
-      refreshExchangeConfigs()
-        .catch(() => toast.error('Failed to load exchanges'))
+      refreshExchangeConfigs().catch(() =>
+        toast.error('Failed to load exchanges')
+      )
     }
   }, [activeTab])
 
@@ -175,7 +207,8 @@ export function SettingsPage() {
       refreshExchangeConfigs().catch(() => {})
     }
     window.addEventListener('agent-config-refresh', handleRefresh)
-    return () => window.removeEventListener('agent-config-refresh', handleRefresh)
+    return () =>
+      window.removeEventListener('agent-config-refresh', handleRefresh)
   }, [])
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -402,9 +435,7 @@ export function SettingsPage() {
   ]
 
   return (
-    <div
-      className="min-h-screen pt-20 pb-12 px-4 bg-background"
-    >
+    <div className="min-h-screen pt-20 pb-12 px-4 bg-background">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-xl font-bold text-foreground mb-6">Settings</h1>
 
@@ -434,11 +465,15 @@ export function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Email</p>
-                <p className="text-sm text-foreground font-medium">{user?.email}</p>
+                <p className="text-sm text-foreground font-medium">
+                  {user?.email}
+                </p>
               </div>
 
               <div className="border-t border-border pt-6">
-                <h3 className="text-sm font-semibold text-foreground mb-4">Change Password</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-4">
+                  Change Password
+                </h3>
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-2">
@@ -518,12 +553,20 @@ export function SettingsPage() {
                           <Cpu size={14} className="text-foreground" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-foreground">{model.name}</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {model.name}
+                          </p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <p className="text-xs text-muted-foreground">{model.provider}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {model.provider}
+                            </p>
                             {configBadge('API Key', !!model.has_api_key)}
-                            {model.customModelName ? configBadge('Custom Model', true) : null}
-                            {model.customApiUrl ? configBadge('Base URL', true) : null}
+                            {model.customModelName
+                              ? configBadge('Custom Model', true)
+                              : null}
+                            {model.customApiUrl
+                              ? configBadge('Base URL', true)
+                              : null}
                           </div>
                         </div>
                       </div>
@@ -585,15 +628,28 @@ export function SettingsPage() {
                           <Building2 size={14} className="text-foreground" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-foreground">{exchange.account_name || exchange.name}</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {exchange.account_name || exchange.name}
+                          </p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <p className="text-xs text-muted-foreground capitalize">{exchange.exchange_type || exchange.type}</p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {exchange.exchange_type || exchange.type}
+                            </p>
                             {configBadge('API Key', !!exchange.has_api_key)}
                             {configBadge('Secret', !!exchange.has_secret_key)}
-                            {exchange.has_passphrase ? configBadge('Passphrase', true) : null}
-                            {exchange.hyperliquidWalletAddr ? configBadge('Wallet', true) : null}
-                            {exchange.has_aster_private_key ? configBadge('Aster Key', true) : null}
-                            {exchange.has_lighter_private_key || exchange.has_lighter_api_key_private_key ? configBadge('Lighter Key', true) : null}
+                            {exchange.has_passphrase
+                              ? configBadge('Passphrase', true)
+                              : null}
+                            {exchange.hyperliquidWalletAddr
+                              ? configBadge('Wallet', true)
+                              : null}
+                            {exchange.has_aster_private_key
+                              ? configBadge('Aster Key', true)
+                              : null}
+                            {exchange.has_lighter_private_key ||
+                            exchange.has_lighter_api_key_private_key
+                              ? configBadge('Lighter Key', true)
+                              : null}
                           </div>
                         </div>
                       </div>
@@ -636,9 +692,7 @@ export function SettingsPage() {
           )}
 
           {/* Appearance Tab */}
-          {activeTab === 'appearance' && (
-            <AppearanceTab />
-          )}
+          {activeTab === 'appearance' && <AppearanceTab />}
         </div>
       </div>
 

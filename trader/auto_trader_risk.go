@@ -4,8 +4,45 @@ import (
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
+	"math"
 	"strings"
 	"time"
+)
+
+const (
+	positionProtectorFastInterval    = 15 * time.Second
+	positionProtectorBaseInterval    = 30 * time.Second
+	positionProtectorIdleInterval    = 60 * time.Second
+	protectorTP1PnLPct               = 6.0
+	protectorTP2PnLPct               = 12.0
+	protectorTP1CloseRatio           = 0.40
+	protectorTP2CloseRatio           = 0.50
+	protectorTrailDrawdownPct        = 35.0
+	protectorPreTPPeakPnLPct         = 8.0
+	protectorPreTPGivebackPct        = 80.0
+	protectorPreTPMinCurrentPnLPct   = 3.0
+	protectorPreTPMinHoldDuration    = 20 * time.Minute
+	protectorBreakevenBufferPct      = 0.001
+	protectorDefaultMinCloseNotional = 12.0
+)
+
+type positionProtectionState struct {
+	InitialQuantity float64
+	TP1Done         bool
+	TP2Done         bool
+	PeakPnLPct      float64
+	OpenedAt        time.Time
+	LastActionAt    time.Time
+}
+
+type protectionAction string
+
+const (
+	protectionNone          protectionAction = ""
+	protectionTP1           protectionAction = "tp1"
+	protectionTP2           protectionAction = "tp2"
+	protectionTrailClose    protectionAction = "trail_close"
+	protectionGivebackClose protectionAction = "giveback_close"
 )
 
 // startDrawdownMonitor starts drawdown monitoring
@@ -14,15 +51,14 @@ func (at *AutoTrader) startDrawdownMonitor() {
 	go func() {
 		defer at.monitorWg.Done()
 
-		ticker := time.NewTicker(1 * time.Minute) // Check every minute
-		defer ticker.Stop()
-
-		logger.Info("📊 Started position drawdown monitoring (check every minute)")
+		nextInterval := positionProtectorBaseInterval
+		logger.Infof("📊 Started adaptive position protector (idle=%s base=%s fast=%s)",
+			positionProtectorIdleInterval, positionProtectorBaseInterval, positionProtectorFastInterval)
 
 		for {
 			select {
-			case <-ticker.C:
-				at.checkPositionDrawdown()
+			case <-time.After(nextInterval):
+				nextInterval = at.checkPositionDrawdown()
 			case <-at.stopMonitorCh:
 				logger.Info("⏹ Stopped position drawdown monitoring")
 				return
@@ -32,14 +68,18 @@ func (at *AutoTrader) startDrawdownMonitor() {
 }
 
 // checkPositionDrawdown checks position drawdown situation
-func (at *AutoTrader) checkPositionDrawdown() {
+func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 	// Get current positions
 	positions, err := at.trader.GetPositions()
 	if err != nil {
 		logger.Infof("❌ Drawdown monitoring: failed to get positions: %v", err)
-		return
+		return positionProtectorBaseInterval
+	}
+	if len(positions) == 0 {
+		return positionProtectorIdleInterval
 	}
 
+	nextInterval := positionProtectorBaseInterval
 	for _, pos := range positions {
 		symbol := pos["symbol"].(string)
 		side := pos["side"].(string)
@@ -56,61 +96,242 @@ func (at *AutoTrader) checkPositionDrawdown() {
 			continue
 		}
 
-		// Calculate current P&L percentage
 		leverage := 10 // Default value
 		if lev, ok := pos["leverage"].(float64); ok {
 			leverage = int(lev)
 		}
 
-		var currentPnLPct float64
-		if side == "long" {
-			currentPnLPct = ((markPrice - entryPrice) / entryPrice) * float64(leverage) * 100
-		} else {
-			currentPnLPct = ((entryPrice - markPrice) / entryPrice) * float64(leverage) * 100
-		}
+		currentPnLPct := calculateLeveragedPnLPct(side, entryPrice, markPrice, leverage)
 
 		// Construct unique position identifier (distinguish long/short)
 		posKey := symbol + "_" + side
 
-		// Get historical peak profit for this position
-		at.peakPnLCacheMutex.RLock()
-		peakPnLPct, exists := at.peakPnLCache[posKey]
-		at.peakPnLCacheMutex.RUnlock()
-
-		if !exists {
-			// If no historical peak record, use current P&L as initial value
-			peakPnLPct = currentPnLPct
-			at.UpdatePeakPnL(symbol, side, currentPnLPct)
-		} else {
-			// Update peak cache
-			at.UpdatePeakPnL(symbol, side, currentPnLPct)
+		at.UpdatePeakPnL(symbol, side, currentPnLPct)
+		openedAt := at.resolveProtectionPositionOpenedAt(symbol, side)
+		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
+		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct)
+		if shouldUseFastProtectionInterval(state, currentPnLPct) {
+			nextInterval = positionProtectorFastInterval
 		}
-
-		// Calculate drawdown (magnitude of decline from peak)
-		var drawdownPct float64
-		if peakPnLPct > 0 && currentPnLPct < peakPnLPct {
-			drawdownPct = ((peakPnLPct - currentPnLPct) / peakPnLPct) * 100
-		}
-
-		// Check close position condition: profit > 5% and drawdown >= 40%
-		if currentPnLPct > 5.0 && drawdownPct >= 40.0 {
-			logger.Infof("🚨 Drawdown close position condition triggered: %s %s | Current profit: %.2f%% | Peak profit: %.2f%% | Drawdown: %.2f%%",
-				symbol, side, currentPnLPct, peakPnLPct, drawdownPct)
-
-			// Execute close position
-			if err := at.emergencyClosePosition(symbol, side); err != nil {
-				logger.Infof("❌ Drawdown close position failed (%s %s): %v", symbol, side, err)
-			} else {
-				logger.Infof("✅ Drawdown close position succeeded: %s %s", symbol, side)
-				// Clear cache for this position after closing
-				at.ClearPeakPnLCache(symbol, side)
+		if action == protectionNone {
+			if currentPnLPct > 3.0 {
+				logger.Infof("📊 Position protector: %s %s | Profit %.2f%% | Peak %.2f%% | Drawdown %.2f%% | Age %s | TP1=%v TP2=%v",
+					symbol, side, currentPnLPct, state.PeakPnLPct, drawdownPct, time.Since(state.OpenedAt).Truncate(time.Second), state.TP1Done, state.TP2Done)
 			}
-		} else if currentPnLPct > 5.0 {
-			// Record situations close to close position condition (for debugging)
-			logger.Infof("📊 Drawdown monitoring: %s %s | Profit: %.2f%% | Peak: %.2f%% | Drawdown: %.2f%%",
-				symbol, side, currentPnLPct, peakPnLPct, drawdownPct)
+			continue
+		}
+
+		closedAll, err := at.executeProtectionAction(symbol, side, quantity, markPrice, entryPrice, action)
+		if err != nil {
+			logger.Infof("❌ Position protector failed (%s %s %s): %v", symbol, side, action, err)
+			continue
+		}
+		at.markProtectionAction(posKey, action, closedAll)
+	}
+	return nextInterval
+}
+
+func shouldUseFastProtectionInterval(state *positionProtectionState, currentPnLPct float64) bool {
+	if state == nil {
+		return false
+	}
+	return state.TP1Done || state.PeakPnLPct >= protectorTP1PnLPct || currentPnLPct >= protectorTP1PnLPct
+}
+
+func calculateLeveragedPnLPct(side string, entryPrice, markPrice float64, leverage int) float64 {
+	if entryPrice <= 0 || leverage <= 0 {
+		return 0
+	}
+	if side == "long" {
+		return ((markPrice - entryPrice) / entryPrice) * float64(leverage) * 100
+	}
+	return ((entryPrice - markPrice) / entryPrice) * float64(leverage) * 100
+}
+
+func choosePositionProtectionAction(state *positionProtectionState, currentPnLPct float64) (protectionAction, float64) {
+	if state == nil {
+		return protectionNone, 0
+	}
+	if currentPnLPct > state.PeakPnLPct {
+		state.PeakPnLPct = currentPnLPct
+	}
+	drawdownPct := 0.0
+	if state.PeakPnLPct > 0 && currentPnLPct < state.PeakPnLPct {
+		drawdownPct = ((state.PeakPnLPct - currentPnLPct) / state.PeakPnLPct) * 100
+	}
+	if !state.TP1Done && currentPnLPct >= protectorTP1PnLPct {
+		return protectionTP1, drawdownPct
+	}
+	if state.TP1Done && !state.TP2Done && currentPnLPct >= protectorTP2PnLPct {
+		return protectionTP2, drawdownPct
+	}
+	if state.TP1Done && state.PeakPnLPct >= protectorTP1PnLPct && currentPnLPct > 0 && drawdownPct >= protectorTrailDrawdownPct {
+		return protectionTrailClose, drawdownPct
+	}
+	if !state.TP1Done &&
+		state.PeakPnLPct >= protectorPreTPPeakPnLPct &&
+		currentPnLPct >= protectorPreTPMinCurrentPnLPct &&
+		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
+		drawdownPct >= protectorPreTPGivebackPct {
+		return protectionGivebackClose, drawdownPct
+	}
+	return protectionNone, drawdownPct
+}
+
+func (at *AutoTrader) getOrCreateProtectionState(posKey string, quantity, currentPnLPct float64, openedAt time.Time) *positionProtectionState {
+	at.protectionStateMutex.Lock()
+	defer at.protectionStateMutex.Unlock()
+	if at.protectionState == nil {
+		at.protectionState = make(map[string]*positionProtectionState)
+	}
+	if openedAt.IsZero() {
+		openedAt = time.Now()
+	}
+	state, ok := at.protectionState[posKey]
+	if !ok {
+		state = &positionProtectionState{
+			InitialQuantity: quantity,
+			PeakPnLPct:      currentPnLPct,
+			OpenedAt:        openedAt,
+		}
+		at.protectionState[posKey] = state
+		return state
+	}
+	if quantity > state.InitialQuantity {
+		state.InitialQuantity = quantity
+	}
+	if state.OpenedAt.IsZero() || openedAt.Before(state.OpenedAt) {
+		state.OpenedAt = openedAt
+	}
+	return state
+}
+
+func (at *AutoTrader) resolveProtectionPositionOpenedAt(symbol, side string) time.Time {
+	posKey := symbol + "_" + side
+	if at.store != nil {
+		if dbPos, err := at.store.Position().GetOpenPositionBySymbol(at.id, symbol, strings.ToUpper(side)); err == nil && dbPos != nil && dbPos.EntryTime > 0 {
+			return time.UnixMilli(dbPos.EntryTime)
 		}
 	}
+	if firstSeen, ok := at.positionFirstSeenTime[posKey]; ok && firstSeen > 0 {
+		return time.UnixMilli(firstSeen)
+	}
+	now := time.Now()
+	at.positionFirstSeenTime[posKey] = now.UnixMilli()
+	return now
+}
+
+func (at *AutoTrader) markProtectionAction(posKey string, action protectionAction, closedAll bool) {
+	at.protectionStateMutex.Lock()
+	defer at.protectionStateMutex.Unlock()
+	state := at.protectionState[posKey]
+	if state == nil {
+		return
+	}
+	if closedAll {
+		delete(at.protectionState, posKey)
+		return
+	}
+	state.LastActionAt = time.Now()
+	switch action {
+	case protectionTP1:
+		state.TP1Done = true
+	case protectionTP2:
+		state.TP2Done = true
+	case protectionTrailClose, protectionGivebackClose:
+		delete(at.protectionState, posKey)
+	}
+}
+
+func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, markPrice, entryPrice float64, action protectionAction) (bool, error) {
+	switch action {
+	case protectionTP1:
+		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP1CloseRatio)
+		logger.Infof("🟢 TP1 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
+		if closeAll {
+			return true, at.closeProtectedPosition(symbol, side, 0)
+		}
+		if err := at.closeProtectedPosition(symbol, side, closeQty); err != nil {
+			return false, err
+		}
+		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
+			logger.Infof("⚠️ Failed to rebuild stops after TP1 close (%s %s): %v", symbol, side, err)
+		}
+		return false, nil
+	case protectionTP2:
+		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP2CloseRatio)
+		logger.Infof("🟢 TP2 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
+		if closeAll {
+			return true, at.closeProtectedPosition(symbol, side, 0)
+		}
+		if err := at.closeProtectedPosition(symbol, side, closeQty); err != nil {
+			return false, err
+		}
+		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
+			logger.Infof("⚠️ Failed to rebuild stops after TP2 close (%s %s): %v", symbol, side, err)
+		}
+		return false, nil
+	case protectionTrailClose, protectionGivebackClose:
+		logger.Infof("🟢 Trail protection close triggered: %s %s | action=%s | mark %.8f", symbol, side, action, markPrice)
+		return true, at.closeProtectedPosition(symbol, side, 0)
+	default:
+		return false, nil
+	}
+}
+
+func (at *AutoTrader) protectionCloseQuantity(quantity, markPrice, ratio float64) (float64, bool) {
+	if quantity <= 0 || ratio <= 0 {
+		return 0, true
+	}
+	closeQty := quantity * ratio
+	minNotional := at.minProtectionCloseNotional()
+	if closeQty*markPrice < minNotional || (quantity-closeQty)*markPrice < minNotional {
+		return quantity, true
+	}
+	return closeQty, false
+}
+
+func (at *AutoTrader) minProtectionCloseNotional() float64 {
+	if at.config.StrategyConfig != nil && at.config.StrategyConfig.RiskControl.MinPositionSize > 0 {
+		return at.config.StrategyConfig.RiskControl.MinPositionSize
+	}
+	return protectorDefaultMinCloseNotional
+}
+
+func (at *AutoTrader) rebuildProtectionStops(symbol, side string, remainingQty, entryPrice float64) error {
+	if remainingQty <= 0 {
+		return nil
+	}
+	if err := at.trader.CancelStopOrders(symbol); err != nil {
+		return err
+	}
+	stopPrice := entryPrice
+	if side == "long" {
+		stopPrice = entryPrice * (1 + protectorBreakevenBufferPct)
+		return at.trader.SetStopLoss(symbol, "LONG", remainingQty, stopPrice)
+	}
+	stopPrice = entryPrice * (1 - protectorBreakevenBufferPct)
+	return at.trader.SetStopLoss(symbol, "SHORT", remainingQty, stopPrice)
+}
+
+func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float64) error {
+	switch side {
+	case "long":
+		order, err := at.trader.CloseLong(symbol, quantity)
+		if err != nil {
+			return err
+		}
+		logger.Infof("✅ Protected close long succeeded, order ID: %v, qty: %.8f", order["orderId"], quantity)
+	case "short":
+		order, err := at.trader.CloseShort(symbol, quantity)
+		if err != nil {
+			return err
+		}
+		logger.Infof("✅ Protected close short succeeded, order ID: %v, qty: %.8f", order["orderId"], quantity)
+	default:
+		return fmt.Errorf("unknown position direction: %s", side)
+	}
+	return nil
 }
 
 // emergencyClosePosition emergency close position function
@@ -172,6 +393,9 @@ func (at *AutoTrader) ClearPeakPnLCache(symbol, side string) {
 
 	posKey := symbol + "_" + side
 	delete(at.peakPnLCache, posKey)
+	at.protectionStateMutex.Lock()
+	defer at.protectionStateMutex.Unlock()
+	delete(at.protectionState, posKey)
 }
 
 // ============================================================================
@@ -257,6 +481,26 @@ func (at *AutoTrader) enforceMaxPositions(currentPositionCount int) error {
 	return nil
 }
 
+func (at *AutoTrader) isHunterV7Strategy() bool {
+	if at == nil || at.config.StrategyConfig == nil {
+		return false
+	}
+	return strings.EqualFold(at.config.StrategyConfig.CoinSource.SourceType, "hunter_v7")
+}
+
+func (at *AutoTrader) maxEntryPriceDeviationPct() float64 {
+	if at == nil || at.config.StrategyConfig == nil {
+		return 0
+	}
+	if pct := at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct; pct > 0 {
+		return pct
+	}
+	if at.isHunterV7Strategy() {
+		return 0.5
+	}
+	return 0
+}
+
 // validateOpenDecision enforces non-negotiable safety checks before any open order.
 func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPrice float64, side string) error {
 	if decision == nil {
@@ -270,6 +514,21 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 	}
 	if decision.Leverage <= 0 {
 		return fmt.Errorf("❌ [RISK CONTROL] Leverage must be positive for %s", decision.Symbol)
+	}
+
+	maxPriceDeviationPct := at.maxEntryPriceDeviationPct()
+	if maxPriceDeviationPct > 0 {
+		if decision.Price <= 0 {
+			if at.isHunterV7Strategy() {
+				return fmt.Errorf("❌ [RISK CONTROL] Decision price is required for Hunter v7 open order on %s", decision.Symbol)
+			}
+		} else {
+			deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
+			if deviationPct > maxPriceDeviationPct {
+				return fmt.Errorf("❌ [RISK CONTROL] Entry price drift %.3f%% exceeds max %.3f%% for %s (decision %.8f, execution %.8f)",
+					deviationPct, maxPriceDeviationPct, decision.Symbol, decision.Price, currentPrice)
+			}
+		}
 	}
 
 	var minRiskRewardRatio float64

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, ChevronDown, Settings } from 'lucide-react'
+import { Menu, X, ChevronDown, Settings, Sun, Moon } from 'lucide-react'
+import { useTheme, type ThemeMode } from '../../contexts/ThemeContext'
 import { t, type Language } from '../../i18n/translations'
 import {
   getPostAuthPath,
@@ -43,6 +44,7 @@ export default function HeaderBar({
   const [userMode, setUserModeState] = useState<UserMode>(
     () => getUserMode() ?? 'advanced'
   )
+  const { scheme, style, setMode } = useTheme()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const resolvedCurrentPage =
@@ -57,6 +59,11 @@ export default function HeaderBar({
     setUserModeState(nextMode)
     setUserDropdownOpen(false)
     navigateInApp(getPostAuthPath(nextMode))
+  }
+
+  const toggleColorScheme = () => {
+    const nextScheme = scheme === 'dark' ? 'light' : 'dark'
+    setMode(`${style}-${nextScheme}` as ThemeMode)
   }
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -82,23 +89,23 @@ export default function HeaderBar({
   }, [])
 
   return (
-    <nav className="fixed top-0 w-full z-50 header-bar">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6 max-w-[1920px] mx-auto">
+    <nav className="fixed left-0 top-0 w-full z-50 header-bar">
+      <div className="flex items-center justify-between h-16 px-3 sm:px-5 lg:px-6 max-w-[1920px] mx-auto">
         {/* Logo - Always go to home page */}
         <div
           onClick={() => {
             navigateInApp(ROUTES.home)
           }}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+          className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
         >
           <img src="/icons/ait.svg" alt="AiT Logo" className="w-7 h-7" />
           <span className="text-lg font-bold text-primary">AiT</span>
         </div>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center justify-between flex-1 ml-8">
+        <div className="hidden xl:flex items-center justify-between flex-1 min-w-0 ml-6">
           {/* Left Side - Navigation Tabs - Always show all tabs */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 min-w-0 overflow-x-auto pr-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {/* Navigation tabs configuration */}
             {(() => {
               // Define all navigation tabs
@@ -196,29 +203,31 @@ export default function HeaderBar({
                 navigateInApp(tab.path)
               }
 
-              return navTabs.filter((tab) => !tab.hidden).map((tab) => (
-                <button
-                  key={tab.page}
-                  onClick={() => handleNavClick(tab)}
-                  className={`text-sm font-bold transition-all duration-300 relative focus:outline-2 focus:outline-yellow-500 px-3 py-2 rounded-lg
+              return navTabs
+                .filter((tab) => !tab.hidden)
+                .map((tab) => (
+                  <button
+                    key={tab.page}
+                    onClick={() => handleNavClick(tab)}
+                    className={`whitespace-nowrap text-sm font-bold transition-all duration-300 relative focus:outline-2 focus:outline-primary px-3 py-2 rounded-lg
                     ${resolvedCurrentPage === tab.page ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
-                >
-                  {resolvedCurrentPage === tab.page && (
-                    <span className="absolute inset-0 rounded-lg bg-primary/15 -z-10" />
-                  )}
-                  {tab.label}
-                  {tab.badge && (
-                    <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-top relative -top-1">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              ))
+                  >
+                    {resolvedCurrentPage === tab.page && (
+                      <span className="absolute inset-0 rounded-lg bg-primary/15 -z-10" />
+                    )}
+                    {tab.label}
+                    {tab.badge && (
+                      <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-top relative -top-1">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                ))
             })()}
           </div>
 
           {/* Right Side - User Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-3">
             {/* User Info and Actions */}
             {isLoggedIn && user ? (
               <div className="flex items-center gap-3">
@@ -226,12 +235,12 @@ export default function HeaderBar({
                 <div className="relative" ref={userDropdownRef}>
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded transition-colors bg-surface border border-primary/20 hover:bg-white/5"
+                    className="flex max-w-[260px] items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-surface border border-primary/20 hover:bg-primary/5"
                   >
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground">
                       {user.email[0].toUpperCase()}
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="truncate text-sm text-muted-foreground">
                       {user.email}
                     </span>
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -252,7 +261,7 @@ export default function HeaderBar({
                           navigateInApp(ROUTES.settings)
                           setUserDropdownOpen(false)
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-primary/5 text-muted-foreground hover:text-foreground"
                       >
                         <Settings className="w-3.5 h-3.5" />
                         Settings
@@ -263,7 +272,7 @@ export default function HeaderBar({
                             userMode === 'beginner' ? 'advanced' : 'beginner'
                           )
                         }
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-primary/5 text-muted-foreground hover:text-foreground"
                       >
                         <Settings className="w-3.5 h-3.5" />
                         {userMode === 'beginner'
@@ -305,11 +314,30 @@ export default function HeaderBar({
               )
             )}
 
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleColorScheme}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground hover:border-border-hover hover:text-foreground"
+              aria-label={
+                scheme === 'dark'
+                  ? 'Switch to light theme'
+                  : 'Switch to dark theme'
+              }
+              title={scheme === 'dark' ? 'Light theme' : 'Dark theme'}
+            >
+              {scheme === 'dark' ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+
             {/* Language Toggle - Always at the rightmost */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded transition-colors text-muted-foreground hover:bg-white/5"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-muted-foreground hover:bg-primary/5"
               >
                 <span className="text-lg">
                   {language === 'zh' ? '🇨🇳' : language === 'id' ? '🇮🇩' : '🇺🇸'}
@@ -325,7 +353,7 @@ export default function HeaderBar({
                       setLanguageDropdownOpen(false)
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'zh' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
+                      ${language === 'zh' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
                   >
                     <span className="text-base">🇨🇳</span>
                     <span className="text-sm">中文</span>
@@ -336,7 +364,7 @@ export default function HeaderBar({
                       setLanguageDropdownOpen(false)
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'en' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
+                      ${language === 'en' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
                   >
                     <span className="text-base">🇺🇸</span>
                     <span className="text-sm">English</span>
@@ -347,7 +375,7 @@ export default function HeaderBar({
                       setLanguageDropdownOpen(false)
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'id' ? 'bg-primary/10' : 'hover:bg-white/5'}`}
+                      ${language === 'id' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
                   >
                     <span className="text-base">🇮🇩</span>
                     <span className="text-sm">Bahasa</span>
@@ -361,7 +389,7 @@ export default function HeaderBar({
         {/* Mobile Menu Button */}
         <motion.button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden text-muted-foreground hover:text-foreground"
+          className="xl:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground hover:text-foreground"
           whileTap={{ scale: 0.9 }}
         >
           {mobileMenuOpen ? (
@@ -380,17 +408,17 @@ export default function HeaderBar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 md:hidden bg-black/90 backdrop-blur-xl"
+            className="ait-mobile-menu-overlay fixed inset-0 z-40 xl:hidden backdrop-blur-xl"
             style={{ top: '64px' }} // Below header
           >
             <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
-              className="flex flex-col h-[calc(100vh-64px)] overflow-y-auto px-6 py-8"
+              className="flex h-[calc(100vh-64px)] flex-col overflow-y-auto px-4 py-6 sm:px-6"
             >
               {/* Navigation Links */}
-              <div className="flex flex-col gap-6 mb-12">
+              <div className="flex flex-col gap-3 mb-10">
                 {(() => {
                   const navTabs: {
                     page: Page
@@ -486,40 +514,56 @@ export default function HeaderBar({
                     setMobileMenuOpen(false)
                   }
 
-                  return navTabs.filter((tab) => !tab.hidden).map((tab, i) => (
-                    <motion.button
-                      key={tab.page}
-                      initial={{ x: -20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.1 + i * 0.05 }}
-                      onClick={() => handleMobileNavClick(tab)}
-                      className={`text-2xl font-black tracking-tight text-left flex items-center gap-3
-                        ${resolvedCurrentPage === tab.page ? 'text-primary' : 'text-muted-foreground'}`}
-                    >
-                      {resolvedCurrentPage === tab.page && (
-                        <motion.div
-                          layoutId="active-indicator"
-                          className="w-1.5 h-1.5 rounded-full bg-primary"
-                        />
-                      )}
-                      {tab.label}
-                      {tab.badge && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-middle relative -top-1">
-                          {tab.badge}
-                        </span>
-                      )}
-                      {tab.requiresAuth && !isLoggedIn && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-normal tracking-wide uppercase align-middle relative -top-1">
-                          LOGIN_REQ
-                        </span>
-                      )}
-                    </motion.button>
-                  ))
+                  return navTabs
+                    .filter((tab) => !tab.hidden)
+                    .map((tab, i) => {
+                      const isActive = resolvedCurrentPage === tab.page
+
+                      return (
+                        <motion.button
+                          key={tab.page}
+                          initial={{ x: -20, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: 0.1 + i * 0.05 }}
+                          onClick={() => handleMobileNavClick(tab)}
+                          className="min-h-12 rounded-xl border px-4 text-left text-xl font-black tracking-normal flex items-center gap-3"
+                          style={{
+                            background: isActive
+                              ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-panel))'
+                              : 'var(--color-panel)',
+                            borderColor: isActive
+                              ? 'var(--color-border-hover)'
+                              : 'var(--color-border)',
+                            color: isActive
+                              ? 'var(--color-primary)'
+                              : 'var(--color-foreground)',
+                          }}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="active-indicator"
+                              className="w-1.5 h-1.5 rounded-full bg-primary"
+                            />
+                          )}
+                          {tab.label}
+                          {tab.badge && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-middle relative -top-1">
+                              {tab.badge}
+                            </span>
+                          )}
+                          {tab.requiresAuth && !isLoggedIn && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-normal tracking-wide uppercase align-middle relative -top-1">
+                              LOGIN_REQ
+                            </span>
+                          )}
+                        </motion.button>
+                      )
+                    })
                 })()}
 
                 {/* Original Page Links */}
                 {isHomePage && (
-                  <div className="pt-6 border-t border-white/5 space-y-4">
+                  <div className="pt-6 border-t border-border space-y-4">
                     {[
                       { key: 'features', label: t('features', language) },
                       { key: 'howItWorks', label: t('howItWorks', language) },
@@ -543,7 +587,7 @@ export default function HeaderBar({
               {/* Bottom Actions */}
               <div className="mt-auto space-y-8">
                 {/* Account / Lang */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {/* Lang Switcher */}
                   <div className="flex bg-surface rounded-lg p-1 border border-border">
                     {['zh', 'en', 'id'].map((lang) => (
@@ -563,6 +607,25 @@ export default function HeaderBar({
                       </button>
                     ))}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleColorScheme}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-surface text-sm font-bold text-muted-foreground"
+                  >
+                    {scheme === 'dark' ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                    {scheme === 'dark'
+                      ? language === 'zh'
+                        ? '日间'
+                        : 'Light'
+                      : language === 'zh'
+                        ? '夜间'
+                        : 'Dark'}
+                  </button>
 
                   {/* Auth Actions */}
                   {isLoggedIn && user ? (
