@@ -15,14 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
-- Hunter v7 live validation command (`cmd/hunter_v7_validate`) and real-time validation report
+- Hunter v7 live validation command (`cmd/hunter_v7_validate`)
 - Adaptive position protector with TP1/TP2 partial protection, profit giveback trailing protection, and state cleanup after close
 - Max entry price deviation risk control to limit drift between the AI decision price and the executable market reference
 - Strategy prompt token compression switch with current-strategy-aware UI labels
 - Copy/save actions for recent decision AI analysis, with copy feedback moved to auto-dismiss toast notifications
 - Hunter bidirectional coin selection: simultaneous LONG and SHORT signal output
-- Hunter R7 live analysis report (2026-05-23) with BOTH direction scoring
-- Hunter evaluation report for UNIUSDT (2026-05-23)
 - Documentation system with multi-language support (EN/CN/RU/UK/JP/VN/KR)
 - Complete getting-started guides (Docker, Custom API, Binance, OKX, Bybit, Hyperliquid, Aster, Lighter)
 - Architecture documentation with system design details

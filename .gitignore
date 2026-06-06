@@ -141,6 +141,7 @@ coinselect_results.json
 PR_DESCRIPTION.md
 
 # Generated Hunter validation artifacts
+reports/
 reports/hunter-v7-live-prompt-*.txt
 reports/hunter-v7-live-validation-raw-*.json
 reports/hunter-v7-live-validation-report-*.md

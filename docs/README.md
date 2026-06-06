@@ -77,7 +77,6 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Document | Description | 描述 |
 |----------|-------------|------|
 | [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
-| [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md) | Live JSON/prompt validation for v7 | v7 实时 JSON、Prompt 识别、机会覆盖验证 |
 | [Sniffer Gate 2 优化方案](sniffer-optimization-plan.md) | Flexible compression scoring plan for Sniffer Gate 2 | Sniffer Gate 2 弹性压缩评分优化方案 |
 
 ---
@@ -121,7 +120,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 - 🔒 **Report security issue** → [Security Policy](../SECURITY.md)
 - 🤝 **Contribute code** → [Git Workflow](Git工作流规范.md)
 - 💬 **Ask questions** → [Telegram Community](https://t.me/ait_dev_community)
-- 🔍 **Hunter 分析报告** → [Hunter v7 实时验证报告](../reports/hunter-v7-live-validation-report-20260604-205723.md)
+- 🔍 **Hunter module** → [Hunter v7 Signal Router](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md)
 
 ### I'm looking for...
 - 🏗️ **System architecture** → [Architecture (EN)](architecture/README.md) / [架构文档](architecture/README.zh-CN.md)

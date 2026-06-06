@@ -15,14 +15,12 @@ AiT 项目的所有重要更改都将记录在此文件中。
 
 ### 新增
 - Hunter v7 Signal Router：新增 10 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
-- Hunter v7 实时验证命令（`cmd/hunter_v7_validate`）和实时验证报告
+- Hunter v7 实时验证命令（`cmd/hunter_v7_validate`）
 - 自适应持仓保护器：支持 TP1/TP2 分批保护、盈利回撤移动保护和平仓后状态清理
 - 风控参数新增最大入场价格偏离校验，限制 AI 决策价格与实际可成交价格的滑点偏差
 - 策略 Prompt Token 压缩开关，支持按当前策略显示适配文案
 - 最近决策的 AI 分析区复制/保存操作，复制成功改为自动消失的 toast 提示
 - Hunter 双向选币：同时输出 LONG 和 SHORT 信号标的
-- Hunter R7 实测报告（2026-05-23），BOTH 方向首次实测
-- Hunter UNIUSDT 评估报告（2026-05-23）
 - 多语言文档系统（英文/中文/俄语/乌克兰语/日语/越南语/韩语）
 - 完整的快速开始指南（Docker、自定义 API、Binance、OKX、Bybit、Hyperliquid、Aster、Lighter）
 - 架构文档，包含系统设计细节
