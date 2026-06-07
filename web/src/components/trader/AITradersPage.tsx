@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useSWR from 'swr'
 import { api } from '../../lib/api'
@@ -11,11 +11,7 @@ import type {
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { useAuth } from '../../contexts/AuthContext'
-import { TraderConfigModal } from './TraderConfigModal'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
-import { ExchangeConfigModal } from './ExchangeConfigModal'
-import { TelegramConfigModal } from './TelegramConfigModal'
-import { ModelConfigModal } from './ModelConfigModal'
 import { ConfigStatusGrid } from './ConfigStatusGrid'
 import { TradersList } from './TradersList'
 import {
@@ -25,6 +21,23 @@ import {
 } from 'lucide-react'
 import { confirmToast } from '../../lib/notify'
 import { toast } from 'sonner'
+
+const TraderConfigModal = lazy(() =>
+  import('./TraderConfigModal').then((m) => ({ default: m.TraderConfigModal }))
+)
+const ExchangeConfigModal = lazy(() =>
+  import('./ExchangeConfigModal').then((m) => ({
+    default: m.ExchangeConfigModal,
+  }))
+)
+const TelegramConfigModal = lazy(() =>
+  import('./TelegramConfigModal').then((m) => ({
+    default: m.TelegramConfigModal,
+  }))
+)
+const ModelConfigModal = lazy(() =>
+  import('./ModelConfigModal').then((m) => ({ default: m.ModelConfigModal }))
+)
 
 interface AITradersPageProps {
   onTraderSelect?: (traderId: string) => void
@@ -114,7 +127,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
   const { data: traders, mutate: mutateTraders, isLoading: isTradersLoading } = useSWR<TraderInfo[]>(
     user && token ? 'traders' : null,
     api.getTraders,
-    { refreshInterval: 5000 }
+    { refreshInterval: 15000, revalidateOnFocus: false }
   )
 
   useEffect(() => {
@@ -743,72 +756,74 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
           onCopyAddress={handleCopyAddress}
         />
 
-        {/* Create Trader Modal */}
-        {showCreateModal && (
-          <TraderConfigModal
-            isOpen={showCreateModal}
-            isEditMode={false}
-            availableModels={enabledModels}
-            availableExchanges={enabledExchanges}
-            onSave={handleCreateTrader}
-            onClose={() => setShowCreateModal(false)}
-          />
-        )}
+        <Suspense fallback={null}>
+          {/* Create Trader Modal */}
+          {showCreateModal && (
+            <TraderConfigModal
+              isOpen={showCreateModal}
+              isEditMode={false}
+              availableModels={enabledModels}
+              availableExchanges={enabledExchanges}
+              onSave={handleCreateTrader}
+              onClose={() => setShowCreateModal(false)}
+            />
+          )}
 
-        {/* Edit Trader Modal */}
-        {showEditModal && editingTrader && (
-          <TraderConfigModal
-            isOpen={showEditModal}
-            isEditMode={true}
-            traderData={editingTrader}
-            availableModels={enabledModels}
-            availableExchanges={enabledExchanges}
-            onSave={handleSaveEditTrader}
-            onClose={() => {
-              setShowEditModal(false)
-              setEditingTrader(null)
-            }}
-          />
-        )}
+          {/* Edit Trader Modal */}
+          {showEditModal && editingTrader && (
+            <TraderConfigModal
+              isOpen={showEditModal}
+              isEditMode={true}
+              traderData={editingTrader}
+              availableModels={enabledModels}
+              availableExchanges={enabledExchanges}
+              onSave={handleSaveEditTrader}
+              onClose={() => {
+                setShowEditModal(false)
+                setEditingTrader(null)
+              }}
+            />
+          )}
 
-        {/* Model Configuration Modal */}
-        {showModelModal && (
-          <ModelConfigModal
-            allModels={supportedModels}
-            configuredModels={allModels}
-            editingModelId={editingModel}
-            onSave={handleSaveModelConfig}
-            onDelete={handleDeleteModelConfig}
-            onClose={() => {
-              setShowModelModal(false)
-              setEditingModel(null)
-            }}
-            language={language}
-          />
-        )}
+          {/* Model Configuration Modal */}
+          {showModelModal && (
+            <ModelConfigModal
+              allModels={supportedModels}
+              configuredModels={allModels}
+              editingModelId={editingModel}
+              onSave={handleSaveModelConfig}
+              onDelete={handleDeleteModelConfig}
+              onClose={() => {
+                setShowModelModal(false)
+                setEditingModel(null)
+              }}
+              language={language}
+            />
+          )}
 
-        {/* Exchange Configuration Modal */}
-        {showExchangeModal && (
-          <ExchangeConfigModal
-            allExchanges={allExchanges}
-            editingExchangeId={editingExchange}
-            onSave={handleSaveExchangeConfig}
-            onDelete={handleDeleteExchangeConfig}
-            onClose={() => {
-              setShowExchangeModal(false)
-              setEditingExchange(null)
-            }}
-            language={language}
-          />
-        )}
+          {/* Exchange Configuration Modal */}
+          {showExchangeModal && (
+            <ExchangeConfigModal
+              allExchanges={allExchanges}
+              editingExchangeId={editingExchange}
+              onSave={handleSaveExchangeConfig}
+              onDelete={handleDeleteExchangeConfig}
+              onClose={() => {
+                setShowExchangeModal(false)
+                setEditingExchange(null)
+              }}
+              language={language}
+            />
+          )}
 
-        {/* Telegram Bot Modal */}
-        {showTelegramModal && (
-          <TelegramConfigModal
-            onClose={() => setShowTelegramModal(false)}
-            language={language}
-          />
-        )}
+          {/* Telegram Bot Modal */}
+          {showTelegramModal && (
+            <TelegramConfigModal
+              onClose={() => setShowTelegramModal(false)}
+              language={language}
+            />
+          )}
+        </Suspense>
       </div>
     </DeepVoidBackground>
   )

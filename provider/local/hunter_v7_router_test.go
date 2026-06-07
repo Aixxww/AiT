@@ -81,3 +81,74 @@ func TestFundingReversalDoesNotChaseShortAfterFastDropWithBuildingOI(t *testing.
 		t.Fatalf("expected late short with building OI to be filtered before scoring, got %+v", sig)
 	}
 }
+
+func TestRouterUsesGlobalMinPriorityForCandidateVisibility(t *testing.T) {
+	signals := []V7SignalOutput{
+		{
+			Symbol:     "BREAKUSDT",
+			Direction:  V7DirLong,
+			SetupType:  V7SetupTrendBreakoutLong,
+			Status:     V7StatusCandidate,
+			AIPriority: 52,
+		},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         50,
+		FallbackMinAIPriority: 45,
+		SetupThresholds:       DefaultSetupThresholds(),
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("signals = %d, want 1", len(got))
+	}
+	if got[0].Symbol != "BREAKUSDT" {
+		t.Fatalf("symbol = %s, want BREAKUSDT", got[0].Symbol)
+	}
+}
+
+func TestRouterBackfillsContextCandidatesWhenPrimaryPoolIsThin(t *testing.T) {
+	signals := []V7SignalOutput{
+		{Symbol: "AUSDT", Direction: V7DirLong, SetupType: V7SetupPanicReversalLong, Status: V7StatusCandidate, AIPriority: 57},
+		{Symbol: "BUSDT", Direction: V7DirShort, SetupType: V7SetupDistributionShort, Status: V7StatusCandidate, AIPriority: 49},
+		{Symbol: "CUSDT", Direction: V7DirLong, SetupType: V7SetupPullbackLong, Status: V7StatusCandidate, AIPriority: 46},
+		{Symbol: "DUSDT", Direction: V7DirLong, SetupType: V7SetupLeaderMomentumLong, Status: V7StatusCandidate, AIPriority: 43},
+		{Symbol: "EUSDT", Direction: V7DirShort, SetupType: V7SetupFundingReversal, Status: V7StatusFiltered, AIPriority: 80},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         50,
+		FallbackMinAIPriority: 45,
+	})
+
+	if len(got) != 3 {
+		t.Fatalf("signals = %d, want 3", len(got))
+	}
+	wantSymbols := []string{"AUSDT", "BUSDT", "CUSDT"}
+	for i, want := range wantSymbols {
+		if got[i].Symbol != want {
+			t.Fatalf("signal[%d] = %s, want %s", i, got[i].Symbol, want)
+		}
+	}
+	for _, sig := range got {
+		if sig.Symbol == "EUSDT" {
+			t.Fatal("hard-filtered signal was backfilled")
+		}
+		if sig.AIPriority < 50 && !containsString(sig.RiskTags, "context_only_low_priority") {
+			t.Fatalf("backfill signal %s missing context risk tag: %+v", sig.Symbol, sig.RiskTags)
+		}
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}

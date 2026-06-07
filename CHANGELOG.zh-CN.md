@@ -14,6 +14,8 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
+- Hunter v7 候选池保底上下文输出：候选池过薄时最多补足 3 个非硬过滤的 `wait_confirm` 信号给 LLM
+- 2026-06-07 会话复盘报告，覆盖 Hunter v7 候选可见性、实盘开仓失败、风控几何和看板性能修复
 - 周期复盘命令 `cmd/cycle_review`，支持从决策记录生成 Markdown/JSON 复盘报告，统计开仓率、PnL、Token 使用和 execution guard 拦截情况
 - 策略 Token 估算历史校准接口，支持基于真实决策记录修正 token 估算偏差
 - Hunter v7 Signal Router：新增 10 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
@@ -32,6 +34,9 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 文档中心新增 Hunter 选币模块专区
 
 ### 变更
+- 看板、交易员配置、策略工作室、图表和历史仓位视图改为懒加载重组件，并降低高频轮询带来的导航卡顿
+- Hunter v7 执行层风控几何会在 TP 上限与最小止损、入场漂移、最低 RR 冲突时自动抬升有效 TP cap
+- 系统提示词明确输出 Hunter v7 开仓的代码强制入场漂移、最小止损距离、有效 TP 上限和可行 RR 几何
 - Hunter v7 compact prompt 输出执行级上下文，包括 entry zone 位置、OI 状态、VWAP/EMA/ATR 和 hard rule
 - 交易上下文支持缓存降级模式；余额或持仓数据短暂不可用时禁止新开仓，只允许等待或风险降低操作
 - Binance U 本位签名请求增强 transient network retry 和时间戳重同步重试
@@ -48,6 +53,8 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - Provider 模块优化（local client、Hunter、AI500 provider）
 
 ### 修复
+- 修复 Hunter v7 候选可见性被 per-setup 执行阈值过度收紧的问题；LLM 候选可见性改由全局 `v7_min_ai_priority` 控制
+- 修复 3% TP 上限、2% 最小止损、0.5% 入场漂移和 1.5 RR 组合互相卡死导致实盘反复开仓失败的问题
 - Funding reversal 深跌追空/深涨追多过滤：OI 仍 building 时不再加分，并拒绝 C 级 funding reversal 在无 OI flush、靠近错误区间、止损过近时开仓
 - 修正 AI 仓位提示词，明确 `position_size_usd` 是名义仓位，避免把名义仓位再次乘以杠杆计算风险
 - 新增失败开仓冷却，避免交易所或风控拒绝后立即重复尝试 stale signal

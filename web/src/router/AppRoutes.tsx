@@ -1,4 +1,12 @@
-import { type ReactNode, lazy, Suspense, useEffect, useState } from 'react'
+import {
+  type ComponentType,
+  type LazyExoticComponent,
+  type ReactNode,
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import useSWR from 'swr'
 import {
@@ -37,19 +45,124 @@ import {
   type Page,
 } from './paths'
 
-// Route-level lazy-loaded pages for code splitting
-const SetupPage = lazy(() => import('../components/modals/SetupPage').then(m => ({ default: m.SetupPage })))
-const CompetitionPage = lazy(() => import('../components/trader/CompetitionPage').then(m => ({ default: m.CompetitionPage })))
-const AITradersPage = lazy(() => import('../components/trader/AITradersPage').then(m => ({ default: m.AITradersPage })))
-const FAQPage = lazy(() => import('../pages/FAQPage').then(m => ({ default: m.FAQPage })))
-const BeginnerOnboardingPage = lazy(() => import('../pages/BeginnerOnboardingPage').then(m => ({ default: m.BeginnerOnboardingPage })))
-const DataPage = lazy(() => import('../pages/DataPage').then(m => ({ default: m.DataPage })))
-const AgentChatPage = lazy(() => import('../pages/AgentChatPage').then(m => ({ default: m.AgentChatPage })))
-const SettingsPage = lazy(() => import('../pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
-const StrategyMarketPage = lazy(() => import('../pages/StrategyMarketPage').then(m => ({ default: m.StrategyMarketPage })))
-const StrategyStudioPage = lazy(() => import('../pages/StrategyStudioPage').then(m => ({ default: m.StrategyStudioPage })))
-const TraderDashboardPage = lazy(() => import('../pages/TraderDashboardPage').then(m => ({ default: m.TraderDashboardPage })))
-const BacktestPage = lazy(() => import('../components/backtest/BacktestPage').then(m => ({ default: m.BacktestPage })))
+type PreloadableComponent<T extends ComponentType<any>> =
+  LazyExoticComponent<T> & {
+    preload: () => Promise<{ default: T }>
+  }
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: IdleRequestOptions
+  ) => number
+}
+
+function lazyWithPreload<T extends ComponentType<any>>(
+  loader: () => Promise<{ default: T }>
+): PreloadableComponent<T> {
+  const Component = lazy(loader) as PreloadableComponent<T>
+  Component.preload = loader
+  return Component
+}
+
+const loadSetupPage = () =>
+  import('../components/modals/SetupPage').then((m) => ({ default: m.SetupPage }))
+const loadCompetitionPage = () =>
+  import('../components/trader/CompetitionPage').then((m) => ({
+    default: m.CompetitionPage,
+  }))
+const loadAITradersPage = () =>
+  import('../components/trader/AITradersPage').then((m) => ({
+    default: m.AITradersPage,
+  }))
+const loadFAQPage = () =>
+  import('../pages/FAQPage').then((m) => ({ default: m.FAQPage }))
+const loadBeginnerOnboardingPage = () =>
+  import('../pages/BeginnerOnboardingPage').then((m) => ({
+    default: m.BeginnerOnboardingPage,
+  }))
+const loadDataPage = () =>
+  import('../pages/DataPage').then((m) => ({ default: m.DataPage }))
+const loadAgentChatPage = () =>
+  import('../pages/AgentChatPage').then((m) => ({ default: m.AgentChatPage }))
+const loadSettingsPage = () =>
+  import('../pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+const loadStrategyMarketPage = () =>
+  import('../pages/StrategyMarketPage').then((m) => ({
+    default: m.StrategyMarketPage,
+  }))
+const loadStrategyStudioPage = () =>
+  import('../pages/StrategyStudioPage').then((m) => ({
+    default: m.StrategyStudioPage,
+  }))
+const loadTraderDashboardPage = () =>
+  import('../pages/TraderDashboardPage').then((m) => ({
+    default: m.TraderDashboardPage,
+  }))
+const loadBacktestPage = () =>
+  import('../components/backtest/BacktestPage').then((m) => ({
+    default: m.BacktestPage,
+  }))
+
+// Route-level lazy-loaded pages for code splitting. The preload hook below
+// warms common chunks after initial auth so navigation does not pay the full
+// parse/transform cost.
+const SetupPage = lazyWithPreload(loadSetupPage)
+const CompetitionPage = lazyWithPreload(loadCompetitionPage)
+const AITradersPage = lazyWithPreload(loadAITradersPage)
+const FAQPage = lazyWithPreload(loadFAQPage)
+const BeginnerOnboardingPage = lazyWithPreload(loadBeginnerOnboardingPage)
+const DataPage = lazyWithPreload(loadDataPage)
+const AgentChatPage = lazyWithPreload(loadAgentChatPage)
+const SettingsPage = lazyWithPreload(loadSettingsPage)
+const StrategyMarketPage = lazyWithPreload(loadStrategyMarketPage)
+const StrategyStudioPage = lazyWithPreload(loadStrategyStudioPage)
+const TraderDashboardPage = lazyWithPreload(loadTraderDashboardPage)
+const BacktestPage = lazyWithPreload(loadBacktestPage)
+
+let routePreloadStarted = false
+
+function scheduleRoutePreloads() {
+  if (routePreloadStarted) return
+  routePreloadStarted = true
+
+  const queue = [
+    TraderDashboardPage.preload,
+    AITradersPage.preload,
+    SettingsPage.preload,
+    StrategyStudioPage.preload,
+    StrategyMarketPage.preload,
+    BacktestPage.preload,
+    CompetitionPage.preload,
+    DataPage.preload,
+    AgentChatPage.preload,
+  ]
+
+  const runNext = () => {
+    const preload = queue.shift()
+    if (!preload) return
+    preload()
+      .catch(() => {
+        // A preload failure should not break navigation; the route load will
+        // surface the real error if the user opens it.
+      })
+      .finally(() => {
+        const idleWindow = window as IdleWindow
+        if (idleWindow.requestIdleCallback) {
+          idleWindow.requestIdleCallback(runNext, { timeout: 2000 })
+        } else {
+          globalThis.setTimeout(runNext, 250)
+        }
+      })
+  }
+
+  const idleWindow = window as IdleWindow
+  if (idleWindow.requestIdleCallback) {
+    idleWindow.requestIdleCallback(runNext, { timeout: 1500 })
+  } else {
+    globalThis.setTimeout(runNext, 500)
+  }
+}
 
 function getTraderSlug(trader: TraderInfo) {
   const idPrefix = trader.trader_id.slice(0, 4)
@@ -82,6 +195,18 @@ function LoadingScreen() {
           className="w-16 h-16 mx-auto mb-4 animate-pulse"
         />
         <p className="text-foreground">{t('loading', language)}</p>
+      </div>
+    </div>
+  )
+}
+
+function RouteLoadingFallback() {
+  const { language } = useLanguage()
+
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center bg-background">
+      <div className="text-sm text-muted-foreground">
+        {t('loading', language)}
       </div>
     </div>
   )
@@ -199,7 +324,7 @@ function TradersRoute({
     user && token ? 'traders-route' : null,
     api.getTraders,
     {
-      refreshInterval: 5000,
+      refreshInterval: 15000,
       shouldRetryOnError: false,
     }
   )
@@ -236,7 +361,7 @@ function DashboardRoute() {
     user && token ? 'traders-dashboard' : null,
     () => api.getTraders(true),
     {
-      refreshInterval: 10000,
+      refreshInterval: 20000,
       shouldRetryOnError: false,
     }
   )
@@ -273,7 +398,7 @@ function DashboardRoute() {
     selectedTraderId ? `status-${selectedTraderId}` : null,
     () => api.getStatus(selectedTraderId, true),
     {
-      refreshInterval: 15000,
+      refreshInterval: 30000,
       revalidateOnFocus: false,
       dedupingInterval: 10000,
     }
@@ -283,9 +408,9 @@ function DashboardRoute() {
     selectedTraderId ? `account-${selectedTraderId}` : null,
     () => api.getAccount(selectedTraderId, true),
     {
-      refreshInterval: 15000,
-      revalidateOnFocus: true,
-      dedupingInterval: 10000,
+      refreshInterval: 30000,
+      revalidateOnFocus: false,
+      dedupingInterval: 25000,
       onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
         if (error.status === 404) return
         if (retryCount >= 5) return
@@ -299,9 +424,9 @@ function DashboardRoute() {
     selectedTraderId ? `positions-${selectedTraderId}` : null,
     () => api.getPositions(selectedTraderId, true),
     {
-      refreshInterval: 15000,
-      revalidateOnFocus: true,
-      dedupingInterval: 10000,
+      refreshInterval: 30000,
+      revalidateOnFocus: false,
+      dedupingInterval: 25000,
       onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
         if (error.status === 404) return
         if (retryCount >= 5) return
@@ -317,8 +442,8 @@ function DashboardRoute() {
       : null,
     () => api.getLatestDecisions(selectedTraderId, decisionsLimit, true),
     {
-      refreshInterval: 30000,
-      revalidateOnFocus: true,
+      refreshInterval: 60000,
+      revalidateOnFocus: false,
       dedupingInterval: 20000,
       onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
         if (error.status === 404) return
@@ -333,7 +458,7 @@ function DashboardRoute() {
     selectedTraderId ? `statistics-${selectedTraderId}` : null,
     () => api.getStatistics(selectedTraderId, true),
     {
-      refreshInterval: 30000,
+      refreshInterval: 60000,
       revalidateOnFocus: false,
       dedupingInterval: 20000,
     }
@@ -390,6 +515,12 @@ export function AppRoutes() {
   const { config: systemConfig, loading: configLoading } = useSystemConfig()
   const isAuthenticated = !!user && !!token
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      scheduleRoutePreloads()
+    }
+  }, [isAuthenticated])
+
   if (isLoading || configLoading) {
     return <LoadingScreen />
   }
@@ -401,7 +532,7 @@ export function AppRoutes() {
   return (
     <>
       <LegacyHashRedirect />
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
         <Route
           path={ROUTES.home}

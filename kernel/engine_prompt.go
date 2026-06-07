@@ -66,12 +66,30 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString(fmt.Sprintf("- Position Value Limit (BTC/ETH): max %.0f USDT (= equity %.0f × %.1fx)\n",
 		accountEquity*btcEthPosValueRatio, accountEquity, btcEthPosValueRatio))
 	sb.WriteString(fmt.Sprintf("- Max Margin Usage: ≤%.0f%%\n", riskControl.MaxMarginUsage*100))
-	sb.WriteString(fmt.Sprintf("- Min Position Size: ≥%.0f USDT\n\n", riskControl.MinPositionSize))
+	sb.WriteString(fmt.Sprintf("- Min Position Size: ≥%.0f USDT\n", riskControl.MinPositionSize))
+	if riskControl.MinRiskRewardRatio > 0 {
+		sb.WriteString(fmt.Sprintf("- Risk-Reward Ratio: ≥1:%.1f, calculated from unleveraged price distances\n", riskControl.MinRiskRewardRatio))
+	}
+	maxTPMovePct, minSLMovePct, maxDriftPct := e.effectiveExecutionGeometry()
+	if maxDriftPct > 0 {
+		sb.WriteString(fmt.Sprintf("- Max Entry Price Drift: ≤%.2f%% from your output price to executable price\n", maxDriftPct))
+	}
+	if minSLMovePct > 0 {
+		sb.WriteString(fmt.Sprintf("- Min Stop-Loss Distance: ≥%.2f%% from executable/current price\n", minSLMovePct))
+	}
+	if maxTPMovePct > 0 {
+		sb.WriteString(fmt.Sprintf("- Max Take-Profit Distance: ≤%.2f%% from executable/current price after backend cap\n", maxTPMovePct))
+	}
+	if riskControl.MinRiskRewardRatio > 0 && minSLMovePct > 0 && maxTPMovePct > 0 {
+		minRewardPct := minSLMovePct * riskControl.MinRiskRewardRatio
+		sb.WriteString(fmt.Sprintf("- Feasible open geometry: reward distance must be ≥%.2f%% for the minimum %.2f%% stop; if capped TP or price drift makes backend RR < %.2f, output wait\n",
+			minRewardPct, minSLMovePct, riskControl.MinRiskRewardRatio))
+	}
+	sb.WriteString("\n")
 
 	sb.WriteString("## AI GUIDED (Recommended, you should follow):\n")
 	sb.WriteString(fmt.Sprintf("- Trading Leverage: Altcoins max %dx | BTC/ETH max %dx\n",
 		riskControl.AltcoinMaxLeverage, riskControl.BTCETHMaxLeverage))
-	sb.WriteString(fmt.Sprintf("- Risk-Reward Ratio: ≥1:%.1f (take_profit / stop_loss)\n", riskControl.MinRiskRewardRatio))
 	sb.WriteString(fmt.Sprintf("- Min Confidence: ≥%d to open position\n\n", riskControl.MinConfidence))
 
 	// Position sizing guidance
@@ -157,6 +175,39 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	}
 
 	return sb.String()
+}
+
+func (e *StrategyEngine) effectiveExecutionGeometry() (maxTPMovePct, minSLMovePct, maxDriftPct float64) {
+	if e == nil {
+		return 0, 0, 0
+	}
+	riskControl := e.config.RiskControl
+	maxTPMovePct = riskControl.MaxTakeProfitPriceMovePct
+	minSLMovePct = riskControl.MinStopLossPriceMovePct
+	maxDriftPct = riskControl.MaxEntryPriceDeviationPct
+
+	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
+		if maxTPMovePct <= 0 {
+			maxTPMovePct = 3.0
+		}
+		if minSLMovePct <= 0 {
+			minSLMovePct = 2.0
+		}
+		if maxDriftPct <= 0 {
+			maxDriftPct = 0.5
+		}
+		minRR := riskControl.MinRiskRewardRatio
+		if minRR <= 0 {
+			minRR = 1.5
+		}
+		minFeasibleTPPct := (minSLMovePct + maxDriftPct) * minRR
+		minFeasibleTPPct += 0.25 // execution/rounding buffer in percentage points
+		if maxTPMovePct < minFeasibleTPPct {
+			maxTPMovePct = minFeasibleTPPct
+		}
+	}
+
+	return maxTPMovePct, minSLMovePct, maxDriftPct
 }
 
 func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {

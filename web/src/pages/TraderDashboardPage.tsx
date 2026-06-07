@@ -1,9 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { mutate } from 'swr'
 import { api } from '../lib/api'
-import { ChartTabs } from '../components/charts/ChartTabs'
 import { DecisionCard } from '../components/trader/DecisionCard'
-import { PositionHistory } from '../components/trader/PositionHistory'
 import { PunkAvatar, getTraderAvatar } from '../components/common/PunkAvatar'
 import { confirmToast, notify } from '../lib/notify'
 import { formatPrice, formatQuantity } from '../utils/format'
@@ -12,7 +10,6 @@ import { LogOut, Loader2, Eye, EyeOff, Copy, Check } from 'lucide-react'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { AiTSelect } from '../components/ui/select'
 import { GridRiskPanel } from '../components/strategy/GridRiskPanel'
-import { SquareHeatPanel } from '../components/trader/SquareHeatPanel'
 import type {
   SystemStatus,
   AccountInfo,
@@ -22,6 +19,22 @@ import type {
   TraderInfo,
   Exchange,
 } from '../types'
+
+const ChartTabs = lazy(() =>
+  import('../components/charts/ChartTabs').then((m) => ({
+    default: m.ChartTabs,
+  }))
+)
+const PositionHistory = lazy(() =>
+  import('../components/trader/PositionHistory').then((m) => ({
+    default: m.PositionHistory,
+  }))
+)
+const SquareHeatPanel = lazy(() =>
+  import('../components/trader/SquareHeatPanel').then((m) => ({
+    default: m.SquareHeatPanel,
+  }))
+)
 
 // --- Helper Functions ---
 
@@ -145,6 +158,7 @@ export function TraderDashboardPage({
   const chartSectionRef = useRef<HTMLDivElement>(null)
   const [showWalletAddress, setShowWalletAddress] = useState<boolean>(false)
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false)
+  const [mountDeferredPanels, setMountDeferredPanels] = useState(false)
 
   // Current positions pagination
   const [positionsPageSize, setPositionsPageSize] = useState<number>(20)
@@ -163,6 +177,12 @@ export function TraderDashboardPage({
   useEffect(() => {
     setPositionsCurrentPage(1)
   }, [selectedTraderId, positionsPageSize])
+
+  useEffect(() => {
+    setMountDeferredPanels(false)
+    const timer = window.setTimeout(() => setMountDeferredPanels(true), 1200)
+    return () => window.clearTimeout(timer)
+  }, [selectedTraderId])
 
   // Auto-set chart symbol for grid trading
   useEffect(() => {
@@ -604,7 +624,7 @@ export function TraderDashboardPage({
             <GridRiskPanel
               traderId={selectedTraderId}
               language={language}
-              refreshInterval={5000}
+              refreshInterval={15000}
             />
           </div>
         )}
@@ -619,15 +639,21 @@ export function TraderDashboardPage({
               className="chart-container animate-slide-in scroll-mt-32 backdrop-blur-sm"
               style={{ animationDelay: '0.1s' }}
             >
-              <ChartTabs
-                traderId={selectedTrader.trader_id}
-                selectedSymbol={selectedChartSymbol}
-                updateKey={chartUpdateKey}
-                exchangeId={getExchangeTypeFromList(
-                  selectedTrader.exchange_id,
-                  exchanges
-                )}
-              />
+              <Suspense
+                fallback={
+                  <div className="h-[600px] ait-glass rounded-lg animate-pulse" />
+                }
+              >
+                <ChartTabs
+                  traderId={selectedTrader.trader_id}
+                  selectedSymbol={selectedChartSymbol}
+                  updateKey={chartUpdateKey}
+                  exchangeId={getExchangeTypeFromList(
+                    selectedTrader.exchange_id,
+                    exchanges
+                  )}
+                />
+              </Suspense>
             </div>
 
             {/* Current Positions */}
@@ -915,7 +941,11 @@ export function TraderDashboardPage({
             </div>
 
             {/* Square Heat Signals */}
-            <SquareHeatPanel language={language} refreshInterval={360000} />
+            {mountDeferredPanels && (
+              <Suspense fallback={null}>
+                <SquareHeatPanel language={language} refreshInterval={360000} />
+              </Suspense>
+            )}
           </div>
 
           {/* Right Column: Recent Decisions */}
@@ -996,7 +1026,7 @@ export function TraderDashboardPage({
         </div>
 
         {/* Position History Section */}
-        {selectedTraderId && (
+        {selectedTraderId && mountDeferredPanels && (
           <div
             className="ait-glass p-6 animate-slide-in"
             style={{ animationDelay: '0.25s' }}
@@ -1007,7 +1037,13 @@ export function TraderDashboardPage({
                 {t('positionHistory.title', language)}
               </h2>
             </div>
-            <PositionHistory traderId={selectedTraderId} />
+            <Suspense
+              fallback={
+                <div className="h-48 rounded-lg bg-white/5 animate-pulse" />
+              }
+            >
+              <PositionHistory traderId={selectedTraderId} />
+            </Suspense>
           </div>
         )}
       </div>

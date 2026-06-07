@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hunter v7 candidate-floor context output so thin candidate pools still pass up to three non-filtered `wait_confirm` signals to the LLM
+- 2026-06-07 session review report covering Hunter v7 candidate visibility, live open failures, risk geometry, and dashboard performance fixes
 - Cycle review command `cmd/cycle_review` to generate Markdown/JSON reports from decision records, including open rate, PnL, token usage, and execution guard blocks
 - Historical token calibration API for strategy token estimates based on real decision records
 - Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
@@ -32,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Dashboard, trader config, strategy studio, chart, and history views now lazy-load heavy panels and use calmer polling intervals to reduce navigation stutter
+- Hunter v7 execution geometry now raises an infeasible TP cap when it conflicts with minimum stop distance, entry drift, and minimum RR constraints
+- System prompts now show code-enforced entry drift, minimum stop distance, effective TP cap, and feasible RR geometry for Hunter v7 opens
 - Hunter v7 compact prompts now include execution-grade context such as entry-zone position, OI state, VWAP/EMA/ATR, and hard rules
 - Trading context supports degraded cached snapshots; when account or position data is stale, new opens are disabled and only wait/hold/risk-reducing actions are allowed
 - Binance USD-M signed requests now retry transient network failures and resync server time before timestamp retries
@@ -48,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider module optimizations (local client, Hunter, AI500 provider)
 
 ### Fixed
+- Fixed Hunter v7 candidate visibility being over-constrained by per-setup execution thresholds; global `v7_min_ai_priority` now controls LLM candidate visibility
+- Fixed repeated failed live opens caused by an infeasible 3% TP cap, 2% minimum stop, 0.5% entry drift, and 1.5 RR combination
 - Funding reversal late-chase filtering: OI building no longer scores positively, and C-grade funding reversal opens are blocked without OI flush, correct zone location, and sufficient stop-loss distance
 - Clarified AI position sizing prompts so `position_size_usd` is treated as notional exposure and not multiplied by leverage again
 - Added failed-open cooldown to avoid immediately retrying stale signals after exchange or risk-control rejection

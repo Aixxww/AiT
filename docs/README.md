@@ -81,6 +81,16 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 
 ---
 
+## 🧾 Reviews & Reports / 复盘报告
+
+**Recent engineering and live-trading reviews**
+
+| Document | Description | 描述 |
+|----------|-------------|------|
+| [2026-06-07 Session Review](reports/ait-session-review-20260607.md) | Hunter v7 candidate visibility, live open failure root causes, risk geometry fixes, and dashboard performance changes | Hunter v7 候选可见性、实盘开仓失败根因、风控几何修复与看板性能优化 |
+
+---
+
 ## 🗺️ Roadmap / 路线图
 
 **AiT's strategic development plan and market expansion**

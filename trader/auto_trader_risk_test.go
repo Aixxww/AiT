@@ -206,6 +206,19 @@ func TestCapTakeProfitToTP1LongAndShort(t *testing.T) {
 	}
 }
 
+func TestHunterV7RaisesTakeProfitCapWhenRiskGeometryIsInfeasible(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3.0
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	if got := at.maxTakeProfitPriceMovePct(); got != 4.0 {
+		t.Fatalf("effective max TP pct = %.2f, want 4.00", got)
+	}
+}
+
 func TestEnforceSingleTradeLossLimitReducesPositionSize(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct = 8

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
@@ -32,18 +32,40 @@ import {
 } from 'lucide-react'
 import type { Strategy, StrategyConfig, AIModel, GridStrategyConfig } from '../types'
 import { confirmToast, notify } from '../lib/notify'
-import { CoinSourceEditor } from '../components/strategy/CoinSourceEditor'
-import { IndicatorEditor } from '../components/strategy/IndicatorEditor'
-import { RiskControlEditor } from '../components/strategy/RiskControlEditor'
-import { PromptSectionsEditor } from '../components/strategy/PromptSectionsEditor'
 import { PublishSettingsEditor } from '../components/strategy/PublishSettingsEditor'
-import { GridConfigEditor, defaultGridConfig } from '../components/strategy/GridConfigEditor'
+import { defaultGridConfig } from '../components/strategy/gridConfigDefaults'
 import { TokenEstimateBar } from '../components/strategy/TokenEstimateBar'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { AiTSelect } from '../components/ui/select'
 import { t } from '../i18n/translations'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
+
+const CoinSourceEditor = lazy(() =>
+  import('../components/strategy/CoinSourceEditor').then((m) => ({
+    default: m.CoinSourceEditor,
+  }))
+)
+const IndicatorEditor = lazy(() =>
+  import('../components/strategy/IndicatorEditor').then((m) => ({
+    default: m.IndicatorEditor,
+  }))
+)
+const RiskControlEditor = lazy(() =>
+  import('../components/strategy/RiskControlEditor').then((m) => ({
+    default: m.RiskControlEditor,
+  }))
+)
+const PromptSectionsEditor = lazy(() =>
+  import('../components/strategy/PromptSectionsEditor').then((m) => ({
+    default: m.PromptSectionsEditor,
+  }))
+)
+const GridConfigEditor = lazy(() =>
+  import('../components/strategy/GridConfigEditor').then((m) => ({
+    default: m.GridConfigEditor,
+  }))
+)
 
 export function StrategyStudioPage() {
   const { token } = useAuth()
@@ -1025,7 +1047,13 @@ export function StrategyStudioPage() {
                     </button>
                     {expandedSections[key] && (
                       <div className="px-3 pb-3">
-                        {content}
+                        <Suspense
+                          fallback={
+                            <div className="h-24 rounded bg-white/5 animate-pulse" />
+                          }
+                        >
+                          {content}
+                        </Suspense>
                       </div>
                     )}
                   </div>

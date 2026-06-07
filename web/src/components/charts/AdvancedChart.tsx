@@ -743,8 +743,9 @@ export function AdvancedChart({
 
     loadData(false) // Initial load
 
-    // Real-time auto-refresh (every 5 seconds)
-    const refreshInterval = setInterval(() => loadData(true), 5000)
+    // Real-time auto-refresh. Keep this moderate because dashboard already
+    // has account/position polling and chart redraws are CPU-heavy.
+    const refreshInterval = setInterval(() => loadData(true), 15000)
     return () => clearInterval(refreshInterval)
   }, [symbol, interval, traderID, exchange])
 

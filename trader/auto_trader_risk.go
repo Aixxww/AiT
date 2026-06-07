@@ -518,13 +518,46 @@ func (at *AutoTrader) maxTakeProfitPriceMovePct() float64 {
 	if at == nil || at.config.StrategyConfig == nil {
 		return 0
 	}
+	riskControl := at.config.StrategyConfig.RiskControl
 	if pct := at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct; pct > 0 {
+		if at.isHunterV7Strategy() {
+			return at.ensureHunterV7FeasibleTakeProfitCap(pct)
+		}
 		return pct
 	}
 	if at.isHunterV7Strategy() {
-		return 3.0
+		pct := 3.0
+		if riskControl.MinRiskRewardRatio > 0 || riskControl.MinStopLossPriceMovePct > 0 || riskControl.MaxEntryPriceDeviationPct > 0 {
+			pct = at.ensureHunterV7FeasibleTakeProfitCap(pct)
+		}
+		return pct
 	}
 	return 0
+}
+
+func (at *AutoTrader) ensureHunterV7FeasibleTakeProfitCap(pct float64) float64 {
+	if at == nil || at.config.StrategyConfig == nil || !at.isHunterV7Strategy() {
+		return pct
+	}
+	riskControl := at.config.StrategyConfig.RiskControl
+	minRR := riskControl.MinRiskRewardRatio
+	if minRR <= 0 {
+		minRR = 1.5
+	}
+	minStopPct := at.minStopLossPriceMovePct()
+	if minStopPct <= 0 {
+		minStopPct = 2.0
+	}
+	maxDriftPct := at.maxEntryPriceDeviationPct()
+	if maxDriftPct <= 0 {
+		maxDriftPct = 0.5
+	}
+	minFeasiblePct := (minStopPct + maxDriftPct) * minRR
+	minFeasiblePct += 0.25 // execution/rounding buffer in percentage points
+	if pct < minFeasiblePct {
+		return minFeasiblePct
+	}
+	return pct
 }
 
 func (at *AutoTrader) minStopLossPriceMovePct() float64 {

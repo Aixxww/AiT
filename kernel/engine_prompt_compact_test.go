@@ -111,3 +111,37 @@ func TestFormatCompactMarketDataAddsHunterV7ExecutionContext(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{
+		CoinSource: store.CoinSourceConfig{
+			SourceType: "hunter_v7",
+		},
+		RiskControl: store.RiskControlConfig{
+			MaxPositions:                 1,
+			BTCETHMaxLeverage:            20,
+			AltcoinMaxLeverage:           20,
+			BTCETHMaxPositionValueRatio:  10,
+			AltcoinMaxPositionValueRatio: 10,
+			MaxMarginUsage:               0.7,
+			MinPositionSize:              12,
+			MinRiskRewardRatio:           1.5,
+			MinConfidence:                75,
+			MaxEntryPriceDeviationPct:    0.5,
+			MaxTakeProfitPriceMovePct:    3.0,
+			MinStopLossPriceMovePct:      2.0,
+		},
+	})
+
+	prompt := engine.BuildSystemPrompt(10.25, "")
+	for _, want := range []string{
+		"Max Entry Price Drift: ≤0.50%",
+		"Min Stop-Loss Distance: ≥2.00%",
+		"Max Take-Profit Distance: ≤4.00%",
+		"Feasible open geometry: reward distance must be ≥3.00%",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q\n%s", want, prompt)
+		}
+	}
+}

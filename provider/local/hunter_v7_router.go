@@ -96,33 +96,7 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 	// Resolve conflicts (same symbol, opposite directions)
 	allSignals = ResolveV7Conflicts(allSignals)
 
-	// Filter by per-setup minimum AI priority (falls back to global MinAIPriority)
-	var filtered []V7SignalOutput
-	for _, sig := range allSignals {
-		if sig.Status == V7StatusFiltered {
-			continue
-		}
-		th := cfg.GetSetupThresholds(sig.SetupType)
-		minPri := th.MinAIPriority
-		if minPri <= 0 {
-			minPri = cfg.MinAIPriority
-		}
-		if sig.AIPriority >= minPri || sig.Status == V7StatusConflictWatch {
-			filtered = append(filtered, sig)
-		}
-	}
-
-	// Sort by AI Priority descending
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].AIPriority > filtered[j].AIPriority
-	})
-
-	// Limit output
-	if cfg.MaxOutput > 0 && len(filtered) > cfg.MaxOutput {
-		filtered = filtered[:cfg.MaxOutput]
-	}
-
-	return filtered
+	return filterV7SignalsForLLM(allSignals, cfg)
 }
 
 // CalcAIPriority computes the composite AI priority score.
@@ -142,6 +116,83 @@ func CalcAIPriority(sig *V7SignalOutput, cfg V7Config) float64 {
 		sig.RegimeFitScore*0.20 +
 		sig.LiquidityScore*0.15 -
 		sig.RiskScore*0.10
+}
+
+func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOutput {
+	minPriority := cfg.MinAIPriority
+	if minPriority <= 0 {
+		minPriority = 55
+	}
+	fallbackMinPriority := cfg.FallbackMinAIPriority
+	if fallbackMinPriority <= 0 {
+		fallbackMinPriority = minPriority - 10
+	}
+	if fallbackMinPriority < 0 {
+		fallbackMinPriority = 0
+	}
+	minOutput := cfg.MinOutput
+	if minOutput <= 0 {
+		minOutput = 3
+	}
+	maxOutput := cfg.MaxOutput
+	if maxOutput > 0 && minOutput > maxOutput {
+		minOutput = maxOutput
+	}
+
+	eligible := make([]V7SignalOutput, 0, len(signals))
+	for _, sig := range signals {
+		if sig.Status == V7StatusFiltered {
+			continue
+		}
+		eligible = append(eligible, sig)
+	}
+	sort.Slice(eligible, func(i, j int) bool {
+		return eligible[i].AIPriority > eligible[j].AIPriority
+	})
+
+	filtered := make([]V7SignalOutput, 0, len(eligible))
+	used := make([]bool, len(eligible))
+	for i, sig := range eligible {
+		if sig.AIPriority >= minPriority || sig.Status == V7StatusConflictWatch {
+			filtered = append(filtered, sig)
+			used[i] = true
+		}
+	}
+
+	if len(filtered) < minOutput {
+		for i, sig := range eligible {
+			if len(filtered) >= minOutput {
+				break
+			}
+			if used[i] || sig.AIPriority < fallbackMinPriority {
+				continue
+			}
+			if sig.Status == V7StatusCandidate {
+				sig.Status = V7StatusWaitConfirm
+			}
+			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "candidate_floor_context")
+			sig.RiskTags = appendIfMissing(sig.RiskTags, "context_only_low_priority")
+			filtered = append(filtered, sig)
+			used[i] = true
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].AIPriority > filtered[j].AIPriority
+	})
+	if maxOutput > 0 && len(filtered) > maxOutput {
+		filtered = filtered[:maxOutput]
+	}
+	return filtered
+}
+
+func appendIfMissing(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func defaultV7Confirmations(sig *V7SignalOutput) []string {

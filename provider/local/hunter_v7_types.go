@@ -269,23 +269,29 @@ type V7SignalModule interface {
 
 // V7Config holds configuration for the Hunter v7 engine.
 type V7Config struct {
-	MaxOutput       int                          `json:"max_output"`
-	MinAIPriority   float64                      `json:"min_ai_priority"`
-	Aggressive      bool                         `json:"aggressive"`
-	SetupThresholds map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
+	MaxOutput             int                          `json:"max_output"`
+	MinOutput             int                          `json:"min_output"`
+	MinAIPriority         float64                      `json:"min_ai_priority"`
+	FallbackMinAIPriority float64                      `json:"fallback_min_ai_priority"`
+	Aggressive            bool                         `json:"aggressive"`
+	SetupThresholds       map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
 }
 
 // DefaultV7Config returns sensible defaults.
 func DefaultV7Config() V7Config {
 	return V7Config{
-		MaxOutput:       30,
-		MinAIPriority:   55,
-		SetupThresholds: DefaultSetupThresholds(),
+		MaxOutput:             30,
+		MinOutput:             3,
+		MinAIPriority:         55,
+		FallbackMinAIPriority: 45,
+		SetupThresholds:       DefaultSetupThresholds(),
 	}
 }
 
 // V7SetupThresholds defines per-setup filtering and execution guard parameters.
-// Each setup type can have its own thresholds, overriding the global MinAIPriority.
+// Setup-specific values are execution guidance/guards. The router uses
+// V7Config.MinAIPriority for candidate visibility so guard defaults do not hide
+// otherwise useful LLM context.
 type V7SetupThresholds struct {
 	MinAIPriority   float64 `json:"min_ai_priority"`
 	MinZonePosShort int     `json:"min_zone_pos_short"` // SHORT requires zone_pos >= this (0 = disabled)
