@@ -196,6 +196,7 @@ export function CoinSourceEditor({
                     hunter_config: {
                       ...(config.hunter_config || {}),
                       v7_max_output: config.hunter_config?.v7_max_output ?? 30,
+                      v7_watch_output: config.hunter_config?.v7_watch_output ?? 5,
                       v7_min_ai_priority: config.hunter_config?.v7_min_ai_priority ?? 50,
                       v7_aggressive: config.hunter_config?.v7_aggressive ?? true,
                     },
@@ -865,7 +866,7 @@ export function CoinSourceEditor({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-muted-foreground">
                   {ts(coinSource.v7MaxOutput, language)}:
@@ -884,6 +885,29 @@ export function CoinSourceEditor({
                   }
                   disabled={disabled}
                   options={[10, 20, 30, 40, 50, 75].map(n => ({ value: n, label: String(n) }))}
+                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {ts(coinSource.v7WatchOutput, language)}:
+                </span>
+                <AiTSelect
+                  value={String(config.hunter_config?.v7_watch_output ?? 5)}
+                  onChange={(val) => {
+                    if (disabled) return
+                    const n = Number(val)
+                    onChange({
+                      ...config,
+                      hunter_config: {
+                        ...(config.hunter_config || {}),
+                        v7_watch_output: Number.isFinite(n) ? n : 5,
+                      },
+                    })
+                  }}
+                  disabled={disabled}
+                  options={[3, 5, 8, 10].map(n => ({ value: String(n), label: String(n) }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>

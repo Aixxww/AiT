@@ -324,6 +324,7 @@ var excludedMainstreamCoins = map[string]bool{
 var excludedTokenizedAssets = map[string]bool{
 	"CLUSDT":     true, // 原油
 	"XAUUSDT":    true, // 黄金
+	"XAUTUSDT":   true, // Tether Gold
 	"XAGUSDT":    true, // 白银
 	"EWYUSDT":    true, // 韩国ETF
 	"NVDAUSDT":   true, // 英伟达

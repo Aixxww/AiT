@@ -44,8 +44,69 @@ func (f *DataFetcher) fetchExchangeInfo(ctx context.Context) ([]string, error) {
 	var symbols []string
 	for _, s := range raw.Symbols {
 		if s.Status == "TRADING" && s.ContractType == "PERPETUAL" && strings.HasSuffix(s.Symbol, "USDT") {
+			if excludedNonCryptoFuturesSymbol(s) {
+				continue
+			}
 			symbols = append(symbols, s.Symbol)
 		}
 	}
 	return symbols, nil
+}
+
+func excludedNonCryptoFuturesSymbol(s exchangeSymbolRaw) bool {
+	if excludedNonCryptoFuturesSymbols[s.Symbol] {
+		return true
+	}
+	if s.UnderlyingType != "" && s.UnderlyingType != "COIN" {
+		return true
+	}
+	if excludedNonCryptoBaseAssets[s.BaseAsset] {
+		return true
+	}
+	for _, subtype := range s.UnderlyingSubType {
+		if excludedNonCryptoUnderlyingSubtypes[strings.ToUpper(subtype)] {
+			return true
+		}
+	}
+	return false
+}
+
+var excludedNonCryptoFuturesSymbols = map[string]bool{
+	"CLUSDT":   true, // crude oil
+	"XAUUSDT":  true, // gold
+	"XAUTUSDT": true, // Tether Gold
+	"XAGUSDT":  true, // silver
+	"EWYUSDT":  true, // Korea ETF
+	"NVDAUSDT": true,
+	"MUUSDT":   true,
+	"INTCUSDT": true,
+	"PAXGUSDT": true, // Pax Gold
+	"SPCXUSDT": true, // S&P 500
+	"BABAUSDT": true,
+	"TSLAUSDT": true,
+}
+
+var excludedNonCryptoBaseAssets = map[string]bool{
+	"CL":   true,
+	"XAU":  true,
+	"XAUT": true,
+	"XAG":  true,
+	"PAXG": true,
+	"EWY":  true,
+	"NVDA": true,
+	"MU":   true,
+	"INTC": true,
+	"SPCX": true,
+	"BABA": true,
+	"TSLA": true,
+}
+
+var excludedNonCryptoUnderlyingSubtypes = map[string]bool{
+	"COMMODITY": true,
+	"METAL":     true,
+	"STOCK":     true,
+	"EQUITY":    true,
+	"ETF":       true,
+	"INDEX":     true,
+	"RWA":       true,
 }

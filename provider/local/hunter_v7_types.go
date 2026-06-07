@@ -43,6 +43,10 @@ const (
 	V7SetupLongSqueezeShort   V7SetupType = "long_squeeze_short"
 	V7SetupRangeReversion     V7SetupType = "range_reversion"
 	V7SetupFundingReversal    V7SetupType = "funding_reversal"
+	V7SetupPreBreakoutWatch   V7SetupType = "pre_breakout_watch"
+	V7SetupPreSqueezeWatch    V7SetupType = "pre_squeeze_watch"
+	V7SetupPreDistribution    V7SetupType = "pre_distribution_watch"
+	V7SetupAccumulationWatch  V7SetupType = "accumulation_watch"
 )
 
 // V7SignalStatus represents the signal's lifecycle state.
@@ -79,6 +83,18 @@ const (
 	V7EntryRangeEdge         V7EntryMode = "range_edge_only"
 	V7EntryWaitPriceReversal V7EntryMode = "wait_price_reversal"
 	V7EntryMomentumTrailing  V7EntryMode = "momentum_with_trailing_stop"
+)
+
+// V7ExecutionQuality summarizes whether a signal is executable now or should
+// stay in the AI watchlist for confirmation.
+type V7ExecutionQuality string
+
+const (
+	V7ExecReady       V7ExecutionQuality = "ready"
+	V7ExecNearConfirm V7ExecutionQuality = "near_confirm"
+	V7ExecWatchOnly   V7ExecutionQuality = "watch_only"
+	V7ExecChaseRisk   V7ExecutionQuality = "chase_risk"
+	V7ExecInvalidRR   V7ExecutionQuality = "invalid_rr"
 )
 
 // V7PoolType classifies which candidate pool a symbol belongs to.
@@ -240,6 +256,7 @@ type V7SignalOutput struct {
 	ReasonCodes      []string           `json:"reason_codes"`
 	RiskTags         []string           `json:"risk_tags"`
 	EntryMode        V7EntryMode        `json:"entry_mode"`
+	ExecutionQuality V7ExecutionQuality `json:"execution_quality,omitempty"`
 	EntryZone        V7PriceZone        `json:"entry_zone"`
 	Invalidation     V7InvalidationRule `json:"invalidation"`
 	Targets          []V7Target         `json:"targets"`
@@ -271,6 +288,7 @@ type V7SignalModule interface {
 type V7Config struct {
 	MaxOutput             int                          `json:"max_output"`
 	MinOutput             int                          `json:"min_output"`
+	WatchOutput           int                          `json:"watch_output"`
 	MinAIPriority         float64                      `json:"min_ai_priority"`
 	FallbackMinAIPriority float64                      `json:"fallback_min_ai_priority"`
 	Aggressive            bool                         `json:"aggressive"`
@@ -282,6 +300,7 @@ func DefaultV7Config() V7Config {
 	return V7Config{
 		MaxOutput:             30,
 		MinOutput:             3,
+		WatchOutput:           5,
 		MinAIPriority:         55,
 		FallbackMinAIPriority: 45,
 		SetupThresholds:       DefaultSetupThresholds(),
@@ -370,6 +389,34 @@ func DefaultSetupThresholds() map[string]V7SetupThresholds {
 			MinAIPriority:   55,
 			MinZonePosShort: 55,
 			MaxZonePosLong:  45,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupPreBreakoutWatch): {
+			MinAIPriority:   40,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupPreSqueezeWatch): {
+			MinAIPriority:   40,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupPreDistribution): {
+			MinAIPriority:   40,
+			MinZonePosShort: 55,
+			MaxZonePosLong:  0,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupAccumulationWatch): {
+			MinAIPriority:   40,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
 			RequireOIFlush:  false,
 			MinConfidence:   "C",
 		},

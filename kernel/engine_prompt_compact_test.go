@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -143,5 +144,31 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt missing %q\n%s", want, prompt)
 		}
+	}
+}
+
+func TestFormatHunterV7SignalJSONMarksWatchOnlyAsDoNotOpen(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{})
+	coin := CandidateCoin{
+		Symbol:             "WATCHUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "pre_breakout_watch",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7RiskTags:         []string{"pre_move_radar", "do_not_open_until_confirmed"},
+		V7ReasonCodes:      []string{"watch_only_no_direct_open"},
+		V7RequiredConfirms: []string{"15m_close_above_bb_upper_or_4h_resistance"},
+	}
+
+	raw := engine.formatHunterV7SignalJSON(coin)
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("invalid json: %v\n%s", err, raw)
+	}
+	if payload["execution_policy"] != "do_not_open_until_confirmed" {
+		t.Fatalf("execution_policy = %v, want do_not_open_until_confirmed", payload["execution_policy"])
+	}
+	if payload["do_not_open_until_confirmed"] != true {
+		t.Fatalf("do_not_open_until_confirmed = %v, want true", payload["do_not_open_until_confirmed"])
 	}
 }

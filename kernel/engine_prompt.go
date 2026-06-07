@@ -463,8 +463,11 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
 				sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
 			}
-			if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" {
+			if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" || coin.V7ExecutionQuality == "watch_only" {
 				sb.WriteString("v7_execution_gate: wait for required confirmations / directional trigger before entry.\n")
+			}
+			if coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
+				sb.WriteString("v7_watch_only_policy: do not open directly from this signal; output wait unless it is upgraded by a confirmed setup in a later cycle.\n")
 			}
 			sb.WriteString("\n")
 		}
@@ -576,6 +579,9 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Status                string                      `json:"status"`
 		MarketRegime          string                      `json:"market_regime"`
 		EntryMode             string                      `json:"entry_mode"`
+		ExecutionQuality      string                      `json:"execution_quality,omitempty"`
+		ExecutionPolicy       string                      `json:"execution_policy,omitempty"`
+		DoNotOpenUntilConfirm bool                        `json:"do_not_open_until_confirmed,omitempty"`
 		Confidence            string                      `json:"confidence"`
 		RiskLevel             string                      `json:"risk_level"`
 		AIPriority            float64                     `json:"ai_priority"`
@@ -601,6 +607,9 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Status:                coin.V7Status,
 		MarketRegime:          coin.V7MarketRegime,
 		EntryMode:             coin.V7EntryMode,
+		ExecutionQuality:      coin.V7ExecutionQuality,
+		ExecutionPolicy:       hunterV7ExecutionPolicy(coin),
+		DoNotOpenUntilConfirm: coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed"),
 		Confidence:            coin.V7Confidence,
 		RiskLevel:             coin.V7RiskLevel,
 		AIPriority:            coin.V7AIPriority,
@@ -623,6 +632,25 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		return ""
 	}
 	return string(data)
+}
+
+func hunterV7ExecutionPolicy(coin CandidateCoin) string {
+	if coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
+		return "do_not_open_until_confirmed"
+	}
+	if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" {
+		return "wait_required_confirmations"
+	}
+	return ""
+}
+
+func containsStringValue(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *StrategyEngine) formatPositionInfo(index int, pos PositionInfo, ctx *Context) string {
@@ -938,6 +966,7 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 	parts := []string{
 		fmt.Sprintf("setup=%s", coin.V7SetupType),
 		fmt.Sprintf("entry_mode=%s", coin.V7EntryMode),
+		fmt.Sprintf("execution_quality=%s", coin.V7ExecutionQuality),
 		fmt.Sprintf("confidence=%s", coin.V7Confidence),
 		fmt.Sprintf("timing=%.0f", coin.V7TimingScore),
 		fmt.Sprintf("risk=%.0f", coin.V7RiskScore),

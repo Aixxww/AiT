@@ -11,10 +11,11 @@ import (
 
 // FetcherConfig holds configuration for the DataFetcher.
 type FetcherConfig struct {
-	BinanceURL    string        // default "https://fapi.binance.com"
-	MaxWorkers    int           // default 50
-	TopNForDetail int           // default 100 (only top N get OI/LSR/Klines)
-	Timeout       time.Duration // default 10s
+	BinanceURL     string        // default "https://fapi.binance.com"
+	MaxWorkers     int           // default 50
+	TopNForDetail  int           // default 100 (only top N get OI/LSR/Klines)
+	Timeout        time.Duration // default 10s
+	KlineIntervals []KlineInterval
 }
 
 // DataFetcher performs one complete REST data fetch cycle.
@@ -38,6 +39,9 @@ func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 10 * time.Second
 	}
+	if len(cfg.KlineIntervals) == 0 {
+		cfg.KlineIntervals = DefaultKlineIntervals
+	}
 	return &DataFetcher{
 		cfg:    cfg,
 		client: NewHTTPClient(cfg.BinanceURL),
@@ -49,7 +53,17 @@ func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 // Phase 1: 3 concurrent bulk APIs (tickers, premiumIndex, exchangeInfo)
 // Phase 2: 50-worker per-symbol data for top N
 func (f *DataFetcher) Fetch(ctx context.Context) (*Snapshot, error) {
+	return f.FetchWithKlineIntervals(ctx, f.cfg.KlineIntervals)
+}
+
+// FetchWithKlineIntervals does one complete data fetch cycle with the supplied
+// kline set. It is used by DataCollector to refresh fast execution timeframes
+// more often than slow structural timeframes.
+func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineIntervals []KlineInterval) (*Snapshot, error) {
 	start := time.Now()
+	if len(klineIntervals) == 0 {
+		klineIntervals = f.cfg.KlineIntervals
+	}
 
 	// Phase 1: Bulk fetches (concurrent)
 	type bulkResult struct {
@@ -106,7 +120,8 @@ func (f *DataFetcher) Fetch(ctx context.Context) (*Snapshot, error) {
 	})
 
 	// Phase 2: Per-symbol data for top N
-	snapshots, perErrs := f.fetchPerSymbolData(ctx, f.symbols, bulk.tickers, bulk.premiums)
+	detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
+	snapshots, perErrs := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals)
 	restErrors += perErrs
 
 	snap := &Snapshot{

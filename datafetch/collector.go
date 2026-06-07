@@ -17,6 +17,7 @@ type CollectorConfig struct {
 	MaxWorkers     int           // 50
 	TopNForDetail  int           // 100
 	TopNForWS      int           // 30 (top symbols for WS kline/aggTrade streams)
+	FastKlines     []KlineInterval
 }
 
 // DataCollector is the main orchestrator that manages REST fetching,
@@ -52,11 +53,15 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 	if cfg.TopNForWS <= 0 {
 		cfg.TopNForWS = 30
 	}
+	if len(cfg.FastKlines) == 0 {
+		cfg.FastKlines = FastKlineIntervals
+	}
 
 	fetcher := NewDataFetcher(FetcherConfig{
-		BinanceURL:    cfg.BinanceURL,
-		MaxWorkers:    cfg.MaxWorkers,
-		TopNForDetail: cfg.TopNForDetail,
+		BinanceURL:     cfg.BinanceURL,
+		MaxWorkers:     cfg.MaxWorkers,
+		TopNForDetail:  cfg.TopNForDetail,
+		KlineIntervals: DefaultKlineIntervals,
 	})
 
 	ws := NewWSManager(cfg.BinanceWSURL, store, cfg.TopNForWS)
@@ -122,7 +127,7 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			snap, err := dc.fetcher.Fetch(ctx)
+			snap, err := dc.fetcher.FetchWithKlineIntervals(ctx, dc.cfg.FastKlines)
 			if err != nil {
 				log.Printf("datafetch: REST refresh error: %v", err)
 				if snap == nil {
@@ -134,11 +139,39 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 			current := dc.store.Current()
 			if current != nil {
 				mergeWSData(current, snap)
+				mergeCarriedKlines(current, snap, dc.cfg.FastKlines)
 			}
 
 			dc.store.Swap(snap)
 			log.Printf("datafetch: REST refresh: %d symbols, %v, %d errors",
 				snap.Meta.SymbolCount, snap.Meta.FetchDuration, snap.Meta.RestErrors)
+		}
+	}
+}
+
+func mergeCarriedKlines(current, fresh *Snapshot, refreshed []KlineInterval) {
+	if current == nil || fresh == nil {
+		return
+	}
+	refreshedSet := make(map[string]bool, len(refreshed))
+	for _, ki := range refreshed {
+		refreshedSet[ki.Interval] = true
+	}
+	for sym, newSS := range fresh.Symbols {
+		curSS, ok := current.Symbols[sym]
+		if !ok || curSS == nil || newSS == nil {
+			continue
+		}
+		if newSS.Klines == nil {
+			newSS.Klines = make(map[string][]Kline)
+		}
+		for interval, klines := range curSS.Klines {
+			if refreshedSet[interval] || len(klines) == 0 {
+				continue
+			}
+			carried := make([]Kline, len(klines))
+			copy(carried, klines)
+			newSS.Klines[interval] = carried
 		}
 	}
 }

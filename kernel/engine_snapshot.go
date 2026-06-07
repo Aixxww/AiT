@@ -126,6 +126,9 @@ func normalizeCollectorConfig(cfg datafetch.CollectorConfig) datafetch.Collector
 	if cfg.TopNForWS <= 0 {
 		cfg.TopNForWS = 30
 	}
+	if len(cfg.FastKlines) == 0 {
+		cfg.FastKlines = datafetch.FastKlineIntervals
+	}
 	return cfg
 }
 

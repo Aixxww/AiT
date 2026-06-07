@@ -51,6 +51,7 @@ export const coinSource = {
   hunterDirectionShort: { zh: '做空', en: 'SHORT', es: 'CORTO' },
   hunterDirectionBoth: { zh: '双向', en: 'BOTH', es: 'AMBOS' },
   v7MaxOutput: { zh: 'v7 候选输出', en: 'v7 Max Output', es: 'Salida Máx v7' },
+  v7WatchOutput: { zh: 'v7 观察输出', en: 'v7 Watch Output', es: 'Salida Watch v7' },
   v7MinAIPriority: { zh: 'AI 优先级下限', en: 'Min AI Priority', es: 'Prioridad AI Mín' },
   v7Aggressive: { zh: '激进权重', en: 'Aggressive Weighting', es: 'Ponderación Agresiva' },
   v7AggressiveDesc: { zh: '提高高动量候选的优先级', en: 'Boost priority for high-momentum candidates', es: 'Aumenta prioridad para candidatos con impulso' },

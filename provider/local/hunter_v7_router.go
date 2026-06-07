@@ -74,6 +74,11 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 			// Compute liquidity score
 			sig.LiquidityScore = AssessLiquidityScore(ctx)
 
+			// Translate raw setup scores into executable signal quality before
+			// ranking. This keeps early/watch-only context visible while moving
+			// trade-ready setups above noisy low-timing candidates.
+			finalizeV7SignalForExecution(sig, ctx, cfg)
+
 			// Compute AI Priority (composite ranking score)
 			sig.AIPriority = CalcAIPriority(sig, cfg)
 
@@ -96,26 +101,33 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 	// Resolve conflicts (same symbol, opposite directions)
 	allSignals = ResolveV7Conflicts(allSignals)
 
-	return filterV7SignalsForLLM(allSignals, cfg)
+	confirmed := filterV7SignalsForLLM(allSignals, cfg)
+	watches := BuildV7PreMoveRadar(universe, regime, cfg)
+	return appendV7WatchSignals(confirmed, watches, cfg)
 }
 
 // CalcAIPriority computes the composite AI priority score.
 // Formula: setup×0.35 + timing×0.20 + regime_fit×0.20 + liquidity×0.15 - risk×0.10
 func CalcAIPriority(sig *V7SignalOutput, cfg V7Config) float64 {
+	var base float64
 	if cfg.Aggressive {
 		// Aggressive: more weight on setup and timing
-		return sig.SetupScore*0.40 +
+		base = sig.SetupScore*0.40 +
 			sig.TimingScore*0.25 +
 			sig.RegimeFitScore*0.15 +
 			sig.LiquidityScore*0.10 -
 			sig.RiskScore*0.10
+	} else {
+		// Balanced (default)
+		base = sig.SetupScore*0.35 +
+			sig.TimingScore*0.20 +
+			sig.RegimeFitScore*0.20 +
+			sig.LiquidityScore*0.15 -
+			sig.RiskScore*0.10
 	}
-	// Balanced (default)
-	return sig.SetupScore*0.35 +
-		sig.TimingScore*0.20 +
-		sig.RegimeFitScore*0.20 +
-		sig.LiquidityScore*0.15 -
-		sig.RiskScore*0.10
+	base += v7SetupExpectancyBonus(sig)
+	base += v7ExecutionQualityBonus(sig.ExecutionQuality)
+	return clampFloat(base, 0, 100)
 }
 
 func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOutput {
@@ -124,7 +136,7 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		minPriority = 55
 	}
 	fallbackMinPriority := cfg.FallbackMinAIPriority
-	if fallbackMinPriority <= 0 {
+	if fallbackMinPriority <= 0 || fallbackMinPriority >= minPriority {
 		fallbackMinPriority = minPriority - 10
 	}
 	if fallbackMinPriority < 0 {
@@ -181,7 +193,7 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		return filtered[i].AIPriority > filtered[j].AIPriority
 	})
 	if maxOutput > 0 && len(filtered) > maxOutput {
-		filtered = filtered[:maxOutput]
+		filtered = diversifyV7Signals(filtered, maxOutput)
 	}
 	return filtered
 }

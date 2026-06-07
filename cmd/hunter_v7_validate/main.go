@@ -90,6 +90,7 @@ type issue struct {
 func main() {
 	topDetail := flag.Int("top-detail", 220, "number of high-volume symbols with full OI/LSR/kline detail")
 	maxOutput := flag.Int("max-output", 30, "max Hunter v7 signals to output")
+	watchOutput := flag.Int("watch-output", 5, "max Hunter v7 pre-move watch signals to append")
 	minPriority := flag.Float64("min-priority", 45, "minimum AI priority")
 	aggressive := flag.Bool("aggressive", true, "use aggressive AI priority weighting")
 	strategyID := flag.String("strategy-id", "", "strategy ID to load from data/data.db for prompt simulation")
@@ -113,6 +114,7 @@ func main() {
 
 	cfg := local.DefaultV7Config()
 	cfg.MaxOutput = *maxOutput
+	cfg.WatchOutput = *watchOutput
 	cfg.MinAIPriority = *minPriority
 	cfg.Aggressive = *aggressive
 	strategyCfg, err := loadStrategyConfig(*dbPath, *strategyID)
@@ -123,6 +125,9 @@ func main() {
 		if strategyCfg.CoinSource.Hunter != nil {
 			if strategyCfg.CoinSource.Hunter.V7MaxOutput > 0 {
 				cfg.MaxOutput = strategyCfg.CoinSource.Hunter.V7MaxOutput
+			}
+			if strategyCfg.CoinSource.Hunter.V7WatchOutput > 0 {
+				cfg.WatchOutput = strategyCfg.CoinSource.Hunter.V7WatchOutput
 			}
 			if strategyCfg.CoinSource.Hunter.V7MinAIPriority > 0 {
 				cfg.MinAIPriority = strategyCfg.CoinSource.Hunter.V7MinAIPriority
@@ -208,6 +213,7 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7RegimeFitScore:   sig.RegimeFitScore,
 			V7RiskLevel:        string(sig.RiskLevel),
 			V7EntryMode:        string(sig.EntryMode),
+			V7ExecutionQuality: string(sig.ExecutionQuality),
 			V7MarketRegime:     string(sig.MarketRegime),
 			V7Confidence:       sig.Confidence,
 			V7ReasonCodes:      append([]string{}, sig.ReasonCodes...),

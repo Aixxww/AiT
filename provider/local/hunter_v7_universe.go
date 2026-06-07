@@ -505,10 +505,11 @@ func computeBBWidthPercentile(klines []klineBar) float64 {
 		return 50
 	}
 
-	// Count how many widths are >= current
+	// Percentile rank in ascending width order: lower means the current band
+	// width is tighter than most recent widths, i.e. stronger compression.
 	count := 0
 	for _, w := range widths {
-		if w >= currentWidth {
+		if w <= currentWidth {
 			count++
 		}
 	}

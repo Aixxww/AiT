@@ -575,6 +575,10 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 					filtered := make([]kernel.CandidateCoin, 0, len(candidateCoins))
 					for _, coin := range candidateCoins {
 						if count, stale := staleWaits[coin.Symbol]; stale {
+							if !shouldSkipCandidateForRepeatedWait(coin, count) {
+								filtered = append(filtered, coin)
+								continue
+							}
 							logger.Infof("🔄 [%s] Anti-repeat: skipping %s (waited %d recent cycles)", at.name, coin.Symbol, count)
 						} else {
 							filtered = append(filtered, coin)
@@ -800,6 +804,25 @@ func sortDecisionsByPriority(decisions []kernel.Decision) []kernel.Decision {
 	}
 
 	return sorted
+}
+
+func shouldSkipCandidateForRepeatedWait(coin kernel.CandidateCoin, waitCount int) bool {
+	if waitCount <= 0 {
+		return false
+	}
+	if coin.V7SetupType == "" {
+		return true
+	}
+	if coin.V7Status == "candidate" || coin.V7Status == "conflict_watch" {
+		return false
+	}
+	if coin.V7ExecutionQuality == "ready" || coin.V7ExecutionQuality == "near_confirm" {
+		return false
+	}
+	if coin.V7AIPriority >= 50 {
+		return false
+	}
+	return true
 }
 
 // checkClaw402Balance checks USDC balance and logs warnings if low

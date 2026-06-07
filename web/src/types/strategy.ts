@@ -150,6 +150,7 @@ export interface HunterConfig {
   oi_lone_breaker_threshold?: number;
   // Hunter v7 Signal Router fields
   v7_max_output?: number;
+  v7_watch_output?: number;
   v7_min_ai_priority?: number;
   v7_aggressive?: boolean;
 }

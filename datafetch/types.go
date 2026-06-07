@@ -122,9 +122,12 @@ type exchangeInfoRaw struct {
 
 // exchangeSymbolRaw is a single symbol entry in exchangeInfo.
 type exchangeSymbolRaw struct {
-	Symbol       string `json:"symbol"`
-	Status       string `json:"status"`
-	ContractType string `json:"contractType"`
+	Symbol            string   `json:"symbol"`
+	Status            string   `json:"status"`
+	ContractType      string   `json:"contractType"`
+	BaseAsset         string   `json:"baseAsset"`
+	UnderlyingType    string   `json:"underlyingType"`
+	UnderlyingSubType []string `json:"underlyingSubType"`
 }
 
 // oiRaw is the raw response from GET /fapi/v1/openInterest.
@@ -163,4 +166,15 @@ var DefaultKlineIntervals = []KlineInterval{
 	{Interval: "1h", Limit: 100},
 	{Interval: "4h", Limit: 100},
 	{Interval: "1d", Limit: 50},
+}
+
+// FastKlineIntervals are refreshed on every REST cycle. Daily structure is
+// carried over from the full snapshot because it changes slowly and is not an
+// execution-timing input.
+var FastKlineIntervals = []KlineInterval{
+	{Interval: "1m", Limit: 60},
+	{Interval: "5m", Limit: 50},
+	{Interval: "15m", Limit: 50},
+	{Interval: "1h", Limit: 100},
+	{Interval: "4h", Limit: 100},
 }

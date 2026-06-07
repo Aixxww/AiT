@@ -19,8 +19,10 @@ type perSymbolResult struct {
 func (f *DataFetcher) fetchPerSymbolData(
 	ctx context.Context,
 	symbols []string,
+	detailSymbols []string,
 	tickers map[string]*ticker24hrRaw,
 	premiums map[string]*premiumIndexRaw,
+	klineIntervals []KlineInterval,
 ) (map[string]*SymbolSnapshot, int) {
 
 	// Build partial snapshots from bulk data for ALL symbols first
@@ -53,23 +55,16 @@ func (f *DataFetcher) fetchPerSymbolData(
 		all[sym] = ss
 	}
 
-	// Limit detailed fetches to top N
-	limit := f.cfg.TopNForDetail
-	if limit > len(symbols) {
-		limit = len(symbols)
-	}
-	topN := symbols[:limit]
-
 	// Semaphore-based worker pool
 	workers := f.cfg.MaxWorkers
 	if workers <= 0 {
 		workers = 5
 	}
 	sem := make(chan struct{}, workers)
-	results := make(chan perSymbolResult, len(topN))
+	results := make(chan perSymbolResult, len(detailSymbols))
 	var errCount int64
 
-	for _, sym := range topN {
+	for _, sym := range detailSymbols {
 		sym := sym
 		base := all[sym]
 		sem <- struct{}{}
@@ -78,10 +73,12 @@ func (f *DataFetcher) fetchPerSymbolData(
 			if ctx.Err() != nil {
 				return
 			}
-			ss, err := f.fetchOneSymbol(ctx, sym, base)
+			ss, err := f.fetchOneSymbol(ctx, sym, base, klineIntervals)
 			if err != nil {
 				atomic.AddInt64(&errCount, 1)
-				return
+				if ss == nil {
+					return
+				}
 			}
 			results <- perSymbolResult{symbol: sym, snap: ss}
 		}()
@@ -104,7 +101,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 
 // fetchOneSymbol fetches all per-symbol data for a single symbol.
 // Per-symbol weight: OI(1) + OIHist(2) + LSR(2) + 6*klines(1) = 11
-func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *SymbolSnapshot) (*SymbolSnapshot, error) {
+func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *SymbolSnapshot, klineIntervals []KlineInterval) (*SymbolSnapshot, error) {
 	ss := base
 	if ss == nil {
 		ss = &SymbolSnapshot{
@@ -156,8 +153,8 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		}
 	}
 
-	// 4. Klines — 6 timeframes (weight: 1 each = 6)
-	for _, ki := range DefaultKlineIntervals {
+	// 4. Klines — configured timeframes (weight: 1 each)
+	for _, ki := range klineIntervals {
 		klines, err := f.fetchKlines(ctx, symbol, ki.Interval, ki.Limit)
 		if err != nil {
 			errs++
@@ -179,7 +176,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	}
 
 	if errs > 0 {
-		return ss, fmt.Errorf("%s: %d/%d fetches failed", symbol, errs, 11)
+		return ss, fmt.Errorf("%s: %d/%d fetches failed", symbol, errs, 3+len(klineIntervals))
 	}
 	return ss, nil
 }

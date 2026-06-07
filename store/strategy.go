@@ -290,6 +290,7 @@ type HunterConfig struct {
 	// Hunter v7 Signal Router configuration.
 	// These fields are only used when CoinSource.SourceType == "hunter_v7".
 	V7MaxOutput     int     `json:"v7_max_output,omitempty"`      // default 30 before product-level HunterLimit cap
+	V7WatchOutput   int     `json:"v7_watch_output,omitempty"`    // default 5, appended as watch-only pre-move radar context
 	V7MinAIPriority float64 `json:"v7_min_ai_priority,omitempty"` // default 55
 	V7Aggressive    bool    `json:"v7_aggressive,omitempty"`      // use aggressive priority weighting
 }

@@ -84,6 +84,7 @@ type CandidateCoin struct {
 	V7RegimeFitScore   float64                     `json:"-"`
 	V7RiskLevel        string                      `json:"-"`
 	V7EntryMode        string                      `json:"-"`
+	V7ExecutionQuality string                      `json:"-"`
 	V7MarketRegime     string                      `json:"-"`
 	V7Confidence       string                      `json:"-"`
 	V7ReasonCodes      []string                    `json:"-"`
@@ -364,6 +365,9 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
 			v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
 		}
+		if coinSource.Hunter != nil && coinSource.Hunter.V7WatchOutput > 0 {
+			v7cfg.WatchOutput = coinSource.Hunter.V7WatchOutput
+		}
 		if coinSource.Hunter != nil && coinSource.Hunter.V7MinAIPriority > 0 {
 			v7cfg.MinAIPriority = coinSource.Hunter.V7MinAIPriority
 		}
@@ -441,6 +445,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7RegimeFitScore:   sig.RegimeFitScore,
 			V7RiskLevel:        string(sig.RiskLevel),
 			V7EntryMode:        string(sig.EntryMode),
+			V7ExecutionQuality: string(sig.ExecutionQuality),
 			V7MarketRegime:     string(sig.MarketRegime),
 			V7Confidence:       sig.Confidence,
 			V7ReasonCodes:      append([]string{}, sig.ReasonCodes...),
