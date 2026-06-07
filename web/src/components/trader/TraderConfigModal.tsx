@@ -442,6 +442,9 @@ export function TraderConfigModal({
                   </label>
                   <input
                     type="number"
+                    name="trader-scan-interval-minutes"
+                    autoComplete="off"
+                    inputMode="numeric"
                     value={formData.scan_interval_minutes}
                     onChange={(e) => {
                       const parsedValue = Number(e.target.value)
@@ -450,7 +453,8 @@ export function TraderConfigModal({
                         : 3
                       handleInputChange('scan_interval_minutes', safeValue)
                     }}
-                    className="w-full px-3 py-2 bg-background border border-[var(--color-border)] rounded text-foreground focus:border-primary focus:outline-none"
+                    className="w-full px-3 py-2 border border-[var(--color-border)] rounded focus:border-primary focus:outline-none"
+                    style={{ background: 'var(--color-input)', color: 'var(--color-foreground)' }}
                     min="3"
                     max="60"
                     step="1"
@@ -513,6 +517,9 @@ export function TraderConfigModal({
                   </div>
                   <input
                     type="number"
+                    name="trader-initial-balance"
+                    autoComplete="off"
+                    inputMode="decimal"
                     value={formData.initial_balance || 0}
                     onChange={(e) =>
                       handleInputChange(
@@ -520,7 +527,8 @@ export function TraderConfigModal({
                         Number(e.target.value)
                       )
                     }
-                    className="w-full px-3 py-2 bg-background border border-[var(--color-border)] rounded text-foreground focus:border-primary focus:outline-none"
+                    className="w-full px-3 py-2 border border-[var(--color-border)] rounded focus:border-primary focus:outline-none"
+                    style={{ background: 'var(--color-input)', color: 'var(--color-foreground)' }}
                     min="100"
                     step="0.01"
                   />

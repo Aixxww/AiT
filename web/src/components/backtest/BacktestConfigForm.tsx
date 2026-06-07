@@ -395,8 +395,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-initial-balance"
+                    autoComplete="off"
+                    inputMode="decimal"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.balance}
                     onChange={(e) => onFormChange('balance', Number(e.target.value))}
                   />
@@ -459,8 +462,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-btc-eth-leverage"
+                    autoComplete="off"
+                    inputMode="numeric"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.btcEthLeverage}
                     onChange={(e) => onFormChange('btcEthLeverage', Number(e.target.value))}
                   />
@@ -471,8 +477,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-altcoin-leverage"
+                    autoComplete="off"
+                    inputMode="numeric"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.altcoinLeverage}
                     onChange={(e) => onFormChange('altcoinLeverage', Number(e.target.value))}
                   />
@@ -486,8 +495,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-fee"
+                    autoComplete="off"
+                    inputMode="decimal"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.fee}
                     onChange={(e) => onFormChange('fee', Number(e.target.value))}
                   />
@@ -498,8 +510,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-slippage"
+                    autoComplete="off"
+                    inputMode="decimal"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.slippage}
                     onChange={(e) => onFormChange('slippage', Number(e.target.value))}
                   />
@@ -510,8 +525,11 @@ export function BacktestConfigForm({
                   </label>
                   <input
                     type="number"
+                    name="backtest-cadence"
+                    autoComplete="off"
+                    inputMode="numeric"
                     className="w-full p-2 rounded-lg text-xs"
-                    style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+                    style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                     value={formState.cadence}
                     onChange={(e) => onFormChange('cadence', Number(e.target.value))}
                   />

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 )
 
@@ -152,6 +154,150 @@ func TestValidateOpenDecisionRejectsLowRiskReward(t *testing.T) {
 	err := at.validateOpenDecision(decision, 100, "long")
 	if err == nil || !strings.Contains(err.Error(), "Risk-reward") {
 		t.Fatalf("expected risk-reward rejection, got: %v", err)
+	}
+}
+
+func TestValidateOpenDecisionRejectsTightHunterV7StopLoss(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	decision := &kernel.Decision{
+		Symbol:          "HUSDT",
+		Action:          "open_short",
+		Leverage:        5,
+		PositionSizeUSD: 60,
+		Price:           0.63364,
+		StopLoss:        0.645,
+		TakeProfit:      0.50736,
+		Confidence:      75,
+	}
+
+	err := at.validateOpenDecision(decision, 0.63578, "short")
+	if err == nil || !strings.Contains(err.Error(), "Stop-loss distance") {
+		t.Fatalf("expected tight stop-loss rejection, got: %v", err)
+	}
+}
+
+func TestCapTakeProfitToTP1LongAndShort(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3
+
+	longDecision := &kernel.Decision{
+		Symbol:     "TAUSDT",
+		StopLoss:   97,
+		TakeProfit: 115,
+	}
+	if !at.capTakeProfitToTP1(longDecision, 100, "long") {
+		t.Fatalf("expected long take profit to be capped")
+	}
+	if longDecision.TakeProfit != 103 {
+		t.Fatalf("long TP = %v, want 103", longDecision.TakeProfit)
+	}
+
+	shortDecision := &kernel.Decision{
+		Symbol:     "TAUSDT",
+		StopLoss:   103,
+		TakeProfit: 85,
+	}
+	if !at.capTakeProfitToTP1(shortDecision, 100, "short") {
+		t.Fatalf("expected short take profit to be capped")
+	}
+	if shortDecision.TakeProfit != 97 {
+		t.Fatalf("short TP = %v, want 97", shortDecision.TakeProfit)
+	}
+}
+
+func TestEnforceSingleTradeLossLimitReducesPositionSize(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct = 8
+	decision := &kernel.Decision{
+		Symbol:          "TAUSDT",
+		PositionSizeUSD: 148,
+		StopLoss:        96,
+	}
+
+	adjusted, capped, err := at.enforceSingleTradeLossLimit(decision, 100, 15, "long")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !capped {
+		t.Fatalf("expected position size to be capped")
+	}
+	// 8% of 15 USDT equity = 1.2 USDT max loss. With a 4% stop distance,
+	// max notional is 1.2 / 0.04 = 30 USDT.
+	if adjusted != 30 {
+		t.Fatalf("adjusted = %v, want 30", adjusted)
+	}
+}
+
+func TestHunterV7ExecutionGuardBlocksCFundingReversalShortWithBuildingOI(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:       "HUSDT",
+				Direction:    "SHORT",
+				V7SetupType:  "funding_reversal",
+				V7Confidence: "C",
+				V7EntryZone: local.V7PriceZone{
+					Lower: 0.625,
+					Upper: 0.645,
+				},
+				V7DerivativesCtx: &local.V7DerivativesContext{
+					OIChange1h: 9.86,
+					OIChange4h: 13.23,
+				},
+			},
+		},
+		MarketDataMap: map[string]*market.Data{
+			"HUSDT": {Symbol: "HUSDT", CurrentPrice: 0.63578},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol: "HUSDT",
+		Action: "open_short",
+		Price:  0.63578,
+	}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "OI is still building") {
+		t.Fatalf("expected building OI guard rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardBlocksCFundingReversalShortNearZoneLower(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:       "HUSDT",
+				Direction:    "SHORT",
+				V7SetupType:  "funding_reversal",
+				V7Confidence: "C",
+				V7EntryZone: local.V7PriceZone{
+					Lower: 0.625,
+					Upper: 0.645,
+				},
+				V7DerivativesCtx: &local.V7DerivativesContext{
+					OIChange1h: 0,
+					OIChange4h: -1,
+				},
+			},
+		},
+		MarketDataMap: map[string]*market.Data{
+			"HUSDT": {Symbol: "HUSDT", CurrentPrice: 0.633},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol: "HUSDT",
+		Action: "open_short",
+		Price:  0.633,
+	}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "zone_pos") {
+		t.Fatalf("expected zone position guard rejection, got: %v", err)
 	}
 }
 

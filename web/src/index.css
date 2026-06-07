@@ -533,6 +533,45 @@ textarea {
   border: 1px solid var(--panel-border);
 }
 
+select {
+  color-scheme: light;
+  background-color: var(--color-input);
+  color: var(--color-foreground);
+}
+
+select option,
+select optgroup {
+  background-color: #ffffff;
+  color: #0e1f31;
+}
+
+[data-theme='dark'] select {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] select option,
+[data-theme='dark'] select optgroup {
+  background-color: #10243a;
+  color: #ecf8ff;
+}
+
+select option:checked {
+  background-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface));
+  color: var(--color-foreground);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-foreground);
+  caret-color: var(--color-foreground);
+  box-shadow: 0 0 0 1000px var(--color-input) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
 input:focus,
 select:focus,
 textarea:focus {

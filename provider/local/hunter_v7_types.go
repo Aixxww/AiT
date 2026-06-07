@@ -205,6 +205,7 @@ type V7PriceContext struct {
 	Change24h float64 `json:"change_24h"`
 	ATR1h     float64 `json:"atr_1h"`
 	ATR4h     float64 `json:"atr_4h"`
+	VWAP15m   float64 `json:"vwap_15m,omitempty"`
 }
 
 // V7DerivativesContext is a snapshot of derivatives data for the AI decision layer.
@@ -268,15 +269,121 @@ type V7SignalModule interface {
 
 // V7Config holds configuration for the Hunter v7 engine.
 type V7Config struct {
-	MaxOutput     int     `json:"max_output"`
-	MinAIPriority float64 `json:"min_ai_priority"`
-	Aggressive    bool    `json:"aggressive"`
+	MaxOutput       int                          `json:"max_output"`
+	MinAIPriority   float64                      `json:"min_ai_priority"`
+	Aggressive      bool                         `json:"aggressive"`
+	SetupThresholds map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
 }
 
 // DefaultV7Config returns sensible defaults.
 func DefaultV7Config() V7Config {
 	return V7Config{
-		MaxOutput:     30,
-		MinAIPriority: 55,
+		MaxOutput:       30,
+		MinAIPriority:   55,
+		SetupThresholds: DefaultSetupThresholds(),
+	}
+}
+
+// V7SetupThresholds defines per-setup filtering and execution guard parameters.
+// Each setup type can have its own thresholds, overriding the global MinAIPriority.
+type V7SetupThresholds struct {
+	MinAIPriority   float64 `json:"min_ai_priority"`
+	MinZonePosShort int     `json:"min_zone_pos_short"` // SHORT requires zone_pos >= this (0 = disabled)
+	MaxZonePosLong  int     `json:"max_zone_pos_long"`  // LONG requires zone_pos <= this (100 = disabled)
+	RequireOIFlush  bool    `json:"require_oi_flush"`   // C-grade must have OI flush to proceed
+	MinConfidence   string  `json:"min_confidence"`     // Minimum confidence grade (e.g. "C", "B")
+}
+
+// DefaultSetupThresholds returns per-setup default thresholds for all 10 setup types.
+func DefaultSetupThresholds() map[string]V7SetupThresholds {
+	return map[string]V7SetupThresholds{
+		string(V7SetupFundingReversal): {
+			MinAIPriority:   55,
+			MinZonePosShort: 65,
+			MaxZonePosLong:  35,
+			RequireOIFlush:  true,
+			MinConfidence:   "C",
+		},
+		string(V7SetupPanicReversalLong): {
+			MinAIPriority:   50,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupTrendBreakoutLong): {
+			MinAIPriority:   60,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupLeaderMomentumLong): {
+			MinAIPriority:   58,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupPullbackLong): {
+			MinAIPriority:   55,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  50,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupShortSqueezeLong): {
+			MinAIPriority:   55,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupAccumulationLong): {
+			MinAIPriority:   55,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupDistributionShort): {
+			MinAIPriority:   55,
+			MinZonePosShort: 60,
+			MaxZonePosLong:  0,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupLongSqueezeShort): {
+			MinAIPriority:   55,
+			MinZonePosShort: 60,
+			MaxZonePosLong:  0,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupRangeReversion): {
+			MinAIPriority:   55,
+			MinZonePosShort: 55,
+			MaxZonePosLong:  45,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+	}
+}
+
+// GetSetupThresholds returns the thresholds for a given setup type.
+// Falls back to a default using the global MinAIPriority if no per-setup config exists.
+func (c *V7Config) GetSetupThresholds(setupType V7SetupType) V7SetupThresholds {
+	if c.SetupThresholds != nil {
+		if th, ok := c.SetupThresholds[string(setupType)]; ok {
+			return th
+		}
+	}
+	// Fallback: use global MinAIPriority with relaxed guard values
+	return V7SetupThresholds{
+		MinAIPriority:   c.MinAIPriority,
+		MinZonePosShort: 0,
+		MaxZonePosLong:  100,
+		RequireOIFlush:  false,
+		MinConfidence:   "C",
 	}
 }

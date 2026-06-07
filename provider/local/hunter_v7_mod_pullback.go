@@ -215,6 +215,7 @@ func buildPriceCtx(ctx *V7SymbolContext) *V7PriceContext {
 		Change24h: ctx.Change24h,
 		ATR1h:     ctx.ATR1h,
 		ATR4h:     ctx.ATR4h,
+		VWAP15m:   ctx.VWAP15m,
 	}
 }
 

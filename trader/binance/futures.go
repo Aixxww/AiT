@@ -6,11 +6,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/hook"
 	"github.com/Aixxww/AiT/logger"
 	"io"
+	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -72,7 +75,10 @@ type FuturesTrader struct {
 const (
 	binanceTimestampSafetyOffsetMs = int64(1500)
 	binanceSignedRequestRecvWindow = int64(10000)
+	binanceSignedRequestMaxRetries = 3
 )
+
+var binanceSignatureRe = regexp.MustCompile(`signature=[a-fA-F0-9]+`)
 
 // NewFuturesTrader creates futures trader
 func NewFuturesTrader(apiKey, secretKey string, userId string, proxyURL ...string) *FuturesTrader {
@@ -204,6 +210,77 @@ func isBinanceTimestampError(err error) bool {
 	return strings.Contains(msg, "code=-1021") ||
 		strings.Contains(msg, "Timestamp for this request") ||
 		strings.Contains(msg, "outside of the recvWindow")
+}
+
+func isBinanceTransientNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unexpected eof") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "connection aborted") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "tls handshake timeout") ||
+		strings.Contains(msg, "client connection lost") ||
+		strings.Contains(msg, "server closed idle connection") ||
+		strings.Contains(msg, "timeout awaiting response headers")
+}
+
+func sanitizeBinanceError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return binanceSignatureRe.ReplaceAllString(err.Error(), "signature=<redacted>")
+}
+
+func doSignedBinanceRequestWithRetry[T any](t *FuturesTrader, operation string, fn func() (T, error)) (T, error) {
+	var zero T
+	backoffs := []time.Duration{
+		300 * time.Millisecond,
+		800 * time.Millisecond,
+		1500 * time.Millisecond,
+	}
+	attempts := binanceSignedRequestMaxRetries + 1
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		result, err := fn()
+		if err == nil {
+			if attempt > 1 {
+				logger.Infof("✓ Binance %s succeeded after %d attempts", operation, attempt)
+			}
+			return result, nil
+		}
+
+		timestampErr := isBinanceTimestampError(err)
+		transientErr := isBinanceTransientNetworkError(err)
+		if (!timestampErr && !transientErr) || attempt == attempts {
+			return zero, err
+		}
+
+		if timestampErr {
+			logger.Infof("⏱ Binance timestamp error during %s, re-syncing server time and retrying (%d/%d): %s",
+				operation, attempt, attempts, sanitizeBinanceError(err))
+			t.resyncBinanceServerTime()
+		} else {
+			logger.Infof("↻ Binance transient network error during %s, retrying (%d/%d): %s",
+				operation, attempt, attempts, sanitizeBinanceError(err))
+		}
+
+		if attempt <= len(backoffs) {
+			time.Sleep(backoffs[attempt-1])
+		}
+	}
+
+	return zero, fmt.Errorf("binance %s failed after retries", operation)
 }
 
 // Helper functions

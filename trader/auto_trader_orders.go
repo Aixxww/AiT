@@ -108,9 +108,6 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 		return err
 	}
 	executionPrice := at.resolveOpenExecutionPrice(decision.Symbol, "long", marketData.CurrentPrice)
-	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
-		return err
-	}
 
 	// Get balance (needed for multiple checks)
 	balance, err := at.trader.GetBalance()
@@ -158,8 +155,20 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 		decision.PositionSizeUSD = actualPositionSize
 	}
 
+	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "long"); err != nil {
+		return err
+	} else if wasCapped {
+		actualPositionSize = adjustedSize
+		decision.PositionSizeUSD = adjustedSize
+	}
+
 	// [CODE ENFORCED] Minimum position size check
 	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		return err
+	}
+
+	at.capTakeProfitToTP1(decision, executionPrice, "long")
+	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
 		return err
 	}
 
@@ -235,9 +244,6 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 		return err
 	}
 	executionPrice := at.resolveOpenExecutionPrice(decision.Symbol, "short", marketData.CurrentPrice)
-	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
-		return err
-	}
 
 	// Get balance (needed for multiple checks)
 	balance, err := at.trader.GetBalance()
@@ -285,8 +291,20 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 		decision.PositionSizeUSD = actualPositionSize
 	}
 
+	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "short"); err != nil {
+		return err
+	} else if wasCapped {
+		actualPositionSize = adjustedSize
+		decision.PositionSizeUSD = adjustedSize
+	}
+
 	// [CODE ENFORCED] Minimum position size check
 	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		return err
+	}
+
+	at.capTakeProfitToTP1(decision, executionPrice, "short")
+	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		return err
 	}
 

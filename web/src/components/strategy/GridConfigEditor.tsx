@@ -45,9 +45,9 @@ export function GridConfigEditor({
   }
 
   const inputStyle = {
-    background: '#1E2329',
-    border: '1px solid #2B3139',
-    color: 'var(--foreground)',
+    background: 'var(--color-input)',
+    border: '1px solid var(--color-border)',
+    color: 'var(--color-foreground)',
   }
 
   const sectionStyle = {
@@ -102,6 +102,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-total-investment"
+              autoComplete="off"
+              inputMode="decimal"
               value={config.total_investment}
               onChange={(e) => updateField('total_investment', parseFloat(e.target.value) || 1000)}
               disabled={disabled}
@@ -122,6 +125,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-leverage"
+              autoComplete="off"
+              inputMode="numeric"
               value={config.leverage}
               onChange={(e) => updateField('leverage', parseInt(e.target.value) || 5)}
               disabled={disabled}
@@ -154,6 +160,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-count"
+              autoComplete="off"
+              inputMode="numeric"
               value={config.grid_count}
               onChange={(e) => updateField('grid_count', parseInt(e.target.value) || 10)}
               disabled={disabled}
@@ -231,6 +240,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-atr-multiplier"
+              autoComplete="off"
+              inputMode="decimal"
               value={config.atr_multiplier}
               onChange={(e) => updateField('atr_multiplier', parseFloat(e.target.value) || 2.0)}
               disabled={disabled}
@@ -252,6 +264,9 @@ export function GridConfigEditor({
               </p>
               <input
                 type="number"
+                name="grid-upper-price"
+                autoComplete="off"
+                inputMode="decimal"
                 value={config.upper_price}
                 onChange={(e) => updateField('upper_price', parseFloat(e.target.value) || 0)}
                 disabled={disabled}
@@ -270,6 +285,9 @@ export function GridConfigEditor({
               </p>
               <input
                 type="number"
+                name="grid-lower-price"
+                autoComplete="off"
+                inputMode="decimal"
                 value={config.lower_price}
                 onChange={(e) => updateField('lower_price', parseFloat(e.target.value) || 0)}
                 disabled={disabled}
@@ -302,6 +320,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-max-drawdown-pct"
+              autoComplete="off"
+              inputMode="decimal"
               value={config.max_drawdown_pct}
               onChange={(e) => updateField('max_drawdown_pct', parseFloat(e.target.value) || 15)}
               disabled={disabled}
@@ -321,6 +342,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-stop-loss-pct"
+              autoComplete="off"
+              inputMode="decimal"
               value={config.stop_loss_pct}
               onChange={(e) => updateField('stop_loss_pct', parseFloat(e.target.value) || 5)}
               disabled={disabled}
@@ -340,6 +364,9 @@ export function GridConfigEditor({
             </p>
             <input
               type="number"
+              name="grid-daily-loss-limit-pct"
+              autoComplete="off"
+              inputMode="decimal"
               value={config.daily_loss_limit_pct}
               onChange={(e) => updateField('daily_loss_limit_pct', parseFloat(e.target.value) || 10)}
               disabled={disabled}

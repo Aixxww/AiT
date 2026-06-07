@@ -94,6 +94,7 @@ type CandidateCoin struct {
 	V7Targets          []local.V7Target            `json:"-"`
 	V7PriceContext     *local.V7PriceContext       `json:"-"`
 	V7DerivativesCtx   *local.V7DerivativesContext `json:"-"`
+	V7VWAP15m          float64                     `json:"-"`
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
 	TradeSignal interface{} `json:"-"` // *engine.TradeSignal when using SnapshotEngine
@@ -137,6 +138,11 @@ type Context struct {
 	CurrentTime        string                             `json:"current_time"`
 	RuntimeMinutes     int                                `json:"runtime_minutes"`
 	CallCount          int                                `json:"call_count"`
+	IsDegraded         bool                               `json:"is_degraded,omitempty"`
+	DegradationReasons []string                           `json:"degradation_reasons,omitempty"`
+	AccountDataStale   bool                               `json:"account_data_stale,omitempty"`
+	PositionDataStale  bool                               `json:"position_data_stale,omitempty"`
+	DisableOpenOrders  bool                               `json:"disable_open_orders,omitempty"`
 	Account            AccountInfo                        `json:"account"`
 	Positions          []PositionInfo                     `json:"positions"`
 	CandidateCoins     []CandidateCoin                    `json:"candidate_coins"`
@@ -412,6 +418,11 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 		tags = append(tags, sig.ReasonCodes...)
 		tags = append(tags, sig.RiskTags...)
 
+		vwap15m := 0.0
+		if sig.PriceCtx != nil {
+			vwap15m = sig.PriceCtx.VWAP15m
+		}
+
 		cc := CandidateCoin{
 			Symbol:     sig.Symbol,
 			Sources:    []string{"hunter_v7"},
@@ -440,6 +451,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
+			V7VWAP15m:          vwap15m,
 		}
 
 		if sig.Direction == local.V7DirLong {

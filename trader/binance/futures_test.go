@@ -2,6 +2,7 @@ package binance
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -393,6 +394,61 @@ func TestNewFuturesTrader(t *testing.T) {
 	assert.NotNil(t, t1)
 	assert.NotNil(t, t1.client)
 	assert.Equal(t, 15*time.Second, t1.cacheDuration)
+}
+
+func TestDoSignedBinanceRequestWithRetryRetriesTransientNetworkError(t *testing.T) {
+	trader := &FuturesTrader{}
+	attempts := 0
+
+	result, err := doSignedBinanceRequestWithRetry(trader, "test transient request", func() (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", errors.New(`Get "https://fapi.binance.com/fapi/v2/account": unexpected EOF`)
+		}
+		return "ok", nil
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", result)
+	assert.Equal(t, 2, attempts)
+}
+
+func TestDoSignedBinanceRequestWithRetrySyncsTimeOnTimestampError(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Skipf("local TCP listener unavailable in this environment: %v", err)
+	}
+	assert.NoError(t, listener.Close())
+
+	serverTime := time.Now().Add(-5 * time.Second).UnixMilli()
+	timeRequests := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/fapi/v1/time", r.URL.Path)
+		timeRequests++
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int64{"serverTime": serverTime})
+	}))
+	defer mockServer.Close()
+
+	client := futures.NewClient("test_api_key", "test_secret_key")
+	client.BaseURL = mockServer.URL
+	client.HTTPClient = mockServer.Client()
+	trader := &FuturesTrader{client: client}
+	attempts := 0
+
+	result, err := doSignedBinanceRequestWithRetry(trader, "test timestamp request", func() (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", errors.New("code=-1021 Timestamp for this request is outside of the recvWindow")
+		}
+		return "ok", nil
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", result)
+	assert.Equal(t, 2, attempts)
+	assert.Equal(t, 1, timeRequests)
+	assert.Greater(t, client.TimeOffset, int64(0))
 }
 
 // TestCalculatePositionSize tests position size calculation

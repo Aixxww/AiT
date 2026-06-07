@@ -7,6 +7,7 @@ import (
 	"github.com/Aixxww/AiT/provider/aitos"
 	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
+	"math"
 	"strings"
 	"time"
 )
@@ -76,6 +77,8 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	// Position sizing guidance
 	sb.WriteString("## Position Sizing Guidance\n")
 	sb.WriteString("Calculate `position_size_usd` based on your confidence and the Position Value Limits above:\n")
+	sb.WriteString("- `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.\n")
+	sb.WriteString("- Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.\n")
 	sb.WriteString("- High confidence (≥85): Use 80-100%% of max position value limit\n")
 	sb.WriteString("- Medium confidence (70-84): Use 50-80%% of max position value limit\n")
 	sb.WriteString("- Low confidence (60-69): Use 30-50%% of max position value limit\n")
@@ -141,6 +144,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- `action`: open_long | open_short | close_long | close_short | hold | wait\n")
 	sb.WriteString(fmt.Sprintf("- `confidence`: 0-100 (opening recommended ≥ %d)\n", riskControl.MinConfidence))
 	sb.WriteString("- Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence\n")
+	sb.WriteString("- `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.\n")
 	sb.WriteString("- `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price\n")
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
@@ -234,6 +238,16 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	// System status
 	sb.WriteString(fmt.Sprintf("Time: %s | Period: #%d | Runtime: %d minutes\n\n",
 		ctx.CurrentTime, ctx.CallCount, ctx.RuntimeMinutes))
+
+	if ctx.IsDegraded {
+		reasons := strings.Join(ctx.DegradationReasons, "; ")
+		if reasons == "" {
+			reasons = "account or position data is stale"
+		}
+		sb.WriteString("## Trading Context Degraded\n")
+		sb.WriteString(fmt.Sprintf("Reason: %s\n", reasons))
+		sb.WriteString("Open orders are disabled for this cycle. Only hold, wait, or risk-reducing close decisions are allowed.\n\n")
+	}
 
 	// BTC market
 	if btcData, hasBTC := ctx.MarketDataMap["BTCUSDT"]; hasBTC {
@@ -462,7 +476,7 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			sb.WriteString("\n")
 		}
 		if e.shouldCompactCandidatePrompt(coin, ctx) {
-			sb.WriteString(e.formatCompactMarketData(marketData))
+			sb.WriteString(e.formatCompactMarketData(marketData, &coin))
 		} else {
 			sb.WriteString(e.formatMarketData(marketData))
 		}
@@ -816,7 +830,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 	return sb.String()
 }
 
-func (e *StrategyEngine) formatCompactMarketData(data *market.Data) string {
+func (e *StrategyEngine) formatCompactMarketData(data *market.Data, coin *CandidateCoin) string {
 	var sb strings.Builder
 	indicators := e.config.Indicators
 
@@ -850,8 +864,370 @@ func (e *StrategyEngine) formatCompactMarketData(data *market.Data) string {
 			}
 		}
 	}
+	if coin != nil && coin.V7SetupType != "" {
+		if summary := e.formatHunterV7ExecutionCompact(data, coin); summary != "" {
+			sb.WriteString(summary)
+		}
+	}
 	sb.WriteString("\n")
 	return sb.String()
+}
+
+func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin *CandidateCoin) string {
+	var sb strings.Builder
+	price := data.CurrentPrice
+	if price <= 0 && coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
+	}
+	if price <= 0 {
+		return ""
+	}
+
+	sb.WriteString("Hunter v7 execution compact: ")
+	parts := []string{
+		fmt.Sprintf("setup=%s", coin.V7SetupType),
+		fmt.Sprintf("entry_mode=%s", coin.V7EntryMode),
+		fmt.Sprintf("confidence=%s", coin.V7Confidence),
+		fmt.Sprintf("timing=%.0f", coin.V7TimingScore),
+		fmt.Sprintf("risk=%.0f", coin.V7RiskScore),
+	}
+	if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
+		pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+		parts = append(parts,
+			fmt.Sprintf("entry_zone_pos=%.1f%%", pos),
+			fmt.Sprintf("dist_zone_upper=%+.2f%%", pctMove(price, coin.V7EntryZone.Upper)),
+			fmt.Sprintf("dist_zone_lower=%+.2f%%", pctMove(price, coin.V7EntryZone.Lower)),
+			fmt.Sprintf("zone_location=%s", entryZoneLocation(pos)),
+		)
+	}
+	if coin.V7Invalidation.Price > 0 {
+		parts = append(parts, fmt.Sprintf("invalidation_dist=%+.2f%%", pctMove(price, coin.V7Invalidation.Price)))
+	}
+	if len(coin.V7Targets) > 0 && coin.V7Targets[0].Price > 0 {
+		parts = append(parts, fmt.Sprintf("target1_dist=%+.2f%%", pctMove(price, coin.V7Targets[0].Price)))
+	}
+	if coin.V7DerivativesCtx != nil {
+		parts = append(parts,
+			fmt.Sprintf("oi_1h=%+.2f%%", coin.V7DerivativesCtx.OIChange1h),
+			fmt.Sprintf("oi_4h=%+.2f%%", coin.V7DerivativesCtx.OIChange4h),
+			fmt.Sprintf("taker15m=%.3f", coin.V7DerivativesCtx.TakerBuy15m),
+		)
+		if coin.V7SetupType == "funding_reversal" {
+			parts = append(parts, fmt.Sprintf("oi_state=%s", fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h)))
+		}
+	}
+	vwap15m := hunterV7CompactVWAP15m(data, coin)
+	if tf15 := data.TimeframeData["15m"]; tf15 != nil {
+		if tfSummary := executionTFCompact("15m", price, tf15, vwap15m); tfSummary != "" {
+			parts = append(parts, tfSummary)
+		}
+	}
+	if tf5 := data.TimeframeData["5m"]; tf5 != nil {
+		if tfSummary := executionTFCompact("5m", price, tf5, 0); tfSummary != "" {
+			parts = append(parts, tfSummary)
+		}
+	}
+	if warning := hunterV7ExecutionWarning(price, coin); warning != "" {
+		parts = append(parts, "warning="+warning)
+	}
+	if rule := hunterV7ExecutionHardRule(price, coin); rule != "" {
+		parts = append(parts, "hard_rule="+rule)
+	}
+	if missing := hunterV7CompactMissingFields(data, coin); len(missing) > 0 {
+		parts = append(parts,
+			"compact_data_quality=partial",
+			fmt.Sprintf("missing=%s", strings.Join(missing, ",")),
+			"missing_fields_rule=wait_unless_all_required_confirmations_are_visible",
+		)
+	} else {
+		parts = append(parts, "compact_data_quality=complete")
+	}
+	sb.WriteString(strings.Join(parts, " | "))
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func hunterV7CompactMissingFields(data *market.Data, coin *CandidateCoin) []string {
+	if coin == nil {
+		return nil
+	}
+	missing := make([]string, 0, 8)
+	if coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= coin.V7EntryZone.Lower {
+		missing = append(missing, "entry_zone")
+	}
+	if coin.V7Invalidation.Price <= 0 {
+		missing = append(missing, "invalidation")
+	}
+	if len(coin.V7Targets) == 0 || coin.V7Targets[0].Price <= 0 {
+		missing = append(missing, "target1")
+	}
+	if coin.V7DerivativesCtx == nil {
+		missing = append(missing, "derivatives_context")
+	} else if coin.V7DerivativesCtx.TakerBuy15m <= 0 {
+		missing = append(missing, "taker_buy_15m")
+	}
+	if data == nil {
+		return append(missing, "market_data")
+	}
+	tf15 := data.TimeframeData["15m"]
+	if tf15 == nil || len(tf15.Klines) == 0 {
+		missing = append(missing, "15m_kline")
+	} else {
+		if tf15.ATR14 <= 0 {
+			missing = append(missing, "15m_atr")
+		}
+		if _, ok := lastFloat(tf15.EMA20Values); !ok {
+			missing = append(missing, "15m_ema20")
+		}
+	}
+	if hunterV7RequiresVWAP(coin) && hunterV7CompactVWAP15m(data, coin) <= 0 {
+		missing = append(missing, "15m_vwap")
+	}
+	tf5 := data.TimeframeData["5m"]
+	if tf5 == nil || len(tf5.Klines) == 0 {
+		missing = append(missing, "5m_kline")
+	}
+	return missing
+}
+
+func executionTFCompact(label string, price float64, data *market.TimeframeSeriesData, vwap float64) string {
+	if data == nil || len(data.Klines) == 0 {
+		return ""
+	}
+	last := data.Klines[len(data.Klines)-1]
+	recent := lastNKlines(data.Klines, 3)
+	hi, lo := highLow(recent)
+	parts := []string{
+		fmt.Sprintf("%s_recent_high3=%.6f", label, hi),
+		fmt.Sprintf("%s_recent_low3=%.6f", label, lo),
+	}
+	if data.ATR14 > 0 {
+		parts = append(parts, fmt.Sprintf("%s_atr_pct=%.2f%%", label, data.ATR14/price*100))
+		parts = append(parts, fmt.Sprintf("%s_min_stop_0_8atr=%.2f%%", label, data.ATR14*0.8/price*100))
+	}
+	if ema20, ok := lastFloat(data.EMA20Values); ok && ema20 > 0 {
+		parts = append(parts, fmt.Sprintf("%s_close_vs_ema20=%+.2f%%", label, pctMove(ema20, last.Close)))
+	}
+	if vwap > 0 {
+		parts = append(parts,
+			fmt.Sprintf("%s_vwap20=%.6f", label, vwap),
+			fmt.Sprintf("%s_close_vs_vwap20=%+.2f%%", label, pctMove(vwap, last.Close)),
+			fmt.Sprintf("%s_close_below_vwap20=%t", label, last.Close < vwap),
+			fmt.Sprintf("%s_close_above_vwap20=%t", label, last.Close > vwap),
+		)
+	}
+	if upper, ok := lastFloat(data.BOLLUpper); ok && upper > 0 {
+		mid, _ := lastFloat(data.BOLLMiddle)
+		lower, _ := lastFloat(data.BOLLLower)
+		parts = append(parts, fmt.Sprintf("%s_close_vs_boll_mid=%+.2f%%", label, pctMove(mid, last.Close)))
+		parts = append(parts, fmt.Sprintf("%s_close_vs_boll_lower=%+.2f%%", label, pctMove(lower, last.Close)))
+		parts = append(parts, fmt.Sprintf("%s_close_vs_boll_upper=%+.2f%%", label, pctMove(upper, last.Close)))
+	}
+	if len(data.Klines) >= 6 {
+		prev := data.Klines[:len(data.Klines)-1]
+		prevRecent := lastNKlines(prev, 5)
+		prevHi, prevLo := highLow(prevRecent)
+		if prevHi > 0 {
+			parts = append(parts, fmt.Sprintf("%s_no_new_high=%t", label, last.High <= prevHi))
+		}
+		if prevLo > 0 {
+			parts = append(parts, fmt.Sprintf("%s_no_new_low=%t", label, last.Low >= prevLo))
+		}
+		if avgVol := averageVolume(prevRecent); avgVol > 0 {
+			parts = append(parts, fmt.Sprintf("%s_vol_vs_avg5=%.2fx", label, last.Volume/avgVol))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func hunterV7CompactVWAP15m(data *market.Data, coin *CandidateCoin) float64 {
+	if coin != nil {
+		if coin.V7VWAP15m > 0 {
+			return coin.V7VWAP15m
+		}
+		if coin.V7PriceContext != nil && coin.V7PriceContext.VWAP15m > 0 {
+			return coin.V7PriceContext.VWAP15m
+		}
+	}
+	if data == nil {
+		return 0
+	}
+	tf15 := data.TimeframeData["15m"]
+	if tf15 == nil || len(tf15.Klines) == 0 {
+		return 0
+	}
+	return vwapFromKlines(lastNKlines(tf15.Klines, 20))
+}
+
+func hunterV7RequiresVWAP(coin *CandidateCoin) bool {
+	if coin == nil {
+		return false
+	}
+	for _, confirm := range coin.V7RequiredConfirms {
+		if strings.Contains(strings.ToLower(confirm), "vwap") {
+			return true
+		}
+	}
+	return strings.EqualFold(coin.V7SetupType, "funding_reversal")
+}
+
+func hunterV7ExecutionWarning(price float64, coin *CandidateCoin) string {
+	if coin == nil {
+		return ""
+	}
+	if coin.V7SetupType == "funding_reversal" && strings.EqualFold(coin.Direction, "SHORT") {
+		warnings := make([]string, 0, 3)
+		if strings.EqualFold(coin.V7Confidence, "C") && coin.V7AIPriority < 60 {
+			warnings = append(warnings, "C_conf_ai_lt_60")
+		}
+		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
+			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+			if pos <= 45 {
+				warnings = append(warnings, "short_near_zone_lower")
+			}
+		}
+		if coin.V7DerivativesCtx != nil && fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h) == "mixed" {
+			warnings = append(warnings, "oi_mixed")
+		}
+		if coin.V7DerivativesCtx != nil && fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h) == "building" {
+			warnings = append(warnings, "oi_building_no_flush")
+		}
+		if len(warnings) > 0 {
+			return strings.Join(warnings, ",")
+		}
+	}
+	return ""
+}
+
+func hunterV7ExecutionHardRule(price float64, coin *CandidateCoin) string {
+	if coin == nil {
+		return ""
+	}
+	if coin.V7SetupType != "funding_reversal" {
+		return ""
+	}
+	rules := make([]string, 0, 4)
+	oiState := ""
+	if coin.V7DerivativesCtx != nil {
+		oiState = fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h)
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		if oiState == "building" {
+			rules = append(rules, "no_open_short_until_oi_flush_or_failed_rebuild")
+		}
+		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
+			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+			if pos < 65 {
+				rules = append(rules, "no_short_below_zone_upper_wait_retest_rejection")
+			}
+		}
+		if coin.V7PriceContext != nil && coin.V7PriceContext.Change1h < -5 && oiState != "flush" && oiState != "failed_rebuild_or_declining" {
+			rules = append(rules, "no_chase_short_after_fast_drop_without_oi_flush")
+		}
+	}
+	if strings.EqualFold(coin.Direction, "LONG") {
+		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
+			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+			if pos > 35 {
+				rules = append(rules, "no_long_above_zone_lower_wait_pullback_reclaim")
+			}
+		}
+		if coin.V7PriceContext != nil && coin.V7PriceContext.Change1h > 5 && oiState != "flush" && oiState != "failed_rebuild_or_declining" {
+			rules = append(rules, "no_chase_long_after_fast_pump_without_oi_reset")
+		}
+	}
+	if len(rules) == 0 {
+		return ""
+	}
+	return strings.Join(rules, ",") + "; output_wait_only"
+}
+
+func fundingReversalOIState(oi1h, oi4h float64) string {
+	if oi1h < -0.2 && oi4h <= 0 {
+		return "flush"
+	}
+	if oi1h <= 0 && oi4h < -0.5 {
+		return "failed_rebuild_or_declining"
+	}
+	if oi1h > 0 && oi4h < 0 {
+		return "mixed"
+	}
+	if oi1h > 0 && oi4h >= 0 {
+		return "building"
+	}
+	return "neutral"
+}
+
+func entryZoneLocation(pos float64) string {
+	switch {
+	case pos < 0:
+		return "below_zone"
+	case pos <= 35:
+		return "zone_lower"
+	case pos <= 65:
+		return "zone_middle"
+	case pos <= 100:
+		return "zone_upper"
+	default:
+		return "above_zone"
+	}
+}
+
+func pctMove(from, to float64) float64 {
+	if from == 0 {
+		return 0
+	}
+	return (to/from - 1) * 100
+}
+
+func lastNKlines(values []market.KlineBar, n int) []market.KlineBar {
+	if len(values) <= n {
+		return values
+	}
+	return values[len(values)-n:]
+}
+
+func highLow(values []market.KlineBar) (float64, float64) {
+	if len(values) == 0 {
+		return 0, 0
+	}
+	hi := values[0].High
+	lo := values[0].Low
+	for _, v := range values[1:] {
+		hi = math.Max(hi, v.High)
+		lo = math.Min(lo, v.Low)
+	}
+	return hi, lo
+}
+
+func averageVolume(values []market.KlineBar) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, v := range values {
+		sum += v.Volume
+	}
+	return sum / float64(len(values))
+}
+
+func vwapFromKlines(values []market.KlineBar) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	var totalPV, totalVolume float64
+	for _, v := range values {
+		if v.Volume <= 0 {
+			continue
+		}
+		typical := (v.High + v.Low + v.Close) / 3
+		totalPV += typical * v.Volume
+		totalVolume += v.Volume
+	}
+	if totalVolume <= 0 {
+		return 0
+	}
+	return totalPV / totalVolume
 }
 
 func compactTimeframeSummary(data *market.TimeframeSeriesData, indicators store.IndicatorConfig) string {

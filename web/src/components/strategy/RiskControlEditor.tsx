@@ -48,6 +48,9 @@ export function RiskControlEditor({
             </p>
             <input
               type="number"
+              name="risk-max-positions"
+              autoComplete="off"
+              inputMode="numeric"
               value={config.max_positions ?? 3}
               onChange={(e) =>
                 updateField('max_positions', parseInt(e.target.value) || 3)
@@ -57,9 +60,9 @@ export function RiskControlEditor({
               max={3}
               className="w-32 px-3 py-2 rounded"
               style={{
-                background: '#1E2329',
-                border: '1px solid #2B3139',
-                color: 'var(--foreground)',
+                background: 'var(--color-input)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-foreground)',
               }}
             />
           </div>
@@ -235,6 +238,9 @@ export function RiskControlEditor({
               <span className="text-muted-foreground">1:</span>
               <input
                 type="number"
+                name="risk-min-risk-reward-ratio"
+                autoComplete="off"
+                inputMode="decimal"
                 value={config.min_risk_reward_ratio ?? 3}
                 onChange={(e) =>
                   updateField('min_risk_reward_ratio', parseFloat(e.target.value) || 3)
@@ -245,9 +251,9 @@ export function RiskControlEditor({
                 step={0.5}
                 className="w-20 px-3 py-2 rounded ml-2"
                 style={{
-                  background: '#1E2329',
-                  border: '1px solid #2B3139',
-                  color: 'var(--foreground)',
+                  background: 'var(--color-input)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-foreground)',
                 }}
               />
             </div>
@@ -338,6 +344,9 @@ export function RiskControlEditor({
             <div className="flex items-center">
               <input
                 type="number"
+                name="risk-min-position-size"
+                autoComplete="off"
+                inputMode="decimal"
                 value={config.min_position_size ?? 12}
                 onChange={(e) =>
                   updateField('min_position_size', parseFloat(e.target.value) || 12)
@@ -347,9 +356,9 @@ export function RiskControlEditor({
                 max={1000}
                 className="w-24 px-3 py-2 rounded"
                 style={{
-                  background: '#1E2329',
-                  border: '1px solid #2B3139',
-                  color: 'var(--foreground)',
+                  background: 'var(--color-input)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-foreground)',
                 }}
               />
               <span className="ml-2 text-muted-foreground">

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, lazy, Suspense, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import useSWR from 'swr'
 import {
@@ -15,18 +15,6 @@ import { LoginRequiredOverlay } from '../components/auth/LoginRequiredOverlay'
 import { LoginPage } from '../components/auth/LoginPage'
 import { RegisterPage } from '../components/auth/RegisterPage'
 import { ResetPasswordPage } from '../components/auth/ResetPasswordPage'
-import { SetupPage } from '../components/modals/SetupPage'
-import { CompetitionPage } from '../components/trader/CompetitionPage'
-import { AITradersPage } from '../components/trader/AITradersPage'
-import { FAQPage } from '../pages/FAQPage'
-import { BeginnerOnboardingPage } from '../pages/BeginnerOnboardingPage'
-import { DataPage } from '../pages/DataPage'
-import { AgentChatPage } from '../pages/AgentChatPage'
-import { SettingsPage } from '../pages/SettingsPage'
-import { StrategyMarketPage } from '../pages/StrategyMarketPage'
-import { StrategyStudioPage } from '../pages/StrategyStudioPage'
-import { TraderDashboardPage } from '../pages/TraderDashboardPage'
-import { BacktestPage } from '../components/backtest/BacktestPage'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSystemConfig } from '../hooks/useSystemConfig'
@@ -48,6 +36,20 @@ import {
   ROUTES,
   type Page,
 } from './paths'
+
+// Route-level lazy-loaded pages for code splitting
+const SetupPage = lazy(() => import('../components/modals/SetupPage').then(m => ({ default: m.SetupPage })))
+const CompetitionPage = lazy(() => import('../components/trader/CompetitionPage').then(m => ({ default: m.CompetitionPage })))
+const AITradersPage = lazy(() => import('../components/trader/AITradersPage').then(m => ({ default: m.AITradersPage })))
+const FAQPage = lazy(() => import('../pages/FAQPage').then(m => ({ default: m.FAQPage })))
+const BeginnerOnboardingPage = lazy(() => import('../pages/BeginnerOnboardingPage').then(m => ({ default: m.BeginnerOnboardingPage })))
+const DataPage = lazy(() => import('../pages/DataPage').then(m => ({ default: m.DataPage })))
+const AgentChatPage = lazy(() => import('../pages/AgentChatPage').then(m => ({ default: m.AgentChatPage })))
+const SettingsPage = lazy(() => import('../pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const StrategyMarketPage = lazy(() => import('../pages/StrategyMarketPage').then(m => ({ default: m.StrategyMarketPage })))
+const StrategyStudioPage = lazy(() => import('../pages/StrategyStudioPage').then(m => ({ default: m.StrategyStudioPage })))
+const TraderDashboardPage = lazy(() => import('../pages/TraderDashboardPage').then(m => ({ default: m.TraderDashboardPage })))
+const BacktestPage = lazy(() => import('../components/backtest/BacktestPage').then(m => ({ default: m.BacktestPage })))
 
 function getTraderSlug(trader: TraderInfo) {
   const idPrefix = trader.trader_id.slice(0, 4)
@@ -399,7 +401,8 @@ export function AppRoutes() {
   return (
     <>
       <LegacyHashRedirect />
-      <Routes>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
         <Route
           path={ROUTES.home}
           element={<Navigate to={ROUTES.login} replace />}
@@ -538,7 +541,8 @@ export function AppRoutes() {
           }
         />
         <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </>
   )
 }

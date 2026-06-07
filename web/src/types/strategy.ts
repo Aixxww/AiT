@@ -237,4 +237,7 @@ export interface RiskControlConfig {
   min_risk_reward_ratio: number;   // Min take_profit / stop_loss ratio (AI guided)
   min_confidence: number;          // Min AI confidence to open position (AI guided)
   max_entry_price_deviation_pct?: number; // Max decision price vs execution price drift, percent (CODE ENFORCED)
+  max_single_trade_loss_pct?: number; // Max estimated stop-loss loss vs equity, percent (CODE ENFORCED)
+  max_take_profit_price_move_pct?: number; // Max TP1 price distance from executable entry, percent (CODE ENFORCED)
+  min_stop_loss_price_move_pct?: number; // Minimum stop-loss distance from executable entry, percent (CODE ENFORCED)
 }

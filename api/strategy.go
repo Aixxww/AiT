@@ -3,6 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/market"
@@ -10,8 +14,6 @@ import (
 	_ "github.com/Aixxww/AiT/mcp/payment"
 	_ "github.com/Aixxww/AiT/mcp/provider"
 	"github.com/Aixxww/AiT/store"
-	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -34,15 +36,41 @@ func validateStrategyConfig(config *store.StrategyConfig) []string {
 // handleEstimateTokens estimates token usage for a strategy config (no auth required, pure computation)
 func (s *Server) handleEstimateTokens(c *gin.Context) {
 	var req struct {
-		Config store.StrategyConfig `json:"config" binding:"required"`
+		Config      store.StrategyConfig `json:"config" binding:"required"`
+		TraderID    string               `json:"trader_id,omitempty"`   // optional: calibrate from this trader's history
+		Calibration float64              `json:"calibration,omitempty"` // optional: pre-computed calibration factor
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		SafeBadRequest(c, "Invalid request parameters")
 		return
 	}
 
-	estimate := req.Config.EstimateTokens()
+	// Auto-calibrate from historical data if trader_id is provided and no explicit calibration
+	calibration := req.Calibration
+	if calibration <= 0 && req.TraderID != "" {
+		if result, err := s.store.Decision().GetTokenCalibration(req.TraderID, 20); err == nil && result.SampleCount >= 5 {
+			calibration = result.CalibrationFactor
+		}
+	}
+
+	estimate := req.Config.EstimateTokensWithCalibration(calibration)
 	c.JSON(http.StatusOK, estimate)
+}
+
+// handleTokenCalibration computes token calibration factor from historical decision records
+func (s *Server) handleTokenCalibration(c *gin.Context) {
+	traderID := c.Query("trader_id")
+	sampleSize := 20
+	if n, err := strconv.Atoi(c.DefaultQuery("sample_size", "20")); err == nil && n > 0 {
+		sampleSize = n
+	}
+
+	result, err := s.store.Decision().GetTokenCalibration(traderID, sampleSize)
+	if err != nil {
+		SafeInternalError(c, "Failed to compute token calibration", err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // handlePublicStrategies Get public strategies for strategy market (no auth required)

@@ -96,13 +96,18 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 	// Resolve conflicts (same symbol, opposite directions)
 	allSignals = ResolveV7Conflicts(allSignals)
 
-	// Filter by minimum AI priority
+	// Filter by per-setup minimum AI priority (falls back to global MinAIPriority)
 	var filtered []V7SignalOutput
 	for _, sig := range allSignals {
 		if sig.Status == V7StatusFiltered {
 			continue
 		}
-		if sig.AIPriority >= cfg.MinAIPriority || sig.Status == V7StatusConflictWatch {
+		th := cfg.GetSetupThresholds(sig.SetupType)
+		minPri := th.MinAIPriority
+		if minPri <= 0 {
+			minPri = cfg.MinAIPriority
+		}
+		if sig.AIPriority >= minPri || sig.Status == V7StatusConflictWatch {
 			filtered = append(filtered, sig)
 		}
 	}
@@ -169,13 +174,13 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 	case V7EntryWaitReclaim:
 		if sig.Direction == V7DirShort {
 			return []string{
-				"15m_reject_vwap_or_entry_zone",
+				"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
 				"taker_buy_15m_lt_0_48",
 				"no_new_high_after_rejection",
 			}
 		}
 		return []string{
-			"15m_reclaim_vwap_or_entry_zone",
+			"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
 			"taker_buy_15m_gt_0_52",
 			"no_new_low_after_reclaim",
 		}
@@ -214,13 +219,13 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 	case V7EntryWaitPriceReversal:
 		if sig.Direction == V7DirShort {
 			return []string{
-				"15m_close_below_vwap_or_entry_zone",
+				"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
 				"taker_buy_15m_lt_0_45",
 				"no_new_high_after_reversal_signal",
 			}
 		}
 		return []string{
-			"15m_reclaim_vwap_or_entry_zone",
+			"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
 			"taker_buy_15m_gt_0_52",
 			"no_new_low_after_reversal_signal",
 		}

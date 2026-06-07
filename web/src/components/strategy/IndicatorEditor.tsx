@@ -459,6 +459,9 @@ export function IndicatorEditor({
                 <span className="text-[10px] text-muted-foreground">{ts(indicator.klineCount, language)}:</span>
                 <input
                   type="number"
+                  name="indicator-primary-kline-count"
+                  autoComplete="off"
+                  inputMode="numeric"
                   value={config.klines.primary_count}
                   onChange={(e) =>
                     !disabled &&
@@ -477,7 +480,7 @@ export function IndicatorEditor({
                   min={MIN_KLINE_COUNT}
                   max={MAX_KLINE_COUNT}
                   className="w-16 px-2 py-1 rounded text-xs text-center"
-                  style={{ background: 'var(--color-panel)', border: '1px solid #2B3139', color: 'var(--foreground)' }}
+                  style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
                 />
               </div>
             </div>

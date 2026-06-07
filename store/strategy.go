@@ -408,6 +408,23 @@ type RiskControlConfig struct {
 	MinConfidence int `json:"min_confidence"`
 	// Max allowed deviation between AI decision price and execution reference price (CODE ENFORCED, percent)
 	MaxEntryPriceDeviationPct float64 `json:"max_entry_price_deviation_pct,omitempty"`
+	// Max estimated loss at stop-loss as a percentage of account equity (CODE ENFORCED)
+	MaxSingleTradeLossPct float64 `json:"max_single_trade_loss_pct,omitempty"`
+	// Max take-profit distance from executable entry price for TP1 (CODE ENFORCED, percent)
+	MaxTakeProfitPriceMovePct float64 `json:"max_take_profit_price_move_pct,omitempty"`
+	// Minimum stop-loss distance from executable entry price (CODE ENFORCED, percent)
+	MinStopLossPriceMovePct float64 `json:"min_stop_loss_price_move_pct,omitempty"`
+	// Per-setup execution guard thresholds (optional override, keyed by setup_type)
+	SetupGuard map[string]SetupGuardConfig `json:"setup_guard,omitempty"`
+}
+
+// SetupGuardConfig defines execution guard thresholds for a specific Hunter v7 setup type.
+// Mirrors local.V7SetupThresholds but lives in store to avoid circular imports.
+type SetupGuardConfig struct {
+	MinAIPriority   float64 `json:"min_ai_priority,omitempty"`
+	MinZonePosShort int     `json:"min_zone_pos_short,omitempty"` // SHORT requires zone_pos >= this
+	MaxZonePosLong  int     `json:"max_zone_pos_long,omitempty"`  // LONG requires zone_pos <= this
+	RequireOIFlush  bool    `json:"require_oi_flush,omitempty"`
 }
 
 // NewStrategyStore creates a new StrategyStore
@@ -497,6 +514,9 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 			MinRiskRewardRatio:           3.0, // Min 3:1 profit/loss ratio (AI guided)
 			MinConfidence:                75,  // Min 75% confidence (AI guided)
 			MaxEntryPriceDeviationPct:    0.5, // Max AI decision price vs execution price drift (CODE ENFORCED)
+			MaxSingleTradeLossPct:        8.0, // Max estimated stop-loss impact per trade (CODE ENFORCED)
+			MaxTakeProfitPriceMovePct:    3.0, // Max TP1 price move from executable entry (CODE ENFORCED)
+			MinStopLossPriceMovePct:      0.0, // 0 = strategy default; Hunter v7 enforces 2% fallback in execution risk control
 		},
 	}
 
@@ -710,10 +730,12 @@ func (s *Strategy) SetConfig(config *StrategyConfig) error {
 
 // TokenEstimate holds the result of token estimation
 type TokenEstimate struct {
-	Total       int            `json:"total"`
-	Breakdown   TokenBreakdown `json:"breakdown"`
-	ModelLimits []ModelLimit   `json:"model_limits"`
-	Suggestions []string       `json:"suggestions"`
+	Total             int            `json:"total"`
+	CalibratedTotal   int            `json:"calibrated_total,omitempty"`
+	CalibrationFactor float64        `json:"calibration_factor,omitempty"`
+	Breakdown         TokenBreakdown `json:"breakdown"`
+	ModelLimits       []ModelLimit   `json:"model_limits"`
+	Suggestions       []string       `json:"suggestions"`
 }
 
 // TokenBreakdown shows estimated tokens per component
@@ -796,6 +818,12 @@ func GetContextLimitForClient(provider, model string) int {
 // EstimateTokens estimates the total token count for a strategy configuration.
 // This is a pure computation based on config fields — no network calls.
 func (c *StrategyConfig) EstimateTokens() TokenEstimate {
+	return c.EstimateTokensWithCalibration(0)
+}
+
+// EstimateTokensWithCalibration estimates tokens with an optional calibration factor.
+// If calibration > 0, the final total is multiplied by it (e.g. 0.85 = estimates are ~15% too high).
+func (c *StrategyConfig) EstimateTokensWithCalibration(calibration float64) TokenEstimate {
 	breakdown := TokenBreakdown{}
 
 	// --- System Prompt ---
@@ -914,10 +942,22 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 	subtotal := breakdown.SystemPrompt + breakdown.MarketData + breakdown.RankingData + breakdown.QuantData + breakdown.FixedOverhead
 	total := subtotal * 115 / 100
 
+	// Apply calibration factor if provided
+	calibratedTotal := 0
+	if calibration > 0 {
+		calibratedTotal = int(float64(total) * calibration)
+	}
+
+	// Use calibrated total for model limits if available
+	effectiveTotal := total
+	if calibratedTotal > 0 {
+		effectiveTotal = calibratedTotal
+	}
+
 	// --- Model limits ---
 	modelLimits := make([]ModelLimit, 0, len(ModelContextLimits))
 	for name, limit := range ModelContextLimits {
-		pct := total * 100 / limit
+		pct := effectiveTotal * 100 / limit
 		level := "ok"
 		if pct >= 100 {
 			level = "danger"
@@ -964,10 +1004,12 @@ func (c *StrategyConfig) EstimateTokens() TokenEstimate {
 	}
 
 	return TokenEstimate{
-		Total:       total,
-		Breakdown:   breakdown,
-		ModelLimits: modelLimits,
-		Suggestions: suggestions,
+		Total:             total,
+		CalibratedTotal:   calibratedTotal,
+		CalibrationFactor: calibration,
+		Breakdown:         breakdown,
+		ModelLimits:       modelLimits,
+		Suggestions:       suggestions,
 	}
 }
 

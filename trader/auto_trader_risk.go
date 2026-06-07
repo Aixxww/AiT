@@ -501,6 +501,272 @@ func (at *AutoTrader) maxEntryPriceDeviationPct() float64 {
 	return 0
 }
 
+func (at *AutoTrader) maxSingleTradeLossPct() float64 {
+	if at == nil || at.config.StrategyConfig == nil {
+		return 0
+	}
+	if pct := at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct; pct > 0 {
+		return pct
+	}
+	if at.isHunterV7Strategy() {
+		return 8.0
+	}
+	return 0
+}
+
+func (at *AutoTrader) maxTakeProfitPriceMovePct() float64 {
+	if at == nil || at.config.StrategyConfig == nil {
+		return 0
+	}
+	if pct := at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct; pct > 0 {
+		return pct
+	}
+	if at.isHunterV7Strategy() {
+		return 3.0
+	}
+	return 0
+}
+
+func (at *AutoTrader) minStopLossPriceMovePct() float64 {
+	if at == nil || at.config.StrategyConfig == nil {
+		return 0
+	}
+	if pct := at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct; pct > 0 {
+		return pct
+	}
+	if at.isHunterV7Strategy() {
+		return 2.0
+	}
+	return 0
+}
+
+func (at *AutoTrader) capTakeProfitToTP1(decision *kernel.Decision, currentPrice float64, side string) bool {
+	maxMovePct := at.maxTakeProfitPriceMovePct()
+	if decision == nil || maxMovePct <= 0 || currentPrice <= 0 || decision.TakeProfit <= 0 {
+		return false
+	}
+	maxMove := currentPrice * maxMovePct / 100
+	switch side {
+	case "long":
+		maxTP := currentPrice + maxMove
+		if decision.TakeProfit > maxTP {
+			logger.Infof("  ⚠️ [RISK CONTROL] %s take_profit %.8f is too far from entry %.8f (max %.2f%%); capping TP1 to %.8f",
+				decision.Symbol, decision.TakeProfit, currentPrice, maxMovePct, maxTP)
+			decision.TakeProfit = maxTP
+			return true
+		}
+	case "short":
+		minTP := currentPrice - maxMove
+		if decision.TakeProfit < minTP {
+			logger.Infof("  ⚠️ [RISK CONTROL] %s take_profit %.8f is too far from entry %.8f (max %.2f%%); capping TP1 to %.8f",
+				decision.Symbol, decision.TakeProfit, currentPrice, maxMovePct, minTP)
+			decision.TakeProfit = minTP
+			return true
+		}
+	}
+	return false
+}
+
+func (at *AutoTrader) enforceSingleTradeLossLimit(decision *kernel.Decision, currentPrice, equity float64, side string) (float64, bool, error) {
+	maxLossPct := at.maxSingleTradeLossPct()
+	if decision == nil || maxLossPct <= 0 || currentPrice <= 0 || equity <= 0 || decision.PositionSizeUSD <= 0 || decision.StopLoss <= 0 {
+		return decision.PositionSizeUSD, false, nil
+	}
+
+	var riskDistance float64
+	switch side {
+	case "long":
+		riskDistance = currentPrice - decision.StopLoss
+	case "short":
+		riskDistance = decision.StopLoss - currentPrice
+	default:
+		return decision.PositionSizeUSD, false, nil
+	}
+	if riskDistance <= 0 {
+		return decision.PositionSizeUSD, false, nil
+	}
+
+	stopLossMovePct := riskDistance / currentPrice
+	estimatedLoss := decision.PositionSizeUSD * stopLossMovePct
+	maxLossUSD := equity * maxLossPct / 100
+	if estimatedLoss <= maxLossUSD {
+		return decision.PositionSizeUSD, false, nil
+	}
+
+	maxPositionSize := maxLossUSD / stopLossMovePct
+	if maxPositionSize <= 0 {
+		return decision.PositionSizeUSD, false, fmt.Errorf("❌ [RISK CONTROL] Invalid stop-loss risk for %s", decision.Symbol)
+	}
+	logger.Infof("  ⚠️ [RISK CONTROL] %s estimated SL loss %.2f USDT exceeds %.2f%% equity cap %.2f USDT; reducing position %.2f → %.2f USDT",
+		decision.Symbol, estimatedLoss, maxLossPct, maxLossUSD, decision.PositionSizeUSD, maxPositionSize)
+	return maxPositionSize, true, nil
+}
+
+func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decision *kernel.Decision) error {
+	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
+		return nil
+	}
+	if decision.Action != "open_short" && decision.Action != "open_long" {
+		return nil
+	}
+
+	candidate := hunterV7CandidateForDecision(ctx, decision)
+	if candidate == nil || candidate.V7SetupType == "" {
+		return nil
+	}
+
+	// Look up per-setup guard thresholds from strategy config
+	guard := at.setupGuardForSetup(candidate.V7SetupType)
+	if guard == nil {
+		return nil // no guard configured for this setup
+	}
+
+	price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
+	if price <= 0 {
+		return nil
+	}
+
+	// OI flush check (for setups that require it, e.g. funding_reversal)
+	if guard.RequireOIFlush {
+		oiState := hunterV7FundingReversalOIState(candidate)
+		if oiState == "building" {
+			if decision.Action == "open_short" {
+				return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s SHORT blocked: OI is still building; wait for OI flush or failed rebuild", candidate.V7SetupType, decision.Symbol)
+			}
+			if decision.Action == "open_long" {
+				return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s LONG blocked: OI is still building; wait for OI reset or failed rebuild", candidate.V7SetupType, decision.Symbol)
+			}
+		}
+	}
+
+	// Zone position checks
+	if pos, ok := hunterV7EntryZonePositionPct(candidate, price); ok {
+		if decision.Action == "open_short" && guard.MinZonePosShort > 0 && int(pos) < guard.MinZonePosShort {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s SHORT blocked: price not near entry-zone upper/retest area (zone_pos %.1f%%, min %d%%)",
+				candidate.V7SetupType, decision.Symbol, pos, guard.MinZonePosShort)
+		}
+		if decision.Action == "open_long" && guard.MaxZonePosLong < 100 && int(pos) > guard.MaxZonePosLong {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s LONG blocked: price not near entry-zone lower/reclaim area (zone_pos %.1f%%, max %d%%)",
+				candidate.V7SetupType, decision.Symbol, pos, guard.MaxZonePosLong)
+		}
+	}
+
+	return nil
+}
+
+// setupGuardForSetup returns the guard config for a given setup type.
+// Returns nil if no guard is configured (setup is unconstrained).
+func (at *AutoTrader) setupGuardForSetup(setupType string) *setupGuardDefaults {
+	// First check strategy config overrides
+	if at.config.StrategyConfig != nil && at.config.StrategyConfig.RiskControl.SetupGuard != nil {
+		if sg, ok := at.config.StrategyConfig.RiskControl.SetupGuard[setupType]; ok {
+			return &setupGuardDefaults{
+				MinZonePosShort: sg.MinZonePosShort,
+				MaxZonePosLong:  sg.MaxZonePosLong,
+				RequireOIFlush:  sg.RequireOIFlush,
+			}
+		}
+	}
+	// Built-in defaults for well-known setups
+	return builtinSetupGuardDefaults(setupType)
+}
+
+type setupGuardDefaults struct {
+	MinZonePosShort int
+	MaxZonePosLong  int
+	RequireOIFlush  bool
+}
+
+// builtinSetupGuardDefaults returns hardcoded guard defaults for known setup types.
+// Setups not listed here return nil (no guard).
+func builtinSetupGuardDefaults(setupType string) *setupGuardDefaults {
+	switch setupType {
+	case "funding_reversal":
+		return &setupGuardDefaults{MinZonePosShort: 65, MaxZonePosLong: 35, RequireOIFlush: true}
+	case "distribution_short":
+		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
+	case "long_squeeze_short":
+		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
+	case "range_reversion":
+		return &setupGuardDefaults{MinZonePosShort: 55, MaxZonePosLong: 45, RequireOIFlush: false}
+	case "pullback_reversal_long":
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 50, RequireOIFlush: false}
+	default:
+		return nil
+	}
+}
+
+func hunterV7CandidateForDecision(ctx *kernel.Context, decision *kernel.Decision) *kernel.CandidateCoin {
+	if ctx == nil || decision == nil {
+		return nil
+	}
+	wantDirection := ""
+	if decision.Action == "open_short" {
+		wantDirection = "SHORT"
+	} else if decision.Action == "open_long" {
+		wantDirection = "LONG"
+	}
+	for i := range ctx.CandidateCoins {
+		candidate := &ctx.CandidateCoins[i]
+		if !strings.EqualFold(candidate.Symbol, decision.Symbol) {
+			continue
+		}
+		if wantDirection != "" && candidate.Direction != "" && !strings.EqualFold(candidate.Direction, wantDirection) {
+			continue
+		}
+		return candidate
+	}
+	return nil
+}
+
+func hunterV7DecisionReferencePrice(ctx *kernel.Context, candidate *kernel.CandidateCoin, decision *kernel.Decision) float64 {
+	if decision != nil && decision.Price > 0 {
+		return decision.Price
+	}
+	if ctx != nil && decision != nil {
+		if data := ctx.MarketDataMap[decision.Symbol]; data != nil && data.CurrentPrice > 0 {
+			return data.CurrentPrice
+		}
+	}
+	if candidate != nil && candidate.V7PriceContext != nil && candidate.V7PriceContext.Last > 0 {
+		return candidate.V7PriceContext.Last
+	}
+	return 0
+}
+
+func hunterV7FundingReversalOIState(candidate *kernel.CandidateCoin) string {
+	if candidate == nil || candidate.V7DerivativesCtx == nil {
+		return ""
+	}
+	oi1h := candidate.V7DerivativesCtx.OIChange1h
+	oi4h := candidate.V7DerivativesCtx.OIChange4h
+	if oi1h < -0.2 && oi4h <= 0 {
+		return "flush"
+	}
+	if oi1h <= 0 && oi4h < -0.5 {
+		return "failed_rebuild_or_declining"
+	}
+	if oi1h > 0 && oi4h < 0 {
+		return "mixed"
+	}
+	if oi1h > 0 && oi4h >= 0 {
+		return "building"
+	}
+	return "neutral"
+}
+
+func hunterV7EntryZonePositionPct(candidate *kernel.CandidateCoin, price float64) (float64, bool) {
+	if candidate == nil || price <= 0 {
+		return 0, false
+	}
+	lower := candidate.V7EntryZone.Lower
+	upper := candidate.V7EntryZone.Upper
+	if lower <= 0 || upper <= lower {
+		return 0, false
+	}
+	return (price - lower) / (upper - lower) * 100, true
+}
+
 // validateOpenDecision enforces non-negotiable safety checks before any open order.
 func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPrice float64, side string) error {
 	if decision == nil {
@@ -578,6 +844,14 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 
 	if riskDistance <= 0 || rewardDistance <= 0 {
 		return fmt.Errorf("❌ [RISK CONTROL] Invalid risk/reward distance for %s", decision.Symbol)
+	}
+
+	if minStopLossMovePct := at.minStopLossPriceMovePct(); minStopLossMovePct > 0 {
+		stopLossMovePct := riskDistance / currentPrice * 100
+		if stopLossMovePct < minStopLossMovePct {
+			return fmt.Errorf("❌ [RISK CONTROL] Stop-loss distance %.2f%% below minimum %.2f%% for %s",
+				stopLossMovePct, minStopLossMovePct, decision.Symbol)
+		}
 	}
 
 	if minRiskRewardRatio > 0 {

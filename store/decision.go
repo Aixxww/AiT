@@ -345,6 +345,33 @@ func (s *DecisionStore) GetRecentWaitSymbols(traderID string, maxCycles, thresho
 	return result
 }
 
+// GetRecentFailedOpenSymbols returns symbols with failed open attempts in recent cycles.
+// This is used as a short cooldown so a stale or rejected entry is not retried immediately.
+func (s *DecisionStore) GetRecentFailedOpenSymbols(traderID string, maxCycles int) map[string]string {
+	if maxCycles <= 0 {
+		maxCycles = 3
+	}
+
+	records, err := s.GetLatestRecords(traderID, maxCycles)
+	if err != nil || len(records) == 0 {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, rec := range records {
+		for _, d := range rec.Decisions {
+			if d.Symbol == "" || d.Success {
+				continue
+			}
+			if d.Action != "open_long" && d.Action != "open_short" {
+				continue
+			}
+			result[d.Symbol] = d.Error
+		}
+	}
+	return result
+}
+
 // GetLastCycleNumber gets the last cycle number for specified trader
 func (s *DecisionStore) GetLastCycleNumber(traderID string) (int, error) {
 	var cycleNumber *int
@@ -359,4 +386,69 @@ func (s *DecisionStore) GetLastCycleNumber(traderID string) (int, error) {
 		return 0, nil
 	}
 	return *cycleNumber, nil
+}
+
+// TokenCalibrationResult holds the result of a token calibration analysis.
+type TokenCalibrationResult struct {
+	CalibrationFactor    float64 `json:"calibration_factor"`
+	SampleCount          int     `json:"sample_count"`
+	AvgActualTokens      float64 `json:"avg_actual_tokens"`
+	AvgEstimatedChars    float64 `json:"avg_estimated_chars"`
+	AvgActualToCharRatio float64 `json:"avg_actual_to_char_ratio"`
+}
+
+// GetTokenCalibration computes a calibration factor from recent decision records.
+// It compares actual token usage (from API) with prompt character counts to derive
+// a more accurate chars-per-token ratio than the hardcoded 4:1 English / 2:1 CJK.
+func (s *DecisionStore) GetTokenCalibration(traderID string, sampleSize int) (*TokenCalibrationResult, error) {
+	if sampleSize <= 0 {
+		sampleSize = 20
+	}
+
+	var records []*DecisionRecordDB
+	query := s.db.Where("total_tokens > 0 AND system_prompt != '' AND input_prompt != ''")
+	if traderID != "" {
+		query = query.Where("trader_id = ?", traderID)
+	}
+	err := query.Order("timestamp DESC").Limit(sampleSize).Find(&records).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query calibration records: %w", err)
+	}
+
+	if len(records) == 0 {
+		return &TokenCalibrationResult{
+			CalibrationFactor: 1.0, // no data, no correction
+			SampleCount:       0,
+		}, nil
+	}
+
+	var totalActual int
+	var totalChars int
+	for _, rec := range records {
+		totalActual += rec.TotalTokens
+		// Approximate total prompt chars from stored prompts
+		totalChars += len(rec.SystemPrompt) + len(rec.InputPrompt)
+	}
+
+	avgActual := float64(totalActual) / float64(len(records))
+	avgChars := float64(totalChars) / float64(len(records))
+
+	// chars-per-token ratio: total chars / total tokens
+	charsPerToken := float64(totalChars) / float64(totalActual)
+
+	// Calibration factor: how to adjust the default 4 chars/token estimate
+	// If actual ratio is 3.2, then our estimate over-counts by 4/3.2 = 1.25
+	// Calibration factor < 1.0 means estimate was too high, > 1.0 means too low
+	calibrationFactor := 4.0 / charsPerToken
+	if charsPerToken <= 0 {
+		calibrationFactor = 1.0
+	}
+
+	return &TokenCalibrationResult{
+		CalibrationFactor:    calibrationFactor,
+		SampleCount:          len(records),
+		AvgActualTokens:      avgActual,
+		AvgEstimatedChars:    avgChars,
+		AvgActualToCharRatio: charsPerToken,
+	}, nil
 }

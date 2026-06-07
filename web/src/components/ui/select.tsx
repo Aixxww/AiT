@@ -73,8 +73,16 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] rounded border border-border bg-background shadow-xl shadow-black/50 max-h-60 overflow-y-auto"
-          style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
+          className="fixed z-[9999] rounded border max-h-60 overflow-y-auto"
+          style={{
+            top: pos.top,
+            left: pos.left,
+            minWidth: pos.width,
+            background: 'var(--color-panel)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-foreground)',
+            boxShadow: 'var(--shadow-lg)',
+          }}
         >
           {options.map((opt) => (
             <div
@@ -82,9 +90,25 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
               className={cn(
                 'px-3 py-1.5 text-sm cursor-pointer transition-colors whitespace-nowrap',
                 String(opt.value) === String(value)
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-foreground hover:bg-surface-alt',
+                  ? 'text-primary'
+                  : 'text-foreground',
               )}
+              style={{
+                background:
+                  String(opt.value) === String(value)
+                    ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-panel))'
+                    : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (String(opt.value) !== String(value)) {
+                  e.currentTarget.style.background = 'var(--color-surface-alt)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (String(opt.value) !== String(value)) {
+                  e.currentTarget.style.background = 'transparent'
+                }
+              }}
               onClick={(e) => {
                 e.stopPropagation()
                 onChange(String(opt.value))

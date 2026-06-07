@@ -70,6 +70,15 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 		if ctx.TakerBuy15m > 0.52 {
 			isShortCandidate = false
 		}
+		// Do not chase shorts after an extended drop unless OI is already
+		// flushing. Otherwise the signal is usually late and vulnerable to a
+		// squeeze/rebound.
+		if ctx.Change1h < -5 && ctx.Change4h < 0 && snap.OIDelta1h > 0 {
+			isShortCandidate = false
+		}
+		if ctx.Change24h < -12 && snap.OIDelta1h > 0 {
+			isShortCandidate = false
+		}
 	}
 
 	// Long candidate refinements
@@ -84,6 +93,14 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 			if distToLow > 2.0 {
 				isLongCandidate = false // Price too far from support
 			}
+		}
+		// Symmetric late-chase guard: do not fade short crowding after an
+		// extended pump while OI is still expanding.
+		if ctx.Change1h > 5 && ctx.Change4h > 0 && snap.OIDelta1h > 0 {
+			isLongCandidate = false
+		}
+		if ctx.Change24h > 12 && snap.OIDelta1h > 0 {
+			isLongCandidate = false
 		}
 	}
 
@@ -195,20 +212,28 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 			score += 15
 			sig.ReasonCodes = append(sig.ReasonCodes, "oi_declining_long_flush")
 		} else if snap.OIDelta1h > 5 {
-			score += 10
+			score -= 12
 			sig.ReasonCodes = append(sig.ReasonCodes, "oi_elevated_still_building")
+			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
 		} else if snap.OIDelta1h > 0 {
-			score += 5
+			score -= 5
 			sig.ReasonCodes = append(sig.ReasonCodes, "oi_mild_buildup")
+			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
 		}
 	} else {
-		// OI declining for shorts or stable
-		if snap.OIDelta1h > 3 {
+		// For a long funding reversal, expanding OI after a pump/drop is still
+		// late-entry risk unless there is a clear reset/failed rebuild.
+		if snap.OIDelta1h < -3 {
 			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_rising_short_cover")
-		} else if snap.OIDelta1h < -5 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_declining_still_building")
+			sig.ReasonCodes = append(sig.ReasonCodes, "oi_declining_short_flush")
+		} else if snap.OIDelta1h > 5 {
+			score -= 12
+			sig.ReasonCodes = append(sig.ReasonCodes, "oi_elevated_still_building")
+			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
+		} else if snap.OIDelta1h > 0 {
+			score -= 5
+			sig.ReasonCodes = append(sig.ReasonCodes, "oi_mild_buildup")
+			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
 		} else {
 			score += 5
 			sig.ReasonCodes = append(sig.ReasonCodes, "oi_stable")
@@ -238,6 +263,23 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 			score += 5
 			sig.ReasonCodes = append(sig.ReasonCodes, "taker_neutral")
 		}
+	}
+
+	if dir == V7DirShort && ctx.Change24h < -12 && snap.OIDelta1h >= 0 {
+		score -= 20
+		sig.RiskTags = append(sig.RiskTags, "late_short_after_deep_drop")
+	}
+	if dir == V7DirShort && ctx.Change1h < -5 && snap.OIDelta1h >= 0 {
+		score -= 15
+		sig.RiskTags = append(sig.RiskTags, "short_after_fast_drop_without_flush")
+	}
+	if dir == V7DirLong && ctx.Change24h > 12 && snap.OIDelta1h >= 0 {
+		score -= 20
+		sig.RiskTags = append(sig.RiskTags, "late_long_after_deep_pump")
+	}
+	if dir == V7DirLong && ctx.Change1h > 5 && snap.OIDelta1h >= 0 {
+		score -= 15
+		sig.RiskTags = append(sig.RiskTags, "long_after_fast_pump_without_flush")
 	}
 
 	sig.SetupScore = clampFloat(score, 0, 100)

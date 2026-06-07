@@ -3,16 +3,17 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/Aixxww/AiT/auth"
 	"github.com/Aixxww/AiT/backtest"
 	"github.com/Aixxww/AiT/crypto"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/manager"
 	"github.com/Aixxww/AiT/store"
-	"net"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -122,6 +123,7 @@ func (s *Server) setupRoutes() {
 		// Public strategy market (no authentication required)
 		s.route(api, "GET", "/strategies/public", "Public strategy market", s.handlePublicStrategies)
 		s.route(api, "POST", "/strategies/estimate-tokens", "Estimate token usage for a strategy config", s.handleEstimateTokens)
+		s.route(api, "GET", "/strategies/token-calibration", "Compute token calibration factor from historical decisions", s.handleTokenCalibration)
 
 		// Authentication related routes (no authentication required)
 		s.route(api, "POST", "/register", "Register new user", s.handleRegister)

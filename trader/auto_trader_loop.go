@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const maxDegradedContextCacheAge = 30 * time.Minute
+
 // runCycle runs one trading cycle (using AI full decision-making)
 func (at *AutoTrader) runCycle() error {
 	at.callCount++
@@ -64,6 +66,11 @@ func (at *AutoTrader) runCycle() error {
 		record.ErrorMessage = fmt.Sprintf("Failed to build trading context: %v", err)
 		at.saveDecision(record)
 		return fmt.Errorf("failed to build trading context: %w", err)
+	}
+	if ctx.IsDegraded {
+		reason := strings.Join(ctx.DegradationReasons, "; ")
+		at.logWarnf("⚠️ Trading context degraded: %s", reason)
+		record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⚠️ Trading context degraded: %s", reason))
 	}
 
 	// Save equity snapshot independently (decoupled from AI decision, used for drawing profit curve)
@@ -245,6 +252,31 @@ func (at *AutoTrader) runCycle() error {
 		}
 	}
 
+	if ctx.DisableOpenOrders {
+		filtered := make([]kernel.Decision, 0, len(sortedDecisions))
+		for _, d := range sortedDecisions {
+			if d.Action == "open_long" || d.Action == "open_short" {
+				at.logWarnf("⚠️ Degraded context: BLOCKED %s %s (open orders disabled)", d.Action, d.Symbol)
+				record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⚠️ Degraded context blocked %s %s", d.Symbol, d.Action))
+				record.Decisions = append(record.Decisions, store.DecisionAction{
+					Action:     d.Action,
+					Symbol:     d.Symbol,
+					Leverage:   d.Leverage,
+					StopLoss:   d.StopLoss,
+					TakeProfit: d.TakeProfit,
+					Confidence: d.Confidence,
+					Reasoning:  d.Reasoning,
+					Timestamp:  time.Now().UTC(),
+					Success:    false,
+					Error:      "degraded trading context: open orders disabled",
+				})
+				continue
+			}
+			filtered = append(filtered, d)
+		}
+		sortedDecisions = filtered
+	}
+
 	// Execute decisions and record results
 	for _, d := range sortedDecisions {
 		// Check if trader is stopped before each decision (allow immediate stop during execution)
@@ -270,7 +302,11 @@ func (at *AutoTrader) runCycle() error {
 			Success:    false,
 		}
 
-		if err := at.executeDecisionWithRecord(&d, &actionRecord); err != nil {
+		if err := at.validateHunterV7ExecutionGuard(ctx, &d); err != nil {
+			at.logErrorf("❌ Hunter v7 execution guard blocked (%s %s): %v", d.Symbol, d.Action, err)
+			actionRecord.Error = err.Error()
+			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s blocked: %v", d.Symbol, d.Action, err))
+		} else if err := at.executeDecisionWithRecord(&d, &actionRecord); err != nil {
 			at.logErrorf("❌ Failed to execute decision (%s %s): %v", d.Symbol, d.Action, err)
 			actionRecord.Error = err.Error()
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s failed: %v", d.Symbol, d.Action, err))
@@ -292,12 +328,98 @@ func (at *AutoTrader) runCycle() error {
 	return nil
 }
 
+func (at *AutoTrader) degradedContextCacheAgeLimit() time.Duration {
+	limit := at.config.ScanInterval * 2
+	if limit <= 0 {
+		limit = 2 * time.Minute
+	}
+	if limit > maxDegradedContextCacheAge {
+		return maxDegradedContextCacheAge
+	}
+	return limit
+}
+
+func cloneInterfaceMap(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func clonePositionMaps(src []map[string]interface{}) []map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make([]map[string]interface{}, len(src))
+	for i, item := range src {
+		dst[i] = cloneInterfaceMap(item)
+	}
+	return dst
+}
+
+func (at *AutoTrader) cacheContextBalance(balance map[string]interface{}) {
+	at.contextCacheMutex.Lock()
+	defer at.contextCacheMutex.Unlock()
+	at.lastContextBalance = cloneInterfaceMap(balance)
+	at.lastContextBalanceAt = time.Now()
+}
+
+func (at *AutoTrader) cacheContextPositions(positions []map[string]interface{}) {
+	at.contextCacheMutex.Lock()
+	defer at.contextCacheMutex.Unlock()
+	at.lastContextPositions = clonePositionMaps(positions)
+	at.lastContextPositionsAt = time.Now()
+}
+
+func (at *AutoTrader) cachedContextBalance(maxAge time.Duration) (map[string]interface{}, time.Duration, bool) {
+	at.contextCacheMutex.RLock()
+	defer at.contextCacheMutex.RUnlock()
+	if at.lastContextBalance == nil || at.lastContextBalanceAt.IsZero() {
+		return nil, 0, false
+	}
+	age := time.Since(at.lastContextBalanceAt)
+	if maxAge > 0 && age > maxAge {
+		return nil, age, false
+	}
+	return cloneInterfaceMap(at.lastContextBalance), age, true
+}
+
+func (at *AutoTrader) cachedContextPositions(maxAge time.Duration) ([]map[string]interface{}, time.Duration, bool) {
+	at.contextCacheMutex.RLock()
+	defer at.contextCacheMutex.RUnlock()
+	if at.lastContextPositions == nil || at.lastContextPositionsAt.IsZero() {
+		return nil, 0, false
+	}
+	age := time.Since(at.lastContextPositionsAt)
+	if maxAge > 0 && age > maxAge {
+		return nil, age, false
+	}
+	return clonePositionMaps(at.lastContextPositions), age, true
+}
+
 // buildTradingContext builds trading context
 func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
+	var degradationReasons []string
+	accountDataStale := false
+	positionDataStale := false
+	cacheAgeLimit := at.degradedContextCacheAgeLimit()
+
 	// 1. Get account information
 	balance, err := at.trader.GetBalance()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account balance: %w", err)
+		cached, age, ok := at.cachedContextBalance(cacheAgeLimit)
+		if !ok {
+			return nil, fmt.Errorf("failed to get account balance: %w", err)
+		}
+		balance = cached
+		accountDataStale = true
+		degradationReasons = append(degradationReasons, fmt.Sprintf("account balance API failed (%v), using %.0fs cached balance", err, age.Seconds()))
+	} else {
+		at.cacheContextBalance(balance)
 	}
 
 	// Get account fields
@@ -327,7 +449,15 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	// 2. Get position information
 	positions, err := at.trader.GetPositions()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get positions: %w", err)
+		cached, age, ok := at.cachedContextPositions(cacheAgeLimit)
+		if !ok {
+			return nil, fmt.Errorf("failed to get positions: %w", err)
+		}
+		positions = cached
+		positionDataStale = true
+		degradationReasons = append(degradationReasons, fmt.Sprintf("positions API failed (%v), using %.0fs cached positions", err, age.Seconds()))
+	} else {
+		at.cacheContextPositions(positions)
 	}
 
 	var positionInfos []kernel.PositionInfo
@@ -458,6 +588,24 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 					}
 				}
 			}
+
+			// Failed-open cooldown: if an open order was rejected recently, do not
+			// immediately retry the same symbol while the signal may still be stale.
+			if at.store != nil && len(candidateCoins) > 0 {
+				failedOpens := at.store.Decision().GetRecentFailedOpenSymbols(at.id, 3)
+				if len(failedOpens) > 0 {
+					filtered := make([]kernel.CandidateCoin, 0, len(candidateCoins))
+					for _, coin := range candidateCoins {
+						if reason, failed := failedOpens[coin.Symbol]; failed {
+							logger.Infof("🧊 [%s] Failed-open cooldown: skipping %s (recent open rejected: %s)", at.name, coin.Symbol, reason)
+						} else {
+							filtered = append(filtered, coin)
+						}
+					}
+					logger.Infof("🧊 [%s] Failed-open cooldown filtered: %d → %d candidates", at.name, len(candidateCoins), len(filtered))
+					candidateCoins = filtered
+				}
+			}
 		}
 	}
 
@@ -481,11 +629,16 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 
 	// 6. Build context
 	ctx := &kernel.Context{
-		CurrentTime:     time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
-		RuntimeMinutes:  int(time.Since(at.startTime).Minutes()),
-		CallCount:       at.callCount,
-		BTCETHLeverage:  btcEthLeverage,
-		AltcoinLeverage: altcoinLeverage,
+		CurrentTime:        time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
+		RuntimeMinutes:     int(time.Since(at.startTime).Minutes()),
+		CallCount:          at.callCount,
+		IsDegraded:         len(degradationReasons) > 0,
+		DegradationReasons: degradationReasons,
+		AccountDataStale:   accountDataStale,
+		PositionDataStale:  positionDataStale,
+		DisableOpenOrders:  len(degradationReasons) > 0,
+		BTCETHLeverage:     btcEthLeverage,
+		AltcoinLeverage:    altcoinLeverage,
 		Account: kernel.AccountInfo{
 			TotalEquity:      totalEquity,
 			AvailableBalance: availableBalance,

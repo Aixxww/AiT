@@ -38,14 +38,11 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 
 	// Cache expired or doesn't exist, call API
 	logger.Infof("🔄 Cache expired, calling Binance API to get position information...")
-	positions, err := t.client.NewGetPositionRiskService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
-	if isBinanceTimestampError(err) {
-		logger.Infof("⏱ Binance timestamp error while getting positions, re-syncing server time and retrying once: %v", err)
-		t.resyncBinanceServerTime()
-		positions, err = t.client.NewGetPositionRiskService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
-	}
+	positions, err := doSignedBinanceRequestWithRetry(t, "get positions", func() ([]*futures.PositionRisk, error) {
+		return t.client.NewGetPositionRiskService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get positions: %w", err)
+		return nil, fmt.Errorf("failed to get positions: %s", sanitizeBinanceError(err))
 	}
 
 	var result []map[string]interface{}

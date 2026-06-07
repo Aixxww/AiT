@@ -24,15 +24,12 @@ func (t *FuturesTrader) GetBalance() (map[string]interface{}, error) {
 
 	// Cache expired or doesn't exist, call API
 	logger.Infof("🔄 Cache expired, calling Binance API to get account balance...")
-	account, err := t.client.NewGetAccountService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
-	if isBinanceTimestampError(err) {
-		logger.Infof("⏱ Binance timestamp error while getting account balance, re-syncing server time and retrying once: %v", err)
-		t.resyncBinanceServerTime()
-		account, err = t.client.NewGetAccountService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
-	}
+	account, err := doSignedBinanceRequestWithRetry(t, "get account balance", func() (*futures.Account, error) {
+		return t.client.NewGetAccountService().Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		logger.Infof("❌ Binance API call failed: %v", err)
-		return nil, fmt.Errorf("failed to get account info: %w", err)
+		logger.Infof("❌ Binance API call failed: %s", sanitizeBinanceError(err))
+		return nil, fmt.Errorf("failed to get account info: %s", sanitizeBinanceError(err))
 	}
 
 	result := make(map[string]interface{})
@@ -124,13 +121,15 @@ func (t *FuturesTrader) GetTrades(startTime time.Time, limit int) ([]types.Trade
 	}
 
 	// Use Income API to get REALIZED_PNL records (all symbols)
-	incomes, err := t.client.NewGetIncomeHistoryService().
-		IncomeType("REALIZED_PNL").
-		StartTime(startTime.UnixMilli()).
-		Limit(int64(limit)).
-		Do(context.Background())
+	incomes, err := doSignedBinanceRequestWithRetry(t, "get realized PnL income history", func() ([]*futures.IncomeHistory, error) {
+		return t.client.NewGetIncomeHistoryService().
+			IncomeType("REALIZED_PNL").
+			StartTime(startTime.UnixMilli()).
+			Limit(int64(limit)).
+			Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get income history: %w", err)
+		return nil, fmt.Errorf("failed to get income history: %s", sanitizeBinanceError(err))
 	}
 
 	var trades []types.TradeRecord
@@ -166,13 +165,15 @@ func (t *FuturesTrader) GetTradesForSymbol(symbol string, startTime time.Time, l
 		limit = 1000
 	}
 
-	accountTrades, err := t.client.NewListAccountTradeService().
-		Symbol(symbol).
-		StartTime(startTime.UnixMilli()).
-		Limit(limit).
-		Do(context.Background())
+	accountTrades, err := doSignedBinanceRequestWithRetry(t, "get account trades", func() ([]*futures.AccountTrade, error) {
+		return t.client.NewListAccountTradeService().
+			Symbol(symbol).
+			StartTime(startTime.UnixMilli()).
+			Limit(limit).
+			Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get trade history for %s: %w", symbol, err)
+		return nil, fmt.Errorf("failed to get trade history for %s: %s", symbol, sanitizeBinanceError(err))
 	}
 
 	var trades []types.TradeRecord
@@ -209,13 +210,15 @@ func (t *FuturesTrader) GetTradesForSymbolFromID(symbol string, fromID int64, li
 		limit = 1000
 	}
 
-	accountTrades, err := t.client.NewListAccountTradeService().
-		Symbol(symbol).
-		FromID(fromID).
-		Limit(limit).
-		Do(context.Background())
+	accountTrades, err := doSignedBinanceRequestWithRetry(t, "get account trades from id", func() ([]*futures.AccountTrade, error) {
+		return t.client.NewListAccountTradeService().
+			Symbol(symbol).
+			FromID(fromID).
+			Limit(limit).
+			Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get trade history for %s from ID %d: %w", symbol, fromID, err)
+		return nil, fmt.Errorf("failed to get trade history for %s from ID %d: %s", symbol, fromID, sanitizeBinanceError(err))
 	}
 
 	var trades []types.TradeRecord
@@ -245,13 +248,15 @@ func (t *FuturesTrader) GetTradesForSymbolFromID(symbol string, fromID int64, li
 // GetCommissionSymbols returns symbols that have new commission records since lastSyncTime
 // COMMISSION income is generated for every trade, so this is more reliable than REALIZED_PNL
 func (t *FuturesTrader) GetCommissionSymbols(lastSyncTime time.Time) ([]string, error) {
-	incomes, err := t.client.NewGetIncomeHistoryService().
-		IncomeType("COMMISSION").
-		StartTime(lastSyncTime.UnixMilli()).
-		Limit(1000).
-		Do(context.Background())
+	incomes, err := doSignedBinanceRequestWithRetry(t, "get commission income history", func() ([]*futures.IncomeHistory, error) {
+		return t.client.NewGetIncomeHistoryService().
+			IncomeType("COMMISSION").
+			StartTime(lastSyncTime.UnixMilli()).
+			Limit(1000).
+			Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get commission history: %w", err)
+		return nil, fmt.Errorf("failed to get commission history: %s", sanitizeBinanceError(err))
 	}
 
 	symbolMap := make(map[string]bool)
@@ -272,13 +277,15 @@ func (t *FuturesTrader) GetCommissionSymbols(lastSyncTime time.Time) ([]string, 
 // GetPnLSymbols returns symbols that have REALIZED_PNL records since lastSyncTime
 // This is a fallback when COMMISSION detection fails (VIP users, BNB fee discount)
 func (t *FuturesTrader) GetPnLSymbols(lastSyncTime time.Time) ([]string, error) {
-	incomes, err := t.client.NewGetIncomeHistoryService().
-		IncomeType("REALIZED_PNL").
-		StartTime(lastSyncTime.UnixMilli()).
-		Limit(1000).
-		Do(context.Background())
+	incomes, err := doSignedBinanceRequestWithRetry(t, "get PnL income history", func() ([]*futures.IncomeHistory, error) {
+		return t.client.NewGetIncomeHistoryService().
+			IncomeType("REALIZED_PNL").
+			StartTime(lastSyncTime.UnixMilli()).
+			Limit(1000).
+			Do(context.Background(), futures.WithRecvWindow(binanceSignedRequestRecvWindow))
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get PnL history: %w", err)
+		return nil, fmt.Errorf("failed to get PnL history: %s", sanitizeBinanceError(err))
 	}
 
 	symbolMap := make(map[string]bool)

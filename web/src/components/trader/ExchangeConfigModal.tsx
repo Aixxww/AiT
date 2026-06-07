@@ -754,7 +754,18 @@ export function ExchangeConfigModal({
                         <HelpCircle className="w-4 h-4 cursor-help" style={{ color: '#3B82F6' }} />
                       </Tooltip>
                     </label>
-                    <input type="number" min={0} max={255} value={lighterApiKeyIndex} onChange={(e) => setLighterApiKeyIndex(parseInt(e.target.value) || 0)} className="w-full px-4 py-3 rounded-xl" style={{ background: 'var(--background)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }} />
+                    <input
+                      type="number"
+                      name="exchange-lighter-api-key-index"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      min={0}
+                      max={255}
+                      value={lighterApiKeyIndex}
+                      onChange={(e) => setLighterApiKeyIndex(parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-3 rounded-xl"
+                      style={{ background: 'var(--color-input)', border: '1px solid var(--color-border)', color: 'var(--color-foreground)' }}
+                    />
                   </div>
                 </>
               )}

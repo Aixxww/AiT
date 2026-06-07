@@ -14,10 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cycle review command `cmd/cycle_review` to generate Markdown/JSON reports from decision records, including open rate, PnL, token usage, and execution guard blocks
+- Historical token calibration API for strategy token estimates based on real decision records
 - Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
 - Hunter v7 live validation command (`cmd/hunter_v7_validate`)
 - Adaptive position protector with TP1/TP2 partial protection, profit giveback trailing protection, and state cleanup after close
 - Max entry price deviation risk control to limit drift between the AI decision price and the executable market reference
+- Hunter v7 risk controls for max stop-loss impact, TP1 distance cap, minimum stop-loss distance, and per-setup execution guards
 - Strategy prompt token compression switch with current-strategy-aware UI labels
 - Copy/save actions for recent decision AI analysis, with copy feedback moved to auto-dismiss toast notifications
 - Hunter bidirectional coin selection: simultaneous LONG and SHORT signal output
@@ -29,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Hunter v7 compact prompts now include execution-grade context such as entry-zone position, OI state, VWAP/EMA/ATR, and hard rules
+- Trading context supports degraded cached snapshots; when account or position data is stale, new opens are disabled and only wait/hold/risk-reducing actions are allowed
+- Binance USD-M signed requests now retry transient network failures and resync server time before timestamp retries
 - Wired `hunter_v7` into the unified SnapshotEngine hot-snapshot path
 - Open execution now checks order-book or live market reference price before RR/slippage validation to reduce stale signal price drift
 - Updated frontend to a cyber-style light/dark theme with improved mobile navigation, dashboard contrast, and prompt editor readability
@@ -42,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider module optimizations (local client, Hunter, AI500 provider)
 
 ### Fixed
+- Funding reversal late-chase filtering: OI building no longer scores positively, and C-grade funding reversal opens are blocked without OI flush, correct zone location, and sufficient stop-loss distance
+- Clarified AI position sizing prompts so `position_size_usd` is treated as notional exposure and not multiplied by leverage again
+- Added failed-open cooldown to avoid immediately retrying stale signals after exchange or risk-control rejection
 - Binance USD-M stop-loss/take-profit trigger prices now use symbol precision formatting to avoid precision errors on altcoin orders
 - Binance leverage setup falls back to the exchange-supported leverage cap when a requested leverage is invalid for small-cap symbols
 - Fixed persistence for strategy data-source fields such as AI priority threshold and aggressive mode
