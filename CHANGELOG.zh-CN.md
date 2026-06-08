@@ -14,6 +14,7 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
+- Hunter v7 / VVV 2026-06-08 实盘监控报告，覆盖周期 #20-#83 回归对照、最近实盘周期、信号标签审校和提示词对齐
 - Hunter v7 候选池保底上下文输出：候选池过薄时最多补足 3 个非硬过滤的 `wait_confirm` 信号给 LLM
 - 2026-06-07 会话复盘报告，覆盖 Hunter v7 候选可见性、实盘开仓失败、风控几何和看板性能修复
 - 周期复盘命令 `cmd/cycle_review`，支持从决策记录生成 Markdown/JSON 复盘报告，统计开仓率、PnL、Token 使用和 execution guard 拦截情况
@@ -34,6 +35,8 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 文档中心新增 Hunter 选币模块专区
 
 ### 变更
+- Hunter v7 执行分层会在 LLM 开仓复核前把 `already_pumped_24h`、`funding_expensive`、`no_reclaim_signal`、`taker_sell_during_accumulation` 和错误入场区间等高风险标签视为 wait-only 语义
+- Hunter v7 策略提示词明确禁止 LLM 用高 priority 或 setup score 覆盖 wait-only 风险标签
 - 看板、交易员配置、策略工作室、图表和历史仓位视图改为懒加载重组件，并降低高频轮询带来的导航卡顿
 - Hunter v7 执行层风控几何会在 TP 上限与最小止损、入场漂移、最低 RR 冲突时自动抬升有效 TP cap
 - 系统提示词明确输出 Hunter v7 开仓的代码强制入场漂移、最小止损距离、有效 TP 上限和可行 RR 几何
@@ -53,6 +56,7 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - Provider 模块优化（local client、Hunter、AI500 provider）
 
 ### 修复
+- 修复 Hunter v7 高风险标签仍可能被提升为 `EXECUTABLE` 或 `REVIEWABLE` 的误开路径，包括无 OI flush 的 funding 追涨追跌、已衰竭的 short squeeze long、吸筹中主动卖压、无 reclaim 的 panic long、以及不在 retest zone 的 reversion short
 - 修复 Hunter v7 候选可见性被 per-setup 执行阈值过度收紧的问题；LLM 候选可见性改由全局 `v7_min_ai_priority` 控制
 - 修复 3% TP 上限、2% 最小止损、0.5% 入场漂移和 1.5 RR 组合互相卡死导致实盘反复开仓失败的问题
 - Funding reversal 深跌追空/深涨追多过滤：OI 仍 building 时不再加分，并拒绝 C 级 funding reversal 在无 OI flush、靠近错误区间、止损过近时开仓

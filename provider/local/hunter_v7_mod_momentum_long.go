@@ -1,5 +1,7 @@
 package local
 
+import "math"
+
 // ============================================================================
 // Module D: Leader Momentum Long
 // ============================================================================
@@ -185,8 +187,87 @@ func (m *leaderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRe
 		sig.Targets = append(sig.Targets, V7Target{Price: ctx.CurrentPrice + ctx.ATR4h*1.0, Reason: "momentum_target_2"})
 	}
 
-	// Timing score
-	sig.TimingScore = calcTimingScore(sig, ctx)
+	// Timing score: leader momentum has its own confirmation codes, so the
+	// generic pullback/reversal timing model would otherwise leave it WATCH-only.
+	sig.TimingScore = calcLeaderMomentumTimingScore(sig, ctx)
 
 	return sig
+}
+
+func calcLeaderMomentumTimingScore(sig *V7SignalOutput, ctx *V7SymbolContext) float64 {
+	if sig == nil || ctx == nil {
+		return 0
+	}
+	timing := 0.0
+
+	if sig.EntryZone.Lower > 0 && ctx.CurrentPrice >= sig.EntryZone.Lower && ctx.CurrentPrice <= sig.EntryZone.Upper {
+		timing += 25
+	}
+
+	if ctx.TakerBuy15m >= 0.60 {
+		timing += 20
+	} else if ctx.TakerBuy15m >= 0.55 {
+		timing += 15
+	} else if ctx.TakerBuy15m >= 0.52 {
+		timing += 10
+	}
+
+	if ctx.Snapshot != nil {
+		if ctx.Snapshot.OIDelta4h > 5 && ctx.Snapshot.OIDelta4h < 60 {
+			timing += 15
+		} else if ctx.Snapshot.OIDelta4h > 0 && ctx.Snapshot.OIDelta4h < 80 {
+			timing += 10
+		}
+		if ctx.Snapshot.OIDelta1h > 0 && ctx.Snapshot.OIDelta1h < 35 {
+			timing += 5
+		}
+	}
+
+	switch {
+	case ctx.Change1h > 0.5 && ctx.Change1h <= 4:
+		timing += 15
+	case ctx.Change1h > 0 && ctx.Change1h <= 5:
+		timing += 10
+	case ctx.Change1h >= -1 && ctx.Change1h <= 0:
+		timing += 12
+	case ctx.Change1h > 4 && ctx.TakerBuy15m >= 0.60:
+		timing += 8
+	}
+
+	if hasLeaderMomentumReason(sig, "micro_pullback") || hasLeaderMomentumReason(sig, "shallow_pullback") {
+		timing += 12
+	} else if hasLeaderMomentumReason(sig, "no_pullback_still_running") && ctx.Change1h <= 4 {
+		timing += 8
+	}
+
+	if rr, ok := v7SignalRiskReward(sig, ctx.CurrentPrice); ok {
+		if rr >= 1.8 {
+			timing += 18
+		} else if rr >= 1.5 {
+			timing += 15
+		} else if rr >= 1.2 {
+			timing += 8
+		}
+	}
+
+	if ctx.Change1h > 6 && ctx.TakerBuy15m < 0.60 {
+		timing = math.Min(timing, 55)
+	}
+	if ctx.Change24h > 45 && ctx.Snapshot != nil && ctx.Snapshot.OIDelta4h > 60 {
+		timing = math.Min(timing, 55)
+	}
+
+	return clampFloat(timing, 0, 100)
+}
+
+func hasLeaderMomentumReason(sig *V7SignalOutput, reason string) bool {
+	if sig == nil {
+		return false
+	}
+	for _, code := range sig.ReasonCodes {
+		if code == reason {
+			return true
+		}
+	}
+	return false
 }

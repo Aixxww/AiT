@@ -23,6 +23,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 	tickers map[string]*ticker24hrRaw,
 	premiums map[string]*premiumIndexRaw,
 	klineIntervals []KlineInterval,
+	refreshSlowDerivatives bool,
 ) (map[string]*SymbolSnapshot, int) {
 
 	// Build partial snapshots from bulk data for ALL symbols first
@@ -73,7 +74,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 			if ctx.Err() != nil {
 				return
 			}
-			ss, err := f.fetchOneSymbol(ctx, sym, base, klineIntervals)
+			ss, err := f.fetchOneSymbol(ctx, sym, base, klineIntervals, refreshSlowDerivatives)
 			if err != nil {
 				atomic.AddInt64(&errCount, 1)
 				if ss == nil {
@@ -99,9 +100,10 @@ func (f *DataFetcher) fetchPerSymbolData(
 	return all, int(atomic.LoadInt64(&errCount))
 }
 
-// fetchOneSymbol fetches all per-symbol data for a single symbol.
-// Per-symbol weight: OI(1) + OIHist(2) + LSR(2) + 6*klines(1) = 11
-func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *SymbolSnapshot, klineIntervals []KlineInterval) (*SymbolSnapshot, error) {
+// fetchOneSymbol fetches per-symbol data for a single symbol. OI history and
+// top-trader LSR are 1h-granularity signals, so fast REST cycles may carry
+// them from the previous snapshot instead of re-fetching them every 30 seconds.
+func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *SymbolSnapshot, klineIntervals []KlineInterval, refreshSlowDerivatives bool) (*SymbolSnapshot, error) {
 	ss := base
 	if ss == nil {
 		ss = &SymbolSnapshot{
@@ -120,36 +122,38 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		ss.OI = oi
 	}
 
-	// 2. OI History — 13 hourly entries (weight: 2)
-	oiHist, err := f.fetchOIHistory(ctx, symbol, "1h", 13)
-	if err != nil {
-		errs++
-	} else {
-		ss.OISpikeData = oiHist
-		if len(oiHist) >= 2 {
-			ss.OIDelta1h = oiHist[len(oiHist)-1]
-		}
-		if len(oiHist) >= 5 {
-			ss.OIDelta4h = 0
-			for i := len(oiHist) - 4; i < len(oiHist); i++ {
-				if i >= 0 {
-					ss.OIDelta4h += oiHist[i]
+	if refreshSlowDerivatives {
+		// 2. OI History — 13 hourly entries (weight: 2)
+		oiHist, err := f.fetchOIHistory(ctx, symbol, "1h", 13)
+		if err != nil {
+			errs++
+		} else {
+			ss.OISpikeData = oiHist
+			if len(oiHist) >= 2 {
+				ss.OIDelta1h = oiHist[len(oiHist)-1]
+			}
+			if len(oiHist) >= 5 {
+				ss.OIDelta4h = 0
+				for i := len(oiHist) - 4; i < len(oiHist); i++ {
+					if i >= 0 {
+						ss.OIDelta4h += oiHist[i]
+					}
 				}
 			}
 		}
-	}
 
-	// 3. Long/Short Ratio — 12 entries for Hunter oldest/newest delta (weight: 2)
-	lsrData, err := f.fetchLSR(ctx, symbol, 12)
-	if err != nil {
-		errs++
-	} else {
-		if len(lsrData) >= 1 {
-			ss.LongShortRatio = lsrData[len(lsrData)-1] // newest
-			ss.LSROldest = lsrData[0]                   // oldest (for Hunter reversal)
-		}
-		if len(lsrData) >= 2 {
-			ss.LSRPrev = lsrData[len(lsrData)-2]
+		// 3. Long/Short Ratio — 12 entries for Hunter oldest/newest delta (weight: 2)
+		lsrData, err := f.fetchLSR(ctx, symbol, 12)
+		if err != nil {
+			errs++
+		} else {
+			if len(lsrData) >= 1 {
+				ss.LongShortRatio = lsrData[len(lsrData)-1] // newest
+				ss.LSROldest = lsrData[0]                   // oldest (for Hunter reversal)
+			}
+			if len(lsrData) >= 2 {
+				ss.LSRPrev = lsrData[len(lsrData)-2]
+			}
 		}
 	}
 
@@ -175,8 +179,12 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		}
 	}
 
+	totalFetches := 1 + len(klineIntervals)
+	if refreshSlowDerivatives {
+		totalFetches += 2
+	}
 	if errs > 0 {
-		return ss, fmt.Errorf("%s: %d/%d fetches failed", symbol, errs, 3+len(klineIntervals))
+		return ss, fmt.Errorf("%s: %d/%d fetches failed", symbol, errs, totalFetches)
 	}
 	return ss, nil
 }

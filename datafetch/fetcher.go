@@ -25,6 +25,11 @@ type DataFetcher struct {
 	symbols []string // cached symbol list, refreshed on each Fetch
 }
 
+type FetchOptions struct {
+	KlineIntervals         []KlineInterval
+	RefreshSlowDerivatives bool
+}
+
 // NewDataFetcher creates a new DataFetcher.
 func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 	if cfg.BinanceURL == "" {
@@ -53,14 +58,25 @@ func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 // Phase 1: 3 concurrent bulk APIs (tickers, premiumIndex, exchangeInfo)
 // Phase 2: 50-worker per-symbol data for top N
 func (f *DataFetcher) Fetch(ctx context.Context) (*Snapshot, error) {
-	return f.FetchWithKlineIntervals(ctx, f.cfg.KlineIntervals)
+	return f.FetchWithOptions(ctx, FetchOptions{
+		KlineIntervals:         f.cfg.KlineIntervals,
+		RefreshSlowDerivatives: true,
+	})
 }
 
 // FetchWithKlineIntervals does one complete data fetch cycle with the supplied
 // kline set. It is used by DataCollector to refresh fast execution timeframes
 // more often than slow structural timeframes.
 func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineIntervals []KlineInterval) (*Snapshot, error) {
+	return f.FetchWithOptions(ctx, FetchOptions{
+		KlineIntervals:         klineIntervals,
+		RefreshSlowDerivatives: true,
+	})
+}
+
+func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (*Snapshot, error) {
 	start := time.Now()
+	klineIntervals := opts.KlineIntervals
 	if len(klineIntervals) == 0 {
 		klineIntervals = f.cfg.KlineIntervals
 	}
@@ -121,7 +137,7 @@ func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineInterval
 
 	// Phase 2: Per-symbol data for top N
 	detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
-	snapshots, perErrs := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals)
+	snapshots, perErrs := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
 	restErrors += perErrs
 
 	snap := &Snapshot{

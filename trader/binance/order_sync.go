@@ -147,7 +147,7 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	rateLimitDelay() // Rate limit between API calls
 
 	// Method 2: Always include active positions (catches trades that COMMISSION missed)
-	positionSymbols := t.getPositionSymbols()
+	positionSymbols, activePositionLeverage := t.getPositionSymbolsAndLeverage()
 	logger.Infof("  📋 Position symbols found: %d - %v", len(positionSymbols), positionSymbols)
 	for _, s := range positionSymbols {
 		symbolMap[s] = true
@@ -269,6 +269,14 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 
 		// Normalize side
 		side := strings.ToUpper(trade.Side)
+		leverage := resolveSyncedTradeLeverage(
+			positionStore,
+			activePositionLeverage,
+			traderID,
+			symbol,
+			positionSide,
+			orderAction,
+		)
 
 		// Create order record - use Unix milliseconds UTC
 		tradeTimeMs := trade.Time.UTC().UnixMilli()
@@ -291,6 +299,7 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 			FilledAt:        tradeTimeMs,
 			CreatedAt:       tradeTimeMs,
 			UpdatedAt:       tradeTimeMs,
+			Leverage:        leverage,
 		}
 
 		// Insert order record
@@ -324,11 +333,12 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 		}
 
 		// Create/update position record using PositionBuilder
-		if err := posBuilder.ProcessTrade(
+		if err := posBuilder.ProcessTradeWithLeverage(
 			traderID, exchangeID, exchangeType,
 			symbol, positionSide, orderAction,
 			trade.Quantity, trade.Price, trade.Fee, trade.RealizedPnL,
 			tradeTimeMs, trade.TradeID,
+			leverage,
 		); err != nil {
 			logger.Infof("  ⚠️ Failed to sync position for trade %s: %v", trade.TradeID, err)
 		} else {
@@ -359,21 +369,62 @@ func (t *FuturesTrader) SyncOrdersFromBinance(traderID string, exchangeID string
 	return nil
 }
 
-// getPositionSymbols returns list of symbols that have active positions
-// Used as fallback when COMMISSION detection fails
-func (t *FuturesTrader) getPositionSymbols() []string {
+// getPositionSymbolsAndLeverage returns active position symbols plus leverage
+// keyed by symbol+positionSide. It is used as fallback when COMMISSION
+// detection misses fills and to keep synced local reports aligned with the
+// exchange leverage setting.
+func (t *FuturesTrader) getPositionSymbolsAndLeverage() ([]string, map[string]int) {
 	positions, err := t.GetPositions()
 	if err != nil {
-		return nil
+		return nil, map[string]int{}
 	}
 
 	var symbols []string
+	leverageByPosition := make(map[string]int)
 	for _, pos := range positions {
-		if symbol, ok := pos["symbol"].(string); ok && symbol != "" {
-			symbols = append(symbols, symbol)
+		symbol, ok := pos["symbol"].(string)
+		if !ok || symbol == "" {
+			continue
+		}
+		symbol = market.Normalize(symbol)
+		symbols = append(symbols, symbol)
+
+		side, _ := pos["side"].(string)
+		positionSide := strings.ToUpper(side)
+		if positionSide == "" {
+			continue
+		}
+		if lev, ok := pos["leverage"].(float64); ok && lev > 0 {
+			leverageByPosition[positionLeverageKey(symbol, positionSide)] = int(lev)
 		}
 	}
-	return symbols
+	return symbols, leverageByPosition
+}
+
+func positionLeverageKey(symbol, positionSide string) string {
+	return market.Normalize(symbol) + "_" + strings.ToUpper(positionSide)
+}
+
+func resolveSyncedTradeLeverage(
+	positionStore *store.PositionStore,
+	activePositionLeverage map[string]int,
+	traderID, symbol, positionSide, orderAction string,
+) int {
+	leverage := activePositionLeverage[positionLeverageKey(symbol, positionSide)]
+	if leverage > 0 {
+		return leverage
+	}
+
+	if positionStore != nil && strings.HasPrefix(orderAction, "close_") {
+		if pos, err := positionStore.GetOpenPositionBySymbol(traderID, symbol, positionSide); err == nil && pos != nil && pos.Leverage > 0 {
+			return pos.Leverage
+		}
+		if pos, err := positionStore.GetLatestPositionBySymbol(traderID, symbol, positionSide); err == nil && pos != nil && pos.Leverage > 0 {
+			return pos.Leverage
+		}
+	}
+
+	return 1
 }
 
 // determineOrderAction determines the order action based on trade data

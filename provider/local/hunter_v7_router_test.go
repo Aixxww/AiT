@@ -196,6 +196,101 @@ func TestV7ExecutionQualityDowngradesLowTimingWaitSetups(t *testing.T) {
 	}
 }
 
+func TestV7ExecutionQualityDowngradesLowTimingLeaderMomentum(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "BLESSUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupLeaderMomentumLong,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryMomentumTrailing,
+		TimingScore:  48,
+		RiskScore:    15,
+		SetupScore:   74,
+		EntryZone:    V7PriceZone{Lower: 99, Upper: 102},
+		Invalidation: V7InvalidationRule{Price: 98},
+		Targets:      []V7Target{{Price: 104}},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100, Change1h: 2.0}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality != V7ExecWatchOnly {
+		t.Fatalf("execution quality = %s, want %s", sig.ExecutionQuality, V7ExecWatchOnly)
+	}
+	if sig.Status != V7StatusWaitConfirm {
+		t.Fatalf("status = %s, want %s", sig.Status, V7StatusWaitConfirm)
+	}
+	if !containsString(sig.ReasonCodes, "leader_momentum_timing_watch_only") {
+		t.Fatalf("missing leader timing reason: %+v", sig.ReasonCodes)
+	}
+	if !containsString(sig.RiskTags, "momentum_confirmation_missing") {
+		t.Fatalf("missing confirmation tag: %+v", sig.RiskTags)
+	}
+}
+
+func TestV7ExecutionQualityUsesValidDirectionalTargetForRR(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "TARGETUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupPanicReversalLong,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryImmediate,
+		TimingScore:  65,
+		RiskScore:    25,
+		EntryZone:    V7PriceZone{Lower: 99, Upper: 102},
+		Invalidation: V7InvalidationRule{Price: 98},
+		Targets: []V7Target{
+			{Price: 99, Reason: "expired_vwap"},
+			{Price: 104, Reason: "valid_extension"},
+		},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality == V7ExecInvalidRR {
+		t.Fatalf("execution quality = %s, want valid RR from later target", sig.ExecutionQuality)
+	}
+	if sig.Targets[0].Price != 104 {
+		t.Fatalf("first target = %.2f, want valid target promoted", sig.Targets[0].Price)
+	}
+	if containsString(sig.RiskTags, "invalid_rr_context_only") {
+		t.Fatalf("unexpected invalid_rr tag: %+v", sig.RiskTags)
+	}
+}
+
+func TestV7ExecutionQualityTightensOverWideInvalidationForScoring(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "STOPUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupPanicReversalLong,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryImmediate,
+		TimingScore:  65,
+		RiskScore:    25,
+		EntryZone:    V7PriceZone{Lower: 99, Upper: 102},
+		Invalidation: V7InvalidationRule{Price: 80, Reason: "far_4h_low"},
+		Targets:      []V7Target{{Price: 104, Reason: "valid_extension"}},
+	}
+	ctx := &V7SymbolContext{
+		CurrentPrice: 100,
+		ATR15m:       1,
+		ATR1h:        3,
+	}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality == V7ExecInvalidRR {
+		t.Fatalf("execution quality = %s, want valid RR after near stop tightening", sig.ExecutionQuality)
+	}
+	if sig.Invalidation.Price >= 99 || sig.Invalidation.Price <= 97 {
+		t.Fatalf("invalidation price = %.2f, want near execution stop around 98", sig.Invalidation.Price)
+	}
+	if !containsString(sig.RiskTags, "execution_stop_tightened") {
+		t.Fatalf("missing execution_stop_tightened tag: %+v", sig.RiskTags)
+	}
+}
+
 func TestCalcAIPriorityUsesEmpiricalSetupAndExecutionBias(t *testing.T) {
 	base := V7SignalOutput{
 		Status:         V7StatusCandidate,
@@ -295,6 +390,79 @@ func TestPreMoveRadarBuildsWatchOnlySignals(t *testing.T) {
 	}
 	if len(sig.RequiredConfirms) == 0 {
 		t.Fatal("watch signal missing required confirmations")
+	}
+}
+
+func TestFundingShortWeak4hFlushNearLowerZoneStaysWatch(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:           "PARTIUSDT",
+		Direction:        V7DirShort,
+		SetupType:        V7SetupFundingReversal,
+		Status:           V7StatusCandidate,
+		Confidence:       "C",
+		TimingScore:      80,
+		RiskScore:        15,
+		ExecutionQuality: V7ExecNearConfirm,
+		RiskTags:         []string{"not_near_short_retest_zone"},
+		EntryZone:        V7PriceZone{Lower: 0.054011, Upper: 0.054675},
+		Invalidation:     V7InvalidationRule{Price: 0.055345},
+		Targets:          []V7Target{{Price: 0.05209}},
+	}
+	ctx := &V7SymbolContext{
+		CurrentPrice: 0.05426,
+		ATR15m:       0.00083,
+		ATR1h:        0.001819,
+		Snapshot: &SymbolSnapshotData{
+			OIDelta1h: -3.80,
+			OIDelta4h: -0.50,
+		},
+	}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality != V7ExecWatchOnly {
+		t.Fatalf("execution quality = %s, want %s (tags %+v reasons %+v)", sig.ExecutionQuality, V7ExecWatchOnly, sig.RiskTags, sig.ReasonCodes)
+	}
+	if !containsString(sig.RiskTags, "weak_4h_oi_flush") {
+		t.Fatalf("missing weak 4h flush tag: %+v", sig.RiskTags)
+	}
+	if !containsString(sig.ReasonCodes, "funding_short_weak_4h_flush_wait") {
+		t.Fatalf("missing weak 4h flush reason: %+v", sig.ReasonCodes)
+	}
+}
+
+func TestFundingShortStrong4hFlushAvoidsWeakFlushTag(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:           "OPENUSDT",
+		Direction:        V7DirShort,
+		SetupType:        V7SetupFundingReversal,
+		Status:           V7StatusCandidate,
+		Confidence:       "C",
+		TimingScore:      72,
+		RiskScore:        15,
+		ExecutionQuality: V7ExecNearConfirm,
+		RiskTags:         []string{"not_near_short_retest_zone"},
+		EntryZone:        V7PriceZone{Lower: 0.19794, Upper: 0.19969},
+		Invalidation:     V7InvalidationRule{Price: 0.20257},
+		Targets:          []V7Target{{Price: 0.1907}},
+	}
+	ctx := &V7SymbolContext{
+		CurrentPrice: 0.1986,
+		ATR15m:       0.002188,
+		ATR1h:        0.004669,
+		Snapshot: &SymbolSnapshotData{
+			OIDelta1h: -0.39,
+			OIDelta4h: -3.15,
+		},
+	}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if containsString(sig.RiskTags, "weak_4h_oi_flush") {
+		t.Fatalf("unexpected weak 4h flush tag: %+v", sig.RiskTags)
+	}
+	if containsString(sig.ReasonCodes, "funding_short_weak_4h_flush_wait") {
+		t.Fatalf("unexpected weak 4h flush reason: %+v", sig.ReasonCodes)
 	}
 }
 

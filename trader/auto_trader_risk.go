@@ -5,25 +5,31 @@ import (
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	positionProtectorFastInterval    = 15 * time.Second
-	positionProtectorBaseInterval    = 30 * time.Second
-	positionProtectorIdleInterval    = 60 * time.Second
-	protectorTP1PnLPct               = 6.0
-	protectorTP2PnLPct               = 12.0
-	protectorTP1CloseRatio           = 0.40
-	protectorTP2CloseRatio           = 0.50
-	protectorTrailDrawdownPct        = 35.0
-	protectorPreTPPeakPnLPct         = 8.0
-	protectorPreTPGivebackPct        = 80.0
-	protectorPreTPMinCurrentPnLPct   = 3.0
-	protectorPreTPMinHoldDuration    = 20 * time.Minute
-	protectorBreakevenBufferPct      = 0.001
-	protectorDefaultMinCloseNotional = 12.0
+	positionProtectorFastInterval     = 15 * time.Second
+	positionProtectorBaseInterval     = 30 * time.Second
+	positionProtectorIdleInterval     = 60 * time.Second
+	protectorTP1PnLPct                = 6.0
+	protectorTP2PnLPct                = 12.0
+	protectorTP1CloseRatio            = 0.40
+	protectorTP2CloseRatio            = 0.50
+	protectorTrailDrawdownPct         = 35.0
+	protectorPreTPPeakPnLPct          = 8.0
+	protectorPreTPGivebackPct         = 80.0
+	protectorNearTP1PeakRatio         = 0.95
+	protectorNearTP1SecondChanceRatio = 0.90
+	protectorNearTP1GivebackPct       = 45.0
+	protectorNearTP1LossExitPnLPct    = -5.0
+	protectorPreTPMinCurrentPnLPct    = 3.0
+	protectorPreTPMinHoldDuration     = 20 * time.Minute
+	protectorBreakevenBufferPct       = 0.001
+	protectorDefaultMinCloseNotional  = 12.0
 )
 
 type positionProtectionState struct {
@@ -106,8 +112,9 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		// Construct unique position identifier (distinguish long/short)
 		posKey := symbol + "_" + side
 
-		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		openedAt := at.resolveProtectionPositionOpenedAt(symbol, side)
+		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
+		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
 		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct)
 		if shouldUseFastProtectionInterval(state, currentPnLPct) {
@@ -135,7 +142,8 @@ func shouldUseFastProtectionInterval(state *positionProtectionState, currentPnLP
 	if state == nil {
 		return false
 	}
-	return state.TP1Done || state.PeakPnLPct >= protectorTP1PnLPct || currentPnLPct >= protectorTP1PnLPct
+	nearTP1PeakPnLPct := protectorTP1PnLPct * protectorNearTP1PeakRatio
+	return state.TP1Done || state.PeakPnLPct >= nearTP1PeakPnLPct || currentPnLPct >= nearTP1PeakPnLPct
 }
 
 func calculateLeveragedPnLPct(side string, entryPrice, markPrice float64, leverage int) float64 {
@@ -168,6 +176,21 @@ func choosePositionProtectionAction(state *positionProtectionState, currentPnLPc
 	if state.TP1Done && state.PeakPnLPct >= protectorTP1PnLPct && currentPnLPct > 0 && drawdownPct >= protectorTrailDrawdownPct {
 		return protectionTrailClose, drawdownPct
 	}
+	nearTP1PeakPnLPct := protectorTP1PnLPct * protectorNearTP1PeakRatio
+	secondChancePnLPct := protectorTP1PnLPct * protectorNearTP1SecondChanceRatio
+	if !state.TP1Done &&
+		state.PeakPnLPct >= nearTP1PeakPnLPct &&
+		currentPnLPct >= secondChancePnLPct &&
+		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration {
+		return protectionGivebackClose, drawdownPct
+	}
+	if !state.TP1Done &&
+		state.PeakPnLPct >= nearTP1PeakPnLPct &&
+		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
+		drawdownPct >= protectorNearTP1GivebackPct &&
+		(currentPnLPct >= protectorPreTPMinCurrentPnLPct || currentPnLPct <= protectorNearTP1LossExitPnLPct) {
+		return protectionGivebackClose, drawdownPct
+	}
 	if !state.TP1Done &&
 		state.PeakPnLPct >= protectorPreTPPeakPnLPct &&
 		currentPnLPct >= protectorPreTPMinCurrentPnLPct &&
@@ -189,9 +212,15 @@ func (at *AutoTrader) getOrCreateProtectionState(posKey string, quantity, curren
 	}
 	state, ok := at.protectionState[posKey]
 	if !ok {
+		peakPnLPct := currentPnLPct
+		at.peakPnLCacheMutex.RLock()
+		if cachedPeak := at.peakPnLCache[posKey]; cachedPeak > peakPnLPct {
+			peakPnLPct = cachedPeak
+		}
+		at.peakPnLCacheMutex.RUnlock()
 		state = &positionProtectionState{
 			InitialQuantity: quantity,
-			PeakPnLPct:      currentPnLPct,
+			PeakPnLPct:      peakPnLPct,
 			OpenedAt:        openedAt,
 		}
 		at.protectionState[posKey] = state
@@ -384,6 +413,66 @@ func (at *AutoTrader) UpdatePeakPnL(symbol, side string, currentPnLPct float64) 
 		// First time recording
 		at.peakPnLCache[posKey] = currentPnLPct
 	}
+}
+
+func (at *AutoTrader) ensurePeakPnLCacheInitialized(symbol, side string, currentPnLPct float64, openedAt time.Time) float64 {
+	posKey := symbol + "_" + side
+	at.peakPnLCacheMutex.RLock()
+	if peak, exists := at.peakPnLCache[posKey]; exists {
+		at.peakPnLCacheMutex.RUnlock()
+		return peak
+	}
+	at.peakPnLCacheMutex.RUnlock()
+
+	peak := currentPnLPct
+	if recovered := at.recoverPositionPeakPnLPctFromRecentPrompts(symbol, side, openedAt); recovered > peak {
+		peak = recovered
+		logger.Infof("📈 Restored position peak PnL from recent decisions: %s %s peak=%.2f%%", symbol, side, peak)
+	}
+
+	at.peakPnLCacheMutex.Lock()
+	if at.peakPnLCache == nil {
+		at.peakPnLCache = make(map[string]float64)
+	}
+	if existing, exists := at.peakPnLCache[posKey]; exists && existing > peak {
+		peak = existing
+	} else {
+		at.peakPnLCache[posKey] = peak
+	}
+	at.peakPnLCacheMutex.Unlock()
+	return peak
+}
+
+func (at *AutoTrader) recoverPositionPeakPnLPctFromRecentPrompts(symbol, side string, openedAt time.Time) float64 {
+	if at == nil || at.store == nil || symbol == "" || side == "" {
+		return 0
+	}
+	records, err := at.store.Decision().GetLatestRecords(at.id, 20)
+	if err != nil {
+		logger.Infof("⚠️ Failed to recover peak PnL from decision history: %v", err)
+		return 0
+	}
+	pattern := regexp.MustCompile(`(?m)\b` + regexp.QuoteMeta(strings.ToUpper(symbol)) + `\s+` + regexp.QuoteMeta(strings.ToUpper(side)) + `\s+\|[^\n]*Peak PnL\s*([+-]?\d+(?:\.\d+)?)%`)
+	peak := 0.0
+	for _, record := range records {
+		if record == nil || record.InputPrompt == "" {
+			continue
+		}
+		if !openedAt.IsZero() && record.Timestamp.Before(openedAt.Add(-1*time.Minute)) {
+			continue
+		}
+		matches := pattern.FindAllStringSubmatch(record.InputPrompt, -1)
+		for _, match := range matches {
+			if len(match) < 2 {
+				continue
+			}
+			value, err := strconv.ParseFloat(match[1], 64)
+			if err == nil && value > peak {
+				peak = value
+			}
+		}
+	}
+	return peak
 }
 
 // ClearPeakPnLCache clears peak cache for specified position
@@ -635,6 +724,170 @@ func (at *AutoTrader) enforceSingleTradeLossLimit(decision *kernel.Decision, cur
 	return maxPositionSize, true, nil
 }
 
+func (at *AutoTrader) repairHunterV7OpenDecision(decision *kernel.Decision, currentPrice float64, side string) bool {
+	if decision == nil || !at.isHunterV7Strategy() || currentPrice <= 0 {
+		return false
+	}
+	if decision.Action != "open_long" && decision.Action != "open_short" {
+		return false
+	}
+
+	changed := false
+	if at.repairHunterV7DecisionPrice(decision, currentPrice, side) {
+		changed = true
+	}
+	if at.repairHunterV7StopLossDistance(decision, currentPrice, side) {
+		changed = true
+	}
+	if at.repairHunterV7RiskReward(decision, currentPrice, side) {
+		changed = true
+	}
+	if changed {
+		logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s repaired for execution: price=%.8f stop_loss=%.8f take_profit=%.8f",
+			decision.Symbol, decision.Price, decision.StopLoss, decision.TakeProfit)
+	}
+	return changed
+}
+
+func (at *AutoTrader) repairHunterV7DecisionPrice(decision *kernel.Decision, currentPrice float64, side string) bool {
+	if decision == nil || currentPrice <= 0 {
+		return false
+	}
+	if decision.Price <= 0 {
+		decision.Price = currentPrice
+		logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s missing decision price; using execution price %.8f",
+			decision.Symbol, currentPrice)
+		return true
+	}
+
+	maxDriftPct := at.maxEntryPriceDeviationPct()
+	if maxDriftPct <= 0 {
+		return false
+	}
+	deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
+	if deviationPct <= maxDriftPct {
+		return false
+	}
+	favorableDrift := (side == "long" && currentPrice < decision.Price) || (side == "short" && currentPrice > decision.Price)
+	if favorableDrift && deviationPct <= 4.0 {
+		logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s favorable entry drift %.3f%% > %.3f%%; refreshing decision price %.8f → %.8f and revalidating live geometry",
+			decision.Symbol, deviationPct, maxDriftPct, decision.Price, currentPrice)
+		decision.Price = currentPrice
+		return true
+	}
+
+	repairMaxPct := maxDriftPct + 0.10
+	if repairMaxPct > 0.80 {
+		repairMaxPct = 0.80
+	}
+	if deviationPct > repairMaxPct {
+		return false
+	}
+
+	logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s small entry drift %.3f%% > %.3f%% but <= %.3f%% repair band; refreshing decision price %.8f → %.8f",
+		decision.Symbol, deviationPct, maxDriftPct, repairMaxPct, decision.Price, currentPrice)
+	decision.Price = currentPrice
+	return true
+}
+
+func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, currentPrice float64, side string) bool {
+	if decision == nil || currentPrice <= 0 || decision.StopLoss <= 0 {
+		return false
+	}
+	minStopPct := at.minStopLossPriceMovePct()
+	if minStopPct <= 0 {
+		return false
+	}
+
+	var stopMovePct float64
+	switch side {
+	case "long":
+		stopMovePct = (currentPrice - decision.StopLoss) / currentPrice * 100
+	case "short":
+		stopMovePct = (decision.StopLoss - currentPrice) / currentPrice * 100
+	default:
+		return false
+	}
+	if stopMovePct >= minStopPct {
+		return false
+	}
+	// If live price has already crossed the proposed stop/invalidation, the
+	// setup is broken. Do not invent a new stop and chase the failed signal.
+	if stopMovePct <= 0 {
+		return false
+	}
+	// Only repair edge misses. Materially tight stops are left to the hard guard.
+	if stopMovePct < minStopPct-0.15 {
+		return false
+	}
+
+	targetStopPct := minStopPct + 0.03
+	oldStop := decision.StopLoss
+	switch side {
+	case "long":
+		decision.StopLoss = currentPrice * (1 - targetStopPct/100)
+	case "short":
+		decision.StopLoss = currentPrice * (1 + targetStopPct/100)
+	}
+	logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s stop distance edge miss %.3f%% < %.3f%%; adjusting stop_loss %.8f → %.8f",
+		decision.Symbol, stopMovePct, minStopPct, oldStop, decision.StopLoss)
+	return true
+}
+
+func (at *AutoTrader) repairHunterV7RiskReward(decision *kernel.Decision, currentPrice float64, side string) bool {
+	if decision == nil || currentPrice <= 0 || decision.StopLoss <= 0 || decision.TakeProfit <= 0 {
+		return false
+	}
+	minRR := 0.0
+	if at.config.StrategyConfig != nil {
+		minRR = at.config.StrategyConfig.RiskControl.MinRiskRewardRatio
+	}
+	if minRR <= 0 {
+		return false
+	}
+
+	riskDistance := 0.0
+	rewardDistance := 0.0
+	switch side {
+	case "long":
+		riskDistance = currentPrice - decision.StopLoss
+		rewardDistance = decision.TakeProfit - currentPrice
+	case "short":
+		riskDistance = decision.StopLoss - currentPrice
+		rewardDistance = currentPrice - decision.TakeProfit
+	default:
+		return false
+	}
+	if riskDistance <= 0 || rewardDistance <= 0 {
+		return false
+	}
+	ratio := rewardDistance / riskDistance
+	if ratio >= minRR {
+		return false
+	}
+
+	requiredReward := riskDistance * (minRR + 0.03)
+	maxMovePct := at.maxTakeProfitPriceMovePct()
+	maxReward := math.Inf(1)
+	if maxMovePct > 0 {
+		maxReward = currentPrice * maxMovePct / 100
+	}
+	if requiredReward > maxReward {
+		return false
+	}
+
+	oldTP := decision.TakeProfit
+	switch side {
+	case "long":
+		decision.TakeProfit = currentPrice + requiredReward
+	case "short":
+		decision.TakeProfit = currentPrice - requiredReward
+	}
+	logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s RR %.2f < %.2f; adjusting take_profit %.8f → %.8f",
+		decision.Symbol, ratio, minRR, oldTP, decision.TakeProfit)
+	return true
+}
+
 func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decision *kernel.Decision) error {
 	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
 		return nil
@@ -715,7 +968,7 @@ type setupGuardDefaults struct {
 func builtinSetupGuardDefaults(setupType string) *setupGuardDefaults {
 	switch setupType {
 	case "funding_reversal":
-		return &setupGuardDefaults{MinZonePosShort: 65, MaxZonePosLong: 35, RequireOIFlush: true}
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 35, RequireOIFlush: true}
 	case "distribution_short":
 		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
 	case "long_squeeze_short":
@@ -834,9 +1087,10 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 	if at.config.StrategyConfig != nil {
 		riskControl := at.config.StrategyConfig.RiskControl
 
-		if riskControl.MinConfidence > 0 && decision.Confidence < riskControl.MinConfidence {
+		minConfidence := at.effectiveMinOpenConfidence(riskControl.MinConfidence)
+		if minConfidence > 0 && decision.Confidence < minConfidence {
 			return fmt.Errorf("❌ [RISK CONTROL] Confidence %d below minimum %d for %s",
-				decision.Confidence, riskControl.MinConfidence, decision.Symbol)
+				decision.Confidence, minConfidence, decision.Symbol)
 		}
 
 		maxLeverage := riskControl.AltcoinMaxLeverage
@@ -896,6 +1150,16 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 	}
 
 	return nil
+}
+
+func (at *AutoTrader) effectiveMinOpenConfidence(configured int) int {
+	if configured <= 0 {
+		return configured
+	}
+	if at.isHunterV7Strategy() && configured > 70 {
+		return 70
+	}
+	return configured
 }
 
 // getSideFromAction converts order action to side (BUY/SELL)

@@ -168,6 +168,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	}
 
 	at.capTakeProfitToTP1(decision, executionPrice, "long")
+	at.repairHunterV7OpenDecision(decision, executionPrice, "long")
 	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
 		return err
 	}
@@ -304,6 +305,7 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	}
 
 	at.capTakeProfitToTP1(decision, executionPrice, "short")
+	at.repairHunterV7OpenDecision(decision, executionPrice, "short")
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		return err
 	}

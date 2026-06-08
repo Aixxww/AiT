@@ -380,6 +380,40 @@ func (s *PositionStore) GetOpenPositionBySymbol(traderID, symbol, side string) (
 	return nil, err
 }
 
+// GetLatestPositionBySymbol gets the latest position for a symbol and side,
+// regardless of status. It is mainly used by sync repair paths after an
+// exchange-side position has already closed.
+func (s *PositionStore) GetLatestPositionBySymbol(traderID, symbol, side string) (*TraderPosition, error) {
+	var pos TraderPosition
+	err := s.db.Where("trader_id = ? AND symbol = ? AND side = ?", traderID, symbol, side).
+		Order("entry_time DESC, id DESC").
+		First(&pos).Error
+
+	if err == nil {
+		if pos.EntryQuantity == 0 {
+			pos.EntryQuantity = pos.Quantity
+		}
+		return &pos, nil
+	}
+
+	if err == gorm.ErrRecordNotFound {
+		if strings.HasSuffix(symbol, "USDT") {
+			baseSymbol := strings.TrimSuffix(symbol, "USDT")
+			err = s.db.Where("trader_id = ? AND symbol = ? AND side = ?", traderID, baseSymbol, side).
+				Order("entry_time DESC, id DESC").
+				First(&pos).Error
+			if err == nil {
+				if pos.EntryQuantity == 0 {
+					pos.EntryQuantity = pos.Quantity
+				}
+				return &pos, nil
+			}
+		}
+		return nil, nil
+	}
+	return nil, err
+}
+
 // GetClosedPositions gets closed positions
 func (s *PositionStore) GetClosedPositions(traderID string, limit int) ([]*TraderPosition, error) {
 	var positions []*TraderPosition

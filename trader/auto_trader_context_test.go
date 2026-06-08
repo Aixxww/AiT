@@ -178,6 +178,65 @@ func TestBuildTradingContextUsesCachedPositionsWhenPositionsAPIFails(t *testing.
 	}
 }
 
+func TestBuildTradingContextAddsPlannedRiskFromRecentOpenDecision(t *testing.T) {
+	ft := &contextTestTrader{
+		balance: map[string]interface{}{
+			"totalWalletBalance":    100.0,
+			"totalUnrealizedProfit": 0.0,
+			"availableBalance":      80.0,
+			"totalEquity":           100.0,
+		},
+		positions: []map[string]interface{}{
+			{
+				"symbol":           "OPENUSDT",
+				"side":             "SHORT",
+				"entryPrice":       0.1997,
+				"markPrice":        0.1965,
+				"positionAmt":      -117.0,
+				"unRealizedProfit": 0.37,
+				"liquidationPrice": 0.24,
+				"leverage":         10.0,
+			},
+		},
+	}
+	at := newContextTestAutoTrader(ft)
+	st, err := store.New(t.TempDir() + "/data.db")
+	if err != nil {
+		t.Fatalf("store init failed: %v", err)
+	}
+	at.store = st
+
+	err = st.Decision().LogDecision(&store.DecisionRecord{
+		TraderID:    at.id,
+		CycleNumber: 1,
+		Timestamp:   time.Now().UTC(),
+		Success:     true,
+		Decisions: []store.DecisionAction{
+			{
+				Action:     "open_short",
+				Symbol:     "OPENUSDT",
+				StopLoss:   0.2040,
+				TakeProfit: 0.1920,
+				Success:    true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("decision log failed: %v", err)
+	}
+
+	ctx, err := at.buildTradingContext()
+	if err != nil {
+		t.Fatalf("context failed: %v", err)
+	}
+	if len(ctx.Positions) != 1 {
+		t.Fatalf("positions = %d, want 1", len(ctx.Positions))
+	}
+	if ctx.Positions[0].StopLoss != 0.2040 || ctx.Positions[0].TakeProfit != 0.1920 {
+		t.Fatalf("planned risk not attached: %+v", ctx.Positions[0])
+	}
+}
+
 func TestBuildTradingContextFailsWhenCachedBalanceIsTooOld(t *testing.T) {
 	ft := &contextTestTrader{
 		balanceErr: errors.New("timeout"),

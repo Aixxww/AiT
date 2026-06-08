@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hunter v7 / VVV live-monitor report for the 2026-06-08 production review, covering cycle #20-#83 regression comparison, recent live cycles, signal tag audits, and prompt alignment
 - Hunter v7 candidate-floor context output so thin candidate pools still pass up to three non-filtered `wait_confirm` signals to the LLM
 - 2026-06-07 session review report covering Hunter v7 candidate visibility, live open failures, risk geometry, and dashboard performance fixes
 - Cycle review command `cmd/cycle_review` to generate Markdown/JSON reports from decision records, including open rate, PnL, token usage, and execution guard blocks
@@ -34,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Hunter v7 execution tiering now treats high-risk signal tags such as `already_pumped_24h`, `funding_expensive`, `no_reclaim_signal`, `taker_sell_during_accumulation`, and wrong-zone tags as wait-only semantics before LLM open review
+- Hunter v7 strategy prompts now explicitly tell the LLM not to override wait-only risk tags with high priority or setup score
 - Dashboard, trader config, strategy studio, chart, and history views now lazy-load heavy panels and use calmer polling intervals to reduce navigation stutter
 - Hunter v7 execution geometry now raises an infeasible TP cap when it conflicts with minimum stop distance, entry drift, and minimum RR constraints
 - System prompts now show code-enforced entry drift, minimum stop distance, effective TP cap, and feasible RR geometry for Hunter v7 opens
@@ -53,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider module optimizations (local client, Hunter, AI500 provider)
 
 ### Fixed
+- Fixed Hunter v7 false-open paths where danger tags could still be promoted into `EXECUTABLE` or `REVIEWABLE`, including late funding chases without OI flush, exhausted short-squeeze longs, accumulation with active sell flow, panic longs without reclaim, and reversion shorts away from retest zones
 - Fixed Hunter v7 candidate visibility being over-constrained by per-setup execution thresholds; global `v7_min_ai_priority` now controls LLM candidate visibility
 - Fixed repeated failed live opens caused by an infeasible 3% TP cap, 2% minimum stop, 0.5% entry drift, and 1.5 RR combination
 - Funding reversal late-chase filtering: OI building no longer scores positively, and C-grade funding reversal opens are blocked without OI flush, correct zone location, and sufficient stop-loss distance

@@ -320,6 +320,57 @@ func NewBinanceFuturesTestSuite(t *testing.T) *BinanceFuturesTestSuite {
 	}
 }
 
+func TestCalculateBinanceTimeOffsetUsesMidpoint(t *testing.T) {
+	started := time.UnixMilli(1_000_000)
+	ended := started.Add(200 * time.Millisecond)
+	serverTime := started.Add(50 * time.Millisecond).UnixMilli()
+
+	offset, raw, rtt, ok := calculateBinanceTimeOffset(started, ended, serverTime)
+	if !ok {
+		t.Fatal("expected valid offset")
+	}
+	if rtt != 200 {
+		t.Fatalf("rtt = %d, want 200", rtt)
+	}
+	if raw != 50 {
+		t.Fatalf("raw offset = %d, want 50", raw)
+	}
+	if offset != 50+binanceTimestampSafetyOffsetMs {
+		t.Fatalf("offset = %d, want %d", offset, 50+binanceTimestampSafetyOffsetMs)
+	}
+}
+
+func TestCalculateBinanceTimeOffsetRejectsSlowSync(t *testing.T) {
+	started := time.UnixMilli(1_000_000)
+	ended := started.Add(6 * time.Second)
+	serverTime := started.UnixMilli()
+
+	_, raw, rtt, ok := calculateBinanceTimeOffset(started, ended, serverTime)
+	if ok {
+		t.Fatal("expected slow sync to be rejected")
+	}
+	if rtt != 6000 {
+		t.Fatalf("rtt = %d, want 6000", rtt)
+	}
+	if raw != 3000 {
+		t.Fatalf("raw offset = %d, want 3000", raw)
+	}
+}
+
+func TestCalculateBinanceTimeOffsetRejectsHugeOffset(t *testing.T) {
+	started := time.UnixMilli(1_000_000)
+	ended := started.Add(100 * time.Millisecond)
+	serverTime := started.Add(-2 * time.Minute).UnixMilli()
+
+	_, raw, _, ok := calculateBinanceTimeOffset(started, ended, serverTime)
+	if ok {
+		t.Fatal("expected huge offset to be rejected")
+	}
+	if raw <= 60000 {
+		t.Fatalf("raw offset = %d, want > 60000", raw)
+	}
+}
+
 // Cleanup cleans up resources
 func (s *BinanceFuturesTestSuite) Cleanup() {
 	if s.mockServer != nil {

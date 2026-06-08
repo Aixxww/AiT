@@ -6,6 +6,8 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 	if sig == nil || ctx == nil {
 		return
 	}
+	normalizeV7TargetsForExecution(sig, ctx.CurrentPrice)
+	tightenV7InvalidationForExecution(sig, ctx)
 
 	quality := V7ExecNearConfirm
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)
@@ -56,6 +58,24 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 			}
 		}
 	case V7SetupLeaderMomentumLong:
+		if sig.TimingScore < 60 {
+			quality = worseV7ExecutionQuality(quality, V7ExecWatchOnly)
+			sig.Status = V7StatusWaitConfirm
+			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "leader_momentum_timing_watch_only")
+			sig.RiskTags = appendIfMissing(sig.RiskTags, "momentum_confirmation_missing")
+		}
+		if hasV7ExecutionRiskTag(sig, "funding_extreme") {
+			quality = worseV7ExecutionQuality(quality, V7ExecChaseRisk)
+			sig.Status = V7StatusWaitConfirm
+			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "momentum_extreme_funding_wait")
+			sig.RiskTags = appendIfMissing(sig.RiskTags, "momentum_crowded_long")
+		}
+		if ctx.RSI1h >= 78 {
+			quality = worseV7ExecutionQuality(quality, V7ExecChaseRisk)
+			sig.Status = V7StatusWaitConfirm
+			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "momentum_rsi_overheated_wait")
+			sig.RiskTags = appendIfMissing(sig.RiskTags, "momentum_overheated")
+		}
 		if ctx.Change1h > 4 && sig.TimingScore < 60 {
 			quality = worseV7ExecutionQuality(quality, V7ExecChaseRisk)
 			sig.Status = V7StatusWaitConfirm
@@ -94,6 +114,14 @@ func finalizeFundingReversalExecution(sig *V7SignalOutput, ctx *V7SymbolContext,
 				sig.RiskTags = appendIfMissing(sig.RiskTags, "late_short_without_oi_flush")
 			}
 		}
+		if sig.Confidence == "C" && hasV7ExecutionRiskTag(sig, "not_near_short_retest_zone") {
+			if ctx.Snapshot == nil || ctx.Snapshot.OIDelta4h > -1.0 {
+				*quality = worseV7ExecutionQuality(*quality, V7ExecWatchOnly)
+				sig.Status = V7StatusWaitConfirm
+				sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "funding_short_weak_4h_flush_wait")
+				sig.RiskTags = appendIfMissing(sig.RiskTags, "weak_4h_oi_flush")
+			}
+		}
 	}
 }
 
@@ -101,18 +129,131 @@ func v7SignalRiskReward(sig *V7SignalOutput, price float64) (float64, bool) {
 	if sig == nil || price <= 0 || sig.Invalidation.Price <= 0 || len(sig.Targets) == 0 || sig.Targets[0].Price <= 0 {
 		return 0, false
 	}
-	var risk, reward float64
+	var risk float64
 	if sig.Direction == V7DirShort {
 		risk = sig.Invalidation.Price - price
-		reward = price - sig.Targets[0].Price
 	} else {
 		risk = price - sig.Invalidation.Price
-		reward = sig.Targets[0].Price - price
 	}
-	if risk <= 0 || reward <= 0 {
+	if risk <= 0 {
 		return 0, false
 	}
-	return reward / risk, true
+
+	bestRR := 0.0
+	for _, target := range sig.Targets {
+		reward := v7TargetReward(sig.Direction, price, target.Price)
+		if reward <= 0 {
+			continue
+		}
+		rr := reward / risk
+		if rr > bestRR {
+			bestRR = rr
+		}
+	}
+	if bestRR <= 0 {
+		return 0, false
+	}
+	return bestRR, true
+}
+
+func tightenV7InvalidationForExecution(sig *V7SignalOutput, ctx *V7SymbolContext) {
+	if sig == nil || ctx == nil || ctx.CurrentPrice <= 0 || sig.Invalidation.Price <= 0 {
+		return
+	}
+
+	price := ctx.CurrentPrice
+	currentRisk := 0.0
+	switch sig.Direction {
+	case V7DirShort:
+		currentRisk = sig.Invalidation.Price - price
+	case V7DirLong:
+		currentRisk = price - sig.Invalidation.Price
+	default:
+		return
+	}
+	if currentRisk <= 0 {
+		return
+	}
+
+	execRisk := v7ExecutionStopDistance(ctx)
+	if execRisk <= 0 || currentRisk <= execRisk*1.35 {
+		return
+	}
+
+	if sig.Direction == V7DirShort {
+		sig.Invalidation = V7InvalidationRule{
+			Price:  price + execRisk,
+			Reason: "execution_near_structure_stop_above_entry",
+		}
+	} else {
+		stop := price - execRisk
+		if stop <= 0 {
+			return
+		}
+		sig.Invalidation = V7InvalidationRule{
+			Price:  stop,
+			Reason: "execution_near_structure_stop_below_entry",
+		}
+	}
+	sig.RiskTags = appendIfMissing(sig.RiskTags, "execution_stop_tightened")
+}
+
+func v7ExecutionStopDistance(ctx *V7SymbolContext) float64 {
+	if ctx == nil || ctx.CurrentPrice <= 0 {
+		return 0
+	}
+	minDist := ctx.CurrentPrice * 0.02
+	maxDist := ctx.CurrentPrice * 0.025
+	dist := minDist
+	if ctx.ATR15m > 0 {
+		dist = math.Max(dist, math.Min(ctx.ATR15m*0.65, maxDist))
+	}
+	if ctx.ATR1h > 0 {
+		dist = math.Min(dist, ctx.ATR1h*1.2)
+	}
+	return dist
+}
+
+func normalizeV7TargetsForExecution(sig *V7SignalOutput, price float64) {
+	if sig == nil || price <= 0 || len(sig.Targets) <= 1 {
+		return
+	}
+
+	valid := make([]V7Target, 0, len(sig.Targets))
+	expired := make([]V7Target, 0, len(sig.Targets))
+	for _, target := range sig.Targets {
+		if v7TargetReward(sig.Direction, price, target.Price) > 0 {
+			valid = append(valid, target)
+		} else {
+			expired = append(expired, target)
+		}
+	}
+	if len(valid) == 0 {
+		return
+	}
+	sig.Targets = append(valid, expired...)
+}
+
+func v7TargetReward(direction V7Direction, price, targetPrice float64) float64 {
+	if price <= 0 || targetPrice <= 0 {
+		return 0
+	}
+	if direction == V7DirShort {
+		return price - targetPrice
+	}
+	return targetPrice - price
+}
+
+func hasV7ExecutionRiskTag(sig *V7SignalOutput, tag string) bool {
+	if sig == nil {
+		return false
+	}
+	for _, riskTag := range sig.RiskTags {
+		if riskTag == tag {
+			return true
+		}
+	}
+	return false
 }
 
 func v7EntryZonePositionPct(sig *V7SignalOutput, price float64) (float64, bool) {

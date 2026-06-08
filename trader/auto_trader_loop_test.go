@@ -6,7 +6,7 @@ import (
 	"github.com/Aixxww/AiT/kernel"
 )
 
-func TestShouldSkipCandidateForRepeatedWaitKeepsUpgradedHunterV7Signals(t *testing.T) {
+func TestShouldSkipCandidateForRepeatedWaitKeepsOnlyReadyExecutableHunterV7Signals(t *testing.T) {
 	tests := []struct {
 		name string
 		coin kernel.CandidateCoin
@@ -29,7 +29,7 @@ func TestShouldSkipCandidateForRepeatedWaitKeepsUpgradedHunterV7Signals(t *testi
 			want: true,
 		},
 		{
-			name: "candidate is kept",
+			name: "low priority near confirm now skips",
 			coin: kernel.CandidateCoin{
 				Symbol:             "READYUSDT",
 				V7SetupType:        "trend_breakout_long",
@@ -37,16 +37,43 @@ func TestShouldSkipCandidateForRepeatedWaitKeepsUpgradedHunterV7Signals(t *testi
 				V7ExecutionQuality: "near_confirm",
 				V7AIPriority:       47,
 			},
-			want: false,
+			want: true,
 		},
 		{
-			name: "high priority wait is kept",
+			name: "high priority wait now skips",
 			coin: kernel.CandidateCoin{
 				Symbol:             "STRONGUSDT",
 				V7SetupType:        "distribution_short",
 				V7Status:           "wait_confirm",
 				V7ExecutionQuality: "watch_only",
 				V7AIPriority:       64,
+			},
+			want: true,
+		},
+		{
+			name: "ready executable is kept",
+			coin: kernel.CandidateCoin{
+				Symbol:             "PRIMEUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "panic_reversal_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7ExecutionTier:    "EXECUTABLE",
+				V7AIPriority:       62,
+			},
+			want: false,
+		},
+		{
+			name: "reviewable with timing is kept",
+			coin: kernel.CandidateCoin{
+				Symbol:             "FUNDUSDT",
+				Direction:          "SHORT",
+				V7SetupType:        "funding_reversal",
+				V7Status:           "wait_confirm",
+				V7ExecutionQuality: "watch_only",
+				V7ExecutionTier:    "REVIEWABLE",
+				V7AIPriority:       59,
+				V7TimingScore:      62,
 			},
 			want: false,
 		},

@@ -88,6 +88,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Document | Description | 描述 |
 |----------|-------------|------|
 | [2026-06-07 Session Review](reports/ait-session-review-20260607.md) | Hunter v7 candidate visibility, live open failure root causes, risk geometry fixes, and dashboard performance changes | Hunter v7 候选可见性、实盘开仓失败根因、风控几何修复与看板性能优化 |
+| [2026-06-08 Hunter v7 / VVV Live Monitor](hunter-v7-vvv-live-monitor-2026-06-08.md) | VVV live-trading review for Hunter v7 open rate, win-rate regressions, signal tags, and LLM execution quality | VVV 实盘复盘：Hunter v7 开仓率、胜率回归、信号标签和 LLM 执行质量 |
 
 ---
 
@@ -150,7 +151,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Community | ✅ Complete | 2026-05-23 |
 | Architecture | ✅ Complete | 2026-05-23 |
 | Roadmap | ✅ Complete | 2026-05-23 |
-| Hunter Docs | ✅ Complete | 2026-05-23 |
+| Hunter Docs | ✅ Complete | 2026-06-08 |
 | API Reference | 📋 Planned | - |
 
 **Legend:**
@@ -188,5 +189,5 @@ Found an error or want to improve the docs?
 
 ---
 
-**Last Updated:** 2026-05-23
+**Last Updated:** 2026-06-08
 **Maintained by:** [AiT Community](https://github.com/Aixxww/AiT)

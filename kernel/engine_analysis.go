@@ -220,11 +220,16 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 		positionSymbols[pos.Symbol] = true
 	}
 
-	// OI threshold: use HunterConfig value if set, otherwise default 15M
+	// OI threshold: use HunterConfig value if set, otherwise default 15M.
+	// Hunter v7 already scores liquidity from the shared snapshot universe, so
+	// keep this secondary prompt-data gate lighter to avoid dropping its top
+	// executable candidate after routing.
 	minOIThresholdMillions := 15.0
 	if config.CoinSource.Hunter != nil {
 		if config.CoinSource.Hunter.MinOIValue > 0 {
 			minOIThresholdMillions = config.CoinSource.Hunter.MinOIValue / 1_000_000
+		} else if strings.EqualFold(config.CoinSource.SourceType, "hunter_v7") {
+			minOIThresholdMillions = 3.0
 		} else {
 			// Hunter exists but MinOIValue not set — use Hunter's own default ($5M)
 			minOIThresholdMillions = 5.0
@@ -285,11 +290,18 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 		isExistingPosition := positionSymbols[coin.Symbol]
 		isXyzAsset := market.IsXyzDexAsset(coin.Symbol)
 		if !isExistingPosition && !isXyzAsset && data.OpenInterest != nil && data.CurrentPrice > 0 {
+			effectiveMinOIThreshold := minOIThresholdMillions
+			if strings.EqualFold(config.CoinSource.SourceType, "hunter_v7") &&
+				coin.V7ExecutionTier == "EXECUTABLE" &&
+				coin.V7LiquidityScore >= 50 &&
+				effectiveMinOIThreshold > 3.0 {
+				effectiveMinOIThreshold = 3.0
+			}
 			oiValue := data.OpenInterest.Latest * data.CurrentPrice
 			oiValueInMillions := oiValue / 1_000_000
-			if oiValueInMillions < minOIThresholdMillions {
+			if oiValueInMillions < effectiveMinOIThreshold {
 				logger.Infof("⚠️  %s OI value too low (%.2fM USD < %.1fM), skipping coin",
-					coin.Symbol, oiValueInMillions, minOIThresholdMillions)
+					coin.Symbol, oiValueInMillions, effectiveMinOIThreshold)
 				continue
 			}
 		}
@@ -357,11 +369,45 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 			Decisions: decisions,
 		}, fmt.Errorf("decision validation failed: %w", err)
 	}
+	fillMissingDecisionReasoning(decisions, cotTrace)
 
 	return &FullDecision{
 		CoTTrace:  cotTrace,
 		Decisions: decisions,
 	}, nil
+}
+
+func fillMissingDecisionReasoning(decisions []Decision, cotTrace string) {
+	reason := compactDecisionReasoning(cotTrace, 240)
+	if reason == "" {
+		return
+	}
+	for i := range decisions {
+		if strings.TrimSpace(decisions[i].Reasoning) == "" {
+			decisions[i].Reasoning = reason
+		}
+	}
+}
+
+func compactDecisionReasoning(reason string, maxLen int) string {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer(
+		"\r\n", " ",
+		"\n", " ",
+		"\t", " ",
+		"**", "",
+		"`", "",
+	)
+	reason = replacer.Replace(reason)
+	reason = strings.Join(strings.Fields(reason), " ")
+	if maxLen > 0 && len([]rune(reason)) > maxLen {
+		runes := []rune(reason)
+		reason = string(runes[:maxLen]) + "..."
+	}
+	return reason
 }
 
 func extractCoTTrace(response string) string {

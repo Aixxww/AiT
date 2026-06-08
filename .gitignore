@@ -5,11 +5,13 @@
 
 # AI 工具
 .claude/
+.qoder/
 CLAUDE.md
 
 # 编译产物
 *.exe
 ait
+ait_server
 main
 ait-server
 coinselect

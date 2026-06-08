@@ -121,13 +121,20 @@ func (dc *DataCollector) Start(ctx context.Context) {
 func (dc *DataCollector) restLoop(ctx context.Context) {
 	ticker := time.NewTicker(dc.cfg.RestInterval)
 	defer ticker.Stop()
+	cycle := 0
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			snap, err := dc.fetcher.FetchWithKlineIntervals(ctx, dc.cfg.FastKlines)
+			cycle++
+			klineIntervals := refreshKlineIntervals(dc.cfg.FastKlines, cycle)
+			refreshSlowDerivatives := refreshSlowDerivativeData(cycle)
+			snap, err := dc.fetcher.FetchWithOptions(ctx, FetchOptions{
+				KlineIntervals:         klineIntervals,
+				RefreshSlowDerivatives: refreshSlowDerivatives,
+			})
 			if err != nil {
 				log.Printf("datafetch: REST refresh error: %v", err)
 				if snap == nil {
@@ -139,13 +146,65 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 			current := dc.store.Current()
 			if current != nil {
 				mergeWSData(current, snap)
-				mergeCarriedKlines(current, snap, dc.cfg.FastKlines)
+				mergeCarriedKlines(current, snap, klineIntervals)
+				if !refreshSlowDerivatives {
+					mergeCarriedSlowDerivatives(current, snap)
+				}
 			}
 
 			dc.store.Swap(snap)
 			log.Printf("datafetch: REST refresh: %d symbols, %v, %d errors",
 				snap.Meta.SymbolCount, snap.Meta.FetchDuration, snap.Meta.RestErrors)
 		}
+	}
+}
+
+func refreshSlowDerivativeData(cycle int) bool {
+	return cycle > 0 && cycle%10 == 0
+}
+
+func refreshKlineIntervals(fast []KlineInterval, cycle int) []KlineInterval {
+	if len(fast) == 0 {
+		fast = FastKlineIntervals
+	}
+	intervals := make([]KlineInterval, 0, len(fast)+len(StructuralKlineIntervals))
+	intervals = append(intervals, fast...)
+	if cycle > 0 && cycle%10 == 0 {
+		intervals = appendMissingKlineIntervals(intervals, StructuralKlineIntervals...)
+	}
+	return intervals
+}
+
+func appendMissingKlineIntervals(base []KlineInterval, extra ...KlineInterval) []KlineInterval {
+	seen := make(map[string]bool, len(base)+len(extra))
+	for _, ki := range base {
+		seen[ki.Interval] = true
+	}
+	for _, ki := range extra {
+		if seen[ki.Interval] {
+			continue
+		}
+		base = append(base, ki)
+		seen[ki.Interval] = true
+	}
+	return base
+}
+
+func mergeCarriedSlowDerivatives(current, fresh *Snapshot) {
+	if current == nil || fresh == nil {
+		return
+	}
+	for sym, newSS := range fresh.Symbols {
+		curSS, ok := current.Symbols[sym]
+		if !ok || curSS == nil || newSS == nil {
+			continue
+		}
+		newSS.OISpikeData = append([]float64{}, curSS.OISpikeData...)
+		newSS.OIDelta1h = curSS.OIDelta1h
+		newSS.OIDelta4h = curSS.OIDelta4h
+		newSS.LongShortRatio = curSS.LongShortRatio
+		newSS.LSRPrev = curSS.LSRPrev
+		newSS.LSROldest = curSS.LSROldest
 	}
 }
 

@@ -168,13 +168,19 @@ var DefaultKlineIntervals = []KlineInterval{
 	{Interval: "1d", Limit: 50},
 }
 
-// FastKlineIntervals are refreshed on every REST cycle. Daily structure is
-// carried over from the full snapshot because it changes slowly and is not an
-// execution-timing input.
+// FastKlineIntervals are refreshed on every REST cycle. Higher-timeframe
+// structure is carried between fast cycles because it changes slowly and is not
+// an execution-timing input.
 var FastKlineIntervals = []KlineInterval{
 	{Interval: "1m", Limit: 60},
 	{Interval: "5m", Limit: 50},
 	{Interval: "15m", Limit: 50},
 	{Interval: "1h", Limit: 100},
+}
+
+// StructuralKlineIntervals are refreshed less frequently to keep 4h structure
+// current without adding a full extra kline request per detailed symbol on
+// every 30-second REST cycle.
+var StructuralKlineIntervals = []KlineInterval{
 	{Interval: "4h", Limit: 100},
 }

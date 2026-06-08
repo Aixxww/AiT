@@ -185,17 +185,41 @@ func (t *FuturesTrader) signTradFiAgreement() error {
 
 // syncBinanceServerTime syncs Binance server time to ensure request timestamps are valid
 func syncBinanceServerTime(client *futures.Client) {
+	startedAt := time.Now()
 	serverTime, err := client.NewServerTimeService().Do(context.Background())
+	endedAt := time.Now()
 	if err != nil {
 		logger.Infof("⚠️ Failed to sync Binance server time: %v", err)
 		return
 	}
 
-	now := time.Now().UnixMilli()
-	rawOffset := now - serverTime
-	offset := rawOffset + binanceTimestampSafetyOffsetMs
+	offset, rawOffset, rttMs, ok := calculateBinanceTimeOffset(startedAt, endedAt, serverTime)
+	if !ok {
+		logger.Infof("⚠️ Ignoring Binance server time sync: raw_offset=%dms rtt=%dms exceeds safety bounds", rawOffset, rttMs)
+		return
+	}
 	client.TimeOffset = offset
-	logger.Infof("⏱ Binance server time synced, raw_offset=%dms, applied_offset=%dms", rawOffset, offset)
+	logger.Infof("⏱ Binance server time synced, raw_offset=%dms, applied_offset=%dms, rtt=%dms", rawOffset, offset, rttMs)
+}
+
+func calculateBinanceTimeOffset(startedAt, endedAt time.Time, serverTimeMs int64) (offset int64, rawOffset int64, rttMs int64, ok bool) {
+	if serverTimeMs <= 0 || endedAt.Before(startedAt) {
+		return 0, 0, 0, false
+	}
+	rttMs = endedAt.Sub(startedAt).Milliseconds()
+	midpointMs := startedAt.UnixMilli() + rttMs/2
+	rawOffset = midpointMs - serverTimeMs
+	if rttMs > 5000 || absInt64(rawOffset) > 60000 {
+		return 0, rawOffset, rttMs, false
+	}
+	return rawOffset + binanceTimestampSafetyOffsetMs, rawOffset, rttMs, true
+}
+
+func absInt64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func (t *FuturesTrader) resyncBinanceServerTime() {

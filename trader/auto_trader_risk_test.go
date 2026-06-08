@@ -103,6 +103,33 @@ func TestValidateOpenDecisionRejectsLowConfidence(t *testing.T) {
 	}
 }
 
+func TestValidateOpenDecisionAllowsHunterV7MediumConfidence(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinConfidence = 75
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	decision := &kernel.Decision{
+		Symbol:          "DASHUSDT",
+		Action:          "open_short",
+		Leverage:        5,
+		PositionSizeUSD: 40,
+		Price:           36.3,
+		StopLoss:        37.03,
+		TakeProfit:      34.85,
+		Confidence:      70,
+	}
+
+	if err := at.validateOpenDecision(decision, 36.3, "short"); err != nil {
+		t.Fatalf("expected Hunter v7 confidence 70 to pass, got: %v", err)
+	}
+
+	decision.Confidence = 69
+	err := at.validateOpenDecision(decision, 36.3, "short")
+	if err == nil || !strings.Contains(err.Error(), "Confidence") {
+		t.Fatalf("expected Hunter v7 confidence 69 rejection, got: %v", err)
+	}
+}
+
 func TestValidateOpenDecisionRejectsInvalidShortStops(t *testing.T) {
 	at := testRiskAutoTrader()
 	decision := &kernel.Decision{
@@ -144,7 +171,7 @@ func TestValidateOpenDecisionRejectsLowRiskReward(t *testing.T) {
 	decision := &kernel.Decision{
 		Symbol:          "BTCUSDT",
 		Action:          "open_long",
-		Leverage:        10,
+		Leverage:        5,
 		PositionSizeUSD: 100,
 		StopLoss:        95,
 		TakeProfit:      106,
@@ -219,6 +246,148 @@ func TestHunterV7RaisesTakeProfitCapWhenRiskGeometryIsInfeasible(t *testing.T) {
 	}
 }
 
+func TestRepairHunterV7OpenDecisionFixesBorderlineStopAndRR(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "BSBUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 30,
+		Price:           100,
+		StopLoss:        98.01, // 1.99% risk, edge miss
+		TakeProfit:      102.9, // RR below 1.5 after stop repair
+		Confidence:      80,
+	}
+
+	if !at.repairHunterV7OpenDecision(decision, 100, "long") {
+		t.Fatalf("expected preflight repair")
+	}
+	if err := at.validateOpenDecision(decision, 100, "long"); err != nil {
+		t.Fatalf("expected repaired decision to validate, got: %v", err)
+	}
+}
+
+func TestRepairHunterV7OpenDecisionRefreshesSmallEntryDrift(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "EPICUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 30,
+		Price:           100,
+		StopLoss:        98,
+		TakeProfit:      104,
+		Confidence:      80,
+	}
+
+	if !at.repairHunterV7OpenDecision(decision, 100.55, "long") {
+		t.Fatalf("expected small drift repair")
+	}
+	if decision.Price != 100.55 {
+		t.Fatalf("decision price = %v, want refreshed execution price", decision.Price)
+	}
+	if err := at.validateOpenDecision(decision, 100.55, "long"); err != nil {
+		t.Fatalf("expected repaired drift decision to validate, got: %v", err)
+	}
+}
+
+func TestRepairHunterV7OpenDecisionDoesNotRepairLargeEntryDrift(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "VELVETUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 30,
+		Price:           100,
+		StopLoss:        98,
+		TakeProfit:      104,
+		Confidence:      80,
+	}
+
+	if at.repairHunterV7OpenDecision(decision, 100.92, "long") {
+		t.Fatalf("did not expect large drift repair")
+	}
+	err := at.validateOpenDecision(decision, 100.92, "long")
+	if err == nil || !strings.Contains(err.Error(), "Entry price drift") {
+		t.Fatalf("expected drift rejection after unrepaired decision, got: %v", err)
+	}
+}
+
+func TestRepairHunterV7OpenDecisionRejectsFavorableDriftThroughStop(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "EPICUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 55,
+		Price:           0.7712,
+		StopLoss:        0.7550,
+		TakeProfit:      0.774592,
+		Confidence:      80,
+	}
+
+	if !at.repairHunterV7OpenDecision(decision, 0.7448, "long") {
+		t.Fatalf("expected favorable drift to refresh decision price")
+	}
+	if decision.Price != 0.7448 {
+		t.Fatalf("decision price = %v, want live execution price", decision.Price)
+	}
+	if err := at.validateOpenDecision(decision, 0.7448, "long"); err == nil || !strings.Contains(err.Error(), "Invalid LONG SL/TP") {
+		t.Fatalf("expected failed setup after live price crossed stop, got: %v", err)
+	}
+}
+
+func TestRepairHunterV7OpenDecisionAllowsFavorableDriftWithValidLiveGeometry(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "FLOORUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 55,
+		Price:           100,
+		StopLoss:        94.9,
+		TakeProfit:      101,
+		Confidence:      80,
+	}
+
+	if !at.repairHunterV7OpenDecision(decision, 97, "long") {
+		t.Fatalf("expected favorable drift repair with valid live geometry")
+	}
+	if decision.Price != 97 {
+		t.Fatalf("decision price = %v, want live execution price", decision.Price)
+	}
+	if err := at.validateOpenDecision(decision, 97, "long"); err != nil {
+		t.Fatalf("expected valid favorable drift repair, got: %v", err)
+	}
+}
+
 func TestEnforceSingleTradeLossLimitReducesPositionSize(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct = 8
@@ -278,7 +447,7 @@ func TestHunterV7ExecutionGuardBlocksCFundingReversalShortWithBuildingOI(t *test
 	}
 }
 
-func TestHunterV7ExecutionGuardBlocksCFundingReversalShortNearZoneLower(t *testing.T) {
+func TestHunterV7ExecutionGuardAllowsFundingReversalShortNearZoneLower(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
 	ctx := &kernel.Context{
@@ -309,8 +478,8 @@ func TestHunterV7ExecutionGuardBlocksCFundingReversalShortNearZoneLower(t *testi
 	}
 
 	err := at.validateHunterV7ExecutionGuard(ctx, decision)
-	if err == nil || !strings.Contains(err.Error(), "zone_pos") {
-		t.Fatalf("expected zone position guard rejection, got: %v", err)
+	if err != nil {
+		t.Fatalf("unexpected funding short zone guard rejection: %v", err)
 	}
 }
 
@@ -385,15 +554,139 @@ func TestChoosePositionProtectionActionPreTPGiveback(t *testing.T) {
 	}
 }
 
+func TestChoosePositionProtectionActionNearTP1Giveback(t *testing.T) {
+	state := &positionProtectionState{
+		InitialQuantity: 100,
+		PeakPnLPct:      5.99,
+		OpenedAt:        time.Now().Add(-40 * time.Minute),
+	}
+
+	action, drawdown := choosePositionProtectionAction(state, 3.0)
+	if action != protectionGivebackClose {
+		t.Fatalf("action = %q, want near-TP1 giveback close", action)
+	}
+	if drawdown < protectorNearTP1GivebackPct {
+		t.Fatalf("drawdown = %v, want >= %v", drawdown, protectorNearTP1GivebackPct)
+	}
+
+	youngState := &positionProtectionState{
+		InitialQuantity: 100,
+		PeakPnLPct:      5.99,
+		OpenedAt:        time.Now().Add(-5 * time.Minute),
+	}
+	action, _ = choosePositionProtectionAction(youngState, 3.0)
+	if action != protectionNone {
+		t.Fatalf("action = %q, want none before minimum hold duration", action)
+	}
+}
+
+func TestChoosePositionProtectionActionNearTP1GivebackToLoss(t *testing.T) {
+	state := &positionProtectionState{
+		InitialQuantity: 117,
+		PeakPnLPct:      5.99,
+		OpenedAt:        time.Now().Add(-40 * time.Minute),
+	}
+
+	action, drawdown := choosePositionProtectionAction(state, -1.8)
+	if action != protectionNone {
+		t.Fatalf("action = %q, want no mechanical close for small post-TP1 loss", action)
+	}
+	if drawdown <= 100 {
+		t.Fatalf("drawdown = %v, want >100 after peak profit crosses to loss", drawdown)
+	}
+
+	action, drawdown = choosePositionProtectionAction(state, -5.5)
+	if action != protectionGivebackClose {
+		t.Fatalf("action = %q, want near-TP1 giveback close after material loss", action)
+	}
+	if drawdown <= 100 {
+		t.Fatalf("drawdown = %v, want >100 after peak profit crosses to loss", drawdown)
+	}
+}
+
+func TestChoosePositionProtectionActionNearTP1SecondChance(t *testing.T) {
+	state := &positionProtectionState{
+		InitialQuantity: 117,
+		PeakPnLPct:      5.99,
+		OpenedAt:        time.Now().Add(-50 * time.Minute),
+	}
+
+	action, _ := choosePositionProtectionAction(state, 5.54)
+	if action != protectionGivebackClose {
+		t.Fatalf("action = %q, want near-TP1 second-chance close", action)
+	}
+
+	youngState := &positionProtectionState{
+		InitialQuantity: 117,
+		PeakPnLPct:      5.99,
+		OpenedAt:        time.Now().Add(-5 * time.Minute),
+	}
+	action, _ = choosePositionProtectionAction(youngState, 5.54)
+	if action != protectionNone {
+		t.Fatalf("action = %q, want none before minimum hold duration", action)
+	}
+
+	noPriorNearTP1 := &positionProtectionState{
+		InitialQuantity: 117,
+		PeakPnLPct:      5.54,
+		OpenedAt:        time.Now().Add(-50 * time.Minute),
+	}
+	action, _ = choosePositionProtectionAction(noPriorNearTP1, 5.54)
+	if action != protectionNone {
+		t.Fatalf("action = %q, want none without prior near-TP1 peak", action)
+	}
+}
+
+func TestEnsurePeakPnLCacheInitializedRestoresFromRecentPrompt(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.id = "test-trader"
+	st, err := store.New(t.TempDir() + "/data.db")
+	if err != nil {
+		t.Fatalf("store init failed: %v", err)
+	}
+	at.store = st
+
+	openedAt := time.Now().Add(-40 * time.Minute).UTC()
+	oldPrompt := "1. OPENUSDT SHORT | Entry 0.1997 Current 0.1980 | PnL+8.00% | Peak PnL8.00% | Leverage 10x"
+	currentPrompt := "1. OPENUSDT SHORT | Entry 0.1997 Current 0.1999 | PnL-1.00% | Peak PnL5.99% | Leverage 10x"
+	if err := st.Decision().LogDecision(&store.DecisionRecord{
+		TraderID:    at.id,
+		CycleNumber: 1,
+		Timestamp:   openedAt.Add(-10 * time.Minute),
+		Success:     true,
+		InputPrompt: oldPrompt,
+	}); err != nil {
+		t.Fatalf("old decision log failed: %v", err)
+	}
+	if err := st.Decision().LogDecision(&store.DecisionRecord{
+		TraderID:    at.id,
+		CycleNumber: 2,
+		Timestamp:   openedAt.Add(30 * time.Minute),
+		Success:     true,
+		InputPrompt: currentPrompt,
+	}); err != nil {
+		t.Fatalf("current decision log failed: %v", err)
+	}
+
+	peak := at.ensurePeakPnLCacheInitialized("OPENUSDT", "short", -1.0, openedAt)
+	if peak != 5.99 {
+		t.Fatalf("peak = %v, want restored 5.99", peak)
+	}
+	state := at.getOrCreateProtectionState("OPENUSDT_short", 117, -1.0, openedAt)
+	if state.PeakPnLPct != 5.99 {
+		t.Fatalf("state peak = %v, want restored 5.99", state.PeakPnLPct)
+	}
+}
+
 func TestShouldUseFastProtectionInterval(t *testing.T) {
 	state := &positionProtectionState{PeakPnLPct: 5}
 	if shouldUseFastProtectionInterval(state, 4) {
 		t.Fatalf("expected base interval before TP1 zone")
 	}
 
-	state.PeakPnLPct = protectorTP1PnLPct
+	state.PeakPnLPct = protectorTP1PnLPct * protectorNearTP1PeakRatio
 	if !shouldUseFastProtectionInterval(state, 4) {
-		t.Fatalf("expected fast interval after peak reaches TP1")
+		t.Fatalf("expected fast interval after peak reaches near-TP1 zone")
 	}
 
 	state = &positionProtectionState{TP1Done: true, PeakPnLPct: 2}

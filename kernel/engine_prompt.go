@@ -8,6 +8,7 @@ import (
 	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -21,6 +22,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	var sb strings.Builder
 	riskControl := e.config.RiskControl
 	promptSections := e.config.PromptSections
+	minOpenConfidence := e.effectiveMinOpenConfidence(riskControl.MinConfidence)
 
 	// 0. Data Dictionary & Schema (ensure AI understands all fields)
 	lang := e.GetLanguage()
@@ -90,7 +92,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("## AI GUIDED (Recommended, you should follow):\n")
 	sb.WriteString(fmt.Sprintf("- Trading Leverage: Altcoins max %dx | BTC/ETH max %dx\n",
 		riskControl.AltcoinMaxLeverage, riskControl.BTCETHMaxLeverage))
-	sb.WriteString(fmt.Sprintf("- Min Confidence: ≥%d to open position\n\n", riskControl.MinConfidence))
+	sb.WriteString(fmt.Sprintf("- Min Confidence: ≥%d to open position\n\n", minOpenConfidence))
 
 	// Position sizing guidance
 	sb.WriteString("## Position Sizing Guidance\n")
@@ -98,8 +100,16 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.\n")
 	sb.WriteString("- Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.\n")
 	sb.WriteString("- High confidence (≥85): Use 80-100%% of max position value limit\n")
-	sb.WriteString("- Medium confidence (70-84): Use 50-80%% of max position value limit\n")
-	sb.WriteString("- Low confidence (60-69): Use 30-50%% of max position value limit\n")
+	if minOpenConfidence <= 70 {
+		sb.WriteString("- Medium confidence (70-84): Use 50-80%% of max position value limit\n")
+	} else {
+		sb.WriteString(fmt.Sprintf("- Medium confidence (%d-84): Use 50-80%% of max position value limit\n", minOpenConfidence))
+	}
+	if minOpenConfidence <= 60 {
+		sb.WriteString("- Low confidence (60-69): Use 30-50%% of max position value limit\n")
+	} else {
+		sb.WriteString(fmt.Sprintf("- Confidence below %d must output wait; do not open by reducing position size.\n", minOpenConfidence))
+	}
 	sb.WriteString(fmt.Sprintf("- Example: With equity %.0f and BTC/ETH ratio %.1fx, max is %.0f USDT\n",
 		accountEquity, btcEthPosValueRatio, accountEquity*btcEthPosValueRatio))
 	sb.WriteString("- **DO NOT** just use available_balance as position_size_usd. Use the Position Value Limits!\n\n")
@@ -121,12 +131,12 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		sb.WriteString(promptSections.EntryStandards)
 		sb.WriteString("\n\nYou have the following indicator data:\n")
 		e.writeAvailableIndicators(&sb)
-		sb.WriteString(fmt.Sprintf("\n**Confidence ≥ %d** required to open positions.\n\n", riskControl.MinConfidence))
+		sb.WriteString(fmt.Sprintf("\n**Confidence ≥ %d** required to open positions.\n\n", minOpenConfidence))
 	} else {
 		sb.WriteString("# 🎯 Entry Standards (Strict)\n\n")
 		sb.WriteString("Only open positions when multiple signals resonate. You have:\n")
 		e.writeAvailableIndicators(&sb)
-		sb.WriteString(fmt.Sprintf("\nFeel free to use any effective analysis method, but **confidence ≥ %d** required to open positions; avoid low-quality behaviors such as single indicators, contradictory signals, sideways consolidation, reopening immediately after closing, etc.\n\n", riskControl.MinConfidence))
+		sb.WriteString(fmt.Sprintf("\nFeel free to use any effective analysis method, but **confidence ≥ %d** required to open positions; avoid low-quality behaviors such as single indicators, contradictory signals, sideways consolidation, reopening immediately after closing, etc.\n\n", minOpenConfidence))
 	}
 
 	// 6. Decision process (editable)
@@ -160,10 +170,11 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("</decision>\n\n")
 	sb.WriteString("## Field Description\n\n")
 	sb.WriteString("- `action`: open_long | open_short | close_long | close_short | hold | wait\n")
-	sb.WriteString(fmt.Sprintf("- `confidence`: 0-100 (opening recommended ≥ %d)\n", riskControl.MinConfidence))
+	sb.WriteString(fmt.Sprintf("- `confidence`: 0-100 (opening recommended ≥ %d)\n", minOpenConfidence))
 	sb.WriteString("- Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence\n")
 	sb.WriteString("- `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.\n")
 	sb.WriteString("- `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price\n")
+	sb.WriteString("- `hold` and `wait` are no-op actions: they do not change stop-loss, take-profit, leverage, or position size. If profit protection requires action, output a risk-reducing `close_long`/`close_short`; otherwise output `hold` without claiming that stops were tightened.\n")
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
 	// 8. Custom Prompt
@@ -173,8 +184,46 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		sb.WriteString("\n\n")
 		sb.WriteString("Note: The above personalized strategy is a supplement to the basic rules and cannot violate the basic risk control principles.\n")
 	}
+	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
+		e.writeHunterV7ExecutionPreflightPrompt(&sb)
+	}
 
 	return sb.String()
+}
+
+func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Builder) {
+	maxTPMovePct, minSLMovePct, maxDriftPct := e.effectiveExecutionGeometry()
+	minRR := e.config.RiskControl.MinRiskRewardRatio
+	if minRR <= 0 {
+		minRR = 1.5
+	}
+	if e.GetLanguage() == LangChinese {
+		sb.WriteString("\n\n# Hunter v7 执行规则\n\n")
+		sb.WriteString(fmt.Sprintf("完整判断 `EXECUTABLE` 与 `REVIEWABLE` 候选；`WATCH` 只作背景，`REJECTED` 不参与开仓。无持仓且存在开仓复核候选时，在最佳 open 与明确 blocked_reason 之间二选一。后端允许轻微修复：价格漂移 %.2f%% 内、SL 边界 %.2f%%、RR %.2f 且 TP 在 %.2f%% 可达范围内。\n",
+			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+		sb.WriteString("动量/突破类（如 leader_momentum_long、trend_breakout_long）若实时价跌破 signal stop/invalidation、entry_zone 下沿，或 5m 动量从强转弱，不得把回落视为更好入场，必须 wait。\n")
+		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
+		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
+		sb.WriteString("持仓管理：若 Peak PnL 已接近 TP1（例如当前 TP1 6% 时 Peak PnL >= 5.7%），随后从峰值回撤 >=45% 或当前 PnL 回到盈亏平衡/亏损，必须优先视为退出/减风险信号；除非有非常明确的延续证据，否则输出可执行的 `close_long`/`close_short`，不得只因未到 SL/TP 而 `hold`，也不得用 `hold` 声称收紧止损。若曾经错过 near-TP1，之后又回到 TP1 的 90% 以上，这是二次保护机会，应优先 close/reduce，而不是再次等待精确 TP1。峰值回撤按 `(Peak PnL - Current PnL) / Peak PnL` 计算；正峰值后跌到负 PnL 代表回吐超过 100%，不是小幅回撤。\n")
+		return
+	}
+	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
+	sb.WriteString(fmt.Sprintf("Fully judge `EXECUTABLE` and `REVIEWABLE` candidates; `WATCH` is context and `REJECTED` is not open-eligible. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Backend may lightly repair drift %.2f%%, SL edge %.2f%%, and RR %.2f when TP stays within %.2f%%.\n",
+		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+	sb.WriteString("For momentum/breakout setups such as leader_momentum_long or trend_breakout_long, if live price breaks below signal stop/invalidation, below entry_zone.lower, or 5m momentum flips from strong to weak, do not treat the pullback as a better entry; wait.\n")
+	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
+	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
+	sb.WriteString("Position management: if Peak PnL reached near TP1 (for example Peak PnL >= 5.7% when TP1 is 6%) and then gives back >=45% from the peak or current PnL crosses to breakeven/loss, treat it first as an exit/risk-reduction signal; output an executable risk-reducing `close_long`/`close_short` unless there is a very explicit continuation signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. If a missed near-TP1 trade later returns above 90% of TP1, treat it as a second protection chance and prefer close/reduce rather than waiting again for exact TP1. Peak giveback is `(Peak PnL - Current PnL) / Peak PnL`; crossing from a positive peak to negative PnL is >100% giveback, not a small drawdown.\n")
+}
+
+func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
+	if configured <= 0 {
+		return configured
+	}
+	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") && configured > 70 {
+		return 70
+	}
+	return configured
 }
 
 func (e *StrategyEngine) effectiveExecutionGeometry() (maxTPMovePct, minSLMovePct, maxDriftPct float64) {
@@ -437,110 +486,114 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 		positionSymbols[normalizedSymbol] = true
 	}
 
-	sb.WriteString(fmt.Sprintf("## Candidate Coins (%d coins)\n\n", len(ctx.MarketDataMap)))
-	displayedCount := 0
-	for _, coin := range ctx.CandidateCoins {
-		// Skip if this coin is already a position (data already shown in positions section)
-		normalizedCoinSymbol := market.Normalize(coin.Symbol)
-		if positionSymbols[normalizedCoinSymbol] {
-			continue
-		}
-
-		marketData, hasData := ctx.MarketDataMap[coin.Symbol]
-		if !hasData {
-			continue
-		}
-		displayedCount++
-
-		sourceTags := e.formatCoinSourceTag(coin.Sources)
-		directionTag := ""
-		if coin.Direction == "LONG" || coin.Direction == "SHORT" {
-			directionTag = fmt.Sprintf(" [%s]", coin.Direction)
-		}
-		sb.WriteString(fmt.Sprintf("### %d. %s%s%s\n\n", displayedCount, coin.Symbol, directionTag, sourceTags))
-
-		if coin.V7SetupType != "" {
-			if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
-				sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
+	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
+		e.writeHunterV7TieredCandidatePrompt(&sb, ctx, positionSymbols)
+	} else {
+		sb.WriteString(fmt.Sprintf("## Candidate Coins (%d coins)\n\n", len(ctx.MarketDataMap)))
+		displayedCount := 0
+		for _, coin := range ctx.CandidateCoins {
+			// Skip if this coin is already a position (data already shown in positions section)
+			normalizedCoinSymbol := market.Normalize(coin.Symbol)
+			if positionSymbols[normalizedCoinSymbol] {
+				continue
 			}
-			if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" || coin.V7ExecutionQuality == "watch_only" {
-				sb.WriteString("v7_execution_gate: wait for required confirmations / directional trigger before entry.\n")
-			}
-			if coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
-				sb.WriteString("v7_watch_only_policy: do not open directly from this signal; output wait unless it is upgraded by a confirmed setup in a later cycle.\n")
-			}
-			sb.WriteString("\n")
-		}
 
-		// Show Hunter signal tags for AI context
-		if coin.V7SetupType == "" && len(coin.SignalTags) > 0 && coin.Direction != "" {
-			sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
-		}
-		// RUSH alert: highlight extreme 15m taker pressure for AI attention
-		for _, tag := range coin.SignalTags {
-			if tag == "MICRO_BUY_RUSH" || tag == "MICRO_SELL_RUSH" {
-				sb.WriteString(fmt.Sprintf("⚡ ALERT: %s detected on 15m — strong short-term directional pressure!\n\n", tag))
+			marketData, hasData := ctx.MarketDataMap[coin.Symbol]
+			if !hasData {
+				continue
 			}
-		}
-		// Capital confirmation tier (three-level gate)
-		if coin.CapitalTier != "" && coin.CapitalTier != "Untiered" {
-			tierLabel := coin.CapitalTier
-			if e.GetLanguage() == LangChinese {
-				switch coin.CapitalLevel {
-				case 3:
-					tierLabel = "Tier-S 高置信信号"
-				case 2:
-					tierLabel = "Tier-A 中等确认"
-				case 1:
-					tierLabel = "Tier-B 低置信 (仅补位)"
+			displayedCount++
+
+			sourceTags := e.formatCoinSourceTag(coin.Sources)
+			directionTag := ""
+			if coin.Direction == "LONG" || coin.Direction == "SHORT" {
+				directionTag = fmt.Sprintf(" [%s]", coin.Direction)
+			}
+			sb.WriteString(fmt.Sprintf("### %d. %s%s%s\n\n", displayedCount, coin.Symbol, directionTag, sourceTags))
+
+			if coin.V7SetupType != "" {
+				if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
+					sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
+				}
+				if coin.V7Status == "wait_confirm" || coin.V7Status == "conflict_watch" || coin.V7RiskLevel == "HIGH" || coin.V7RiskLevel == "EXTREME" || coin.V7ExecutionQuality == "watch_only" {
+					sb.WriteString("v7_execution_gate: wait for required confirmations / directional trigger before entry.\n")
+				}
+				if coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
+					sb.WriteString("v7_watch_only_policy: do not open directly from this signal; output wait unless it is upgraded by a confirmed setup in a later cycle.\n")
+				}
+				sb.WriteString("\n")
+			}
+
+			// Show Hunter signal tags for AI context
+			if coin.V7SetupType == "" && len(coin.SignalTags) > 0 && coin.Direction != "" {
+				sb.WriteString(fmt.Sprintf("Hunter signals: %s\n\n", strings.Join(coin.SignalTags, ", ")))
+			}
+			// RUSH alert: highlight extreme 15m taker pressure for AI attention
+			for _, tag := range coin.SignalTags {
+				if tag == "MICRO_BUY_RUSH" || tag == "MICRO_SELL_RUSH" {
+					sb.WriteString(fmt.Sprintf("⚡ ALERT: %s detected on 15m — strong short-term directional pressure!\n\n", tag))
 				}
 			}
-			sb.WriteString(fmt.Sprintf("Capital Tier: %s (Level %d)\n\n", tierLabel, coin.CapitalLevel))
-		}
-		// Show Hunter bidirectional scores for AI decision context
-		if coin.LongScore > 0 || coin.ShortScore > 0 {
-			selectedScore := coin.LongScore
-			if coin.Direction == "SHORT" {
-				selectedScore = coin.ShortScore
+			// Capital confirmation tier (three-level gate)
+			if coin.CapitalTier != "" && coin.CapitalTier != "Untiered" {
+				tierLabel := coin.CapitalTier
+				if e.GetLanguage() == LangChinese {
+					switch coin.CapitalLevel {
+					case 3:
+						tierLabel = "Tier-S 高置信信号"
+					case 2:
+						tierLabel = "Tier-A 中等确认"
+					case 1:
+						tierLabel = "Tier-B 低置信 (仅补位)"
+					}
+				}
+				sb.WriteString(fmt.Sprintf("Capital Tier: %s (Level %d)\n\n", tierLabel, coin.CapitalLevel))
 			}
-			sb.WriteString(fmt.Sprintf("Hunter Score: LONG %.1f | SHORT %.1f | Selected: %s (%.1f)\n", coin.LongScore, coin.ShortScore, coin.Direction, selectedScore))
-			// Warn if Hunter recommends opposite direction or score is low
-			if coin.Direction == "SHORT" && coin.LongScore > coin.ShortScore {
-				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: LONG score (%.1f) > SHORT score (%.1f). Consider switching direction or reducing confidence.\n", coin.LongScore, coin.ShortScore))
-			} else if coin.Direction == "LONG" && coin.ShortScore > coin.LongScore {
-				sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: SHORT score (%.1f) > LONG score (%.1f). Consider switching direction or reducing confidence.\n", coin.ShortScore, coin.LongScore))
+			// Show Hunter bidirectional scores for AI decision context
+			if coin.LongScore > 0 || coin.ShortScore > 0 {
+				selectedScore := coin.LongScore
+				if coin.Direction == "SHORT" {
+					selectedScore = coin.ShortScore
+				}
+				sb.WriteString(fmt.Sprintf("Hunter Score: LONG %.1f | SHORT %.1f | Selected: %s (%.1f)\n", coin.LongScore, coin.ShortScore, coin.Direction, selectedScore))
+				// Warn if Hunter recommends opposite direction or score is low
+				if coin.Direction == "SHORT" && coin.LongScore > coin.ShortScore {
+					sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: LONG score (%.1f) > SHORT score (%.1f). Consider switching direction or reducing confidence.\n", coin.LongScore, coin.ShortScore))
+				} else if coin.Direction == "LONG" && coin.ShortScore > coin.LongScore {
+					sb.WriteString(fmt.Sprintf("⚠️ Hunter WARNING: SHORT score (%.1f) > LONG score (%.1f). Consider switching direction or reducing confidence.\n", coin.ShortScore, coin.LongScore))
+				}
+				if selectedScore < 10 {
+					sb.WriteString(fmt.Sprintf("🛑 Hunter REJECT: Score (%.1f) below 10. Do NOT trade.\n", selectedScore))
+				} else if selectedScore < 20 {
+					sb.WriteString(fmt.Sprintf("⚠️ Hunter LOW: Score (%.1f). Reduce position to 25%% max.\n", selectedScore))
+				} else if selectedScore < 30 {
+					sb.WriteString(fmt.Sprintf("⚡ Hunter MODERATE: Score (%.1f). Standard position.\n", selectedScore))
+				} else {
+					sb.WriteString(fmt.Sprintf("🔥 Hunter STRONG: Score (%.1f). Full conviction.\n", selectedScore))
+				}
+				// ADX direction validation: warn if Hunter direction conflicts with market trend
+				if ctx.MarketEnv != nil && ctx.MarketEnv.ADX >= 20 {
+					_, adxWarning := ValidateDirectionWithADX(coin.Direction, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI)
+					if adxWarning != "" {
+						sb.WriteString(fmt.Sprintf("⚠️ %s — ADX=%.1f (+DI=%.1f, -DI=%.1f). Reduce confidence or reconsider direction.\n",
+							adxWarning, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI))
+					}
+				}
+				sb.WriteString("\n")
 			}
-			if selectedScore < 10 {
-				sb.WriteString(fmt.Sprintf("🛑 Hunter REJECT: Score (%.1f) below 10. Do NOT trade.\n", selectedScore))
-			} else if selectedScore < 20 {
-				sb.WriteString(fmt.Sprintf("⚠️ Hunter LOW: Score (%.1f). Reduce position to 25%% max.\n", selectedScore))
-			} else if selectedScore < 30 {
-				sb.WriteString(fmt.Sprintf("⚡ Hunter MODERATE: Score (%.1f). Standard position.\n", selectedScore))
+			if e.shouldCompactCandidatePrompt(coin, ctx) {
+				sb.WriteString(e.formatCompactMarketData(marketData, &coin))
 			} else {
-				sb.WriteString(fmt.Sprintf("🔥 Hunter STRONG: Score (%.1f). Full conviction.\n", selectedScore))
+				sb.WriteString(e.formatMarketData(marketData))
 			}
-			// ADX direction validation: warn if Hunter direction conflicts with market trend
-			if ctx.MarketEnv != nil && ctx.MarketEnv.ADX >= 20 {
-				_, adxWarning := ValidateDirectionWithADX(coin.Direction, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI)
-				if adxWarning != "" {
-					sb.WriteString(fmt.Sprintf("⚠️ %s — ADX=%.1f (+DI=%.1f, -DI=%.1f). Reduce confidence or reconsider direction.\n",
-						adxWarning, ctx.MarketEnv.ADX, ctx.MarketEnv.PlusDI, ctx.MarketEnv.MinusDI))
+
+			if ctx.QuantDataMap != nil {
+				if quantData, hasQuant := ctx.QuantDataMap[coin.Symbol]; hasQuant {
+					sb.WriteString(e.formatQuantData(quantData))
 				}
 			}
 			sb.WriteString("\n")
 		}
-		if e.shouldCompactCandidatePrompt(coin, ctx) {
-			sb.WriteString(e.formatCompactMarketData(marketData, &coin))
-		} else {
-			sb.WriteString(e.formatMarketData(marketData))
-		}
-
-		if ctx.QuantDataMap != nil {
-			if quantData, hasQuant := ctx.QuantDataMap[coin.Symbol]; hasQuant {
-				sb.WriteString(e.formatQuantData(quantData))
-			}
-		}
-		sb.WriteString("\n")
 	}
 	sb.WriteString("\n")
 
@@ -571,11 +624,221 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	return sb.String()
 }
 
+type hunterV7PromptCandidate struct {
+	Coin   CandidateCoin
+	Data   *market.Data
+	Tier   string
+	Reason string
+}
+
+func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder, ctx *Context, positionSymbols map[string]bool) {
+	items := make([]hunterV7PromptCandidate, 0, len(ctx.CandidateCoins))
+	for _, coin := range ctx.CandidateCoins {
+		if positionSymbols[market.Normalize(coin.Symbol)] {
+			continue
+		}
+		data, ok := ctx.MarketDataMap[coin.Symbol]
+		if !ok {
+			continue
+		}
+		tier, reason := coin.V7ExecutionTier, coin.V7TierReason
+		if tier == "" {
+			tier, reason = classifyHunterV7CandidateTier(coin)
+		}
+		items = append(items, hunterV7PromptCandidate{
+			Coin:   coin,
+			Data:   data,
+			Tier:   tier,
+			Reason: reason,
+		})
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		ti := hunterV7TierRank(items[i].Tier)
+		tj := hunterV7TierRank(items[j].Tier)
+		if ti != tj {
+			return ti < tj
+		}
+		return items[i].Coin.V7AIPriority > items[j].Coin.V7AIPriority
+	})
+
+	execCount, reviewableCount, watchCount, rejectedCount := 0, 0, 0, 0
+	for _, item := range items {
+		switch item.Tier {
+		case "EXECUTABLE":
+			execCount++
+		case "REVIEWABLE":
+			reviewableCount++
+		case "REJECTED":
+			rejectedCount++
+		default:
+			watchCount++
+		}
+	}
+
+	positionLimitReached := e.config.RiskControl.MaxPositions > 0 && len(ctx.Positions) >= e.config.RiskControl.MaxPositions
+	sb.WriteString(fmt.Sprintf("## Hunter v7 Candidate Tiers (%d total)\n\n", len(items)))
+	sb.WriteString(fmt.Sprintf("Tier Summary: EXECUTABLE=%d | REVIEWABLE=%d | WATCH=%d | REJECTED=%d\n\n", execCount, reviewableCount, watchCount, rejectedCount))
+	if positionLimitReached {
+		if e.GetLanguage() == LangChinese {
+			sb.WriteString("Decision policy: 当前持仓数量已达到 Max Positions；候选只作背景摘要，不展开、不要求逐个决策，除非先明确 close 现有仓位，否则禁止新开仓。\n\n")
+		} else {
+			sb.WriteString("Decision policy: Current positions have reached Max Positions; candidates are summary-only context. Do not expand or decide each candidate, and do not open unless an existing position is explicitly closed first.\n\n")
+		}
+	} else if execCount+reviewableCount > 0 {
+		if e.GetLanguage() == LangChinese {
+			sb.WriteString("Decision policy: 优先分析 EXECUTABLE，其次 REVIEWABLE。REVIEWABLE 是可复核候选，不是必须开；只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出精确 blocked_reason。WATCH/REJECTED 不能作为整体 wait 的理由。\n\n")
+		} else {
+			sb.WriteString("Decision policy: Analyze EXECUTABLE first, then REVIEWABLE. REVIEWABLE candidates are open-review candidates, not must-open signals; open only when live candles/flow confirm entry location, near structural stop, and RR, otherwise provide a precise blocked_reason. WATCH/REJECTED candidates are not a global wait veto.\n\n")
+		}
+	} else {
+		if e.GetLanguage() == LangChinese {
+			sb.WriteString("Decision policy: 当前没有 EXECUTABLE/REVIEWABLE 候选。不要强行开仓；只允许 wait 或管理已有持仓。\n\n")
+		} else {
+			sb.WriteString("Decision policy: No EXECUTABLE/REVIEWABLE candidates are available. Do not force a new open; only wait or manage existing positions.\n\n")
+		}
+	}
+
+	sb.WriteString("### Open-review candidates (full context, max 5)\n\n")
+	displayedOpenReview := 0
+	if positionLimitReached {
+		sb.WriteString("- None (position limit reached; open-review candidates are summary-only below)\n\n")
+	} else {
+		for _, item := range items {
+			if item.Tier != "EXECUTABLE" && item.Tier != "REVIEWABLE" {
+				continue
+			}
+			if displayedOpenReview >= 5 {
+				sb.WriteString(fmt.Sprintf("- %s %s setup=%s ai_priority=%.1f reason=%s (not expanded; lower priority)\n",
+					item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7AIPriority, item.Reason))
+				continue
+			}
+			displayedOpenReview++
+			e.writeHunterV7ExpandedCandidate(sb, item, displayedOpenReview, ctx)
+		}
+	}
+	if displayedOpenReview == 0 && !positionLimitReached {
+		sb.WriteString("- None\n\n")
+	}
+
+	if positionLimitReached {
+		sb.WriteString("### Open-disabled candidate summary\n\n")
+		displayedBlocked := 0
+		for _, item := range items {
+			if item.Tier == "REJECTED" {
+				continue
+			}
+			displayedBlocked++
+			if displayedBlocked > 6 {
+				break
+			}
+			sb.WriteString(fmt.Sprintf("- %s %s tier=%s setup=%s status=%s quality=%s ai_priority=%.1f risk=%.0f reason=%s\n",
+				item.Coin.Symbol, item.Coin.Direction, item.Tier, item.Coin.V7SetupType, item.Coin.V7Status,
+				item.Coin.V7ExecutionQuality, item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+		}
+		if displayedBlocked == 0 {
+			sb.WriteString("- None\n")
+		}
+		if execCount+reviewableCount+watchCount > displayedBlocked {
+			sb.WriteString(fmt.Sprintf("- ... %d more non-rejected candidates omitted\n", execCount+reviewableCount+watchCount-displayedBlocked))
+		}
+		sb.WriteString("\n")
+	} else {
+		sb.WriteString("### WATCH candidates (summary only; not direct open)\n\n")
+		displayedWatch := 0
+		for _, item := range items {
+			if item.Tier != "WATCH" {
+				continue
+			}
+			displayedWatch++
+			if displayedWatch > 6 {
+				break
+			}
+			sb.WriteString(fmt.Sprintf("- %s %s setup=%s status=%s quality=%s ai_priority=%.1f risk=%.0f reason=%s\n",
+				item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7Status,
+				item.Coin.V7ExecutionQuality, item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+		}
+		if displayedWatch == 0 {
+			sb.WriteString("- None\n")
+		}
+		if watchCount > displayedWatch {
+			sb.WriteString(fmt.Sprintf("- ... %d more WATCH candidates omitted\n", watchCount-displayedWatch))
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("### REJECTED candidates (count only)\n\n")
+	if rejectedCount == 0 {
+		sb.WriteString("- None\n\n")
+		return
+	}
+	reasonCounts := make(map[string]int)
+	for _, item := range items {
+		if item.Tier == "REJECTED" {
+			reasonCounts[item.Reason]++
+		}
+	}
+	reasons := make([]string, 0, len(reasonCounts))
+	for reason := range reasonCounts {
+		reasons = append(reasons, reason)
+	}
+	sort.Strings(reasons)
+	for _, reason := range reasons {
+		sb.WriteString(fmt.Sprintf("- %s: %d\n", reason, reasonCounts[reason]))
+	}
+	sb.WriteString("\n")
+}
+
+func hunterV7TierRank(tier string) int {
+	switch tier {
+	case "EXECUTABLE":
+		return 1
+	case "REVIEWABLE":
+		return 2
+	case "WATCH":
+		return 3
+	case "REJECTED":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, item hunterV7PromptCandidate, index int, ctx *Context) {
+	coin := item.Coin
+	coin.V7ExecutionTier = item.Tier
+	coin.V7TierReason = item.Reason
+	sourceTags := e.formatCoinSourceTag(coin.Sources)
+	directionTag := ""
+	if coin.Direction == "LONG" || coin.Direction == "SHORT" {
+		directionTag = fmt.Sprintf(" [%s]", coin.Direction)
+	}
+	sb.WriteString(fmt.Sprintf("#### %d. %s%s%s\n\n", index, coin.Symbol, directionTag, sourceTags))
+	sb.WriteString(fmt.Sprintf("execution_tier=%s tier_reason=%s\n", item.Tier, item.Reason))
+	if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
+		sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(e.formatCompactMarketData(item.Data, &coin))
+	if ctx.QuantDataMap != nil {
+		if quantData, hasQuant := ctx.QuantDataMap[coin.Symbol]; hasQuant {
+			sb.WriteString(e.formatQuantData(quantData))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
+	if coin.V7SetupType != "" && coin.V7ExecutionTier == "" {
+		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTier(coin)
+	}
+
 	type v7SignalForAI struct {
 		Symbol                string                      `json:"symbol"`
 		Direction             string                      `json:"direction"`
 		SetupType             string                      `json:"setup_type"`
+		ExecutionTier         string                      `json:"execution_tier,omitempty"`
+		TierReason            string                      `json:"tier_reason,omitempty"`
 		Status                string                      `json:"status"`
 		MarketRegime          string                      `json:"market_regime"`
 		EntryMode             string                      `json:"entry_mode"`
@@ -604,12 +867,14 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Symbol:                coin.Symbol,
 		Direction:             coin.Direction,
 		SetupType:             coin.V7SetupType,
+		ExecutionTier:         coin.V7ExecutionTier,
+		TierReason:            coin.V7TierReason,
 		Status:                coin.V7Status,
 		MarketRegime:          coin.V7MarketRegime,
 		EntryMode:             coin.V7EntryMode,
 		ExecutionQuality:      coin.V7ExecutionQuality,
 		ExecutionPolicy:       hunterV7ExecutionPolicy(coin),
-		DoNotOpenUntilConfirm: coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed"),
+		DoNotOpenUntilConfirm: hunterV7DoNotOpenUntilConfirmed(coin),
 		Confidence:            coin.V7Confidence,
 		RiskLevel:             coin.V7RiskLevel,
 		AIPriority:            coin.V7AIPriority,
@@ -635,6 +900,12 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 }
 
 func hunterV7ExecutionPolicy(coin CandidateCoin) string {
+	if coin.V7ExecutionTier == "EXECUTABLE" {
+		return "open_allowed_after_core_checks"
+	}
+	if coin.V7ExecutionTier == "REVIEWABLE" {
+		return "reviewable_open_allowed_only_if_live_confirmed"
+	}
 	if coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
 		return "do_not_open_until_confirmed"
 	}
@@ -642,6 +913,13 @@ func hunterV7ExecutionPolicy(coin CandidateCoin) string {
 		return "wait_required_confirmations"
 	}
 	return ""
+}
+
+func hunterV7DoNotOpenUntilConfirmed(coin CandidateCoin) bool {
+	if (coin.V7ExecutionTier == "EXECUTABLE" || coin.V7ExecutionTier == "REVIEWABLE") && !containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed") {
+		return false
+	}
+	return coin.V7ExecutionQuality == "watch_only" || containsStringValue(coin.V7RiskTags, "do_not_open_until_confirmed")
 }
 
 func containsStringValue(values []string, want string) bool {
@@ -674,13 +952,30 @@ func (e *StrategyEngine) formatPositionInfo(index int, pos PositionInfo, ctx *Co
 		positionValue = -positionValue
 	}
 
-	sb.WriteString(fmt.Sprintf("%d. %s %s | Entry %.4f Current %.4f | Qty %.4f | Position Value %.2f USDT | PnL%+.2f%% | PnL Amount%+.2f USDT | Peak PnL%.2f%% | Leverage %dx | Margin %.0f | Liq Price %.4f%s\n\n",
+	plannedRisk := ""
+	plannedRiskParts := make([]string, 0, 2)
+	if pos.StopLoss > 0 {
+		plannedRiskParts = append(plannedRiskParts, fmt.Sprintf("Planned SL %.4f", pos.StopLoss))
+	}
+	if pos.TakeProfit > 0 {
+		plannedRiskParts = append(plannedRiskParts, fmt.Sprintf("Planned TP %.4f", pos.TakeProfit))
+	}
+	if len(plannedRiskParts) > 0 {
+		plannedRisk = " | " + strings.Join(plannedRiskParts, " | ")
+	}
+
+	sb.WriteString(fmt.Sprintf("%d. %s %s | Entry %.4f Current %.4f | Qty %.4f | Position Value %.2f USDT | PnL%+.2f%% | PnL Amount%+.2f USDT | Peak PnL%.2f%% | Leverage %dx | Margin %.0f | Liq Price %.4f%s%s\n\n",
 		index, pos.Symbol, strings.ToUpper(pos.Side),
 		pos.EntryPrice, pos.MarkPrice, pos.Quantity, positionValue, pos.UnrealizedPnLPct, pos.UnrealizedPnL, pos.PeakPnLPct,
-		pos.Leverage, pos.MarginUsed, pos.LiquidationPrice, holdingDuration))
+		pos.Leverage, pos.MarginUsed, pos.LiquidationPrice, plannedRisk, holdingDuration))
 
 	if marketData, ok := ctx.MarketDataMap[pos.Symbol]; ok {
-		sb.WriteString(e.formatMarketData(marketData))
+		if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
+			sb.WriteString("position_management_compact: use this summary for hold/close decisions; do not reassess existing positions as new entries.\n")
+			sb.WriteString(e.formatCompactMarketData(marketData, nil))
+		} else {
+			sb.WriteString(e.formatMarketData(marketData))
+		}
 
 		if ctx.QuantDataMap != nil {
 			if quantData, hasQuant := ctx.QuantDataMap[pos.Symbol]; hasQuant {
@@ -1195,23 +1490,11 @@ func hunterV7ExecutionHardRule(price float64, coin *CandidateCoin) string {
 		if oiState == "building" {
 			rules = append(rules, "no_open_short_until_oi_flush_or_failed_rebuild")
 		}
-		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
-			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
-			if pos < 65 {
-				rules = append(rules, "no_short_below_zone_upper_wait_retest_rejection")
-			}
-		}
 		if coin.V7PriceContext != nil && coin.V7PriceContext.Change1h < -5 && oiState != "flush" && oiState != "failed_rebuild_or_declining" {
 			rules = append(rules, "no_chase_short_after_fast_drop_without_oi_flush")
 		}
 	}
 	if strings.EqualFold(coin.Direction, "LONG") {
-		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
-			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
-			if pos > 35 {
-				rules = append(rules, "no_long_above_zone_lower_wait_pullback_reclaim")
-			}
-		}
 		if coin.V7PriceContext != nil && coin.V7PriceContext.Change1h > 5 && oiState != "flush" && oiState != "failed_rebuild_or_declining" {
 			rules = append(rules, "no_chase_long_after_fast_pump_without_oi_reset")
 		}

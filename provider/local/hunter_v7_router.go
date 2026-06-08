@@ -1,6 +1,8 @@
 package local
 
 import (
+	"fmt"
+	"log"
 	"sort"
 )
 
@@ -103,7 +105,9 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 
 	confirmed := filterV7SignalsForLLM(allSignals, cfg)
 	watches := BuildV7PreMoveRadar(universe, regime, cfg)
-	return appendV7WatchSignals(confirmed, watches, cfg)
+	out := appendV7WatchSignals(confirmed, watches, cfg)
+	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
+	return out
 }
 
 // CalcAIPriority computes the composite AI priority score.
@@ -196,6 +200,78 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		filtered = diversifyV7Signals(filtered, maxOutput)
 	}
 	return filtered
+}
+
+func logV7RouteDiagnostics(raw, confirmed, watches, out []V7SignalOutput, cfg V7Config) {
+	minPriority := cfg.MinAIPriority
+	if minPriority <= 0 {
+		minPriority = 55
+	}
+	fallbackMinPriority := cfg.FallbackMinAIPriority
+	if fallbackMinPriority <= 0 || fallbackMinPriority >= minPriority {
+		fallbackMinPriority = minPriority - 10
+	}
+
+	ready, nearConfirm, watchOnly, invalidRR, filtered := 0, 0, 0, 0, 0
+	for _, sig := range raw {
+		switch sig.ExecutionQuality {
+		case V7ExecReady:
+			ready++
+		case V7ExecNearConfirm:
+			nearConfirm++
+		case V7ExecWatchOnly, V7ExecChaseRisk:
+			watchOnly++
+		case V7ExecInvalidRR:
+			invalidRR++
+		}
+		if sig.Status == V7StatusFiltered {
+			filtered++
+		}
+	}
+	if hasV7ExecutableOutput(out, minPriority) {
+		return
+	}
+
+	eligible := 0
+	var top *V7SignalOutput
+	for i := range raw {
+		if raw[i].Status == V7StatusFiltered {
+			continue
+		}
+		eligible++
+		if top == nil || raw[i].AIPriority > top.AIPriority {
+			top = &raw[i]
+		}
+	}
+
+	topText := "none"
+	if top != nil {
+		topText = top.Symbol + " " + string(top.Direction) +
+			" setup=" + string(top.SetupType) +
+			" status=" + string(top.Status) +
+			" quality=" + string(top.ExecutionQuality) +
+			" priority=" + formatOneDecimal(top.AIPriority) +
+			" risk=" + formatOneDecimal(top.RiskScore) +
+			" timing=" + formatOneDecimal(top.TimingScore)
+	}
+	log.Printf("🔎 Hunter v7 route diag: raw=%d eligible=%d confirmed=%d watches=%d output=%d ready=%d near=%d watch=%d invalid_rr=%d filtered=%d min=%.1f fallback=%.1f top=%s",
+		len(raw), eligible, len(confirmed), len(watches), len(out), ready, nearConfirm, watchOnly, invalidRR, filtered, minPriority, fallbackMinPriority, topText)
+}
+
+func hasV7ExecutableOutput(signals []V7SignalOutput, minPriority float64) bool {
+	for _, sig := range signals {
+		if sig.ExecutionQuality == V7ExecReady {
+			return true
+		}
+		if sig.ExecutionQuality == V7ExecNearConfirm && sig.AIPriority >= minPriority && sig.RiskScore < 55 {
+			return true
+		}
+	}
+	return false
+}
+
+func formatOneDecimal(v float64) string {
+	return fmt.Sprintf("%.1f", v)
 }
 
 func appendIfMissing(values []string, value string) []string {

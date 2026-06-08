@@ -481,7 +481,19 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 }
 
 // Run runs the automatic trading main loop
-func (at *AutoTrader) Run() error {
+func (at *AutoTrader) Run() (err error) {
+	defer func() {
+		at.isRunningMutex.RLock()
+		running := at.isRunning
+		at.isRunningMutex.RUnlock()
+		if r := recover(); r != nil {
+			err = fmt.Errorf("auto trader runtime panic: %v", r)
+			at.logWarnf("⚠️ Auto trader runtime panic after %d cycles (running=%v): %v", at.callCount, running, r)
+			return
+		}
+		at.logInfof("ℹ️ Auto trader runtime exited after %d cycles (running=%v)", at.callCount, running)
+	}()
+
 	at.isRunningMutex.Lock()
 	at.isRunning = true
 	at.isRunningMutex.Unlock()
@@ -608,19 +620,23 @@ func (at *AutoTrader) Run() error {
 		if err := at.runCycle(); err != nil {
 			at.logErrorf("❌ Execution failed: %v", err)
 		}
+		at.logInfof("✅ Initial trading cycle completed")
 	}
 
+	at.logInfof("🔁 Entering automatic trading scan loop")
 	for {
 		at.isRunningMutex.RLock()
 		running := at.isRunning
 		at.isRunningMutex.RUnlock()
 
 		if !running {
+			at.logInfof("⏹ isRunning=false, exiting automatic trading main loop")
 			break
 		}
 
 		select {
-		case <-ticker.C:
+		case tickAt := <-ticker.C:
+			at.logInfof("⏱ Scan ticker fired at %s", tickAt.Format("2006-01-02 15:04:05"))
 			if isGridStrategy {
 				if err := at.RunGridCycle(); err != nil {
 					at.logErrorf("❌ Grid execution failed: %v", err)
@@ -629,6 +645,7 @@ func (at *AutoTrader) Run() error {
 				if err := at.runCycle(); err != nil {
 					at.logErrorf("❌ Execution failed: %v", err)
 				}
+				at.logInfof("✅ Scheduled trading cycle completed")
 			}
 		case <-at.stopMonitorCh:
 			at.logInfof("⏹ Stop signal received, exiting automatic trading main loop")

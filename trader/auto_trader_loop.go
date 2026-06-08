@@ -16,6 +16,11 @@ const maxDegradedContextCacheAge = 30 * time.Minute
 // runCycle runs one trading cycle (using AI full decision-making)
 func (at *AutoTrader) runCycle() error {
 	at.callCount++
+	cycleNumber := at.callCount
+	startedAt := time.Now()
+	defer func() {
+		at.logInfof("✅ runCycle #%d returned after %s", cycleNumber, time.Since(startedAt).Round(time.Millisecond))
+	}()
 
 	logger.Info("\n" + strings.Repeat("=", 70) + "\n")
 	logger.Infof("⏰ %s - AI decision cycle #%d", time.Now().Format("2006-01-02 15:04:05"), at.callCount)
@@ -81,6 +86,23 @@ func (at *AutoTrader) runCycle() error {
 	if len(ctx.CandidateCoins) == 0 {
 		at.logInfof("ℹ️ No candidate coins available, skipping this cycle")
 		record.Success = true // Not an error, just no candidate coins
+		record.CandidateCoins = []string{}
+		record.DecisionJSON = `[
+  {
+    "symbol": "ALL",
+    "action": "wait",
+    "reasoning": "no_candidate_coins"
+  }
+]`
+		record.Decisions = []store.DecisionAction{
+			{
+				Action:    "wait",
+				Symbol:    "ALL",
+				Reasoning: "no_candidate_coins",
+				Timestamp: time.Now(),
+				Success:   true,
+			},
+		}
 		record.ExecutionLog = append(record.ExecutionLog, "No candidate coins available, cycle skipped")
 		record.AccountState = store.AccountSnapshot{
 			TotalBalance:          ctx.Account.TotalEquity,
@@ -96,6 +118,11 @@ func (at *AutoTrader) runCycle() error {
 	logger.Info(strings.Repeat("=", 70))
 	for _, coin := range ctx.CandidateCoins {
 		record.CandidateCoins = append(record.CandidateCoins, coin.Symbol)
+	}
+
+	if at.shouldSkipHunterV7NoExecutable(ctx, record) {
+		at.saveDecision(record)
+		return nil
 	}
 
 	at.logInfof("📊 Account equity: %.2f USDT | Available: %.2f USDT | Positions: %d",
@@ -328,6 +355,59 @@ func (at *AutoTrader) runCycle() error {
 	return nil
 }
 
+func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record *store.DecisionRecord) bool {
+	if ctx == nil || record == nil || !at.isHunterV7Strategy() || len(ctx.Positions) > 0 || len(ctx.CandidateCoins) == 0 {
+		return false
+	}
+
+	execCount, reviewableCount, watchCount, rejectedCount := 0, 0, 0, 0
+	for _, coin := range ctx.CandidateCoins {
+		switch coin.V7ExecutionTier {
+		case "EXECUTABLE":
+			execCount++
+		case "REVIEWABLE":
+			reviewableCount++
+		case "REJECTED":
+			rejectedCount++
+		default:
+			watchCount++
+		}
+	}
+	if execCount+reviewableCount > 0 {
+		return false
+	}
+
+	reason := fmt.Sprintf("no_open_review_candidates watch=%d rejected=%d", watchCount, rejectedCount)
+	at.logInfof("ℹ️ Hunter v7 has no EXECUTABLE/REVIEWABLE candidates (%s), skipping AI this cycle", reason)
+	record.Success = true
+	record.DecisionJSON = fmt.Sprintf(`[
+  {
+    "symbol": "ALL",
+    "action": "wait",
+    "reasoning": "%s"
+  }
+]`, reason)
+	record.Decisions = []store.DecisionAction{
+		{
+			Action:    "wait",
+			Symbol:    "ALL",
+			Reasoning: reason,
+			Timestamp: time.Now(),
+			Success:   true,
+		},
+	}
+	record.ExecutionLog = append(record.ExecutionLog, "Hunter v7 no EXECUTABLE/REVIEWABLE candidates; AI skipped")
+	record.AccountState = store.AccountSnapshot{
+		TotalBalance:          ctx.Account.TotalEquity,
+		AvailableBalance:      ctx.Account.AvailableBalance,
+		TotalUnrealizedProfit: ctx.Account.UnrealizedPnL,
+		PositionCount:         ctx.Account.PositionCount,
+		MarginUsedPct:         ctx.Account.MarginUsedPct,
+		InitialBalance:        at.initialBalance,
+	}
+	return true
+}
+
 func (at *AutoTrader) degradedContextCacheAgeLimit() time.Duration {
 	limit := at.config.ScanInterval * 2
 	if limit <= 0 {
@@ -462,6 +542,7 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 
 	var positionInfos []kernel.PositionInfo
 	totalMarginUsed := 0.0
+	plannedRiskByPosition := at.latestOpenDecisionRiskByPosition(50)
 
 	// Current position key set (for cleaning up closed position records)
 	currentPositionKeys := make(map[string]bool)
@@ -523,10 +604,16 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 		}
 
 		// Get peak profit rate for this position
+		openedAt := time.Time{}
+		if updateTime > 0 {
+			openedAt = time.UnixMilli(updateTime)
+		}
+		at.ensurePeakPnLCacheInitialized(symbol, side, pnlPct, openedAt)
 		at.peakPnLCacheMutex.RLock()
 		peakPnlPct := at.peakPnLCache[posKey]
 		at.peakPnLCacheMutex.RUnlock()
 
+		plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]
 		positionInfos = append(positionInfos, kernel.PositionInfo{
 			Symbol:           symbol,
 			Side:             side,
@@ -539,6 +626,8 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 			PeakPnLPct:       peakPnlPct,
 			LiquidationPrice: liquidationPrice,
 			MarginUsed:       marginUsed,
+			StopLoss:         plannedRisk.stopLoss,
+			TakeProfit:       plannedRisk.takeProfit,
 			UpdateTime:       updateTime,
 		})
 	}
@@ -601,6 +690,10 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 					filtered := make([]kernel.CandidateCoin, 0, len(candidateCoins))
 					for _, coin := range candidateCoins {
 						if reason, failed := failedOpens[coin.Symbol]; failed {
+							if shouldIgnoreStaleFailedOpenCooldown(reason) {
+								filtered = append(filtered, coin)
+								continue
+							}
 							logger.Infof("🧊 [%s] Failed-open cooldown: skipping %s (recent open rejected: %s)", at.name, coin.Symbol, reason)
 						} else {
 							filtered = append(filtered, coin)
@@ -769,6 +862,68 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	return ctx, nil
 }
 
+type plannedPositionRisk struct {
+	stopLoss   float64
+	takeProfit float64
+}
+
+func (at *AutoTrader) latestOpenDecisionRiskByPosition(limit int) map[string]plannedPositionRisk {
+	risks := make(map[string]plannedPositionRisk)
+	if at == nil || at.store == nil {
+		return risks
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	records, err := at.store.Decision().GetLatestRecords(at.id, limit)
+	if err != nil {
+		at.logWarnf("⚠️ Failed to load recent open decision SL/TP: %v", err)
+		return risks
+	}
+
+	for i := len(records) - 1; i >= 0; i-- {
+		record := records[i]
+		if record == nil || !record.Success {
+			continue
+		}
+		for _, decision := range record.Decisions {
+			side, ok := openDecisionSide(decision.Action)
+			if !ok || !decision.Success || decision.Symbol == "" {
+				continue
+			}
+			if decision.StopLoss <= 0 && decision.TakeProfit <= 0 {
+				continue
+			}
+			key := positionRiskKey(decision.Symbol, side)
+			if _, exists := risks[key]; exists {
+				continue
+			}
+			risks[key] = plannedPositionRisk{
+				stopLoss:   decision.StopLoss,
+				takeProfit: decision.TakeProfit,
+			}
+		}
+	}
+
+	return risks
+}
+
+func openDecisionSide(action string) (string, bool) {
+	switch strings.ToLower(action) {
+	case "open_long":
+		return "LONG", true
+	case "open_short":
+		return "SHORT", true
+	default:
+		return "", false
+	}
+}
+
+func positionRiskKey(symbol, side string) string {
+	return strings.ToUpper(symbol) + "_" + strings.ToUpper(side)
+}
+
 // sortDecisionsByPriority sorts decisions: close positions first, then open positions, finally hold/wait
 // This avoids position stacking overflow when changing positions
 func sortDecisionsByPriority(decisions []kernel.Decision) []kernel.Decision {
@@ -813,16 +968,22 @@ func shouldSkipCandidateForRepeatedWait(coin kernel.CandidateCoin, waitCount int
 	if coin.V7SetupType == "" {
 		return true
 	}
-	if coin.V7Status == "candidate" || coin.V7Status == "conflict_watch" {
+	tier := coin.V7ExecutionTier
+	if tier == "" {
+		tier, _ = kernel.ClassifyHunterV7CandidateTierForRuntime(coin)
+	}
+	if tier == "EXECUTABLE" && coin.V7ExecutionQuality == "ready" && coin.V7AIPriority >= 55 {
 		return false
 	}
-	if coin.V7ExecutionQuality == "ready" || coin.V7ExecutionQuality == "near_confirm" {
-		return false
-	}
-	if coin.V7AIPriority >= 50 {
+	if tier == "REVIEWABLE" && coin.V7AIPriority >= 58 && coin.V7TimingScore >= 55 {
 		return false
 	}
 	return true
+}
+
+func shouldIgnoreStaleFailedOpenCooldown(reason string) bool {
+	reason = strings.ToLower(reason)
+	return strings.Contains(reason, "price not near entry-zone upper/retest area")
 }
 
 // checkClaw402Balance checks USDC balance and logs warnings if low
