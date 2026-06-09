@@ -64,9 +64,12 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 			continue
 		}
 		// Ordinary routed setups need derivatives detail, but high-amplitude
-		// symbols must stay visible for mover attribution even before OI detail
-		// has been fetched by the detail-symbol selector.
-		if ss.OI <= 0 && symbolAmplitude24h(ss) < 12 {
+		// symbols and fast new-activity movers must stay visible for mover
+		// attribution even before OI detail has been fetched by the detail selector.
+		if ss.OI <= 0 &&
+			symbolAmplitude24h(ss) < 12 &&
+			symbolVelocityScore(ss) < 2.0 &&
+			symbolNewActivityScore(ss) < 3.0 {
 			continue
 		}
 		raw = append(raw, rawEntry{sym: sym, ss: ss})
@@ -84,6 +87,8 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 		gain  float64 // 24h change
 		oiChg float64 // |OI change 1h|
 		fund  float64 // |funding rate|
+		vel   float64 // short-term price velocity
+		act   float64 // short-term activity burst
 	}
 
 	var entries []ranked
@@ -95,6 +100,8 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 			gain:  r.ss.PriceChange24h,
 			oiChg: math.Abs(r.ss.OIDelta1h),
 			fund:  math.Abs(r.ss.FundingRate),
+			vel:   symbolVelocityScore(r.ss),
+			act:   symbolNewActivityScore(r.ss),
 		})
 	}
 
@@ -142,6 +149,8 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	}
 	addFromRanking(entries, func(r ranked) float64 { return r.oiChg }, 50, "oi_change")
 	addFromRanking(entries, func(r ranked) float64 { return r.fund }, 50, "funding")
+	addFromRanking(entries, func(r ranked) float64 { return r.vel }, 80, "velocity")
+	addFromRanking(entries, func(r ranked) float64 { return r.act }, 80, "new_activity")
 
 	// Amplitude pool: symbols with 24h amplitude >= 12%
 	for _, r := range entries {
@@ -185,6 +194,29 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 				selected[r.sym] = r.ss
 				priorities[r.sym] = 200
 			}
+		}
+	}
+
+	// Velocity pool: symbols with fresh 5m/15m displacement before they become
+	// top-volume names. This improves recall for cold-start movers.
+	for _, r := range entries {
+		if r.vel < 2.0 {
+			continue
+		}
+		if _, exists := selected[r.sym]; !exists {
+			selected[r.sym] = r.ss
+			priorities[r.sym] = 210
+		}
+	}
+
+	// New-activity pool: recently quiet symbols with sudden short-term volume.
+	for _, r := range entries {
+		if r.act < 3.0 {
+			continue
+		}
+		if _, exists := selected[r.sym]; !exists {
+			selected[r.sym] = r.ss
+			priorities[r.sym] = 220
 		}
 	}
 
@@ -353,11 +385,12 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		}
 	}
 
-	// Classify pool
-	ctx.PoolType = classifyPool(ctx)
-
 	// Amplitude 24h: (High - Low) / Low * 100
 	ctx.Amplitude24h = symbolAmplitude24h(ss)
+	ctx.Velocity5m = symbolKlineVelocityPct(ss, "5m")
+	ctx.Velocity15m = symbolKlineVelocityPct(ss, "15m")
+	ctx.VolumeBurst5m = symbolKlineVolumeBurst(ss, "5m", 12)
+	ctx.VolumeBurst15m = symbolKlineVolumeBurst(ss, "15m", 8)
 
 	// Range expansion: latest 1h true range / median of last 20 1h true ranges
 	if bars1h, ok := klines["1h"]; ok && len(bars1h) >= 5 {
@@ -379,7 +412,76 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		}
 	}
 
+	// Classify pool after all derived pool metrics are available.
+	ctx.PoolType = classifyPool(ctx)
+
 	return ctx
+}
+
+func symbolVelocityScore(ss *datafetch.SymbolSnapshot) float64 {
+	v5 := math.Abs(symbolKlineVelocityPct(ss, "5m"))
+	v15 := math.Abs(symbolKlineVelocityPct(ss, "15m"))
+	if v15 > v5 {
+		return v15
+	}
+	return v5
+}
+
+func symbolNewActivityScore(ss *datafetch.SymbolSnapshot) float64 {
+	b5 := symbolKlineVolumeBurst(ss, "5m", 12)
+	b15 := symbolKlineVolumeBurst(ss, "15m", 8)
+	if b15 > b5 {
+		return b15
+	}
+	return b5
+}
+
+func symbolKlineVelocityPct(ss *datafetch.SymbolSnapshot, interval string) float64 {
+	if ss == nil || ss.Klines == nil {
+		return 0
+	}
+	bars := ss.Klines[interval]
+	if len(bars) < 2 {
+		return 0
+	}
+	prev := bars[len(bars)-2].Close
+	last := bars[len(bars)-1].Close
+	if prev <= 0 {
+		return 0
+	}
+	return (last - prev) / prev * 100
+}
+
+func symbolKlineVolumeBurst(ss *datafetch.SymbolSnapshot, interval string, lookback int) float64 {
+	if ss == nil || ss.Klines == nil || lookback <= 0 {
+		return 0
+	}
+	bars := ss.Klines[interval]
+	if len(bars) < 3 {
+		return 0
+	}
+	last := bars[len(bars)-1].Volume
+	start := len(bars) - 1 - lookback
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(bars)-1 {
+		return 0
+	}
+	sum := 0.0
+	count := 0
+	for i := start; i < len(bars)-1; i++ {
+		sum += bars[i].Volume
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+	avg := sum / float64(count)
+	if avg <= 0 {
+		return 0
+	}
+	return last / avg
 }
 
 func symbolAmplitude24h(ss *datafetch.SymbolSnapshot) float64 {
@@ -417,6 +519,14 @@ func classifyPool(ctx *V7SymbolContext) V7PoolType {
 	// Hot alt: significant gain
 	if ctx.Change24h > 12 {
 		return V7PoolHotAlt
+	}
+	// Velocity: fresh short-term price displacement.
+	if math.Abs(ctx.Velocity5m) >= 2.0 || math.Abs(ctx.Velocity15m) >= 2.0 {
+		return V7PoolVelocity
+	}
+	// New activity: recent volume is several times its short-term baseline.
+	if ctx.VolumeBurst5m >= 3.0 || ctx.VolumeBurst15m >= 3.0 {
+		return V7PoolNewActivity
 	}
 	// Squeeze: OI anomaly
 	if ctx.Snapshot != nil && math.Abs(ctx.Snapshot.OIDelta1h) > 10 {

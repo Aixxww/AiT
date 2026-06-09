@@ -715,6 +715,12 @@ export function TraderDashboardPage({
                             {t('traderDashboard.value', language)}
                           </th>
                           <th
+                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            title={t('margin', language)}
+                          >
+                            {t('traderDashboard.margin', language)}
+                          </th>
+                          <th
                             className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-center hidden md:table-cell"
                             title={t('leverage', language)}
                           >
@@ -799,6 +805,16 @@ export function TraderDashboardPage({
                             </td>
                             <td className="px-1 py-3 font-mono font-bold whitespace-nowrap text-right text-foreground hidden md:table-cell">
                               {(pos.quantity * pos.mark_price).toFixed(2)}
+                            </td>
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground hidden md:table-cell">
+                              {pos.margin_used > 0
+                                ? pos.margin_used.toFixed(2)
+                                : pos.leverage > 0
+                                  ? (
+                                      Math.abs(pos.quantity * pos.mark_price) /
+                                      pos.leverage
+                                    ).toFixed(2)
+                                  : '--'}
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-center text-primary hidden md:table-cell">
                               {pos.leverage}x

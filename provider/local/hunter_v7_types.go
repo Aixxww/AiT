@@ -109,6 +109,8 @@ const (
 	V7PoolSqueeze       V7PoolType = "squeeze"
 	V7PoolFunding       V7PoolType = "funding"
 	V7PoolNewListing    V7PoolType = "new_listing"
+	V7PoolVelocity      V7PoolType = "velocity"
+	V7PoolNewActivity   V7PoolType = "new_activity"
 )
 
 // V7SymbolContext holds all derived data for a single symbol, pre-computed once
@@ -175,6 +177,10 @@ type V7SymbolContext struct {
 	// Amplitude & range expansion (added for mover recall improvement)
 	Amplitude24h     float64 // (High24h - Low24h) / Low24h * 100
 	RangeExpansion1h float64 // 1h trueRange / median 20h trueRange
+	Velocity5m       float64 // latest 5m close-to-close change %
+	Velocity15m      float64 // latest 15m close-to-close change %
+	VolumeBurst5m    float64 // latest 5m volume / recent average
+	VolumeBurst15m   float64 // latest 15m volume / recent average
 }
 
 // SymbolSnapshotData is a lightweight copy of the snapshot data needed by modules.
@@ -315,10 +321,21 @@ type V7RouteResult struct {
 
 // V7ScoreResult is the detailed Hunter v7 scoring result used for attribution.
 type V7ScoreResult struct {
-	Regime     V7MarketRegime
-	Universe   []V7SymbolContext
-	RawSignals []V7SignalOutput
-	Signals    []V7SignalOutput
+	Regime      V7MarketRegime
+	Universe    []V7SymbolContext
+	RawSignals  []V7SignalOutput
+	Signals     []V7SignalOutput
+	Attribution V7AttributionSummary
+}
+
+// V7AttributionSummary captures per-cycle funnel counts for diagnostics.
+type V7AttributionSummary struct {
+	UniverseTotal int
+	PoolCounts    map[string]int
+	SetupCounts   map[string]int
+	StatusCounts  map[string]int
+	QualityCounts map[string]int
+	OutputCounts  map[string]int
 }
 
 // V7Config holds configuration for the Hunter v7 engine.

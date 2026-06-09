@@ -77,7 +77,58 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 
 	result.RawSignals = rawSignals
 	result.Signals = signals
+	result.Attribution = buildV7AttributionSummary(universe, rawSignals, signals)
+	log.Printf("📊 Hunter v7 attribution: universe=%d pools=%v setups=%v status=%v quality=%v output=%v",
+		result.Attribution.UniverseTotal,
+		result.Attribution.PoolCounts,
+		result.Attribution.SetupCounts,
+		result.Attribution.StatusCounts,
+		result.Attribution.QualityCounts,
+		result.Attribution.OutputCounts)
 	return result
+}
+
+func buildV7AttributionSummary(universe []V7SymbolContext, rawSignals, outputSignals []V7SignalOutput) V7AttributionSummary {
+	summary := V7AttributionSummary{
+		UniverseTotal: len(universe),
+		PoolCounts:    make(map[string]int),
+		SetupCounts:   make(map[string]int),
+		StatusCounts:  make(map[string]int),
+		QualityCounts: make(map[string]int),
+		OutputCounts:  make(map[string]int),
+	}
+	for _, ctx := range universe {
+		pool := string(ctx.PoolType)
+		if pool == "" {
+			pool = "unknown"
+		}
+		summary.PoolCounts[pool]++
+	}
+	for _, sig := range rawSignals {
+		setup := string(sig.SetupType)
+		if setup == "" {
+			setup = "unknown"
+		}
+		status := string(sig.Status)
+		if status == "" {
+			status = "unknown"
+		}
+		quality := string(sig.ExecutionQuality)
+		if quality == "" {
+			quality = "unknown"
+		}
+		summary.SetupCounts[setup]++
+		summary.StatusCounts[status]++
+		summary.QualityCounts[quality]++
+	}
+	for _, sig := range outputSignals {
+		setup := string(sig.SetupType)
+		if setup == "" {
+			setup = "unknown"
+		}
+		summary.OutputCounts[setup]++
+	}
+	return summary
 }
 
 func mergeV7SignalUpgrades(signals, upgraded []V7SignalOutput) []V7SignalOutput {

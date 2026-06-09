@@ -62,12 +62,20 @@ export function PositionsPanel() {
         const pnl = pos.unrealized_pnl
         const isProfit = pnl >= 0
         const color = isProfit ? '#00e5a0' : '#F6465D'
-        const side = pos.side?.toUpperCase() || (pos.quantity > 0 ? 'LONG' : 'SHORT')
+        const side =
+          pos.side?.toUpperCase() || (pos.quantity > 0 ? 'LONG' : 'SHORT')
         const rawSymbol = pos.symbol || ''
         // Stock symbols are pure letters (1-5 chars), crypto has USDT suffix
-        const isStock = /^[A-Z]{1,5}$/.test(rawSymbol) && !rawSymbol.endsWith('USDT')
+        const isStock =
+          /^[A-Z]{1,5}$/.test(rawSymbol) && !rawSymbol.endsWith('USDT')
         const symbol = isStock ? rawSymbol : rawSymbol.replace('USDT', '')
         const currencyPrefix = isStock ? '$' : ''
+        const marginUsed =
+          pos.margin_used > 0
+            ? pos.margin_used
+            : pos.leverage > 0
+              ? Math.abs(pos.quantity * pos.mark_price) / pos.leverage
+              : 0
 
         return (
           <div
@@ -132,7 +140,8 @@ export function PositionsPanel() {
                   <ArrowDownRight size={12} />
                 )}
                 {isProfit ? '+' : ''}
-                {currencyPrefix}{pnl.toFixed(2)}
+                {currencyPrefix}
+                {pnl.toFixed(2)}
               </div>
             </div>
             <div
@@ -143,8 +152,28 @@ export function PositionsPanel() {
                 color: '#5c5c72',
               }}
             >
-              <span>{isStock ? 'Shares' : 'Qty'}: {pos.quantity}</span>
-              <span>Entry: {currencyPrefix}{pos.entry_price.toFixed(2)}</span>
+              <span>
+                {isStock ? 'Shares' : 'Qty'}: {pos.quantity}
+              </span>
+              <span>
+                Entry: {currencyPrefix}
+                {pos.entry_price.toFixed(2)}
+              </span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 11,
+                color: '#5c5c72',
+                marginTop: 3,
+              }}
+            >
+              <span>
+                Margin: {currencyPrefix}
+                {marginUsed > 0 ? marginUsed.toFixed(2) : '--'}
+              </span>
+              <span>Lev: {pos.leverage}x</span>
             </div>
           </div>
         )
