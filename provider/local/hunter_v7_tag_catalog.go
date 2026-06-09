@@ -150,6 +150,16 @@ func DescribeHunterV7Tags(reasonCodes, riskTags, requiredConfirmations []string)
 	return out
 }
 
+// HunterV7TagLLMAction returns the catalogued LLM action for a tag.
+// Unknown tags are context-only and must not be treated as execution blockers.
+func HunterV7TagLLMAction(tag string) (string, bool) {
+	def, ok := hunterV7TagCatalog[tag]
+	if !ok {
+		return V7TagActionUnknown, false
+	}
+	return def.LLMAction, true
+}
+
 // HunterV7PromptTagPolicy is a concise rule block for the LLM. The detailed
 // per-signal definitions are emitted through tag_semantics.
 func HunterV7PromptTagPolicy() string {

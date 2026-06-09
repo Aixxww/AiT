@@ -574,6 +574,9 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 		return "REJECTED", "invalid_rr"
 	}
 	for _, tag := range coin.V7RiskTags {
+		if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionRejectOnly {
+			return "REJECTED", tag
+		}
 		switch tag {
 		case "risk_filtered", "liquidity_filtered", "extreme_volatility":
 			return "REJECTED", tag
@@ -626,6 +629,9 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 	}
 	if strings.EqualFold(coin.V7RiskLevel, "HIGH") && hasHunterV7DangerRiskTag(coin.V7RiskTags) {
 		return "WATCH", "risk_high_with_danger_tag"
+	}
+	if reason := hunterV7PanicReversalLowTimingWaitReason(coin); reason != "" {
+		return "WATCH", reason
 	}
 
 	if ok, reason := hunterV7ExecutableCandidateReason(coin); ok {
@@ -1032,6 +1038,48 @@ func hunterV7PanicReversalHasHighWinReclaim(coin CandidateCoin) bool {
 	return confirmations >= 3
 }
 
+func hunterV7PanicReversalLowTimingWaitReason(coin CandidateCoin) string {
+	if coin.V7SetupType != "panic_reversal_long" {
+		return ""
+	}
+	if coin.V7ExecutionQuality == "ready" && coin.V7TimingScore >= 45 &&
+		!containsStringValue(coin.V7ReasonCodes, "low_timing_watch_only") {
+		return ""
+	}
+	lowTiming := coin.V7TimingScore <= 30 ||
+		coin.V7ExecutionQuality == "watch_only" ||
+		containsStringValue(coin.V7ReasonCodes, "low_timing_watch_only")
+	if !lowTiming {
+		return ""
+	}
+	if hunterV7PanicReversalLowTimingImpulseOK(coin) {
+		return ""
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{"regime_against_direction", "high_volatility"}) {
+		return "panic_reversal_low_timing_confirmation_wait"
+	}
+	if coin.V7Status == "wait_confirm" {
+		return "panic_reversal_low_timing_confirmation_wait"
+	}
+	return ""
+}
+
+func hunterV7PanicReversalLowTimingImpulseOK(coin CandidateCoin) bool {
+	if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.62) {
+		return false
+	}
+	if coin.V7PriceContext == nil || coin.V7DerivativesCtx == nil {
+		return false
+	}
+	if coin.V7PriceContext.Change1h < 2.0 || coin.V7PriceContext.Change1h > 8.0 {
+		return false
+	}
+	if coin.V7DerivativesCtx.OIChange1h > 0 || coin.V7DerivativesCtx.OIChange4h >= 0 {
+		return false
+	}
+	return hunterV7EntryZoneReachable(coin)
+}
+
 func hunterV7FundingShortMixedOIReviewAllowed(coin CandidateCoin) bool {
 	if !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
@@ -1257,6 +1305,9 @@ func hunterV7StopDistancePct(coin CandidateCoin) float64 {
 
 func hasHunterV7DangerRiskTag(tags []string) bool {
 	for _, tag := range tags {
+		if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionRejectOnly {
+			return true
+		}
 		switch tag {
 		case "do_not_market_chase", "wash_volume_high", "funding_extreme", "oi_anomaly", "extreme_volatility",
 			"already_pumped_24h", "lsr_extreme_long", "funding_expensive",

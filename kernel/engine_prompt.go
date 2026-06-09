@@ -182,6 +182,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- `hold` and `wait` are no-op actions: they do not change stop-loss, take-profit, leverage, or position size. If profit protection requires action, output a risk-reducing `close_long`/`close_short`; otherwise output `hold` without claiming that stops were tightened.\n")
 	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
 		sb.WriteString("- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.\n")
+		sb.WriteString("- `no_reviewable_candidate` is valid ONLY when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
 	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
@@ -213,6 +214,7 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 		sb.WriteString("## blocked_reason_code 强制要求\n")
 		sb.WriteString("wait 决策必须输出 `blocked_reason_code` 字段（枚举值：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`）。绝对不得用自然语言 reasoning 代替此字段。如果 wait，必须有且只有一个 blocked_reason_code。\n")
+		sb.WriteString("`no_reviewable_candidate` 只能在 Tier Summary 显示 EXECUTABLE=0 且 REVIEWABLE=0 时使用；只要存在任一 EXECUTABLE/REVIEWABLE，就必须写真实阻断原因，例如 `entry_not_in_zone`、`rr_insufficient`、`confirmation_missing` 或 `backend_guard_risk`。\n")
 		sb.WriteString("## 账户回撤规则\n")
 		sb.WriteString("账户总回撤和最近亏损只用于：(1) 仓位大小调整、(2) 重复交易冷却、(3) 同 symbol 冷却。绝对禁止把“账户处于回撤”当作所有 EXECUTABLE/REVIEWABLE 候选的全局 wait 理由。若候选满足硬风控、setup 核心确认和 RR，应给出保守仓位 open。\n")
 		if minSLMovePct > 0 && maxDriftPct > 0 {
@@ -232,6 +234,7 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 	sb.WriteString("## blocked_reason_code Requirement\n")
 	sb.WriteString("Wait decisions MUST include a `blocked_reason_code` field (enum: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`). ABSOLUTELY do NOT substitute free-text reasoning for this field. If wait, there must be exactly one blocked_reason_code.\n")
+	sb.WriteString("Use `no_reviewable_candidate` ONLY when Tier Summary shows EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
 	sb.WriteString("## Account Drawdown Rule\n")
 	sb.WriteString("Account drawdown and recent losses are ONLY for: (1) position sizing, (2) repeat-trade cooldown, (3) same-symbol cooldown. It is FORBIDDEN to use 'account is in drawdown' as a global wait veto for every EXECUTABLE/REVIEWABLE candidate. If a candidate passes hard risk controls, setup confirmation, and RR, open with conservative size.\n")
 	if minSLMovePct > 0 && maxDriftPct > 0 {

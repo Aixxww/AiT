@@ -334,6 +334,37 @@ func TestRepairHunterV7OpenDecisionFixesStopTightenedByAllowedDrift(t *testing.T
 	}
 }
 
+func TestRepairHunterV7OpenDecisionFixesActionableTightStop(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 4.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "CLOUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 35.1,
+		Price:           0.14895,
+		StopLoss:        0.1452,
+		TakeProfit:      0.1548,
+		Confidence:      72,
+	}
+	currentPrice := 0.14708
+
+	if !at.repairHunterV7OpenDecision(decision, currentPrice, "long") {
+		t.Fatalf("expected actionable tight stop repair")
+	}
+	if stopPct := (currentPrice - decision.StopLoss) / currentPrice * 100; stopPct < 2.0 {
+		t.Fatalf("repaired stop distance = %.3f%%, want >= 2.0%%", stopPct)
+	}
+	if err := at.validateOpenDecision(decision, currentPrice, "long"); err != nil {
+		t.Fatalf("expected repaired CLO-like decision to validate, got: %v", err)
+	}
+}
+
 func TestRepairHunterV7OpenDecisionDoesNotRepairLargeEntryDrift(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
@@ -439,6 +470,50 @@ func TestEnforceSingleTradeLossLimitReducesPositionSize(t *testing.T) {
 	// max notional is 1.2 / 0.04 = 30 USDT.
 	if adjusted != 30 {
 		t.Fatalf("adjusted = %v, want 30", adjusted)
+	}
+}
+
+func TestHunterV7RepairBeforeSingleTradeLossKeepsSmallAccountExecutable(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 4.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+	at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct = 6.0
+
+	decision := &kernel.Decision{
+		Symbol:          "ZESTUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 51.44,
+		Price:           0.32663,
+		StopLoss:        0.3185,
+		TakeProfit:      0.3397,
+		Confidence:      88,
+	}
+	currentPrice := 0.32663
+	equity := 5.35414901
+
+	if !at.repairHunterV7OpenDecision(decision, currentPrice, "long") {
+		t.Fatalf("expected ZEST-like preflight repair")
+	}
+	adjusted, capped, err := at.enforceSingleTradeLossLimit(decision, currentPrice, equity, "long")
+	if err != nil {
+		t.Fatalf("unexpected loss-limit error: %v", err)
+	}
+	if !capped {
+		t.Fatalf("expected position size cap after repaired stop")
+	}
+	if adjusted < 12.0 {
+		t.Fatalf("adjusted size = %.2f, want >= 12.00 after repaired geometry", adjusted)
+	}
+	decision.PositionSizeUSD = adjusted
+	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		t.Fatalf("expected repaired/capped size to pass min notional, got: %v", err)
+	}
+	if err := at.validateOpenDecision(decision, currentPrice, "long"); err != nil {
+		t.Fatalf("expected repaired/capped ZEST-like decision to validate, got: %v", err)
 	}
 }
 

@@ -519,6 +519,30 @@ func TestClassifyHunterV7CandidateTierRequiresPriorityForReady(t *testing.T) {
 	}
 }
 
+func TestClassifyHunterV7CandidateTierRejectsCatalogRejectOnlyRiskTag(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SLXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "displacement_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       80,
+		V7SetupScore:       85,
+		V7TimingScore:      70,
+		V7RiskScore:        15,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7RiskTags:         []string{"displacement_rr_insufficient"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.55},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REJECTED" || reason != "displacement_rr_insufficient" {
+		t.Fatalf("tier = %q (%s), want REJECTED displacement_rr_insufficient", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierDemotesRecentWeakLossPatterns(t *testing.T) {
 	tests := []struct {
 		name string
@@ -833,8 +857,78 @@ func TestClassifyHunterV7CandidateTierBlocksLowTimingPanicCoreWithoutConfirmedTa
 
 	tier, reason := classifyHunterV7CandidateTier(coin)
 
-	if tier != "WATCH" || reason != "needs_confirmation" {
-		t.Fatalf("tier = %q (%s), want WATCH needs_confirmation", tier, reason)
+	if tier != "WATCH" || reason != "panic_reversal_low_timing_confirmation_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH panic_reversal_low_timing_confirmation_wait", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierBlocksLowTimingPanicHighWinReclaim(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "EPICUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       58.92,
+		V7SetupScore:       98.4,
+		V7TimingScore:      30,
+		V7RiskScore:        30,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7Confidence:       "B",
+		V7ReasonCodes: []string{
+			"deep_capitulation",
+			"oi_declining",
+			"strong_reclaim",
+			"taker_buy_aggressive",
+			"selling_decelerating",
+			"1h_green_shoot",
+			"rsi_recovering_from_extreme",
+			"low_timing_watch_only",
+		},
+		V7RiskTags:       []string{"high_volatility", "regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.6399579896787987},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "panic_reversal_low_timing_confirmation_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH panic_reversal_low_timing_confirmation_wait", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsLowTimingPanicImpulseWindow(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "CLOUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       51.24,
+		V7SetupScore:       79.2,
+		V7TimingScore:      30,
+		V7RiskScore:        30,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7Confidence:       "B",
+		V7ReasonCodes: []string{
+			"heavy_capitulation",
+			"oi_declining",
+			"strong_reclaim",
+			"taker_buy_aggressive",
+			"rsi_recovering_from_extreme",
+			"low_timing_watch_only",
+		},
+		V7RiskTags:       []string{"high_volatility", "regime_against_direction", "execution_stop_tightened"},
+		V7EntryZone:      local.V7PriceZone{Lower: 0.1446415501507268, Upper: 0.15090586626472854},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.14635, Change1h: 6.278506271379712, Change4h: -4.887242477416},
+		V7DerivativesCtx: &local.V7DerivativesContext{OIChange1h: -8.158889326203196, OIChange4h: -7.2309014557357765, TakerBuy15m: 0.8935487440522297},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "panic_reversal_reviewable_high_win_reclaim" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE panic_reversal_reviewable_high_win_reclaim", tier, reason)
 	}
 }
 

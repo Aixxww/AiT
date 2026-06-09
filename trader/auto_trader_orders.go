@@ -155,6 +155,12 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 		decision.PositionSizeUSD = actualPositionSize
 	}
 
+	at.capTakeProfitToTP1(decision, executionPrice, "long")
+	at.repairHunterV7OpenDecision(decision, executionPrice, "long")
+	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
+		return err
+	}
+
 	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "long"); err != nil {
 		return err
 	} else if wasCapped {
@@ -167,8 +173,6 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 		return err
 	}
 
-	at.capTakeProfitToTP1(decision, executionPrice, "long")
-	at.repairHunterV7OpenDecision(decision, executionPrice, "long")
 	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
 		return err
 	}
@@ -292,6 +296,12 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 		decision.PositionSizeUSD = actualPositionSize
 	}
 
+	at.capTakeProfitToTP1(decision, executionPrice, "short")
+	at.repairHunterV7OpenDecision(decision, executionPrice, "short")
+	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
+		return err
+	}
+
 	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "short"); err != nil {
 		return err
 	} else if wasCapped {
@@ -304,8 +314,6 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 		return err
 	}
 
-	at.capTakeProfitToTP1(decision, executionPrice, "short")
-	at.repairHunterV7OpenDecision(decision, executionPrice, "short")
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		return err
 	}

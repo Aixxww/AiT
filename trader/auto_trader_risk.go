@@ -794,6 +794,20 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 	if decision == nil || currentPrice <= 0 || decision.StopLoss <= 0 {
 		return false
 	}
+	if at.isHunterV7Strategy() && decision.Price > 0 {
+		maxDriftPct := at.maxEntryPriceDeviationPct()
+		if maxDriftPct > 0 {
+			deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
+			favorableDrift := (side == "long" && currentPrice < decision.Price) || (side == "short" && currentPrice > decision.Price)
+			repairMaxPct := maxDriftPct + 0.10
+			if repairMaxPct > 0.80 {
+				repairMaxPct = 0.80
+			}
+			if deviationPct > repairMaxPct && !(favorableDrift && deviationPct <= 4.0) {
+				return false
+			}
+		}
+	}
 	minStopPct := at.minStopLossPriceMovePct()
 	if minStopPct <= 0 {
 		return false
@@ -809,6 +823,19 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 		return false
 	}
 	if stopMovePct >= minStopPct {
+		if at.isHunterV7Strategy() && stopMovePct > minStopPct+0.35 && stopMovePct <= 3.20 {
+			targetStopPct := minStopPct + 0.10
+			oldStop := decision.StopLoss
+			switch side {
+			case "long":
+				decision.StopLoss = currentPrice * (1 - targetStopPct/100)
+			case "short":
+				decision.StopLoss = currentPrice * (1 + targetStopPct/100)
+			}
+			logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s stop distance %.3f%% is too wide for small-account execution; adjusting stop_loss %.8f → %.8f",
+				decision.Symbol, stopMovePct, oldStop, decision.StopLoss)
+			return true
+		}
 		return false
 	}
 	// If live price has already crossed the proposed stop/invalidation, the
@@ -823,6 +850,9 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 	if at.isHunterV7Strategy() {
 		if maxDriftPct := at.maxEntryPriceDeviationPct(); maxDriftPct > 0 {
 			repairFloorPct = math.Min(repairFloorPct, minStopPct-maxDriftPct-0.10)
+		}
+		if stopMovePct >= 0.75 {
+			repairFloorPct = math.Min(repairFloorPct, 0.75)
 		}
 	}
 	if stopMovePct < repairFloorPct {

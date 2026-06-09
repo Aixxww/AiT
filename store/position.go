@@ -185,6 +185,33 @@ func (s *PositionStore) InitTables() error {
 	return nil
 }
 
+func normalizePositionSymbol(symbol string) string {
+	return strings.ToUpper(strings.TrimSpace(symbol))
+}
+
+func normalizePositionSide(side string) string {
+	return strings.ToUpper(strings.TrimSpace(side))
+}
+
+func positionSymbolCandidates(symbol string) []string {
+	normalized := normalizePositionSymbol(symbol)
+	if normalized == "" {
+		return nil
+	}
+
+	candidates := []string{normalized}
+	if strings.HasSuffix(normalized, "USDT") {
+		candidates = append(candidates, strings.TrimSuffix(normalized, "USDT"))
+	} else {
+		candidates = append(candidates, normalized+"USDT")
+	}
+	return candidates
+}
+
+func localPositionKey(symbol, side string) string {
+	return normalizePositionSymbol(symbol) + "_" + normalizePositionSide(side)
+}
+
 // Create creates position record
 func (s *PositionStore) Create(pos *TraderPosition) error {
 	pos.Status = "OPEN"
@@ -350,7 +377,13 @@ func (s *PositionStore) GetOpenPositions(traderID string) ([]*TraderPosition, er
 // GetOpenPositionBySymbol gets open position for specified symbol and direction
 func (s *PositionStore) GetOpenPositionBySymbol(traderID, symbol, side string) (*TraderPosition, error) {
 	var pos TraderPosition
-	err := s.db.Where("trader_id = ? AND symbol = ? AND side = ? AND status = ?", traderID, symbol, side, "OPEN").
+	symbols := positionSymbolCandidates(symbol)
+	normalizedSide := normalizePositionSide(side)
+	if len(symbols) == 0 || normalizedSide == "" {
+		return nil, nil
+	}
+
+	err := s.db.Where("trader_id = ? AND symbol IN ? AND UPPER(side) = ? AND status = ?", traderID, symbols, normalizedSide, "OPEN").
 		Order("entry_time DESC").
 		First(&pos).Error
 
@@ -362,19 +395,6 @@ func (s *PositionStore) GetOpenPositionBySymbol(traderID, symbol, side string) (
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		// Try without USDT suffix for backward compatibility
-		if strings.HasSuffix(symbol, "USDT") {
-			baseSymbol := strings.TrimSuffix(symbol, "USDT")
-			err = s.db.Where("trader_id = ? AND symbol = ? AND side = ? AND status = ?", traderID, baseSymbol, side, "OPEN").
-				Order("entry_time DESC").
-				First(&pos).Error
-			if err == nil {
-				if pos.EntryQuantity == 0 {
-					pos.EntryQuantity = pos.Quantity
-				}
-				return &pos, nil
-			}
-		}
 		return nil, nil
 	}
 	return nil, err
@@ -385,7 +405,13 @@ func (s *PositionStore) GetOpenPositionBySymbol(traderID, symbol, side string) (
 // exchange-side position has already closed.
 func (s *PositionStore) GetLatestPositionBySymbol(traderID, symbol, side string) (*TraderPosition, error) {
 	var pos TraderPosition
-	err := s.db.Where("trader_id = ? AND symbol = ? AND side = ?", traderID, symbol, side).
+	symbols := positionSymbolCandidates(symbol)
+	normalizedSide := normalizePositionSide(side)
+	if len(symbols) == 0 || normalizedSide == "" {
+		return nil, nil
+	}
+
+	err := s.db.Where("trader_id = ? AND symbol IN ? AND UPPER(side) = ?", traderID, symbols, normalizedSide).
 		Order("entry_time DESC, id DESC").
 		First(&pos).Error
 
@@ -397,18 +423,6 @@ func (s *PositionStore) GetLatestPositionBySymbol(traderID, symbol, side string)
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		if strings.HasSuffix(symbol, "USDT") {
-			baseSymbol := strings.TrimSuffix(symbol, "USDT")
-			err = s.db.Where("trader_id = ? AND symbol = ? AND side = ?", traderID, baseSymbol, side).
-				Order("entry_time DESC, id DESC").
-				First(&pos).Error
-			if err == nil {
-				if pos.EntryQuantity == 0 {
-					pos.EntryQuantity = pos.Quantity
-				}
-				return &pos, nil
-			}
-		}
 		return nil, nil
 	}
 	return nil, err
@@ -449,6 +463,41 @@ func (s *PositionStore) GetAllOpenPositions() ([]*TraderPosition, error) {
 		}
 	}
 	return positions, nil
+}
+
+// MarkOpenPositionsStaleExcept removes exchange-absent local positions from
+// the OPEN set without fabricating close fills or realized PnL.
+func (s *PositionStore) MarkOpenPositionsStaleExcept(traderID, exchangeID string, activeKeys map[string]bool, reason string) (int64, error) {
+	if reason == "" {
+		reason = "exchange_reconcile"
+	}
+
+	positions, err := s.GetOpenPositions(traderID)
+	if err != nil {
+		return 0, err
+	}
+
+	nowMs := time.Now().UTC().UnixMilli()
+	var marked int64
+	for _, pos := range positions {
+		if exchangeID != "" && pos.ExchangeID != "" && pos.ExchangeID != exchangeID {
+			continue
+		}
+		if activeKeys[localPositionKey(pos.Symbol, pos.Side)] {
+			continue
+		}
+
+		err := s.db.Model(&TraderPosition{}).Where("id = ? AND status = ?", pos.ID, "OPEN").Updates(map[string]interface{}{
+			"status":       "STALE",
+			"close_reason": reason,
+			"updated_at":   nowMs,
+		}).Error
+		if err != nil {
+			return marked, err
+		}
+		marked++
+	}
+	return marked, nil
 }
 
 // ExistsWithExchangePositionID checks if a position exists
