@@ -14,12 +14,17 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
+- Hunter v7 信号归因表：新增全周期 `hunter_v7_signal_records` 与每日 `hunter_v7_mover_labels`
+- 大波动每日审计命令 `cmd/hunter_v7_mover_audit`，用于对照 Binance 20%/30%/50% 振幅标的与 Hunter v7 历史召回
+- Hunter v7 Watch 跨周期状态机，支持 strengthening、near-confirm、reviewable、executable、expired、failed 状态
+- 新增 `displacement_momentum_long` setup，用于捕捉区间扩张和位移动量机会
+- Hunter v7 标签 catalog 与 `tag_semantics`，让 LLM 区分证据、必须确认、wait-only、reject-only 和未知背景标签
 - Hunter v7 / VVV 2026-06-08 实盘监控报告，覆盖周期 #20-#83 回归对照、最近实盘周期、信号标签审校和提示词对齐
 - Hunter v7 候选池保底上下文输出：候选池过薄时最多补足 3 个非硬过滤的 `wait_confirm` 信号给 LLM
 - 2026-06-07 会话复盘报告，覆盖 Hunter v7 候选可见性、实盘开仓失败、风控几何和看板性能修复
 - 周期复盘命令 `cmd/cycle_review`，支持从决策记录生成 Markdown/JSON 复盘报告，统计开仓率、PnL、Token 使用和 execution guard 拦截情况
 - 策略 Token 估算历史校准接口，支持基于真实决策记录修正 token 估算偏差
-- Hunter v7 Signal Router：新增 10 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
+- Hunter v7 Signal Router：新增 11 类多行情 setup 模块，并向 AIT prompt 输出结构化 `hunter_v7_signal_json`
 - Hunter v7 实时验证命令（`cmd/hunter_v7_validate`）
 - 自适应持仓保护器：支持 TP1/TP2 分批保护、盈利回撤移动保护和平仓后状态清理
 - 风控参数新增最大入场价格偏离校验，限制 AI 决策价格与实际可成交价格的滑点偏差
@@ -35,6 +40,11 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 文档中心新增 Hunter 选币模块专区
 
 ### 变更
+- Hunter v7 universe 构建新增独立 amplitude 与 range expansion 入口，提高大波动标的召回
+- Hunter v7 detail selector 为高振幅标的预留明细拉取配额，避免只按成交额/OI 漏掉启动标的
+- Hunter v7 实时验证工具新增 `--rounds`、`--round-interval`、`--max-workers`、`--watch-output`，支持低频安全轮测 Binance REST
+- Hunter v7 prompt 要求 wait 决策输出结构化 `blocked_reason_code`，并按 EXECUTABLE、REVIEWABLE、WATCH、REJECTED 分层复核
+- Hunter v7 OI 阈值改为结合账户名义仓位、标的最低水位和 quote volume 的自适应口径
 - Hunter v7 执行分层会在 LLM 开仓复核前把 `already_pumped_24h`、`funding_expensive`、`no_reclaim_signal`、`taker_sell_during_accumulation` 和错误入场区间等高风险标签视为 wait-only 语义
 - Hunter v7 策略提示词明确禁止 LLM 用高 priority 或 setup score 覆盖 wait-only 风险标签
 - 看板、交易员配置、策略工作室、图表和历史仓位视图改为懒加载重组件，并降低高频轮询带来的导航卡顿
@@ -56,6 +66,10 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - Provider 模块优化（local client、Hunter、AI500 provider）
 
 ### 修复
+- 修复 Hunter v7 OI 口径：将 Binance `openInterest` 数量转换为 USDT notional 后再参与流动性和 tier 判断
+- 修复高振幅标的因 OI detail 暂缺而在 Hunter v7 universe 前被丢弃的问题
+- 修复实时验证 tight loop 容易触发 Binance REST 限制的问题，降低默认并发并补充多轮间隔命令
+- 修复 leader momentum 上沿弱回踩在缺少强实时确认时仍可能被提升的问题
 - 修复 Hunter v7 高风险标签仍可能被提升为 `EXECUTABLE` 或 `REVIEWABLE` 的误开路径，包括无 OI flush 的 funding 追涨追跌、已衰竭的 short squeeze long、吸筹中主动卖压、无 reclaim 的 panic long、以及不在 retest zone 的 reversion short
 - 修复 Hunter v7 候选可见性被 per-setup 执行阈值过度收紧的问题；LLM 候选可见性改由全局 `v7_min_ai_priority` 控制
 - 修复 3% TP 上限、2% 最小止损、0.5% 入场漂移和 1.5 RR 组合互相卡死导致实盘反复开仓失败的问题

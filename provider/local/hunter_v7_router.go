@@ -32,12 +32,21 @@ func NewV7Router() *V7Router {
 		&squeezeShortModule{},
 		&rangeReversionModule{},
 		&fundingReversalModule{},
+		&displacementMomentumLongModule{},
 	}
 	return r
 }
 
-// Route runs all modules against the universe and returns sorted signals.
+// Route runs all modules against the universe and returns sorted LLM-facing signals.
 func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) []V7SignalOutput {
+	return r.RouteDetailed(universe, regime, cfg).OutputSignals
+}
+
+// RouteDetailed runs all modules and returns both raw and LLM-facing signals.
+func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) V7RouteResult {
+	// Compute BTC/ETH 4h change baseline for strong-symbol override
+	btcETHBaseline4h := computeBTCETHBaseline4h(universe)
+
 	var allSignals []V7SignalOutput
 
 	for i := range universe {
@@ -59,6 +68,10 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 			if sig == nil {
 				continue
 			}
+			// Propagate quote volume for adaptive OI threshold in prompt-data filter
+			if ctx.Snapshot != nil {
+				sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+			}
 			if len(sig.RequiredConfirms) == 0 {
 				sig.RequiredConfirms = defaultV7Confirmations(sig)
 			}
@@ -68,13 +81,26 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 			sig.SetupScore = clampFloat(sig.SetupScore, 0, 100)
 			sig.RegimeFitScore = weight * 67 // normalize to 0-100 (1.5 * 67 ≈ 100)
 
+			// Compute liquidity before strong-symbol override; the override gate
+			// depends on liquidity and would otherwise see the zero-value score.
+			sig.LiquidityScore = AssessLiquidityScore(ctx)
+
+			// Strong-symbol override: if this symbol significantly outperforms
+			// BTC/ETH on 4h, prevent regime weight from suppressing it below 0.8
+			if weight < 0.8 && ctx.Symbol != "BTCUSDT" && ctx.Symbol != "ETHUSDT" {
+				symbolRS := ctx.Change4h - btcETHBaseline4h
+				if symbolRS > 6 && sig.LiquidityScore >= 50 && ctx.TakerBuy15m >= 0.50 {
+					// Re-apply with floor of 0.8
+					sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
+					sig.RegimeFitScore = 0.8 * 67
+					sig.ReasonCodes = append(sig.ReasonCodes, "strong_symbol_regime_override")
+				}
+			}
+
 			// Compute risk score
 			riskScore := AssessV7Risk(sig, ctx)
 			sig.RiskScore = riskScore
 			sig.RiskLevel = ClassifyV7RiskLevel(riskScore)
-
-			// Compute liquidity score
-			sig.LiquidityScore = AssessLiquidityScore(ctx)
 
 			// Translate raw setup scores into executable signal quality before
 			// ranking. This keeps early/watch-only context visible while moving
@@ -107,6 +133,50 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 	watches := BuildV7PreMoveRadar(universe, regime, cfg)
 	out := appendV7WatchSignals(confirmed, watches, cfg)
 	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
+	raw := append([]V7SignalOutput{}, allSignals...)
+	raw = append(raw, watches...)
+	raw = append(raw, buildV7ModuleNoMatchSignals(universe, raw, regime)...)
+	return V7RouteResult{
+		RawSignals:       raw,
+		ConfirmedSignals: confirmed,
+		WatchSignals:     watches,
+		OutputSignals:    out,
+	}
+}
+
+func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7SignalOutput, regime V7MarketRegime) []V7SignalOutput {
+	if len(universe) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(existing))
+	for _, sig := range existing {
+		if sig.Symbol != "" {
+			seen[sig.Symbol] = true
+		}
+	}
+	var out []V7SignalOutput
+	for i := range universe {
+		ctx := &universe[i]
+		if ctx.Symbol == "" || seen[ctx.Symbol] {
+			continue
+		}
+		sig := V7SignalOutput{
+			Symbol:           ctx.Symbol,
+			SetupType:        V7SetupModuleNoMatch,
+			Status:           V7StatusFiltered,
+			ExecutionQuality: V7ExecWatchOnly,
+			MarketRegime:     regime,
+			LiquidityScore:   AssessLiquidityScore(ctx),
+			ReasonCodes:      []string{"no_setup_matched"},
+			RiskTags:         []string{"module_no_match"},
+			PriceCtx:         buildPriceCtx(ctx),
+			DerivativesCtx:   buildDerivCtx(ctx),
+		}
+		if ctx.Snapshot != nil {
+			sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+		}
+		out = append(out, sig)
+	}
 	return out
 }
 
@@ -193,6 +263,10 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		}
 	}
 
+	if !hasV7OpenReviewSignal(filtered) {
+		filtered = appendV7ReviewableFloorSignals(filtered, eligible, used, cfg, minOutput)
+	}
+
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].AIPriority > filtered[j].AIPriority
 	})
@@ -200,6 +274,95 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		filtered = diversifyV7Signals(filtered, maxOutput)
 	}
 	return filtered
+}
+
+func hasV7OpenReviewSignal(signals []V7SignalOutput) bool {
+	for _, sig := range signals {
+		switch sig.ExecutionQuality {
+		case V7ExecReady, V7ExecNearConfirm:
+			if sig.Status != V7StatusFiltered && sig.RiskScore < 65 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func appendV7ReviewableFloorSignals(filtered, eligible []V7SignalOutput, used []bool, cfg V7Config, minOutput int) []V7SignalOutput {
+	if minOutput <= 0 {
+		minOutput = 1
+	}
+	maxRescue := 1
+	if cfg.Aggressive && minOutput >= 3 {
+		maxRescue = 2
+	}
+
+	rescued := 0
+	for i, sig := range eligible {
+		if rescued >= maxRescue {
+			break
+		}
+		if i < len(used) && used[i] {
+			continue
+		}
+		if !isV7ReviewableFloorCandidate(sig) {
+			continue
+		}
+
+		sig.Status = V7StatusWaitConfirm
+		sig.ExecutionQuality = V7ExecNearConfirm
+		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "reviewable_floor_rescue")
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "fallback_reviewable_needs_live_confirm")
+		sig.AIPriority = CalcAIPriority(&sig, cfg)
+		filtered = append(filtered, sig)
+		if i < len(used) {
+			used[i] = true
+		}
+		rescued++
+	}
+
+	return filtered
+}
+
+func isV7ReviewableFloorCandidate(sig V7SignalOutput) bool {
+	if sig.Status == V7StatusFiltered {
+		return false
+	}
+	switch sig.SetupType {
+	case V7SetupPreBreakoutWatch, V7SetupPreSqueezeWatch, V7SetupPreDistribution, V7SetupAccumulationWatch:
+		return false
+	}
+	switch sig.ExecutionQuality {
+	case V7ExecInvalidRR, V7ExecChaseRisk, V7ExecReady, V7ExecNearConfirm:
+		return false
+	}
+	if sig.RiskScore >= 55 {
+		return false
+	}
+	if sig.LiquidityScore > 0 && sig.LiquidityScore < 50 {
+		return false
+	}
+	if sig.AIPriority < 40 {
+		return false
+	}
+
+	switch sig.SetupType {
+	case V7SetupFundingReversal:
+		if sig.Direction == V7DirShort {
+			return sig.TimingScore >= 60
+		}
+		return sig.TimingScore >= 65 && sig.Confidence != "C"
+	case V7SetupPanicReversalLong:
+		return sig.SetupScore >= 65 &&
+			sig.TimingScore >= 30 &&
+			containsV7String(sig.ReasonCodes, "strong_reclaim") &&
+			(containsV7String(sig.ReasonCodes, "selling_decelerating") ||
+				containsV7String(sig.ReasonCodes, "selling_exhaustion"))
+	case V7SetupPullbackLong, V7SetupDistributionShort, V7SetupRangeReversion:
+		return sig.SetupScore >= 70 && sig.TimingScore >= 50
+	default:
+		return false
+	}
 }
 
 func logV7RouteDiagnostics(raw, confirmed, watches, out []V7SignalOutput, cfg V7Config) {
@@ -281,6 +444,37 @@ func appendIfMissing(values []string, value string) []string {
 		}
 	}
 	return append(values, value)
+}
+
+func containsV7String(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+// computeBTCETHBaseline4h extracts the max 4h change from BTC/ETH in the universe.
+// This baseline is used for the strong-symbol relative strength override.
+func computeBTCETHBaseline4h(universe []V7SymbolContext) float64 {
+	btc4h := -999.0
+	eth4h := -999.0
+	for _, ctx := range universe {
+		switch ctx.Symbol {
+		case "BTCUSDT":
+			btc4h = ctx.Change4h
+		case "ETHUSDT":
+			eth4h = ctx.Change4h
+		}
+	}
+	if btc4h == -999 && eth4h == -999 {
+		return 0 // No BTC/ETH data available
+	}
+	if btc4h > eth4h {
+		return btc4h
+	}
+	return eth4h
 }
 
 func defaultV7Confirmations(sig *V7SignalOutput) []string {

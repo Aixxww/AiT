@@ -74,9 +74,11 @@ AiT 是一个支持加密货币和美股市场的全栈 AI 交易平台：
 #### Hunter v7 Signal Router
 多形态 Alpha 选币路由器，包括：
 - SnapshotStore 热快照数据流
-- 10 类 setup 模块
-- `hunter_v7_signal_json` AIT prompt 协议
-- 实时验证命令与耗时口径
+- 11 类 setup 模块，包含 `displacement_momentum_long`
+- amplitude/range expansion universe 入口和 OI 名义值统一
+- 带 `tag_semantics` 的 `hunter_v7_signal_json` AIT prompt 协议
+- 实时验证命令、Binance REST 轮测间隔和耗时口径
+- 信号记录与 mover audit，用于大波动召回归因
 
 **[阅读完整文档 →](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md)**
 

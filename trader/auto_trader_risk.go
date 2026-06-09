@@ -816,12 +816,23 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 	if stopMovePct <= 0 {
 		return false
 	}
-	// Only repair edge misses. Materially tight stops are left to the hard guard.
-	if stopMovePct < minStopPct-0.15 {
+	// Only repair edge misses. For Hunter v7, the LLM can produce a valid stop
+	// at decision price that becomes slightly too tight after allowed entry
+	// drift; repair that execution-drift miss while still rejecting broken stops.
+	repairFloorPct := minStopPct - 0.15
+	if at.isHunterV7Strategy() {
+		if maxDriftPct := at.maxEntryPriceDeviationPct(); maxDriftPct > 0 {
+			repairFloorPct = math.Min(repairFloorPct, minStopPct-maxDriftPct-0.10)
+		}
+	}
+	if stopMovePct < repairFloorPct {
 		return false
 	}
 
 	targetStopPct := minStopPct + 0.03
+	if at.isHunterV7Strategy() {
+		targetStopPct = minStopPct + 0.10
+	}
 	oldStop := decision.StopLoss
 	switch side {
 	case "long":

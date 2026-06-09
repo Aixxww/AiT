@@ -74,9 +74,11 @@ Complete strategy configuration system including:
 #### Hunter v7 Signal Router
 Multi-setup alpha signal router covering:
 - SnapshotStore hot-snapshot data flow
-- 10 setup modules
-- `hunter_v7_signal_json` AIT prompt protocol
-- Live validation command and latency budget
+- 11 setup modules, including `displacement_momentum_long`
+- amplitude/range-expansion universe entries and OI notional normalization
+- `hunter_v7_signal_json` AIT prompt protocol with `tag_semantics`
+- live validation command, Binance REST pacing, and latency budget
+- signal records and mover audit for recall attribution
 
 **[Read Documentation →](HUNTER_V7_SIGNAL_ROUTER.zh-CN.md)**
 

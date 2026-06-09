@@ -47,6 +47,8 @@ const (
 	V7SetupPreSqueezeWatch    V7SetupType = "pre_squeeze_watch"
 	V7SetupPreDistribution    V7SetupType = "pre_distribution_watch"
 	V7SetupAccumulationWatch  V7SetupType = "accumulation_watch"
+	V7SetupDisplacementLong   V7SetupType = "displacement_momentum_long"
+	V7SetupModuleNoMatch      V7SetupType = "module_no_match"
 )
 
 // V7SignalStatus represents the signal's lifecycle state.
@@ -169,6 +171,10 @@ type V7SymbolContext struct {
 
 	// VWAP approximation (15m)
 	VWAP15m float64
+
+	// Amplitude & range expansion (added for mover recall improvement)
+	Amplitude24h     float64 // (High24h - Low24h) / Low24h * 100
+	RangeExpansion1h float64 // 1h trueRange / median 20h trueRange
 }
 
 // SymbolSnapshotData is a lightweight copy of the snapshot data needed by modules.
@@ -186,7 +192,7 @@ type SymbolSnapshotData struct {
 
 	// Derivatives
 	FundingRate float64
-	OI          float64
+	OI          float64 // USDT notional: Binance openInterest quantity * current price
 	OIDelta1h   float64
 	OIDelta4h   float64
 	LSR         float64 // Latest LSR
@@ -268,6 +274,9 @@ type V7SignalOutput struct {
 	// Raw data snapshot for AI prompt enrichment
 	PriceCtx       *V7PriceContext       `json:"price_context,omitempty"`
 	DerivativesCtx *V7DerivativesContext `json:"derivatives_context,omitempty"`
+
+	// Liquidity context for adaptive OI threshold in prompt-data filter
+	QuoteVolume24h float64 `json:"quote_volume_24h,omitempty"` // 24h quote volume (USD)
 }
 
 // V7SignalModule is the interface that every trading setup module must implement.
@@ -284,6 +293,34 @@ type V7SignalModule interface {
 	Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput
 }
 
+// V7SignalRecord is the raw signal data passed to the recorder callback.
+type V7SignalRecord struct {
+	Signal      V7SignalOutput
+	Tier        string // EXECUTABLE / REVIEWABLE / WATCH / REJECTED
+	TierReason  string
+	BlockedGate string // Where the signal was blocked in the funnel
+}
+
+// V7SignalRecorder is a callback invoked after ScoreHunterV7 completes,
+// enabling the caller to persist all raw signals for funnel attribution.
+type V7SignalRecorder func(cycleNumber int, records []V7SignalRecord, regime V7MarketRegime)
+
+// V7RouteResult carries both the LLM-facing output and the raw router output.
+type V7RouteResult struct {
+	RawSignals       []V7SignalOutput
+	ConfirmedSignals []V7SignalOutput
+	WatchSignals     []V7SignalOutput
+	OutputSignals    []V7SignalOutput
+}
+
+// V7ScoreResult is the detailed Hunter v7 scoring result used for attribution.
+type V7ScoreResult struct {
+	Regime     V7MarketRegime
+	Universe   []V7SymbolContext
+	RawSignals []V7SignalOutput
+	Signals    []V7SignalOutput
+}
+
 // V7Config holds configuration for the Hunter v7 engine.
 type V7Config struct {
 	MaxOutput             int                          `json:"max_output"`
@@ -293,6 +330,9 @@ type V7Config struct {
 	FallbackMinAIPriority float64                      `json:"fallback_min_ai_priority"`
 	Aggressive            bool                         `json:"aggressive"`
 	SetupThresholds       map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
+	SignalRecorder        V7SignalRecorder             `json:"-"` // Optional callback for signal persistence
+	CycleNumber           int                          `json:"-"` // Current cycle number for recorder
+	WatchStateManager     *V7SignalStateManager        `json:"-"` // Optional cross-cycle watch state tracker
 }
 
 // DefaultV7Config returns sensible defaults.
@@ -415,6 +455,13 @@ func DefaultSetupThresholds() map[string]V7SetupThresholds {
 		},
 		string(V7SetupAccumulationWatch): {
 			MinAIPriority:   40,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupDisplacementLong): {
+			MinAIPriority:   50,
 			MinZonePosShort: 0,
 			MaxZonePosLong:  100,
 			RequireOIFlush:  false,

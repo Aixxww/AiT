@@ -3,14 +3,15 @@ package kernel
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Aixxww/AiT/market"
-	"github.com/Aixxww/AiT/provider/aitos"
-	"github.com/Aixxww/AiT/provider/local"
-	"github.com/Aixxww/AiT/store"
 	"math"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/aitos"
+	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -86,6 +87,10 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		minRewardPct := minSLMovePct * riskControl.MinRiskRewardRatio
 		sb.WriteString(fmt.Sprintf("- Feasible open geometry: reward distance must be ≥%.2f%% for the minimum %.2f%% stop; if capped TP or price drift makes backend RR < %.2f, output wait\n",
 			minRewardPct, minSLMovePct, riskControl.MinRiskRewardRatio))
+		if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") && maxDriftPct > 0 {
+			sb.WriteString(fmt.Sprintf("- Hunter v7 stop buffer: prefer stop distance ≥%.2f%% from current/executable price when TP cap still preserves RR; avoid stops only barely above %.2f%% because allowed %.2f%% entry drift can make them fail backend validation\n",
+				minSLMovePct+maxDriftPct, minSLMovePct, maxDriftPct))
+		}
 	}
 	sb.WriteString("\n")
 
@@ -175,6 +180,9 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.\n")
 	sb.WriteString("- `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price\n")
 	sb.WriteString("- `hold` and `wait` are no-op actions: they do not change stop-loss, take-profit, leverage, or position size. If profit protection requires action, output a risk-reducing `close_long`/`close_short`; otherwise output `hold` without claiming that stops were tightened.\n")
+	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
+		sb.WriteString("- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.\n")
+	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
 	// 8. Custom Prompt
@@ -199,8 +207,18 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	}
 	if e.GetLanguage() == LangChinese {
 		sb.WriteString("\n\n# Hunter v7 执行规则\n\n")
+		sb.WriteString("## Tier 漏斗决策原则\n")
+		sb.WriteString("严格按 EXECUTABLE → REVIEWABLE → WATCH(背景) → REJECTED(禁止) 顺序决策。不得因账户回撤、市场情绪或 WATCH 候选缺失而跳过 EXECUTABLE/REVIEWABLE 评估。\n\n")
 		sb.WriteString(fmt.Sprintf("完整判断 `EXECUTABLE` 与 `REVIEWABLE` 候选；`WATCH` 只作背景，`REJECTED` 不参与开仓。无持仓且存在开仓复核候选时，在最佳 open 与明确 blocked_reason 之间二选一。后端允许轻微修复：价格漂移 %.2f%% 内、SL 边界 %.2f%%、RR %.2f 且 TP 在 %.2f%% 可达范围内。\n",
 			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+		sb.WriteString("## blocked_reason_code 强制要求\n")
+		sb.WriteString("wait 决策必须输出 `blocked_reason_code` 字段（枚举值：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`）。绝对不得用自然语言 reasoning 代替此字段。如果 wait，必须有且只有一个 blocked_reason_code。\n")
+		sb.WriteString("## 账户回撤规则\n")
+		sb.WriteString("账户总回撤和最近亏损只用于：(1) 仓位大小调整、(2) 重复交易冷却、(3) 同 symbol 冷却。绝对禁止把“账户处于回撤”当作所有 EXECUTABLE/REVIEWABLE 候选的全局 wait 理由。若候选满足硬风控、setup 核心确认和 RR，应给出保守仓位 open。\n")
+		if minSLMovePct > 0 && maxDriftPct > 0 {
+			sb.WriteString(fmt.Sprintf("开仓 stop_loss 不要只贴着 %.2f%% 最小距离；优先留到约 %.2f%% 以上，除非结构止损不允许且 RR 仍明确通过。\n",
+				minSLMovePct, minSLMovePct+maxDriftPct))
+		}
 		sb.WriteString("动量/突破类（如 leader_momentum_long、trend_breakout_long）若实时价跌破 signal stop/invalidation、entry_zone 下沿，或 5m 动量从强转弱，不得把回落视为更好入场，必须 wait。\n")
 		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
 		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
@@ -208,8 +226,18 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		return
 	}
 	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
+	sb.WriteString("## Tier Funnel Decision Principle\n")
+	sb.WriteString("Evaluate strictly in order: EXECUTABLE → REVIEWABLE → WATCH (context) → REJECTED (forbidden). Never skip EXECUTABLE/REVIEWABLE evaluation due to account drawdown, market sentiment, or absence of WATCH candidates.\n\n")
 	sb.WriteString(fmt.Sprintf("Fully judge `EXECUTABLE` and `REVIEWABLE` candidates; `WATCH` is context and `REJECTED` is not open-eligible. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Backend may lightly repair drift %.2f%%, SL edge %.2f%%, and RR %.2f when TP stays within %.2f%%.\n",
 		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+	sb.WriteString("## blocked_reason_code Requirement\n")
+	sb.WriteString("Wait decisions MUST include a `blocked_reason_code` field (enum: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`). ABSOLUTELY do NOT substitute free-text reasoning for this field. If wait, there must be exactly one blocked_reason_code.\n")
+	sb.WriteString("## Account Drawdown Rule\n")
+	sb.WriteString("Account drawdown and recent losses are ONLY for: (1) position sizing, (2) repeat-trade cooldown, (3) same-symbol cooldown. It is FORBIDDEN to use 'account is in drawdown' as a global wait veto for every EXECUTABLE/REVIEWABLE candidate. If a candidate passes hard risk controls, setup confirmation, and RR, open with conservative size.\n")
+	if minSLMovePct > 0 && maxDriftPct > 0 {
+		sb.WriteString(fmt.Sprintf("Do not place stop_loss barely above the %.2f%% minimum; prefer roughly %.2f%%+ stop distance when structure and RR allow, because allowed %.2f%% entry drift can otherwise fail backend validation.\n",
+			minSLMovePct, minSLMovePct+maxDriftPct, maxDriftPct))
+	}
 	sb.WriteString("For momentum/breakout setups such as leader_momentum_long or trend_breakout_long, if live price breaks below signal stop/invalidation, below entry_zone.lower, or 5m momentum flips from strong to weak, do not treat the pullback as a better entry; wait.\n")
 	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
 	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
@@ -679,6 +707,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 	positionLimitReached := e.config.RiskControl.MaxPositions > 0 && len(ctx.Positions) >= e.config.RiskControl.MaxPositions
 	sb.WriteString(fmt.Sprintf("## Hunter v7 Candidate Tiers (%d total)\n\n", len(items)))
 	sb.WriteString(fmt.Sprintf("Tier Summary: EXECUTABLE=%d | REVIEWABLE=%d | WATCH=%d | REJECTED=%d\n\n", execCount, reviewableCount, watchCount, rejectedCount))
+	sb.WriteString(local.HunterV7PromptTagPolicy())
+	sb.WriteString("\n\n")
 	if positionLimitReached {
 		if e.GetLanguage() == LangChinese {
 			sb.WriteString("Decision policy: 当前持仓数量已达到 Max Positions；候选只作背景摘要，不展开、不要求逐个决策，除非先明确 close 现有仓位，否则禁止新开仓。\n\n")
@@ -687,9 +717,19 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		}
 	} else if execCount+reviewableCount > 0 {
 		if e.GetLanguage() == LangChinese {
-			sb.WriteString("Decision policy: 优先分析 EXECUTABLE，其次 REVIEWABLE。REVIEWABLE 是可复核候选，不是必须开；只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出精确 blocked_reason。WATCH/REJECTED 不能作为整体 wait 的理由。\n\n")
+			sb.WriteString("Decision policy (严格 tier 漏斗):\n")
+			sb.WriteString("1. EXECUTABLE 优先：必须首先评估所有 EXECUTABLE 候选。满足硬风控 + setup 核心确认 + RR 的，给出 open；否则给出精确 blocked_reason_code。\n")
+			sb.WriteString("2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出 blocked_reason_code。\n")
+			sb.WriteString("3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。\n")
+			sb.WriteString("4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。\n")
+			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
-			sb.WriteString("Decision policy: Analyze EXECUTABLE first, then REVIEWABLE. REVIEWABLE candidates are open-review candidates, not must-open signals; open only when live candles/flow confirm entry location, near structural stop, and RR, otherwise provide a precise blocked_reason. WATCH/REJECTED candidates are not a global wait veto.\n\n")
+			sb.WriteString("Decision policy (strict tier funnel):\n")
+			sb.WriteString("1. EXECUTABLE first: evaluate ALL EXECUTABLE candidates first. If a candidate passes hard risk controls, setup core confirmation, and RR, output open; otherwise provide a precise `blocked_reason_code`.\n")
+			sb.WriteString("2. REVIEWABLE next: only after all EXECUTABLE candidates are blocked, evaluate REVIEWABLE. Open only when live candles/flow confirm entry zone, near structural stop, and RR; otherwise provide `blocked_reason_code`.\n")
+			sb.WriteString("3. WATCH is context only: WATCH candidates do not participate in open decisions. Do not use the absence of WATCH candidates as a global wait veto on EXECUTABLE/REVIEWABLE.\n")
+			sb.WriteString("4. REJECTED is forbidden: REJECTED candidates must not influence any open decision.\n")
+			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}
 	} else {
 		if e.GetLanguage() == LangChinese {
@@ -834,33 +874,34 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 	}
 
 	type v7SignalForAI struct {
-		Symbol                string                      `json:"symbol"`
-		Direction             string                      `json:"direction"`
-		SetupType             string                      `json:"setup_type"`
-		ExecutionTier         string                      `json:"execution_tier,omitempty"`
-		TierReason            string                      `json:"tier_reason,omitempty"`
-		Status                string                      `json:"status"`
-		MarketRegime          string                      `json:"market_regime"`
-		EntryMode             string                      `json:"entry_mode"`
-		ExecutionQuality      string                      `json:"execution_quality,omitempty"`
-		ExecutionPolicy       string                      `json:"execution_policy,omitempty"`
-		DoNotOpenUntilConfirm bool                        `json:"do_not_open_until_confirmed,omitempty"`
-		Confidence            string                      `json:"confidence"`
-		RiskLevel             string                      `json:"risk_level"`
-		AIPriority            float64                     `json:"ai_priority"`
-		SetupScore            float64                     `json:"setup_score"`
-		TimingScore           float64                     `json:"timing_score"`
-		RegimeFitScore        float64                     `json:"regime_fit_score"`
-		LiquidityScore        float64                     `json:"liquidity_score"`
-		RiskScore             float64                     `json:"risk_score"`
-		ReasonCodes           []string                    `json:"reason_codes"`
-		RiskTags              []string                    `json:"risk_tags"`
-		RequiredConfirmations []string                    `json:"required_confirmations"`
-		EntryZone             local.V7PriceZone           `json:"entry_zone"`
-		Invalidation          local.V7InvalidationRule    `json:"invalidation"`
-		Targets               []local.V7Target            `json:"targets"`
-		PriceContext          *local.V7PriceContext       `json:"price_context,omitempty"`
-		DerivativesContext    *local.V7DerivativesContext `json:"derivatives_context,omitempty"`
+		Symbol                string                        `json:"symbol"`
+		Direction             string                        `json:"direction"`
+		SetupType             string                        `json:"setup_type"`
+		ExecutionTier         string                        `json:"execution_tier,omitempty"`
+		TierReason            string                        `json:"tier_reason,omitempty"`
+		Status                string                        `json:"status"`
+		MarketRegime          string                        `json:"market_regime"`
+		EntryMode             string                        `json:"entry_mode"`
+		ExecutionQuality      string                        `json:"execution_quality,omitempty"`
+		ExecutionPolicy       string                        `json:"execution_policy,omitempty"`
+		DoNotOpenUntilConfirm bool                          `json:"do_not_open_until_confirmed,omitempty"`
+		Confidence            string                        `json:"confidence"`
+		RiskLevel             string                        `json:"risk_level"`
+		AIPriority            float64                       `json:"ai_priority"`
+		SetupScore            float64                       `json:"setup_score"`
+		TimingScore           float64                       `json:"timing_score"`
+		RegimeFitScore        float64                       `json:"regime_fit_score"`
+		LiquidityScore        float64                       `json:"liquidity_score"`
+		RiskScore             float64                       `json:"risk_score"`
+		ReasonCodes           []string                      `json:"reason_codes"`
+		RiskTags              []string                      `json:"risk_tags"`
+		RequiredConfirmations []string                      `json:"required_confirmations"`
+		TagSemantics          []local.HunterV7TagDefinition `json:"tag_semantics,omitempty"`
+		EntryZone             local.V7PriceZone             `json:"entry_zone"`
+		Invalidation          local.V7InvalidationRule      `json:"invalidation"`
+		Targets               []local.V7Target              `json:"targets"`
+		PriceContext          *local.V7PriceContext         `json:"price_context,omitempty"`
+		DerivativesContext    *local.V7DerivativesContext   `json:"derivatives_context,omitempty"`
 	}
 
 	payload := v7SignalForAI{
@@ -886,6 +927,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		ReasonCodes:           coin.V7ReasonCodes,
 		RiskTags:              coin.V7RiskTags,
 		RequiredConfirmations: coin.V7RequiredConfirms,
+		TagSemantics:          local.DescribeHunterV7Tags(coin.V7ReasonCodes, coin.V7RiskTags, coin.V7RequiredConfirms),
 		EntryZone:             coin.V7EntryZone,
 		Invalidation:          coin.V7Invalidation,
 		Targets:               coin.V7Targets,

@@ -1,9 +1,10 @@
 package local
 
 import (
-	"github.com/Aixxww/AiT/datafetch"
 	"log"
 	"time"
+
+	"github.com/Aixxww/AiT/datafetch"
 )
 
 // ============================================================================
@@ -18,25 +19,46 @@ import (
 // ScoreHunterV7 runs the complete Hunter v7 pipeline on a snapshot.
 // Returns a sorted slice of V7SignalOutput, highest AI priority first.
 func ScoreHunterV7(snap *datafetch.Snapshot, cfg V7Config) []V7SignalOutput {
+	return ScoreHunterV7Detailed(snap, cfg).Signals
+}
+
+// ScoreHunterV7Detailed runs the complete Hunter v7 pipeline and returns raw
+// router output alongside the final LLM-facing signals.
+func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult {
 	start := time.Now()
+	result := V7ScoreResult{}
 	if snap == nil || len(snap.Symbols) == 0 {
 		log.Printf("🔴 Hunter v7: empty snapshot, skipping")
-		return nil
+		return result
 	}
 
 	// Step 1: Build universe
 	universe := BuildV7Universe(snap)
 	if len(universe) == 0 {
 		log.Printf("⚠️ Hunter v7: 0 symbols in universe")
-		return nil
+		return result
 	}
+	result.Universe = universe
 
 	// Step 2: Detect regime
 	regime := DetectV7MarketRegime(snap)
+	result.Regime = regime
 
 	// Step 3: Route through all modules
 	router := NewV7Router()
-	signals := router.Route(universe, regime, cfg)
+	route := router.RouteDetailed(universe, regime, cfg)
+	signals := route.OutputSignals
+	rawSignals := route.RawSignals
+
+	// Step 4: Cross-cycle watch state upgrade (if state manager is configured)
+	if cfg.WatchStateManager != nil {
+		upgraded := cfg.WatchStateManager.Process(signals, cfg.CycleNumber)
+		if len(upgraded) > 0 {
+			signals = mergeV7SignalUpgrades(signals, upgraded)
+			rawSignals = mergeV7SignalUpgrades(rawSignals, upgraded)
+			log.Printf("🔼 Hunter v7: %d watch signals upgraded by state manager", len(upgraded))
+		}
+	}
 
 	elapsed := time.Since(start)
 	log.Printf("🎯 Hunter v7: %d symbols → %d signals (regime=%s, elapsed=%v)",
@@ -53,7 +75,31 @@ func ScoreHunterV7(snap *datafetch.Snapshot, cfg V7Config) []V7SignalOutput {
 			sig.LiquidityScore, sig.AIPriority, sig.Status)
 	}
 
-	return signals
+	result.RawSignals = rawSignals
+	result.Signals = signals
+	return result
+}
+
+func mergeV7SignalUpgrades(signals, upgraded []V7SignalOutput) []V7SignalOutput {
+	if len(upgraded) == 0 {
+		return signals
+	}
+	upgradeMap := make(map[string]V7SignalOutput, len(upgraded))
+	for _, u := range upgraded {
+		upgradeMap[u.Symbol+"|"+string(u.SetupType)] = u
+	}
+	merged := append([]V7SignalOutput{}, signals...)
+	for i, sig := range merged {
+		key := sig.Symbol + "|" + string(sig.SetupType)
+		if u, ok := upgradeMap[key]; ok {
+			merged[i] = u
+			delete(upgradeMap, key)
+		}
+	}
+	for _, u := range upgradeMap {
+		merged = append(merged, u)
+	}
+	return merged
 }
 
 // V7FilterByDirection filters v7 signals by the requested direction.

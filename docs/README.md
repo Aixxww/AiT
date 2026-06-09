@@ -77,6 +77,9 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Document | Description | 描述 |
 |----------|-------------|------|
 | [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
+| [Hunter v7 实时链路校准实施方案](hunter-v7-realtime-calibration-implementation-plan-20260609.md) | Binance live-data validation, REST pacing, OI notional, amplitude/detail calibration | Binance 实时数据验证、REST 限速、OI 名义值、大波动入口校准 |
+| [Hunter v7 架构与标签语义治理](hunter-v7-architecture-tag-taxonomy-20260609.md) | Tag catalog, LLM action semantics, and minimal-code architecture cleanup | 标签 catalog、LLM 行为语义和最小代码量架构治理 |
+| [Hunter v7 漏斗优化整改报告](hunter_v7_整改报告.md) | Signal records, mover audit, watch state, displacement setup, and prompt gating implementation | 信号归因、大波动审计、Watch 升级、位移 setup 与提示词分层落地 |
 | [Sniffer Gate 2 优化方案](sniffer-optimization-plan.md) | Flexible compression scoring plan for Sniffer Gate 2 | Sniffer Gate 2 弹性压缩评分优化方案 |
 
 ---
@@ -151,7 +154,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Community | ✅ Complete | 2026-05-23 |
 | Architecture | ✅ Complete | 2026-05-23 |
 | Roadmap | ✅ Complete | 2026-05-23 |
-| Hunter Docs | ✅ Complete | 2026-06-08 |
+| Hunter Docs | ✅ Complete | 2026-06-09 |
 | API Reference | 📋 Planned | - |
 
 **Legend:**

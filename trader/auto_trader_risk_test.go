@@ -303,6 +303,37 @@ func TestRepairHunterV7OpenDecisionRefreshesSmallEntryDrift(t *testing.T) {
 	}
 }
 
+func TestRepairHunterV7OpenDecisionFixesStopTightenedByAllowedDrift(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.config.StrategyConfig.RiskControl.MinRiskRewardRatio = 1.5
+	at.config.StrategyConfig.RiskControl.MinStopLossPriceMovePct = 2.0
+	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 4.0
+	at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct = 0.5
+
+	decision := &kernel.Decision{
+		Symbol:          "EPICUSDT",
+		Action:          "open_long",
+		Leverage:        5,
+		PositionSizeUSD: 30,
+		Price:           0.4812,
+		StopLoss:        0.4711,
+		TakeProfit:      0.4985,
+		Confidence:      75,
+	}
+	currentPrice := 0.4794
+
+	if !at.repairHunterV7OpenDecision(decision, currentPrice, "long") {
+		t.Fatalf("expected stop repair for allowed entry-drift edge miss")
+	}
+	if stopPct := (currentPrice - decision.StopLoss) / currentPrice * 100; stopPct < 2.0 {
+		t.Fatalf("repaired stop distance = %.3f%%, want >= 2.0%%", stopPct)
+	}
+	if err := at.validateOpenDecision(decision, currentPrice, "long"); err != nil {
+		t.Fatalf("expected repaired EPIC-like decision to validate, got: %v", err)
+	}
+}
+
 func TestRepairHunterV7OpenDecisionDoesNotRepairLargeEntryDrift(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"

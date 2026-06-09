@@ -228,6 +228,85 @@ func TestV7ExecutionQualityDowngradesLowTimingLeaderMomentum(t *testing.T) {
 	}
 }
 
+func TestFilterV7SignalsAddsReviewableFloorWhenOnlyWatchSignalsRemain(t *testing.T) {
+	signals := []V7SignalOutput{
+		{
+			Symbol:           "BANKUSDT",
+			Direction:        V7DirShort,
+			SetupType:        V7SetupFundingReversal,
+			Status:           V7StatusWaitConfirm,
+			ExecutionQuality: V7ExecWatchOnly,
+			AIPriority:       44.4,
+			SetupScore:       54,
+			TimingScore:      67,
+			RegimeFitScore:   67,
+			LiquidityScore:   75,
+			RiskScore:        15,
+			Confidence:       "C",
+		},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         50,
+		FallbackMinAIPriority: 45,
+		Aggressive:            true,
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("signals = %d, want 1", len(got))
+	}
+	if got[0].ExecutionQuality != V7ExecNearConfirm {
+		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
+	}
+	if got[0].AIPriority <= 50 {
+		t.Fatalf("priority = %.1f, want rescued priority above min", got[0].AIPriority)
+	}
+	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
+		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
+	}
+	if !containsString(got[0].RiskTags, "fallback_reviewable_needs_live_confirm") {
+		t.Fatalf("missing rescue risk tag: %+v", got[0].RiskTags)
+	}
+}
+
+func TestFilterV7SignalsDoesNotPromotePreMoveWatchToReviewableFloor(t *testing.T) {
+	signals := []V7SignalOutput{
+		{
+			Symbol:           "JTOUSDT",
+			Direction:        V7DirLong,
+			SetupType:        V7SetupPreBreakoutWatch,
+			Status:           V7StatusWaitConfirm,
+			ExecutionQuality: V7ExecWatchOnly,
+			AIPriority:       48,
+			SetupScore:       65,
+			TimingScore:      20,
+			RegimeFitScore:   67,
+			LiquidityScore:   100,
+			RiskScore:        0,
+		},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         50,
+		FallbackMinAIPriority: 45,
+		Aggressive:            true,
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("signals = %d, want 1 fallback context watch", len(got))
+	}
+	if got[0].ExecutionQuality != V7ExecWatchOnly {
+		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecWatchOnly)
+	}
+	if containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
+		t.Fatalf("pre-move watch should not be rescued: %+v", got[0].ReasonCodes)
+	}
+}
+
 func TestV7ExecutionQualityUsesValidDirectionalTargetForRR(t *testing.T) {
 	sig := &V7SignalOutput{
 		Symbol:       "TARGETUSDT",

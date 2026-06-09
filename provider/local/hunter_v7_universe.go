@@ -1,9 +1,10 @@
 package local
 
 import (
-	"github.com/Aixxww/AiT/datafetch"
 	"math"
 	"sort"
+
+	"github.com/Aixxww/AiT/datafetch"
 )
 
 // ============================================================================
@@ -59,7 +60,13 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 		if excludedTokenizedAssets[sym] {
 			continue
 		}
-		if ss.QuoteVolume24h <= 0 || ss.OI <= 0 {
+		if ss.QuoteVolume24h <= 0 {
+			continue
+		}
+		// Ordinary routed setups need derivatives detail, but high-amplitude
+		// symbols must stay visible for mover attribution even before OI detail
+		// has been fetched by the detail-symbol selector.
+		if ss.OI <= 0 && symbolAmplitude24h(ss) < 12 {
 			continue
 		}
 		raw = append(raw, rawEntry{sym: sym, ss: ss})
@@ -136,6 +143,51 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	addFromRanking(entries, func(r ranked) float64 { return r.oiChg }, 50, "oi_change")
 	addFromRanking(entries, func(r ranked) float64 { return r.fund }, 50, "funding")
 
+	// Amplitude pool: symbols with 24h amplitude >= 12%
+	for _, r := range entries {
+		if r.ss.LowPrice24h <= 0 {
+			continue
+		}
+		amp := (r.ss.HighPrice24h - r.ss.LowPrice24h) / r.ss.LowPrice24h * 100
+		if amp >= 12 {
+			if _, exists := selected[r.sym]; !exists {
+				selected[r.sym] = r.ss
+				priorities[r.sym] = 200 // amplitude pool priority
+			}
+		}
+	}
+
+	// Range expansion pool: symbols with large 1h true range relative to recent median
+	for _, r := range entries {
+		if r.ss.Klines == nil {
+			continue
+		}
+		bars1h, ok := r.ss.Klines["1h"]
+		if !ok || len(bars1h) < 5 {
+			continue
+		}
+		kb := datafetchKlinesToKlineBar(bars1h)
+		latestTR := trueRange(kb[len(kb)-1], kb[len(kb)-2])
+		lookback := 20
+		if len(kb)-1 < lookback {
+			lookback = len(kb) - 1
+		}
+		if lookback < 3 {
+			continue
+		}
+		var trs []float64
+		for i := len(kb) - lookback; i < len(kb)-1; i++ {
+			trs = append(trs, trueRange(kb[i], kb[i-1]))
+		}
+		medianTR := medianFloat64(trs)
+		if medianTR > 0 && latestTR/medianTR >= 2.2 {
+			if _, exists := selected[r.sym]; !exists {
+				selected[r.sym] = r.ss
+				priorities[r.sym] = 200
+			}
+		}
+	}
+
 	// Always include core liquidity symbols
 	for sym := range coreLiquiditySymbols {
 		if ss, ok := snap.Symbols[sym]; ok && ss.QuoteVolume24h > 0 {
@@ -199,7 +251,7 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		LowPrice24h:    ss.LowPrice24h,
 		TradeCount24h:  ss.TradeCount24h,
 		FundingRate:    ss.FundingRate,
-		OI:             ss.OI,
+		OI:             symbolOINotional(ss),
 		OIDelta1h:      ss.OIDelta1h,
 		OIDelta4h:      ss.OIDelta4h,
 		LSR:            ss.LongShortRatio,
@@ -304,7 +356,51 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 	// Classify pool
 	ctx.PoolType = classifyPool(ctx)
 
+	// Amplitude 24h: (High - Low) / Low * 100
+	ctx.Amplitude24h = symbolAmplitude24h(ss)
+
+	// Range expansion: latest 1h true range / median of last 20 1h true ranges
+	if bars1h, ok := klines["1h"]; ok && len(bars1h) >= 5 {
+		kb1h := datafetchKlinesToKlineBar(bars1h)
+		latestTR := trueRange(kb1h[len(kb1h)-1], kb1h[len(kb1h)-2])
+		lookback := 20
+		if len(kb1h)-1 < lookback {
+			lookback = len(kb1h) - 1
+		}
+		if lookback >= 3 {
+			var trs []float64
+			for i := len(kb1h) - lookback; i < len(kb1h)-1; i++ {
+				trs = append(trs, trueRange(kb1h[i], kb1h[i-1]))
+			}
+			medianTR := medianFloat64(trs)
+			if medianTR > 0 {
+				ctx.RangeExpansion1h = latestTR / medianTR
+			}
+		}
+	}
+
 	return ctx
+}
+
+func symbolAmplitude24h(ss *datafetch.SymbolSnapshot) float64 {
+	if ss == nil || ss.LowPrice24h <= 0 || ss.HighPrice24h <= 0 {
+		return 0
+	}
+	return (ss.HighPrice24h - ss.LowPrice24h) / ss.LowPrice24h * 100
+}
+
+func symbolOINotional(ss *datafetch.SymbolSnapshot) float64 {
+	if ss == nil || ss.OI <= 0 {
+		return 0
+	}
+	price := ss.Price
+	if price <= 0 {
+		price = ss.MarkPrice
+	}
+	if price <= 0 {
+		return 0
+	}
+	return ss.OI * price
 }
 
 // classifyPool assigns a symbol to its primary candidate pool.
@@ -536,4 +632,27 @@ func computeVWAP(klines []klineBar) float64 {
 // getQuoteVolume24h safely extracts 24h quote volume from a ticker string.
 func getQuoteVolume24h(qv string) float64 {
 	return parseFloat(qv)
+}
+
+// trueRange computes the true range of a bar relative to the previous bar's close.
+func trueRange(bar, prev klineBar) float64 {
+	hl := bar.High - bar.Low
+	hc := math.Abs(bar.High - prev.Close)
+	lc := math.Abs(bar.Low - prev.Close)
+	return math.Max(hl, math.Max(hc, lc))
+}
+
+// medianFloat64 returns the median of a float64 slice (copies and sorts).
+func medianFloat64(vals []float64) float64 {
+	if len(vals) == 0 {
+		return 0
+	}
+	sorted := make([]float64, len(vals))
+	copy(sorted, vals)
+	sort.Float64s(sorted)
+	mid := len(sorted) / 2
+	if len(sorted)%2 == 0 {
+		return (sorted[mid-1] + sorted[mid]) / 2
+	}
+	return sorted[mid]
 }

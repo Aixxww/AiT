@@ -5,8 +5,9 @@ package store
 import (
 	"database/sql"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
 	"sync"
+
+	"github.com/Aixxww/AiT/logger"
 
 	"gorm.io/gorm"
 )
@@ -30,6 +31,8 @@ type Store struct {
 	grid           *GridStore
 	aiCharge       *AIChargeStore
 	telegramConfig TelegramConfigStore
+	hunterV7Signal *HunterV7SignalStore
+	hunterV7Mover  *HunterV7MoverStore
 
 	mu sync.RWMutex
 }
@@ -163,6 +166,12 @@ func (s *Store) initTables() error {
 	}
 	if err := s.AICharge().initTables(); err != nil {
 		return fmt.Errorf("failed to initialize AI charge tables: %w", err)
+	}
+	if err := s.HunterV7Signal().initTables(); err != nil {
+		return fmt.Errorf("failed to initialize hunter v7 signal tables: %w", err)
+	}
+	if err := s.HunterV7Mover().initTables(); err != nil {
+		return fmt.Errorf("failed to initialize hunter v7 mover tables: %w", err)
 	}
 	return nil
 }
@@ -305,6 +314,26 @@ func (s *Store) TelegramConfig() TelegramConfigStore {
 		s.telegramConfig = NewTelegramConfigStore(s.gdb)
 	}
 	return s.telegramConfig
+}
+
+// HunterV7Signal gets Hunter v7 signal record storage
+func (s *Store) HunterV7Signal() *HunterV7SignalStore {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.hunterV7Signal == nil {
+		s.hunterV7Signal = NewHunterV7SignalStore(s.gdb)
+	}
+	return s.hunterV7Signal
+}
+
+// HunterV7Mover gets Hunter v7 mover label storage
+func (s *Store) HunterV7Mover() *HunterV7MoverStore {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.hunterV7Mover == nil {
+		s.hunterV7Mover = NewHunterV7MoverStore(s.gdb)
+	}
+	return s.hunterV7Mover
 }
 
 // Close closes database connection

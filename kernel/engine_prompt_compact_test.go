@@ -238,7 +238,8 @@ func TestBuildUserPromptUsesHunterV7CandidateTiers(t *testing.T) {
 	for _, want := range []string{
 		"## Hunter v7 Candidate Tiers (3 total)",
 		"Tier Summary: EXECUTABLE=1 | REVIEWABLE=0 | WATCH=1 | REJECTED=1",
-		"Decision policy: Analyze EXECUTABLE first, then REVIEWABLE.",
+		"Tag semantics: reason_codes are evidence, risk_tags constrain or block execution",
+		"Decision policy (strict tier funnel):",
 		"### Open-review candidates (full context, max 5)",
 		"#### 1. READYUSDT [LONG] (Hunter)",
 		"execution_tier=EXECUTABLE tier_reason=long_setup_ready_confirmed",
@@ -445,6 +446,24 @@ func TestFormatHunterV7SignalJSONMarksWatchOnlyAsDoNotOpen(t *testing.T) {
 	}
 	if payload["tier_reason"] != "watch_only_confirm_required" {
 		t.Fatalf("tier_reason = %v, want watch_only_confirm_required", payload["tier_reason"])
+	}
+	semantics, ok := payload["tag_semantics"].([]interface{})
+	if !ok || len(semantics) == 0 {
+		t.Fatalf("tag_semantics missing or empty: %#v", payload["tag_semantics"])
+	}
+	foundWaitOnly := false
+	for _, item := range semantics {
+		def, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if def["tag"] == "do_not_open_until_confirmed" && def["llm_action"] == local.V7TagActionWaitOnly {
+			foundWaitOnly = true
+			break
+		}
+	}
+	if !foundWaitOnly {
+		t.Fatalf("tag_semantics missing wait-only definition for do_not_open_until_confirmed: %#v", semantics)
 	}
 }
 
@@ -814,6 +833,104 @@ func TestClassifyHunterV7CandidateTierAllowsStrongPullbackReview(t *testing.T) {
 
 	if tier != "REVIEWABLE" || reason != "pullback_reviewable_strong_structure" {
 		t.Fatalf("tier = %q (%s), want REVIEWABLE pullback_reviewable_strong_structure", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsConfirmedBreakoutFloorReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DODOXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       45.2,
+		V7SetupScore:       56,
+		V7TimingScore:      45,
+		V7RiskScore:        15,
+		V7LiquidityScore:   50,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"extreme_compression", "confirmed_breakout", "taker_aggressive_buy", "clear_air_above"},
+		V7RiskTags:         []string{"context_only_low_priority"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.53},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "breakout_reviewable_confirmed_low_risk_floor" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE breakout_reviewable_confirmed_low_risk_floor", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsPanicCapitulationFloorReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "CLOUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       46.9,
+		V7SetupScore:       31.5,
+		V7TimingScore:      45,
+		V7RiskScore:        15,
+		V7LiquidityScore:   75,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"deep_capitulation", "strong_reclaim", "taker_buy_strong", "selling_decelerating", "rsi_recovering_from_extreme"},
+		V7RiskTags:         []string{"high_volatility"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.55},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "panic_reversal_reviewable_capitulation_floor" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE panic_reversal_reviewable_capitulation_floor", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsReadyMomentumPriorityFloor(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DODOXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       77.3,
+		V7SetupScore:       100,
+		V7TimingScore:      63,
+		V7RiskScore:        15,
+		V7LiquidityScore:   50,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"leader_momentum", "volume_expansion", "taker_aggressive_buy"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "momentum_reviewable_ready_priority_floor" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE momentum_reviewable_ready_priority_floor", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsStrongMomentumChaseRiskReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DODOXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "chase_risk",
+		V7AIPriority:       48.7,
+		V7SetupScore:       96,
+		V7TimingScore:      45,
+		V7RiskScore:        30,
+		V7LiquidityScore:   50,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"leader_momentum", "volume_expansion", "taker_aggressive_buy"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "momentum_chase_risk_reviewable_pullback_only" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE momentum_chase_risk_reviewable_pullback_only", tier, reason)
 	}
 }
 

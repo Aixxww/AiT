@@ -48,13 +48,17 @@ func selectDetailSymbols(
 		}
 	}
 
-	volumeQuota := maxInt(1, int(float64(limit)*0.45))
-	gainerQuota := maxInt(1, int(float64(limit)*0.22))
-	loserQuota := maxInt(1, int(float64(limit)*0.18))
+	volumeQuota := maxInt(1, int(float64(limit)*0.40))
+	amplitudeQuota := maxInt(1, int(float64(limit)*0.15))
+	gainerQuota := maxInt(1, int(float64(limit)*0.18))
+	loserQuota := maxInt(1, int(float64(limit)*0.15))
 	fundingQuota := maxInt(1, int(float64(limit)*0.10))
 
 	addRanked(volumeQuota, func(sym string) float64 {
 		return quoteVolume(tickers[sym])
+	})
+	addRanked(amplitudeQuota, func(sym string) float64 {
+		return amplitude24h(tickers[sym])
 	})
 	addRanked(gainerQuota, func(sym string) float64 {
 		return priceChange24h(tickers[sym])
@@ -77,6 +81,18 @@ func priceChange24h(t *ticker24hrRaw) float64 {
 		return 0
 	}
 	return parseFloat(t.PriceChangePercent)
+}
+
+func amplitude24h(t *ticker24hrRaw) float64 {
+	if t == nil {
+		return 0
+	}
+	high := parseFloat(t.HighPrice)
+	low := parseFloat(t.LowPrice)
+	if high <= 0 || low <= 0 {
+		return 0
+	}
+	return (high - low) / low * 100
 }
 
 func fundingRate(p *premiumIndexRaw) float64 {

@@ -3,13 +3,14 @@ package kernel
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/mcp"
 	"github.com/Aixxww/AiT/store"
-	"regexp"
-	"strings"
-	"time"
 )
 
 // ============================================================================
@@ -141,6 +142,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		riskConfig.BTCETHMaxPositionValueRatio,
 		riskConfig.AltcoinMaxPositionValueRatio,
 		hunterScoreMap,
+		strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7"),
 	)
 
 	if decision != nil {
@@ -291,16 +293,52 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 		isXyzAsset := market.IsXyzDexAsset(coin.Symbol)
 		if !isExistingPosition && !isXyzAsset && data.OpenInterest != nil && data.CurrentPrice > 0 {
 			effectiveMinOIThreshold := minOIThresholdMillions
-			if strings.EqualFold(config.CoinSource.SourceType, "hunter_v7") &&
-				coin.V7ExecutionTier == "EXECUTABLE" &&
-				coin.V7LiquidityScore >= 50 &&
-				effectiveMinOIThreshold > 3.0 {
-				effectiveMinOIThreshold = 3.0
+			if strings.EqualFold(config.CoinSource.SourceType, "hunter_v7") {
+				// Adaptive OI threshold: max(accountMaxNotional*1000, symbolMinFloor, quoteVolume24h*0.002)
+				riskControl := engine.GetRiskControlConfig()
+				maxPosRatio := riskControl.AltcoinMaxPositionValueRatio
+				if coin.Symbol == "BTCUSDT" || coin.Symbol == "ETHUSDT" {
+					maxPosRatio = riskControl.BTCETHMaxPositionValueRatio
+				}
+				accountMaxNotional := ctx.Account.TotalEquity * maxPosRatio
+				accountBasedOI := accountMaxNotional * 1000 / 1e6       // in millions
+				const symbolMinNotionalFloor = 0.5                      // $500K floor
+				volumeBasedMinOI := coin.V7QuoteVolume24h * 0.002 / 1e6 // 0.2% of 24h volume
+
+				adaptiveThreshold := accountBasedOI
+				if symbolMinNotionalFloor > adaptiveThreshold {
+					adaptiveThreshold = symbolMinNotionalFloor
+				}
+				if volumeBasedMinOI > adaptiveThreshold {
+					adaptiveThreshold = volumeBasedMinOI
+				}
+
+				if coin.V7ExecutionTier == "EXECUTABLE" || coin.V7ExecutionTier == "REVIEWABLE" {
+					// EXECUTABLE: full adaptive threshold (min 1.0M)
+					// REVIEWABLE: 60% of adaptive threshold (min 0.5M)
+					tierThreshold := adaptiveThreshold
+					if coin.V7ExecutionTier == "REVIEWABLE" {
+						tierThreshold = adaptiveThreshold * 0.6
+					}
+					minFloor := 1.0
+					if coin.V7ExecutionTier == "REVIEWABLE" {
+						minFloor = 0.5
+					}
+					if tierThreshold < minFloor {
+						tierThreshold = minFloor
+					}
+					effectiveMinOIThreshold = tierThreshold
+				} else {
+					// Non-executable/reviewable (watch/context): use adaptive as cap
+					if effectiveMinOIThreshold > adaptiveThreshold {
+						effectiveMinOIThreshold = adaptiveThreshold
+					}
+				}
 			}
 			oiValue := data.OpenInterest.Latest * data.CurrentPrice
 			oiValueInMillions := oiValue / 1_000_000
 			if oiValueInMillions < effectiveMinOIThreshold {
-				logger.Infof("⚠️  %s OI value too low (%.2fM USD < %.1fM), skipping coin",
+				logger.Infof("⚠️  %s OI value too low (%.2fM USD < %.2fM adaptive), skipping coin",
 					coin.Symbol, oiValueInMillions, effectiveMinOIThreshold)
 				continue
 			}
@@ -352,7 +390,7 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 // AI Response Parsing
 // ============================================================================
 
-func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo) (*FullDecision, error) {
+func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -363,11 +401,22 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 		}, fmt.Errorf("failed to extract decisions: %w", err)
 	}
 
+	if hunterV7Mode {
+		normalizeHunterV7WaitReasons(decisions)
+	}
 	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap); err != nil {
 		return &FullDecision{
 			CoTTrace:  cotTrace,
 			Decisions: decisions,
 		}, fmt.Errorf("decision validation failed: %w", err)
+	}
+	if hunterV7Mode {
+		if err := validateHunterV7WaitReasons(decisions); err != nil {
+			return &FullDecision{
+				CoTTrace:  cotTrace,
+				Decisions: decisions,
+			}, fmt.Errorf("hunter_v7 wait reason validation failed: %w", err)
+		}
 	}
 	fillMissingDecisionReasoning(decisions, cotTrace)
 
@@ -375,6 +424,45 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 		CoTTrace:  cotTrace,
 		Decisions: decisions,
 	}, nil
+}
+
+var hunterV7BlockedReasonCodes = map[string]bool{
+	"entry_not_in_zone":       true,
+	"rr_insufficient":         true,
+	"confirmation_missing":    true,
+	"oi_too_low":              true,
+	"funding_crowded":         true,
+	"account_risk":            true,
+	"backend_guard_risk":      true,
+	"no_reviewable_candidate": true,
+}
+
+func normalizeHunterV7WaitReasons(decisions []Decision) {
+	for i := range decisions {
+		if decisions[i].Action != "wait" {
+			continue
+		}
+		decisions[i].BlockedReasonCode = strings.TrimSpace(decisions[i].BlockedReasonCode)
+		if decisions[i].BlockedReasonCode == "" && decisions[i].Symbol == "ALL" && strings.Contains(decisions[i].Reasoning, "Model didn't output structured JSON decision") {
+			decisions[i].BlockedReasonCode = "backend_guard_risk"
+		}
+	}
+}
+
+func validateHunterV7WaitReasons(decisions []Decision) error {
+	for i := range decisions {
+		d := decisions[i]
+		if d.Action != "wait" {
+			continue
+		}
+		if d.BlockedReasonCode == "" {
+			return fmt.Errorf("decision #%d wait missing blocked_reason_code", i+1)
+		}
+		if !hunterV7BlockedReasonCodes[d.BlockedReasonCode] {
+			return fmt.Errorf("decision #%d invalid blocked_reason_code: %s", i+1, d.BlockedReasonCode)
+		}
+	}
+	return nil
 }
 
 func fillMissingDecisionReasoning(decisions []Decision, cotTrace string) {

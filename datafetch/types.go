@@ -27,7 +27,7 @@ type SymbolSnapshot struct {
 	Spread          float64 // (markPrice - indexPrice) / indexPrice * 100
 
 	// Per-symbol data (fetched individually for top N)
-	OI             float64   // Current open interest value (USDT)
+	OI             float64   // Current open interest quantity from Binance openInterest
 	OIDelta1h      float64   // OI change rate over 1h (%)
 	OIDelta4h      float64   // OI change rate over 4h (%)
 	OISpikeData    []float64 // 13 hourly OI period-over-period % changes

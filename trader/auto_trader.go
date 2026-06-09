@@ -2,7 +2,11 @@ package trader
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/engine"
 	"github.com/Aixxww/AiT/kernel"
@@ -10,6 +14,7 @@ import (
 	"github.com/Aixxww/AiT/mcp"
 	_ "github.com/Aixxww/AiT/mcp/payment"
 	_ "github.com/Aixxww/AiT/mcp/provider"
+	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 	"github.com/Aixxww/AiT/trader/aster"
 	"github.com/Aixxww/AiT/trader/binance"
@@ -23,8 +28,6 @@ import (
 	"github.com/Aixxww/AiT/trader/okx"
 	"github.com/Aixxww/AiT/wallet"
 	"github.com/ethereum/go-ethereum/crypto"
-	"sync"
-	"time"
 )
 
 func (at *AutoTrader) logTag() string {
@@ -448,6 +451,76 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 			strategyEngine.SetSnapshotEngine(se)
 			logger.Infof("✅ [%s] IndicatorHub unified engine initialized", config.Name)
 		}
+	}
+
+	// Set up Hunter v7 signal recorder for funnel attribution
+	if st != nil && coinSrc.SourceType == "hunter_v7" {
+		strategyEngine.SetV7SignalRecorder(func(cycleNum int, records []local.V7SignalRecord, regime local.V7MarketRegime) {
+			if len(records) == 0 {
+				return
+			}
+			now := time.Now().UTC()
+			dbRecords := make([]store.HunterV7SignalRecord, 0, len(records))
+			for _, rec := range records {
+				sig := rec.Signal
+				var target1 float64
+				if len(sig.Targets) > 0 {
+					target1 = sig.Targets[0].Price
+				}
+				var oiValue, oiDelta1h, oiDelta4h, fundingRate, takerBuy15m float64
+				if sig.DerivativesCtx != nil {
+					oiValue = sig.DerivativesCtx.OIValue
+					oiDelta1h = sig.DerivativesCtx.OIChange1h
+					oiDelta4h = sig.DerivativesCtx.OIChange4h
+					fundingRate = sig.DerivativesCtx.FundingRate
+					takerBuy15m = sig.DerivativesCtx.TakerBuy15m
+				}
+				rawJSON, _ := json.Marshal(sig)
+				var change1h, change4h, change24h float64
+				if sig.PriceCtx != nil {
+					change1h = sig.PriceCtx.Change1h
+					change4h = sig.PriceCtx.Change4h
+					change24h = sig.PriceCtx.Change24h
+				}
+				dbRecords = append(dbRecords, store.HunterV7SignalRecord{
+					CycleNumber:       cycleNum,
+					Timestamp:         now,
+					Symbol:            sig.Symbol,
+					Direction:         string(sig.Direction),
+					SetupType:         string(sig.SetupType),
+					Status:            string(sig.Status),
+					ExecutionQuality:  string(sig.ExecutionQuality),
+					ExecutionTier:     rec.Tier,
+					TierReason:        rec.TierReason,
+					AIPriority:        sig.AIPriority,
+					SetupScore:        sig.SetupScore,
+					TimingScore:       sig.TimingScore,
+					RiskScore:         sig.RiskScore,
+					LiquidityScore:    sig.LiquidityScore,
+					RegimeFitScore:    sig.RegimeFitScore,
+					MarketRegime:      string(sig.MarketRegime),
+					ReasonCodes:       store.ToJSON(sig.ReasonCodes),
+					RiskTags:          store.ToJSON(sig.RiskTags),
+					EntryZoneLower:    sig.EntryZone.Lower,
+					EntryZoneUpper:    sig.EntryZone.Upper,
+					InvalidationPrice: sig.Invalidation.Price,
+					Target1:           target1,
+					OIValue:           oiValue,
+					OIDelta1h:         oiDelta1h,
+					OIDelta4h:         oiDelta4h,
+					FundingRate:       fundingRate,
+					TakerBuy15m:       takerBuy15m,
+					Change1h:          change1h,
+					Change4h:          change4h,
+					Change24h:         change24h,
+					BlockedGate:       rec.BlockedGate,
+					RawJSON:           string(rawJSON),
+				})
+			}
+			if err := st.HunterV7Signal().CreateBatch(dbRecords); err != nil {
+				logger.Warnf("⚠️ [%s] Failed to persist V7 signal records: %v", config.Name, err)
+			}
+		})
 	}
 
 	return &AutoTrader{

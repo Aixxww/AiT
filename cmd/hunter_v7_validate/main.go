@@ -69,6 +69,7 @@ type opportunityCoverCheck struct {
 	ByStatus        map[string]int `json:"by_status"`
 	ByRiskLevel     map[string]int `json:"by_risk_level"`
 	ByEntryMode     map[string]int `json:"by_entry_mode"`
+	ByExecutionTier map[string]int `json:"by_execution_tier"`
 	ByMarketRegime  map[string]int `json:"by_market_regime"`
 	DistinctSetups  int            `json:"distinct_setups"`
 	HasMomentum     bool           `json:"has_momentum"`
@@ -87,8 +88,23 @@ type issue struct {
 	Detail   string `json:"detail"`
 }
 
+type validationOptions struct {
+	topDetail     int
+	maxWorkers    int
+	maxOutput     int
+	watchOutput   int
+	minPriority   float64
+	aggressive    bool
+	strategyID    string
+	dbPath        string
+	outDir        string
+	rounds        int
+	roundInterval time.Duration
+}
+
 func main() {
 	topDetail := flag.Int("top-detail", 220, "number of high-volume symbols with full OI/LSR/kline detail")
+	maxWorkers := flag.Int("max-workers", 8, "max concurrent per-symbol Binance REST workers; keep low for live validation")
 	maxOutput := flag.Int("max-output", 30, "max Hunter v7 signals to output")
 	watchOutput := flag.Int("watch-output", 5, "max Hunter v7 pre-move watch signals to append")
 	minPriority := flag.Float64("min-priority", 45, "minimum AI priority")
@@ -96,30 +112,66 @@ func main() {
 	strategyID := flag.String("strategy-id", "", "strategy ID to load from data/data.db for prompt simulation")
 	dbPath := flag.String("db", "data/data.db", "SQLite database path")
 	outDir := flag.String("out-dir", "reports", "output directory")
+	rounds := flag.Int("rounds", 1, "number of validation rounds to run")
+	roundInterval := flag.Duration("round-interval", 120*time.Second, "sleep interval between validation rounds")
 	flag.Parse()
 
+	opts := validationOptions{
+		topDetail:     *topDetail,
+		maxWorkers:    *maxWorkers,
+		maxOutput:     *maxOutput,
+		watchOutput:   *watchOutput,
+		minPriority:   *minPriority,
+		aggressive:    *aggressive,
+		strategyID:    *strategyID,
+		dbPath:        *dbPath,
+		outDir:        *outDir,
+		rounds:        *rounds,
+		roundInterval: *roundInterval,
+	}
+	if opts.rounds <= 0 {
+		opts.rounds = 1
+	}
+	if opts.maxWorkers <= 0 {
+		opts.maxWorkers = 8
+	}
+	for round := 1; round <= opts.rounds; round++ {
+		if opts.rounds > 1 {
+			fmt.Printf("Hunter v7 validation round %d/%d\n", round, opts.rounds)
+		}
+		if err := runValidation(opts, round); err != nil {
+			log.Fatalf("validation round %d failed: %v", round, err)
+		}
+		if round < opts.rounds {
+			fmt.Printf("Sleeping %s before next Binance REST validation round\n", opts.roundInterval)
+			time.Sleep(opts.roundInterval)
+		}
+	}
+}
+
+func runValidation(opts validationOptions, round int) error {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	fetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
-		TopNForDetail: *topDetail,
-		MaxWorkers:    50,
+		TopNForDetail: opts.topDetail,
+		MaxWorkers:    opts.maxWorkers,
 		Timeout:       15 * time.Second,
 	})
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
-		log.Fatalf("fetch snapshot failed: %v", err)
+		return fmt.Errorf("fetch snapshot failed: %w", err)
 	}
 
 	cfg := local.DefaultV7Config()
-	cfg.MaxOutput = *maxOutput
-	cfg.WatchOutput = *watchOutput
-	cfg.MinAIPriority = *minPriority
-	cfg.Aggressive = *aggressive
-	strategyCfg, err := loadStrategyConfig(*dbPath, *strategyID)
+	cfg.MaxOutput = opts.maxOutput
+	cfg.WatchOutput = opts.watchOutput
+	cfg.MinAIPriority = opts.minPriority
+	cfg.Aggressive = opts.aggressive
+	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
 	if err != nil {
-		log.Fatalf("load strategy config failed: %v", err)
+		return fmt.Errorf("load strategy config failed: %w", err)
 	}
 	if strategyCfg != nil {
 		if strategyCfg.CoinSource.Hunter != nil {
@@ -147,15 +199,18 @@ func main() {
 
 	now := time.Now()
 	stamp := now.Format("20060102-150405")
-	if err := os.MkdirAll(*outDir, 0755); err != nil {
-		log.Fatalf("create out dir failed: %v", err)
+	if opts.rounds > 1 {
+		stamp = fmt.Sprintf("%s-r%02d", stamp, round)
 	}
-	promptPath := fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", *outDir, stamp)
-	rawPath := fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", *outDir, stamp)
-	mdPath := fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", *outDir, stamp)
+	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
+		return fmt.Errorf("create out dir failed: %w", err)
+	}
+	promptPath := fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", opts.outDir, stamp)
+	rawPath := fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", opts.outDir, stamp)
+	mdPath := fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", opts.outDir, stamp)
 
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
-		log.Fatalf("write prompt failed: %v", err)
+		return fmt.Errorf("write prompt failed: %w", err)
 	}
 
 	report := validationReport{
@@ -181,16 +236,17 @@ func main() {
 
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		log.Fatalf("marshal report failed: %v", err)
+		return fmt.Errorf("marshal report failed: %w", err)
 	}
 	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
-		log.Fatalf("write raw report failed: %v", err)
+		return fmt.Errorf("write raw report failed: %w", err)
 	}
 	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
-		log.Fatalf("write markdown report failed: %v", err)
+		return fmt.Errorf("write markdown report failed: %w", err)
 	}
 
 	printConsoleSummary(report, rawPath, mdPath)
+	return nil
 }
 
 func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin {
@@ -224,7 +280,9 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
+			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
+		cc.V7ExecutionTier, cc.V7TierReason = kernel.ClassifyHunterV7CandidateTierForRuntime(cc)
 		if sig.Direction == local.V7DirLong {
 			cc.LongScore = sig.AIPriority
 			cc.LongTags = tags
@@ -412,12 +470,13 @@ func validatePrompt(prompt string, candidateCount int) aiRecognitionCheck {
 
 func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 	c := opportunityCoverCheck{
-		SignalCount:    len(signals),
-		BySetupType:    map[string]int{},
-		ByStatus:       map[string]int{},
-		ByRiskLevel:    map[string]int{},
-		ByEntryMode:    map[string]int{},
-		ByMarketRegime: map[string]int{},
+		SignalCount:     len(signals),
+		BySetupType:     map[string]int{},
+		ByStatus:        map[string]int{},
+		ByRiskLevel:     map[string]int{},
+		ByEntryMode:     map[string]int{},
+		ByExecutionTier: map[string]int{},
+		ByMarketRegime:  map[string]int{},
 	}
 	for _, sig := range signals {
 		if sig.Direction == local.V7DirLong {
@@ -430,6 +489,14 @@ func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 		c.ByStatus[string(sig.Status)]++
 		c.ByRiskLevel[string(sig.RiskLevel)]++
 		c.ByEntryMode[string(sig.EntryMode)]++
+		cc := signalsToCandidates([]local.V7SignalOutput{sig})
+		if len(cc) > 0 {
+			tier := cc[0].V7ExecutionTier
+			if tier == "" {
+				tier = "UNKNOWN"
+			}
+			c.ByExecutionTier[tier]++
+		}
 		c.ByMarketRegime[string(sig.MarketRegime)]++
 		switch sig.SetupType {
 		case local.V7SetupLeaderMomentumLong, local.V7SetupTrendBreakoutLong:
@@ -531,6 +598,7 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("- setup 分布：%s\n", sortedMap(r.OpportunityCover.BySetupType)))
 	sb.WriteString(fmt.Sprintf("- status 分布：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
 	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
+	sb.WriteString(fmt.Sprintf("- tier 分布：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
 	sb.WriteString(fmt.Sprintf("- 覆盖家族：momentum=%v, reversal=%v, squeeze=%v, range=%v, funding=%v, accumulation=%v, distribution=%v\n\n",
 		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
@@ -569,6 +637,7 @@ func printConsoleSummary(r validationReport, rawPath, mdPath string) {
 		r.Snapshot.SymbolCount, r.Snapshot.UniverseCount, r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h, r.Snapshot.RestErrors)
 	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
 		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
+	fmt.Printf("tiers: %s\n", sortedMap(r.OpportunityCover.ByExecutionTier))
 	fmt.Printf("format: json=%v/%v missing=%d executable_gaps=%d prompt_v7_json=%v\n",
 		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
 		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON)

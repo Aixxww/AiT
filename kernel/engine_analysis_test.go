@@ -12,7 +12,7 @@ OPENUSDT short remains valid. Price is below planned SL and has not reached TP, 
 ]
 </decision>`
 
-	decision, err := parseFullDecisionResponse(response, 100, 20, 20, 10, 10, nil)
+	decision, err := parseFullDecisionResponse(response, 100, 20, 20, 10, 10, nil, false)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}

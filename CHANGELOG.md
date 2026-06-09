@@ -14,12 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hunter v7 signal attribution tables for full-cycle `hunter_v7_signal_records` and daily `hunter_v7_mover_labels`
+- Daily mover audit command (`cmd/hunter_v7_mover_audit`) to compare Binance 20%/30%/50% amplitude movers against Hunter v7 recall history
+- Hunter v7 watch state manager for cross-cycle watch strengthening, near-confirm, reviewable, executable, expired, and failed states
+- `displacement_momentum_long` setup for range-expansion and impulse-move opportunities
+- Hunter v7 tag catalog with `tag_semantics` so LLM prompts distinguish evidence, required confirmations, wait-only tags, reject-only tags, and unknown context
 - Hunter v7 / VVV live-monitor report for the 2026-06-08 production review, covering cycle #20-#83 regression comparison, recent live cycles, signal tag audits, and prompt alignment
 - Hunter v7 candidate-floor context output so thin candidate pools still pass up to three non-filtered `wait_confirm` signals to the LLM
 - 2026-06-07 session review report covering Hunter v7 candidate visibility, live open failures, risk geometry, and dashboard performance fixes
 - Cycle review command `cmd/cycle_review` to generate Markdown/JSON reports from decision records, including open rate, PnL, token usage, and execution guard blocks
 - Historical token calibration API for strategy token estimates based on real decision records
-- Hunter v7 Signal Router with 10 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
+- Hunter v7 Signal Router with 11 multi-regime setup modules and structured `hunter_v7_signal_json` prompt payloads
 - Hunter v7 live validation command (`cmd/hunter_v7_validate`)
 - Adaptive position protector with TP1/TP2 partial protection, profit giveback trailing protection, and state cleanup after close
 - Max entry price deviation risk control to limit drift between the AI decision price and the executable market reference
@@ -35,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Hunter v7 universe construction now adds independent amplitude and range-expansion pools to improve large-move recall
+- Hunter v7 detail selection now reserves capacity for high-amplitude symbols before fetching per-symbol Binance details
+- Hunter v7 live validation now supports `--rounds`, `--round-interval`, `--max-workers`, and `--watch-output` for safer low-frequency Binance REST validation
+- Hunter v7 prompts now require structured wait `blocked_reason_code` and tier-first review boundaries for EXECUTABLE, REVIEWABLE, WATCH, and REJECTED signals
+- Hunter v7 OI thresholds now adapt to account notional, symbol floor, and quote-volume context instead of relying only on static review thresholds
 - Hunter v7 execution tiering now treats high-risk signal tags such as `already_pumped_24h`, `funding_expensive`, `no_reclaim_signal`, `taker_sell_during_accumulation`, and wrong-zone tags as wait-only semantics before LLM open review
 - Hunter v7 strategy prompts now explicitly tell the LLM not to override wait-only risk tags with high priority or setup score
 - Dashboard, trader config, strategy studio, chart, and history views now lazy-load heavy panels and use calmer polling intervals to reduce navigation stutter
@@ -56,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider module optimizations (local client, Hunter, AI500 provider)
 
 ### Fixed
+- Fixed Hunter v7 OI handling by converting Binance `openInterest` quantity into USDT notional before liquidity and tier checks
+- Fixed high-amplitude symbols being dropped from the Hunter v7 universe when OI detail was not yet available
+- Fixed unsafe REST tight-loop validation by lowering default validation concurrency and documenting interval-based multi-round checks
+- Fixed leader momentum upper-zone weak pullbacks being promoted without strong live confirmation
 - Fixed Hunter v7 false-open paths where danger tags could still be promoted into `EXECUTABLE` or `REVIEWABLE`, including late funding chases without OI flush, exhausted short-squeeze longs, accumulation with active sell flow, panic longs without reclaim, and reversion shorts away from retest zones
 - Fixed Hunter v7 candidate visibility being over-constrained by per-setup execution thresholds; global `v7_min_ai_priority` now controls LLM candidate visibility
 - Fixed repeated failed live opens caused by an infeasible 3% TP cap, 2% minimum stop, 0.5% entry drift, and 1.5 RR combination
