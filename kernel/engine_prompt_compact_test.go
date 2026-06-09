@@ -813,6 +813,31 @@ func TestClassifyHunterV7CandidateTierBlocksLowTimingPanicWithoutReclaim(t *test
 	}
 }
 
+func TestClassifyHunterV7CandidateTierBlocksLowTimingPanicCoreWithoutConfirmedTaker(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "EPICUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       55.2,
+		V7SetupScore:       82.8,
+		V7TimingScore:      40,
+		V7RiskScore:        30,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"deep_capitulation", "oi_declining", "strong_reclaim", "taker_buy_recovering", "low_timing_watch_only"},
+		V7RiskTags:         []string{"high_volatility", "regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.5101538793398475},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "needs_confirmation" {
+		t.Fatalf("tier = %q (%s), want WATCH needs_confirmation", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierAllowsStrongPullbackReview(t *testing.T) {
 	coin := CandidateCoin{
 		Symbol:             "MANTAUSDT",
@@ -976,6 +1001,33 @@ func TestClassifyHunterV7CandidateTierBlocksFundingShortTightStop(t *testing.T) 
 
 	if tier != "WATCH" || reason != "funding_reversal_stop_too_tight" {
 		t.Fatalf("tier = %q (%s), want WATCH funding_reversal_stop_too_tight", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierBlocksFundingShortAwayFromRetestZone(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "ZROUSDT",
+		Direction:          "SHORT",
+		V7SetupType:        "funding_reversal",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       56.6,
+		V7SetupScore:       54,
+		V7TimingScore:      72,
+		V7RiskScore:        15,
+		V7LiquidityScore:   65,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"elevated_funding", "extreme_long_crowding", "strong_taker_sell_reversal", "wait_zone_retest_required"},
+		V7RiskTags:         []string{"crowding_extreme", "execution_stop_tightened", "not_near_short_retest_zone"},
+		V7PriceContext:     &local.V7PriceContext{Last: 1.85},
+		V7Invalidation:     local.V7InvalidationRule{Price: 1.91},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.41},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "funding_short_retest_zone_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH funding_short_retest_zone_wait", tier, reason)
 	}
 }
 

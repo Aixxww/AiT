@@ -778,7 +778,7 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			coin.V7SetupScore >= 38 &&
 			coin.V7TimingScore >= 40 &&
 			coin.V7RiskScore < 60 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
+			hunterV7PanicReversalCoreFlowOK(coin) {
 			return true, "panic_reversal_reviewable_core_present"
 		}
 		if coin.V7AIPriority >= 45 &&
@@ -884,6 +884,15 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func hunterV7PanicReversalCoreFlowOK(coin CandidateCoin) bool {
+	if containsStringValue(coin.V7ReasonCodes, "low_timing_watch_only") ||
+		coin.V7TimingScore <= 40 ||
+		coin.V7ExecutionQuality == "watch_only" {
+		return hunterV7TakerBuyConfirmedAtLeast(coin, 0.52)
+	}
+	return hunterV7TakerBuyAtLeast(coin, 0.50)
 }
 
 func hunterV7WatchUpgradedReviewable(coin CandidateCoin) bool {
@@ -1149,6 +1158,14 @@ func hunterV7HighRiskSignalWaitReason(coin CandidateCoin) string {
 			return "panic_reversal_oi_up_price_down_wait"
 		}
 	case "funding_reversal":
+		if strings.EqualFold(coin.Direction, "SHORT") &&
+			containsStringValue(coin.V7RiskTags, "not_near_short_retest_zone") {
+			return "funding_short_retest_zone_wait"
+		}
+		if strings.EqualFold(coin.Direction, "LONG") &&
+			containsStringValue(coin.V7RiskTags, "not_near_long_reclaim_zone") {
+			return "funding_long_reclaim_zone_wait"
+		}
 		if containsAnyStringValue(coin.V7RiskTags, []string{
 			"late_short_after_deep_drop",
 			"short_after_fast_drop_without_flush",
