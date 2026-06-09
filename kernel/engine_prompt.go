@@ -152,16 +152,16 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		sb.WriteString("# 📋 Decision Process\n\n")
 		sb.WriteString("1. Check positions → Should we take profit/stop-loss\n")
 		sb.WriteString("2. Scan candidate coins + multi-timeframe → Are there strong signals\n")
-		sb.WriteString("3. Write chain of thought first, then output structured JSON\n\n")
+		sb.WriteString("3. Write a concise decision audit first, then output structured JSON\n\n")
 	}
 
 	// 7. Output format
 	sb.WriteString("# Output Format (Strictly Follow)\n\n")
-	sb.WriteString("**Must use XML tags <reasoning> and <decision> to separate chain of thought and decision JSON, avoiding parsing errors**\n\n")
+	sb.WriteString("**Must use XML tags <reasoning> and <decision> to separate a concise decision audit and decision JSON, avoiding parsing errors**\n\n")
 	sb.WriteString("## Format Requirements\n\n")
 	sb.WriteString("<reasoning>\n")
-	sb.WriteString("Your chain of thought analysis...\n")
-	sb.WriteString("- Briefly analyze your thinking process \n")
+	sb.WriteString("Concise decision audit only. No lengthy chain-of-thought.\n")
+	sb.WriteString("- Use at most 6 short bullet lines; focus on pass/fail blockers and executable price/RR.\n")
 	sb.WriteString("</reasoning>\n\n")
 	sb.WriteString("<decision>\n")
 	sb.WriteString("Step 2: JSON decision array\n\n")
@@ -173,6 +173,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("  {\"symbol\": \"ETHUSDT\", \"action\": \"close_long\"}\n")
 	sb.WriteString("]\n```\n")
 	sb.WriteString("</decision>\n\n")
+	sb.WriteString("Keep the JSON `reasoning` field under 320 characters. For Hunter v7 wait decisions, put the blocker in `blocked_reason_code` and keep explanation concise.\n\n")
 	sb.WriteString("## Field Description\n\n")
 	sb.WriteString("- `action`: open_long | open_short | close_long | close_short | hold | wait\n")
 	sb.WriteString(fmt.Sprintf("- `confidence`: 0-100 (opening recommended ≥ %d)\n", minOpenConfidence))
@@ -650,7 +651,7 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	}
 
 	sb.WriteString("---\n\n")
-	sb.WriteString("Now please analyze and output your decision (Chain of Thought + JSON)\n")
+	sb.WriteString("Now output a concise decision audit and the decision JSON.\n")
 
 	return sb.String()
 }
@@ -672,6 +673,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		if !ok {
 			continue
 		}
+		coin = hunterV7CandidateWithLiveMarketPrice(coin, data)
 		tier, reason := coin.V7ExecutionTier, coin.V7TierReason
 		if tier == "" {
 			tier, reason = classifyHunterV7CandidateTier(coin)
@@ -830,6 +832,19 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		sb.WriteString(fmt.Sprintf("- %s: %d\n", reason, reasonCounts[reason]))
 	}
 	sb.WriteString("\n")
+}
+
+func hunterV7CandidateWithLiveMarketPrice(coin CandidateCoin, data *market.Data) CandidateCoin {
+	if coin.V7SetupType == "" || data == nil || data.CurrentPrice <= 0 {
+		return coin
+	}
+	priceCtx := local.V7PriceContext{}
+	if coin.V7PriceContext != nil {
+		priceCtx = *coin.V7PriceContext
+	}
+	priceCtx.Last = data.CurrentPrice
+	coin.V7PriceContext = &priceCtx
+	return coin
 }
 
 func hunterV7TierRank(tier string) int {

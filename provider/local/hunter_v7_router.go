@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 )
 
 // ============================================================================
@@ -298,6 +299,17 @@ func appendV7ReviewableFloorSignals(filtered, eligible []V7SignalOutput, used []
 	}
 
 	rescued := 0
+	for i := range filtered {
+		if rescued >= maxRescue {
+			break
+		}
+		if !isV7ReviewableFloorCandidate(filtered[i]) {
+			continue
+		}
+		filtered[i] = promoteV7ReviewableFloorSignal(filtered[i], cfg)
+		rescued++
+	}
+
 	for i, sig := range eligible {
 		if rescued >= maxRescue {
 			break
@@ -309,11 +321,7 @@ func appendV7ReviewableFloorSignals(filtered, eligible []V7SignalOutput, used []
 			continue
 		}
 
-		sig.Status = V7StatusWaitConfirm
-		sig.ExecutionQuality = V7ExecNearConfirm
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "reviewable_floor_rescue")
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "fallback_reviewable_needs_live_confirm")
-		sig.AIPriority = CalcAIPriority(&sig, cfg)
+		sig = promoteV7ReviewableFloorSignal(sig, cfg)
 		filtered = append(filtered, sig)
 		if i < len(used) {
 			used[i] = true
@@ -322,6 +330,15 @@ func appendV7ReviewableFloorSignals(filtered, eligible []V7SignalOutput, used []
 	}
 
 	return filtered
+}
+
+func promoteV7ReviewableFloorSignal(sig V7SignalOutput, cfg V7Config) V7SignalOutput {
+	sig.Status = V7StatusWaitConfirm
+	sig.ExecutionQuality = V7ExecNearConfirm
+	sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "reviewable_floor_rescue")
+	sig.RiskTags = appendIfMissing(sig.RiskTags, "fallback_reviewable_needs_live_confirm")
+	sig.AIPriority = CalcAIPriority(&sig, cfg)
+	return sig
 }
 
 func isV7ReviewableFloorCandidate(sig V7SignalOutput) bool {
@@ -353,11 +370,20 @@ func isV7ReviewableFloorCandidate(sig V7SignalOutput) bool {
 		}
 		return sig.TimingScore >= 65 && sig.Confidence != "C"
 	case V7SetupPanicReversalLong:
-		return sig.SetupScore >= 65 &&
+		if sig.SetupScore >= 65 &&
 			sig.TimingScore >= 30 &&
 			containsV7String(sig.ReasonCodes, "strong_reclaim") &&
 			(containsV7String(sig.ReasonCodes, "selling_decelerating") ||
-				containsV7String(sig.ReasonCodes, "selling_exhaustion"))
+				containsV7String(sig.ReasonCodes, "selling_exhaustion")) {
+			return true
+		}
+		return sig.SetupScore >= 65 &&
+			sig.TimingScore >= 35 &&
+			sig.RiskScore < 45 &&
+			!strings.EqualFold(sig.Confidence, "C") &&
+			(containsV7String(sig.ReasonCodes, "taker_buy_strong") ||
+				containsV7String(sig.ReasonCodes, "taker_buy_aggressive") ||
+				containsV7String(sig.ReasonCodes, "strong_reclaim"))
 	case V7SetupPullbackLong, V7SetupDistributionShort, V7SetupRangeReversion:
 		return sig.SetupScore >= 70 && sig.TimingScore >= 50
 	default:
@@ -487,7 +513,7 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 		return nil
 	case V7EntryBreakout:
 		return []string{
-			"15m_close_through_breakout_level",
+			"5m_or_15m_close_through_breakout_level",
 			"oi_or_volume_expands_with_price",
 			"no_failed_breakout_back_inside_range",
 		}
@@ -507,32 +533,34 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 	case V7EntryWaitReclaim:
 		if sig.Direction == V7DirShort {
 			return []string{
-				"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+				"live_price_in_entry_zone",
+				"5m_close_below_ema20_or_entry_zone_mid",
 				"taker_buy_15m_lt_0_48",
 				"no_new_high_after_rejection",
 			}
 		}
 		return []string{
-			"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+			"live_price_in_entry_zone",
+			"5m_close_above_ema20_or_entry_zone_mid",
 			"taker_buy_15m_gt_0_52",
 			"no_new_low_after_reclaim",
 		}
 	case V7EntryWaitBreakout:
 		return []string{
-			"15m_close_above_entry_zone",
+			"5m_or_15m_close_above_entry_zone",
 			"oi_continues_inflow",
 			"bb_width_expansion_starts",
 		}
 	case V7EntryWaitReject:
 		if sig.Direction == V7DirShort {
 			return []string{
-				"15m_rejection_at_resistance_or_entry_zone",
+				"5m_or_15m_rejection_at_resistance_or_entry_zone",
 				"taker_buy_15m_lt_0_48",
 				"no_new_high_after_rejection",
 			}
 		}
 		return []string{
-			"15m_rejection_at_support_or_entry_zone",
+			"5m_or_15m_rejection_at_support_or_entry_zone",
 			"taker_buy_15m_gt_0_52",
 			"no_new_low_after_rejection",
 		}
@@ -540,31 +568,33 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 		if sig.Direction == V7DirShort {
 			return []string{
 				"enter_only_near_range_top",
-				"15m_rejection_from_range_top",
+				"5m_or_15m_rejection_from_range_top",
 				"stop_above_range_high",
 			}
 		}
 		return []string{
 			"enter_only_near_range_bottom",
-			"15m_reclaim_from_range_bottom",
+			"5m_or_15m_reclaim_from_range_bottom",
 			"stop_below_range_low",
 		}
 	case V7EntryWaitPriceReversal:
 		if sig.Direction == V7DirShort {
 			return []string{
-				"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+				"live_price_in_entry_zone",
+				"5m_close_below_ema20_or_entry_zone_mid",
 				"taker_buy_15m_lt_0_45",
 				"no_new_high_after_reversal_signal",
 			}
 		}
 		return []string{
-			"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+			"live_price_in_entry_zone",
+			"5m_close_above_ema20_or_entry_zone_mid",
 			"taker_buy_15m_gt_0_52",
 			"no_new_low_after_reversal_signal",
 		}
 	case V7EntryMomentumTrailing:
 		return []string{
-			"price_holds_trailing_support",
+			"5m_price_holds_ema20_or_trailing_support",
 			"momentum_not_exhausted",
 			"taker_flow_not_flipping_against_direction",
 		}

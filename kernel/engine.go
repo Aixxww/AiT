@@ -633,6 +633,9 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 	if reason := hunterV7PanicReversalLowTimingWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
+	if reason := hunterV7BackendCappedRRWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 
 	if ok, reason := hunterV7ExecutableCandidateReason(coin); ok {
 		return "EXECUTABLE", reason
@@ -771,6 +774,15 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 	}
 	switch coin.V7SetupType {
 	case "panic_reversal_long":
+		if containsStringValue(coin.V7ReasonCodes, "reviewable_floor_rescue") &&
+			coin.V7AIPriority >= 45 &&
+			coin.V7SetupScore >= 65 &&
+			coin.V7TimingScore >= 35 &&
+			coin.V7RiskScore < 45 &&
+			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
+			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) {
+			return true, "panic_reversal_reviewable_floor_live_confirm"
+		}
 		if coin.V7AIPriority >= 50 &&
 			coin.V7SetupScore >= 55 &&
 			coin.V7TimingScore >= 30 &&
@@ -1052,6 +1064,14 @@ func hunterV7PanicReversalLowTimingWaitReason(coin CandidateCoin) string {
 	if !lowTiming {
 		return ""
 	}
+	if containsStringValue(coin.V7ReasonCodes, "reviewable_floor_rescue") &&
+		coin.V7ExecutionQuality == "near_confirm" &&
+		coin.V7SetupScore >= 65 &&
+		coin.V7TimingScore >= 35 &&
+		coin.V7RiskScore < 45 &&
+		hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) {
+		return ""
+	}
 	if hunterV7PanicReversalLowTimingImpulseOK(coin) {
 		return ""
 	}
@@ -1301,6 +1321,86 @@ func hunterV7StopDistancePct(coin CandidateCoin) float64 {
 	default:
 		return 0
 	}
+}
+
+const (
+	hunterV7BackendMinRR            = 1.5
+	hunterV7BackendMinStopPct       = 2.0
+	hunterV7BackendStopRepairBuffer = 0.10
+	hunterV7BackendMaxTPPct         = 4.0
+)
+
+func hunterV7BackendCappedRRWaitReason(coin CandidateCoin) string {
+	price := hunterV7ReferencePrice(coin)
+	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
+		return ""
+	}
+
+	riskPct := 0.0
+	switch {
+	case strings.EqualFold(coin.Direction, "SHORT"):
+		riskPct = (coin.V7Invalidation.Price - price) / price * 100
+	case strings.EqualFold(coin.Direction, "LONG"):
+		riskPct = (price - coin.V7Invalidation.Price) / price * 100
+	default:
+		return ""
+	}
+	if riskPct <= 0 {
+		return ""
+	}
+
+	effectiveRiskPct := riskPct
+	if effectiveRiskPct < hunterV7BackendMinStopPct {
+		effectiveRiskPct = hunterV7BackendMinStopPct + hunterV7BackendStopRepairBuffer
+	}
+
+	bestRewardPct := 0.0
+	for _, target := range coin.V7Targets {
+		rewardPct := hunterV7DirectionalRewardPct(price, target.Price, coin.Direction)
+		if rewardPct <= 0 {
+			continue
+		}
+		if rewardPct > hunterV7BackendMaxTPPct {
+			rewardPct = hunterV7BackendMaxTPPct
+		}
+		if rewardPct > bestRewardPct {
+			bestRewardPct = rewardPct
+		}
+	}
+	if bestRewardPct <= 0 {
+		return ""
+	}
+
+	if bestRewardPct/effectiveRiskPct < hunterV7BackendMinRR {
+		return "backend_rr_infeasible"
+	}
+	return ""
+}
+
+func hunterV7ReferencePrice(coin CandidateCoin) float64 {
+	if coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
+		return coin.V7PriceContext.Last
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") && coin.V7EntryZone.Lower > 0 {
+		return coin.V7EntryZone.Lower
+	}
+	if strings.EqualFold(coin.Direction, "LONG") && coin.V7EntryZone.Upper > 0 {
+		return coin.V7EntryZone.Upper
+	}
+	return 0
+}
+
+func hunterV7DirectionalRewardPct(price, target float64, direction string) float64 {
+	if price <= 0 || target <= 0 {
+		return 0
+	}
+	if strings.EqualFold(direction, "SHORT") {
+		return (price - target) / price * 100
+	}
+	if strings.EqualFold(direction, "LONG") {
+		return (target - price) / price * 100
+	}
+	return 0
 }
 
 func hasHunterV7DangerRiskTag(tags []string) bool {

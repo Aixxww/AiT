@@ -116,7 +116,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 
 	// 4. Call AI API
 	aiCallStart := time.Now()
-	aiResponse, err := mcpClient.CallWithMessages(systemPrompt, userPrompt)
+	aiResponse, err := callStrategyDecisionAI(mcpClient, engine, systemPrompt, userPrompt)
 	aiCallDuration := time.Since(aiCallStart)
 	if err != nil {
 		return nil, fmt.Errorf("AI API call failed: %w", err)
@@ -171,6 +171,24 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	}
 
 	return decision, nil
+}
+
+const hunterV7DecisionMaxOutputTokens = 1600
+
+func callStrategyDecisionAI(mcpClient mcp.AIClient, engine *StrategyEngine, systemPrompt, userPrompt string) (string, error) {
+	if engine != nil && strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
+		req, err := mcp.NewRequestBuilder().
+			WithSystemPrompt(systemPrompt).
+			WithUserPrompt(userPrompt).
+			WithMaxTokens(hunterV7DecisionMaxOutputTokens).
+			Build()
+		if err == nil {
+			logger.Infof("⚡ Hunter v7 decision output capped at %d tokens to reduce execution drift", hunterV7DecisionMaxOutputTokens)
+			return mcpClient.CallWithRequest(req)
+		}
+		logger.Warnf("⚠️ Hunter v7 request builder failed, falling back to default call: %v", err)
+	}
+	return mcpClient.CallWithMessages(systemPrompt, userPrompt)
 }
 
 // ============================================================================

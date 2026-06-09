@@ -199,7 +199,7 @@ func TestBuildUserPromptUsesHunterV7CandidateTiers(t *testing.T) {
 				V7EntryMode:        "direct_breakout",
 				V7Confidence:       "B",
 				V7EntryZone:        local.V7PriceZone{Lower: 0.99, Upper: 1.02},
-				V7Invalidation:     local.V7InvalidationRule{Price: 0.97},
+				V7Invalidation:     local.V7InvalidationRule{Price: 0.988},
 				V7Targets:          []local.V7Target{{Price: 1.08}},
 				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.56},
 			},
@@ -540,6 +540,64 @@ func TestClassifyHunterV7CandidateTierRejectsCatalogRejectOnlyRiskTag(t *testing
 
 	if tier != "REJECTED" || reason != "displacement_rr_insufficient" {
 		t.Fatalf("tier = %q (%s), want REJECTED displacement_rr_insufficient", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierDemotesBackendCappedRRInfeasible(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SKYAIUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       77.51,
+		V7SetupScore:       90,
+		V7TimingScore:      45,
+		V7RiskScore:        38,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "MEDIUM",
+		V7PriceContext:     &local.V7PriceContext{Last: 0.20306},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.1970486},
+		V7Targets: []local.V7Target{
+			{Price: 0.20803126111856482},
+			{Price: 0.30},
+		},
+		V7ReasonCodes:    []string{"strong_reclaim", "taker_buy_strong"},
+		V7RiskTags:       []string{"high_volatility", "crowding_elevated", "regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.57},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "backend_rr_infeasible" {
+		t.Fatalf("tier = %q (%s), want WATCH backend_rr_infeasible", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierKeepsBackendFeasibleMomentumExecutable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "VELVETUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       73.02,
+		V7SetupScore:       71.2,
+		V7TimingScore:      88,
+		V7RiskScore:        15,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7PriceContext:     &local.V7PriceContext{Last: 0.40365},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.39476775},
+		V7Targets:          []local.V7Target{{Price: 0.45405921987980813}},
+		V7RiskTags:         []string{"regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.666},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "EXECUTABLE" || reason != "momentum_ready_strong_flow" {
+		t.Fatalf("tier = %q (%s), want EXECUTABLE momentum_ready_strong_flow", tier, reason)
 	}
 }
 
@@ -929,6 +987,38 @@ func TestClassifyHunterV7CandidateTierAllowsLowTimingPanicImpulseWindow(t *testi
 
 	if tier != "REVIEWABLE" || reason != "panic_reversal_reviewable_high_win_reclaim" {
 		t.Fatalf("tier = %q (%s), want REVIEWABLE panic_reversal_reviewable_high_win_reclaim", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsRescuedPanicFloorReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "BLESSUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       51.2,
+		V7SetupScore:       70.8,
+		V7TimingScore:      40,
+		V7RiskScore:        30,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "LOW",
+		V7Confidence:       "B",
+		V7ReasonCodes: []string{
+			"moderate_capitulation",
+			"oi_declining",
+			"taker_buy_strong",
+			"low_timing_watch_only",
+			"reviewable_floor_rescue",
+		},
+		V7RiskTags:       []string{"regime_against_direction", "fallback_reviewable_needs_live_confirm"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.56},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "panic_reversal_reviewable_floor_live_confirm" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE panic_reversal_reviewable_floor_live_confirm", tier, reason)
 	}
 }
 

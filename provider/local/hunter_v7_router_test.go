@@ -5,36 +5,76 @@ import (
 	"testing"
 )
 
-func TestDefaultV7ConfirmationsDoNotTreatEntryZoneAsReclaim(t *testing.T) {
+func TestDefaultV7ConfirmationsUsePracticalReversalTriggers(t *testing.T) {
 	tests := []struct {
 		name      string
 		direction V7Direction
 		entryMode V7EntryMode
-		want      string
+		wantFirst string
+		wantMicro string
 	}{
 		{
 			name:      "long wait reclaim",
 			direction: V7DirLong,
 			entryMode: V7EntryWaitReclaim,
-			want:      "15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+			wantFirst: "live_price_in_entry_zone",
+			wantMicro: "5m_close_above_ema20_or_entry_zone_mid",
 		},
 		{
 			name:      "short wait reclaim",
 			direction: V7DirShort,
 			entryMode: V7EntryWaitReclaim,
-			want:      "15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+			wantFirst: "live_price_in_entry_zone",
+			wantMicro: "5m_close_below_ema20_or_entry_zone_mid",
 		},
 		{
 			name:      "long wait price reversal",
 			direction: V7DirLong,
 			entryMode: V7EntryWaitPriceReversal,
-			want:      "15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+			wantFirst: "live_price_in_entry_zone",
+			wantMicro: "5m_close_above_ema20_or_entry_zone_mid",
 		},
 		{
 			name:      "short wait price reversal",
 			direction: V7DirShort,
 			entryMode: V7EntryWaitPriceReversal,
-			want:      "15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+			wantFirst: "live_price_in_entry_zone",
+			wantMicro: "5m_close_below_ema20_or_entry_zone_mid",
+		},
+		{
+			name:      "breakout",
+			direction: V7DirLong,
+			entryMode: V7EntryBreakout,
+			wantFirst: "5m_or_15m_close_through_breakout_level",
+			wantMicro: "5m_or_15m_close_through_breakout_level",
+		},
+		{
+			name:      "wait breakout",
+			direction: V7DirLong,
+			entryMode: V7EntryWaitBreakout,
+			wantFirst: "5m_or_15m_close_above_entry_zone",
+			wantMicro: "5m_or_15m_close_above_entry_zone",
+		},
+		{
+			name:      "short wait reject",
+			direction: V7DirShort,
+			entryMode: V7EntryWaitReject,
+			wantFirst: "5m_or_15m_rejection_at_resistance_or_entry_zone",
+			wantMicro: "5m_or_15m_rejection_at_resistance_or_entry_zone",
+		},
+		{
+			name:      "long range edge",
+			direction: V7DirLong,
+			entryMode: V7EntryRangeEdge,
+			wantFirst: "enter_only_near_range_bottom",
+			wantMicro: "5m_or_15m_reclaim_from_range_bottom",
+		},
+		{
+			name:      "momentum trailing",
+			direction: V7DirLong,
+			entryMode: V7EntryMomentumTrailing,
+			wantFirst: "5m_price_holds_ema20_or_trailing_support",
+			wantMicro: "5m_price_holds_ema20_or_trailing_support",
 		},
 	}
 
@@ -44,12 +84,18 @@ func TestDefaultV7ConfirmationsDoNotTreatEntryZoneAsReclaim(t *testing.T) {
 				Direction: tt.direction,
 				EntryMode: tt.entryMode,
 			})
-			if len(confirms) == 0 || confirms[0] != tt.want {
-				t.Fatalf("first confirmation = %q, want %q", confirms, tt.want)
+			if len(confirms) == 0 || confirms[0] != tt.wantFirst {
+				t.Fatalf("first confirmation = %q, want %q", confirms, tt.wantFirst)
+			}
+			if !containsString(confirms, tt.wantMicro) {
+				t.Fatalf("missing microstructure confirmation %q in %q", tt.wantMicro, confirms)
 			}
 			for _, confirm := range confirms {
 				if strings.Contains(confirm, "reclaim_vwap_or_entry_zone") {
 					t.Fatalf("ambiguous confirmation remains: %q", confirm)
+				}
+				if strings.HasPrefix(confirm, "15m_close_") && strings.Contains(confirm, "entry_zone_") {
+					t.Fatalf("late reversal confirmation remains hard-required: %q", confirm)
 				}
 			}
 		})
@@ -304,6 +350,84 @@ func TestFilterV7SignalsDoesNotPromotePreMoveWatchToReviewableFloor(t *testing.T
 	}
 	if containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
 		t.Fatalf("pre-move watch should not be rescued: %+v", got[0].ReasonCodes)
+	}
+}
+
+func TestFilterV7SignalsPromotesAlreadyFilteredWatchToReviewableFloor(t *testing.T) {
+	signals := []V7SignalOutput{
+		{
+			Symbol:           "PHAROSUSDT",
+			Direction:        V7DirShort,
+			SetupType:        V7SetupFundingReversal,
+			Status:           V7StatusWaitConfirm,
+			ExecutionQuality: V7ExecWatchOnly,
+			AIPriority:       56.5,
+			SetupScore:       71,
+			TimingScore:      80,
+			RegimeFitScore:   67,
+			LiquidityScore:   70,
+			RiskScore:        30,
+			Confidence:       "B",
+		},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         55,
+		FallbackMinAIPriority: 45,
+		Aggressive:            true,
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("signals = %d, want 1", len(got))
+	}
+	if got[0].ExecutionQuality != V7ExecNearConfirm {
+		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
+	}
+	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
+		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
+	}
+	if !containsString(got[0].RiskTags, "fallback_reviewable_needs_live_confirm") {
+		t.Fatalf("missing rescue risk tag: %+v", got[0].RiskTags)
+	}
+}
+
+func TestFilterV7SignalsPromotesLowRiskPanicWatchToReviewableFloor(t *testing.T) {
+	signals := []V7SignalOutput{
+		{
+			Symbol:           "BLESSUSDT",
+			Direction:        V7DirLong,
+			SetupType:        V7SetupPanicReversalLong,
+			Status:           V7StatusWaitConfirm,
+			ExecutionQuality: V7ExecWatchOnly,
+			AIPriority:       49.4,
+			SetupScore:       70.8,
+			TimingScore:      40,
+			RegimeFitScore:   80,
+			LiquidityScore:   80,
+			RiskScore:        30,
+			Confidence:       "B",
+			ReasonCodes:      []string{"moderate_capitulation", "oi_declining", "taker_buy_strong", "low_timing_watch_only"},
+		},
+	}
+
+	got := filterV7SignalsForLLM(signals, V7Config{
+		MaxOutput:             10,
+		MinOutput:             3,
+		MinAIPriority:         55,
+		FallbackMinAIPriority: 45,
+		Aggressive:            true,
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("signals = %d, want 1", len(got))
+	}
+	if got[0].ExecutionQuality != V7ExecNearConfirm {
+		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
+	}
+	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
+		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
 	}
 }
 
