@@ -5,7 +5,7 @@ import "testing"
 func TestDescribeHunterV7TagsAddsWaitOnlyAndUnknownContextSemantics(t *testing.T) {
 	defs := DescribeHunterV7Tags(
 		[]string{"strong_reclaim", "new_unclassified_reason"},
-		[]string{"do_not_open_until_confirmed"},
+		[]string{"do_not_open_until_confirmed", "funding_extreme"},
 		[]string{"taker_buy_15m_gt_0_52"},
 	)
 
@@ -14,6 +14,9 @@ func TestDescribeHunterV7TagsAddsWaitOnlyAndUnknownContextSemantics(t *testing.T
 	}
 	if !hasTagAction(defs, "do_not_open_until_confirmed", V7TagActionWaitOnly) {
 		t.Fatalf("missing do_not_open_until_confirmed wait-only semantics: %+v", defs)
+	}
+	if !hasTagAction(defs, "funding_extreme", V7TagActionReduceOrWait) {
+		t.Fatalf("missing funding_extreme reduce-or-wait semantics: %+v", defs)
 	}
 	if !hasTagAction(defs, "taker_buy_15m_gt_0_52", V7TagActionRequiredConfirm) {
 		t.Fatalf("missing required confirmation semantics: %+v", defs)

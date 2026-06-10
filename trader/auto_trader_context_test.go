@@ -11,10 +11,11 @@ import (
 )
 
 type contextTestTrader struct {
-	balance      map[string]interface{}
-	balanceErr   error
-	positions    []map[string]interface{}
-	positionsErr error
+	balance                   map[string]interface{}
+	balanceErr                error
+	positions                 []map[string]interface{}
+	positionsErr              error
+	invalidatePositionsCalled int
 }
 
 func (t *contextTestTrader) GetBalance() (map[string]interface{}, error) {
@@ -29,6 +30,10 @@ func (t *contextTestTrader) GetPositions() ([]map[string]interface{}, error) {
 		return nil, t.positionsErr
 	}
 	return t.positions, nil
+}
+
+func (t *contextTestTrader) InvalidatePositionCache() {
+	t.invalidatePositionsCalled++
 }
 
 func (t *contextTestTrader) OpenLong(string, float64, int) (map[string]interface{}, error) {
@@ -175,6 +180,49 @@ func TestBuildTradingContextUsesCachedPositionsWhenPositionsAPIFails(t *testing.
 	}
 	if len(ctx.DegradationReasons) == 0 || !strings.Contains(ctx.DegradationReasons[0], "connection reset by peer") {
 		t.Fatalf("missing positions degradation reason: %+v", ctx.DegradationReasons)
+	}
+}
+
+func TestBuildTradingContextInvalidatesPositionCacheBeforeFetch(t *testing.T) {
+	ft := &contextTestTrader{
+		balance: map[string]interface{}{
+			"totalWalletBalance":    100.0,
+			"totalUnrealizedProfit": 0.0,
+			"availableBalance":      80.0,
+			"totalEquity":           100.0,
+		},
+		positions: []map[string]interface{}{},
+	}
+	at := newContextTestAutoTrader(ft)
+
+	if _, err := at.buildTradingContext(); err != nil {
+		t.Fatalf("context failed: %v", err)
+	}
+	if ft.invalidatePositionsCalled != 1 {
+		t.Fatalf("InvalidatePositionCache calls = %d, want 1", ft.invalidatePositionsCalled)
+	}
+}
+
+func TestFilterHunterV7RecentLossCooldownBlocksRepeatedSameSymbolLoss(t *testing.T) {
+	at := &AutoTrader{name: "HHH"}
+	now := time.Now().Unix()
+	candidates := []kernel.CandidateCoin{
+		{Symbol: "LABUSDT", Direction: "LONG", V7SetupType: "panic_reversal_long"},
+		{Symbol: "CLOUSDT", Direction: "LONG", V7SetupType: "panic_reversal_long"},
+	}
+	recentTrades := []store.RecentTrade{
+		{Symbol: "LABUSDT", Side: "long", PnLPct: -20.8, ExitTime: now - 600},
+		{Symbol: "LABUSDT", Side: "long", PnLPct: -19.5, ExitTime: now - 1800},
+		{Symbol: "CLOUSDT", Side: "long", PnLPct: -3.0, ExitTime: now - 300},
+	}
+
+	filtered, blocked := at.filterHunterV7RecentLossCooldown(candidates, recentTrades)
+
+	if blocked != 1 {
+		t.Fatalf("blocked = %d, want 1", blocked)
+	}
+	if len(filtered) != 1 || filtered[0].Symbol != "CLOUSDT" {
+		t.Fatalf("filtered candidates = %+v, want only CLOUSDT", filtered)
 	}
 }
 

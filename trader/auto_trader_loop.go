@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/store"
 	"github.com/Aixxww/AiT/wallet"
 	"strings"
@@ -481,6 +482,15 @@ func (at *AutoTrader) cachedContextPositions(maxAge time.Duration) ([]map[string
 	return clonePositionMaps(at.lastContextPositions), age, true
 }
 
+func (at *AutoTrader) invalidateTraderPositionCacheForDecision() {
+	type positionCacheInvalidator interface {
+		InvalidatePositionCache()
+	}
+	if invalidator, ok := at.trader.(positionCacheInvalidator); ok {
+		invalidator.InvalidatePositionCache()
+	}
+}
+
 // buildTradingContext builds trading context
 func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	var degradationReasons []string
@@ -527,6 +537,7 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 	}
 
 	// 2. Get position information
+	at.invalidateTraderPositionCacheForDecision()
 	positions, err := at.trader.GetPositions()
 	if err != nil {
 		cached, age, ok := at.cachedContextPositions(cacheAgeLimit)
@@ -781,6 +792,13 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 					HoldDuration: trade.HoldDuration,
 				})
 			}
+			if at.isHunterV7Strategy() && len(ctx.CandidateCoins) > 0 {
+				filtered, blocked := at.filterHunterV7RecentLossCooldown(ctx.CandidateCoins, recentTrades)
+				if blocked > 0 {
+					logger.Infof("🧊 [%s] Hunter v7 recent-loss cooldown filtered: %d → %d candidates", at.name, len(ctx.CandidateCoins), len(filtered))
+					ctx.CandidateCoins = filtered
+				}
+			}
 		}
 		// Get trading statistics for AI context
 		stats, err := at.store.Position().GetFullStats(at.id)
@@ -979,6 +997,44 @@ func shouldSkipCandidateForRepeatedWait(coin kernel.CandidateCoin, waitCount int
 		return false
 	}
 	return true
+}
+
+func (at *AutoTrader) filterHunterV7RecentLossCooldown(candidates []kernel.CandidateCoin, recentTrades []store.RecentTrade) ([]kernel.CandidateCoin, int) {
+	if len(candidates) == 0 || len(recentTrades) == 0 {
+		return candidates, 0
+	}
+	lossesByKey := make(map[string]int)
+	now := time.Now().Unix()
+	const cooldownWindowSec int64 = 60 * 60
+	for _, trade := range recentTrades {
+		if trade.Symbol == "" || trade.Side == "" || trade.ExitTime <= 0 {
+			continue
+		}
+		if now-trade.ExitTime > cooldownWindowSec {
+			continue
+		}
+		if trade.PnLPct > -5 {
+			continue
+		}
+		key := market.Normalize(trade.Symbol) + "|" + strings.ToUpper(trade.Side)
+		lossesByKey[key]++
+	}
+	if len(lossesByKey) == 0 {
+		return candidates, 0
+	}
+	filtered := make([]kernel.CandidateCoin, 0, len(candidates))
+	blocked := 0
+	for _, coin := range candidates {
+		key := market.Normalize(coin.Symbol) + "|" + strings.ToUpper(coin.Direction)
+		if lossesByKey[key] >= 2 {
+			blocked++
+			logger.Infof("🧊 [%s] Hunter v7 same-symbol loss cooldown: skipping %s %s after %d recent losses",
+				at.name, coin.Symbol, coin.Direction, lossesByKey[key])
+			continue
+		}
+		filtered = append(filtered, coin)
+	}
+	return filtered, blocked
 }
 
 func shouldIgnoreStaleFailedOpenCooldown(reason string) bool {

@@ -539,6 +539,125 @@ func TestClassifyHunterV7CandidateTierAllowsStrongPanicReversal(t *testing.T) {
 	}
 }
 
+func TestClassifyHunterV7CandidateTierAllowsFundingExtremePanicReversalWhenConfirmed(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SIRENUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       76.81,
+		V7SetupScore:       90,
+		V7TimingScore:      45,
+		V7RiskScore:        45,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "MEDIUM",
+		V7ReasonCodes: []string{
+			"heavy_capitulation",
+			"oi_declining",
+			"strong_reclaim",
+			"taker_buy_strong",
+			"selling_decelerating",
+			"1h_green_shoot",
+			"rsi_recovering_from_extreme",
+		},
+		V7RiskTags:       []string{"funding_extreme", "regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.552},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "EXECUTABLE" || reason != "panic_reversal_ready_core_ok" {
+		t.Fatalf("tier = %q (%s), want EXECUTABLE panic_reversal_ready_core_ok", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierKeepsWeakFundingExtremePanicReversalOnWatch(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "WEAKFUNDUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       65,
+		V7SetupScore:       70,
+		V7TimingScore:      45,
+		V7RiskScore:        45,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "MEDIUM",
+		V7ReasonCodes:      []string{"heavy_capitulation", "taker_buy_strong"},
+		V7RiskTags:         []string{"funding_extreme", "regime_against_direction"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.552},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" {
+		t.Fatalf("tier = %q (%s), want WATCH", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierDemotesTrendDownKnifeCatchPanicReversal(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "LABUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7MarketRegime:     "trend_down",
+		V7AIPriority:       75.01,
+		V7SetupScore:       78,
+		V7TimingScore:      45,
+		V7RiskScore:        15,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"heavy_capitulation", "oi_declining", "strong_reclaim", "taker_buy_strong", "1h_green_shoot"},
+		V7RiskTags:         []string{"regime_against_direction", "execution_stop_tightened"},
+		V7PriceContext:     &local.V7PriceContext{Change1h: 1.41, Change4h: -1.88, Change24h: -24.39},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.575},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "panic_reversal_trend_down_structure_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH panic_reversal_trend_down_structure_wait", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsStrongTrendDownPanicReversalException(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "FLUSHUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7MarketRegime:     "trend_down",
+		V7AIPriority:       78,
+		V7SetupScore:       82,
+		V7TimingScore:      45,
+		V7RiskScore:        20,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"heavy_capitulation",
+			"oi_heavy_flush",
+			"strong_reclaim",
+			"taker_buy_aggressive",
+			"selling_exhaustion",
+			"1h_green_shoot",
+		},
+		V7RiskTags:       []string{"regime_against_direction", "execution_stop_tightened"},
+		V7PriceContext:   &local.V7PriceContext{Change1h: 3.4, Change4h: -0.6, Change24h: -22},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.64},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "EXECUTABLE" || reason != "panic_reversal_ready_core_ok" {
+		t.Fatalf("tier = %q (%s), want EXECUTABLE panic_reversal_ready_core_ok", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierRequiresPriorityForReady(t *testing.T) {
 	coin := CandidateCoin{
 		Symbol:             "READYUSDT",

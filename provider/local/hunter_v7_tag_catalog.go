@@ -41,7 +41,7 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"extreme_volatility":                  tagDef("extreme_volatility", "risk_tag", "risk", "mixed", V7TagActionRejectOnly, "Volatility is extreme enough to invalidate normal execution assumptions."),
 	"wash_volume_high":                    tagDef("wash_volume_high", "risk_tag", "risk", "neutral", V7TagActionRejectOnly, "Suspiciously high volume/trade-count pattern; avoid opening."),
 	"do_not_market_chase":                 tagDef("do_not_market_chase", "risk_tag", "risk", "neutral", V7TagActionWaitOnly, "Move is extended; wait for re-entry instead of market chasing."),
-	"funding_extreme":                     tagDef("funding_extreme", "risk_tag", "funding", "mixed", V7TagActionWaitOnly, "Funding is extreme; opening in the crowded direction is blocked."),
+	"funding_extreme":                     tagDef("funding_extreme", "risk_tag", "funding", "mixed", V7TagActionReduceOrWait, "Funding is extreme; crowded-direction entries are blocked, while counter-crowd panic reversals require live confirmation, smaller size, and RR validation."),
 	"crowding_extreme":                    tagDef("crowding_extreme", "risk_tag", "funding", "mixed", V7TagActionWaitOnly, "Positioning is crowded; require unwind/reversal confirmation before any open."),
 	"already_pumped_24h":                  tagDef("already_pumped_24h", "risk_tag", "price", "bullish", V7TagActionWaitOnly, "Long setup is late after a strong 24h pump; do not chase."),
 	"funding_expensive":                   tagDef("funding_expensive", "risk_tag", "funding", "bullish", V7TagActionWaitOnly, "Long funding cost is too expensive for direct entry."),
@@ -175,5 +175,5 @@ func HunterV7TagLLMAction(tag string) (string, bool) {
 // HunterV7PromptTagPolicy is a concise rule block for the LLM. The detailed
 // per-signal definitions are emitted through tag_semantics.
 func HunterV7PromptTagPolicy() string {
-	return "Tag semantics: reason_codes are evidence, risk_tags constrain or block execution, and required_confirmations are not optional. llm_action=wait_only/reject_only blocks opening; reviewable_only_if_live_confirmed requires live entry-zone, flow, stop, and RR confirmation; unknown_context_only is context and never open permission."
+	return "Tag semantics: reason_codes are evidence, risk_tags constrain or block execution, and required_confirmations are not optional. llm_action=wait_only/reject_only blocks opening; reduce_size_or_wait allows opening only after live entry-zone, flow, stop, and RR confirmation with conservative size; reviewable_only_if_live_confirmed requires live entry-zone, flow, stop, and RR confirmation; unknown_context_only is context and never open permission."
 }

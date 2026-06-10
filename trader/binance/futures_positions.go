@@ -81,6 +81,16 @@ func (t *FuturesTrader) GetPositions() ([]map[string]interface{}, error) {
 	return result, nil
 }
 
+// InvalidatePositionCache clears cached positions so the next GetPositions call
+// reads the exchange directly. Trading decisions use this before building AI
+// context to avoid passing just-closed positions during the short cache window.
+func (t *FuturesTrader) InvalidatePositionCache() {
+	t.positionsCacheMutex.Lock()
+	defer t.positionsCacheMutex.Unlock()
+	t.cachedPositions = nil
+	t.positionsCacheTime = time.Time{}
+}
+
 // SetMarginMode sets margin mode
 func (t *FuturesTrader) SetMarginMode(symbol string, isCrossMargin bool) error {
 	var marginType futures.MarginType

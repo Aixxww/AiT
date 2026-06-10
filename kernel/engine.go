@@ -633,6 +633,9 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 	if reason := hunterV7PanicReversalLowTimingWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
+	if reason := hunterV7PanicReversalTrendDownStructureWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 	if reason := hunterV7BackendCappedRRWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
@@ -664,7 +667,7 @@ func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin) (string, string
 }
 
 func hunterV7ExecutableCandidateReason(coin CandidateCoin) (bool, string) {
-	if coin.V7RiskScore >= 65 || hasHunterV7DangerRiskTag(coin.V7RiskTags) {
+	if coin.V7RiskScore >= 65 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
 		return false, ""
 	}
 	if coin.V7SetupType == "funding_reversal" && containsStringValue(coin.V7RiskTags, "oi_building_no_flush") {
@@ -766,7 +769,7 @@ func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
 }
 
 func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
-	if coin.V7RiskScore >= 65 || hasHunterV7DangerRiskTag(coin.V7RiskTags) {
+	if coin.V7RiskScore >= 65 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
 		return false, ""
 	}
 	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
@@ -1100,6 +1103,48 @@ func hunterV7PanicReversalLowTimingImpulseOK(coin CandidateCoin) bool {
 	return hunterV7EntryZoneReachable(coin)
 }
 
+func hunterV7PanicReversalTrendDownStructureWaitReason(coin CandidateCoin) string {
+	if coin.V7SetupType != "panic_reversal_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return ""
+	}
+	if coin.V7PriceContext == nil {
+		return ""
+	}
+	if coin.V7TimingScore > 45 {
+		return ""
+	}
+	if !strings.EqualFold(coin.V7MarketRegime, "trend_down") &&
+		!containsStringValue(coin.V7RiskTags, "regime_against_direction") {
+		return ""
+	}
+	if coin.V7PriceContext.Change24h > -20 || coin.V7PriceContext.Change4h >= 0 {
+		return ""
+	}
+	if hunterV7TrendDownPanicReversalStrongEnough(coin) {
+		return ""
+	}
+	return "panic_reversal_trend_down_structure_wait"
+}
+
+func hunterV7TrendDownPanicReversalStrongEnough(coin CandidateCoin) bool {
+	if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.62) {
+		return false
+	}
+	if coin.V7PriceContext == nil || coin.V7PriceContext.Change1h < 3.0 {
+		return false
+	}
+	if coin.V7PriceContext.Change4h <= -1.0 {
+		return false
+	}
+	if !containsStringValue(coin.V7ReasonCodes, "strong_reclaim") {
+		return false
+	}
+	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"selling_decelerating", "selling_exhaustion"}) {
+		return false
+	}
+	return containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_declining", "oi_flush", "oi_heavy_flush", "oi_massive_flush"})
+}
+
 func hunterV7FundingShortMixedOIReviewAllowed(coin CandidateCoin) bool {
 	if !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
@@ -1419,6 +1464,50 @@ func hasHunterV7DangerRiskTag(tags []string) bool {
 		}
 	}
 	return false
+}
+
+func hunterV7DangerRiskTagBlocksOpenReview(coin CandidateCoin) bool {
+	for _, tag := range coin.V7RiskTags {
+		if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionRejectOnly {
+			return true
+		}
+		switch tag {
+		case "funding_extreme":
+			if hunterV7FundingExtremePanicReversalReviewAllowed(coin) {
+				continue
+			}
+			return true
+		case "do_not_market_chase", "wash_volume_high", "oi_anomaly", "extreme_volatility",
+			"already_pumped_24h", "lsr_extreme_long", "funding_expensive",
+			"late_short_after_deep_drop", "short_after_fast_drop_without_flush",
+			"late_long_after_deep_pump", "long_after_fast_pump_without_flush",
+			"taker_sell_during_accumulation", "no_reclaim_signal", "oi_up_price_down",
+			"not_near_long_reclaim_zone":
+			return true
+		}
+	}
+	return false
+}
+
+func hunterV7FundingExtremePanicReversalReviewAllowed(coin CandidateCoin) bool {
+	if coin.V7SetupType != "panic_reversal_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return false
+	}
+	if coin.V7ExecutionQuality != "ready" || coin.V7Status != "candidate" {
+		return false
+	}
+	if coin.V7RiskScore >= 55 || coin.V7AIPriority < 55 || coin.V7SetupScore < 55 || coin.V7TimingScore < 45 {
+		return false
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
+		return false
+	}
+	if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) {
+		return false
+	}
+	return containsStringValue(coin.V7ReasonCodes, "strong_reclaim") &&
+		containsAnyStringValue(coin.V7ReasonCodes, []string{"selling_decelerating", "selling_exhaustion"}) &&
+		containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_declining", "oi_flush", "oi_heavy_flush", "oi_massive_flush"})
 }
 
 func containsAnyStringValue(values []string, wants []string) bool {
