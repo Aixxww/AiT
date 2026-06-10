@@ -21,6 +21,7 @@ import (
 const (
 	hunterV7ProtectionTP1PnLPct         = 6.0
 	hunterV7ProtectionNearTP1PeakPnLPct = hunterV7ProtectionTP1PnLPct * 0.95
+	hunterV7ProtectionTP1MinRawMovePct  = 1.0
 )
 
 // BuildSystemPrompt builds System Prompt according to strategy configuration
@@ -231,7 +232,7 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
 		sb.WriteString("panic_reversal_long 在 trend_down/逆势且 24h 深跌、4h 仍下行时，5m close 仅轻微站上 EMA20 或 entry_zone_mid 不足以开仓；必须等待更强结构确认（优先 15m 收复 EMA20/VWAP 或连续 5m 站稳）和 taker_buy_15m 明显增强，否则输出 confirmation_missing。\n")
 		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
-		sb.WriteString("持仓管理：若 Peak PnL 已接近保护 TP1（当前保护 TP1 6%，near-TP1 为 Peak PnL >=5.7%），随后从峰值回撤 >=45% 或当前 PnL 回到盈亏平衡/亏损，必须优先视为退出/减风险信号；除非有非常明确的延续证据，否则输出可执行的 `close_long`/`close_short`，不得只因未到 SL/TP 而 `hold`，也不得用 `hold` 声称收紧止损。若曾经错过 near-TP1，之后又回到 TP1 的 90% 以上，这是二次保护机会，应优先 close/reduce，而不是再次等待精确 TP1。若 Peak PnL 低于 5.7%，它属于 pre-TP1 波动，峰值回吐或回到微利/微亏本身不是移动止盈触发；只有计划 SL/硬失效，或 5m 与 15m 同时确认结构反转（跌破入场/EMA20、低点下移、买盘/OI 走弱）才可 close。峰值回撤按 `(Peak PnL - Current PnL) / Peak PnL` 计算；正峰值后跌到负 PnL 代表回吐超过 100%，但 pre-TP1 不能仅凭该比例退出。\n")
+		sb.WriteString("持仓管理：若 Peak PnL 已接近保护 TP1（当前保护 TP1 6%，near-TP1 为 Peak PnL >=5.7%，且未杠杆价格涨幅 raw_move >=1.0%），随后从峰值回撤 >=45% 或当前 PnL 回到盈亏平衡/亏损，才可优先视为退出/减风险信号；除非有非常明确的延续证据，否则输出可执行的 `close_long`/`close_short`，不得只因未到 SL/TP 而 `hold`，也不得用 `hold` 声称收紧止损。若曾经错过 near-TP1，之后又回到 TP1 的 90% 以上，这是二次保护机会，但仍必须满足 raw_move >=1.0%。若 Peak PnL 低于 5.7%，或 raw_move <1.0%，它属于 pre-TP1/微利波动，峰值回吐或回到微利/微亏本身不是移动止盈触发；只有计划 SL/硬失效，或 5m 与 15m 同时确认结构反转（跌破入场/EMA20、低点下移、买盘/OI 走弱）才可 close。峰值回撤按 `(Peak PnL - Current PnL) / Peak PnL` 计算；正峰值后跌到负 PnL 代表回吐超过 100%，但 pre-TP1/微利状态不能仅凭该比例退出。\n")
 		return
 	}
 	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
@@ -252,7 +253,7 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
 	sb.WriteString("For panic_reversal_long in trend_down/counter-trend with a deep 24h dump and still-negative 4h structure, a small 5m close above EMA20 or entry_zone_mid is not enough to open; require stronger structure confirmation, preferably a 15m reclaim of EMA20/VWAP or consecutive 5m holds, plus clearly stronger taker_buy_15m. Otherwise output confirmation_missing.\n")
 	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
-	sb.WriteString("Position management: if Peak PnL reached protection near-TP1 (protection TP1 is 6%; near-TP1 means Peak PnL >=5.7%) and then gives back >=45% from the peak or current PnL crosses to breakeven/loss, treat it first as an exit/risk-reduction signal; output an executable risk-reducing `close_long`/`close_short` unless there is a very explicit continuation signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. If a missed near-TP1 trade later returns above 90% of TP1, treat it as a second protection chance and prefer close/reduce rather than waiting again for exact TP1. If Peak PnL is below 5.7%, it is pre-TP1 noise: peak giveback or returning to tiny profit/loss is not a trailing-take-profit trigger by itself; close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal (entry/EMA20 lost, lower lows, weakening buy flow/OI). Peak giveback is `(Peak PnL - Current PnL) / Peak PnL`; crossing from a positive peak to negative PnL is >100% giveback, but pre-TP1 cannot exit from that ratio alone.\n")
+	sb.WriteString("Position management: if Peak PnL reached protection near-TP1 (protection TP1 is 6%; near-TP1 means Peak PnL >=5.7% AND unleveraged price raw_move >=1.0%) and then gives back >=45% from the peak or current PnL crosses to breakeven/loss, treat it first as an exit/risk-reduction signal; output an executable risk-reducing `close_long`/`close_short` unless there is a very explicit continuation signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. If a missed near-TP1 trade later returns above 90% of TP1, treat it as a second protection chance only when raw_move >=1.0%. If Peak PnL is below 5.7% or raw_move <1.0%, it is pre-TP1/micro-profit noise: peak giveback or returning to tiny profit/loss is not a trailing-take-profit trigger by itself; close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal (entry/EMA20 lost, lower lows, weakening buy flow/OI). Peak giveback is `(Peak PnL - Current PnL) / Peak PnL`; crossing from a positive peak to negative PnL is >100% giveback, but pre-TP1/micro-profit state cannot exit from that ratio alone.\n")
 }
 
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
@@ -921,6 +922,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		ReasonCodes           []string                      `json:"reason_codes"`
 		RiskTags              []string                      `json:"risk_tags"`
 		RequiredConfirmations []string                      `json:"required_confirmations"`
+		ConfirmationSummary   *local.V7ConfirmationSummary  `json:"confirmation_summary,omitempty"`
 		TagSemantics          []local.HunterV7TagDefinition `json:"tag_semantics,omitempty"`
 		EntryZone             local.V7PriceZone             `json:"entry_zone"`
 		Invalidation          local.V7InvalidationRule      `json:"invalidation"`
@@ -952,6 +954,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		ReasonCodes:           coin.V7ReasonCodes,
 		RiskTags:              coin.V7RiskTags,
 		RequiredConfirmations: coin.V7RequiredConfirms,
+		ConfirmationSummary:   coin.V7ConfirmSummary,
 		TagSemantics:          local.DescribeHunterV7Tags(coin.V7ReasonCodes, coin.V7RiskTags, coin.V7RequiredConfirms),
 		EntryZone:             coin.V7EntryZone,
 		Invalidation:          coin.V7Invalidation,
@@ -1057,12 +1060,23 @@ func (e *StrategyEngine) formatPositionInfo(index int, pos PositionInfo, ctx *Co
 }
 
 func formatHunterV7PositionProtectionHint(pos PositionInfo) string {
-	if pos.PeakPnLPct >= hunterV7ProtectionNearTP1PeakPnLPct {
-		return fmt.Sprintf("protection_state=near_tp1_or_better peak_pnl=%.2f%% near_tp1_threshold=%.2f%%; peak giveback may be a trailing-exit signal if continuation is not explicit.\n",
-			pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct)
+	rawMovePct := hunterV7PositionRawMovePct(pos)
+	if pos.PeakPnLPct >= hunterV7ProtectionNearTP1PeakPnLPct && rawMovePct >= hunterV7ProtectionTP1MinRawMovePct {
+		return fmt.Sprintf("protection_state=near_tp1_or_better peak_pnl=%.2f%% near_tp1_threshold=%.2f%% raw_move=%+.2f%% raw_move_threshold=%.2f%%; peak giveback may be a trailing-exit signal if continuation is not explicit.\n",
+			pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct, rawMovePct, hunterV7ProtectionTP1MinRawMovePct)
 	}
-	return fmt.Sprintf("protection_state=pre_tp1 peak_pnl=%.2f%% below_near_tp1_threshold=%.2f%%; peak giveback alone is not a trailing-exit trigger. Close only on planned SL/hard invalidation or confirmed 5m+15m structural reversal.\n",
-		pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct)
+	return fmt.Sprintf("protection_state=pre_tp1 peak_pnl=%.2f%% near_tp1_threshold=%.2f%% raw_move=%+.2f%% raw_move_threshold=%.2f%%; peak giveback alone is not a trailing-exit trigger. Close only on planned SL/hard invalidation or confirmed 5m+15m structural reversal.\n",
+		pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct, rawMovePct, hunterV7ProtectionTP1MinRawMovePct)
+}
+
+func hunterV7PositionRawMovePct(pos PositionInfo) float64 {
+	if pos.EntryPrice <= 0 || pos.MarkPrice <= 0 {
+		return 0
+	}
+	if strings.EqualFold(pos.Side, "short") {
+		return (pos.EntryPrice - pos.MarkPrice) / pos.EntryPrice * 100
+	}
+	return (pos.MarkPrice - pos.EntryPrice) / pos.EntryPrice * 100
 }
 
 func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {

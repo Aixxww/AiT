@@ -77,31 +77,32 @@ type CandidateCoin struct {
 	CapitalTier  string `json:"-"` // "Tier-S PRIME SIGNAL" / "Tier-A" / "Tier-B LOW CONFIDENCE" / "Untiered"
 
 	// Hunter v7 structured signal context (set when source_type == "hunter_v7")
-	V7SetupType        string                      `json:"-"`
-	V7Status           string                      `json:"-"`
-	V7AIPriority       float64                     `json:"-"`
-	V7SetupScore       float64                     `json:"-"`
-	V7RiskScore        float64                     `json:"-"`
-	V7LiquidityScore   float64                     `json:"-"`
-	V7TimingScore      float64                     `json:"-"`
-	V7RegimeFitScore   float64                     `json:"-"`
-	V7RiskLevel        string                      `json:"-"`
-	V7EntryMode        string                      `json:"-"`
-	V7ExecutionQuality string                      `json:"-"`
-	V7MarketRegime     string                      `json:"-"`
-	V7Confidence       string                      `json:"-"`
-	V7ReasonCodes      []string                    `json:"-"`
-	V7RiskTags         []string                    `json:"-"`
-	V7RequiredConfirms []string                    `json:"-"`
-	V7EntryZone        local.V7PriceZone           `json:"-"`
-	V7Invalidation     local.V7InvalidationRule    `json:"-"`
-	V7Targets          []local.V7Target            `json:"-"`
-	V7PriceContext     *local.V7PriceContext       `json:"-"`
-	V7DerivativesCtx   *local.V7DerivativesContext `json:"-"`
-	V7VWAP15m          float64                     `json:"-"`
-	V7ExecutionTier    string                      `json:"-"`
-	V7TierReason       string                      `json:"-"`
-	V7QuoteVolume24h   float64                     `json:"-"` // 24h quote volume for adaptive OI threshold
+	V7SetupType        string                       `json:"-"`
+	V7Status           string                       `json:"-"`
+	V7AIPriority       float64                      `json:"-"`
+	V7SetupScore       float64                      `json:"-"`
+	V7RiskScore        float64                      `json:"-"`
+	V7LiquidityScore   float64                      `json:"-"`
+	V7TimingScore      float64                      `json:"-"`
+	V7RegimeFitScore   float64                      `json:"-"`
+	V7RiskLevel        string                       `json:"-"`
+	V7EntryMode        string                       `json:"-"`
+	V7ExecutionQuality string                       `json:"-"`
+	V7MarketRegime     string                       `json:"-"`
+	V7Confidence       string                       `json:"-"`
+	V7ReasonCodes      []string                     `json:"-"`
+	V7RiskTags         []string                     `json:"-"`
+	V7RequiredConfirms []string                     `json:"-"`
+	V7EntryZone        local.V7PriceZone            `json:"-"`
+	V7Invalidation     local.V7InvalidationRule     `json:"-"`
+	V7Targets          []local.V7Target             `json:"-"`
+	V7ConfirmSummary   *local.V7ConfirmationSummary `json:"-"`
+	V7PriceContext     *local.V7PriceContext        `json:"-"`
+	V7DerivativesCtx   *local.V7DerivativesContext  `json:"-"`
+	V7VWAP15m          float64                      `json:"-"`
+	V7ExecutionTier    string                       `json:"-"`
+	V7TierReason       string                       `json:"-"`
+	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
 	TradeSignal interface{} `json:"-"` // *engine.TradeSignal when using SnapshotEngine
@@ -540,6 +541,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7EntryZone:        sig.EntryZone,
 			V7Invalidation:     sig.Invalidation,
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
+			V7ConfirmSummary:   sig.ConfirmSummary,
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
 			V7VWAP15m:          vwap15m,

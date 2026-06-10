@@ -147,10 +147,11 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"choose the best open or provide one precise blocked_reason",
 		"weak upper-zone pullbacks",
 		"Peak PnL reached protection near-TP1",
+		"raw_move >=1.0%",
 		"gives back >=45% from the peak",
 		"do not use `hold` to claim stop tightening",
 		"second protection chance",
-		"pre-TP1 noise",
+		"pre-TP1/micro-profit noise",
 		"close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal",
 		"crossing from a positive peak to negative PnL is >100% giveback",
 	} {
@@ -198,7 +199,7 @@ func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
 		Symbol:           "TESTUSDT",
 		Side:             "long",
 		EntryPrice:       100,
-		MarkPrice:        100.3,
+		MarkPrice:        101.1,
 		Quantity:         1,
 		UnrealizedPnLPct: 6.0,
 		PeakPnLPct:       5.8,
@@ -207,6 +208,22 @@ func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
 	if !strings.Contains(nearTP1, "protection_state=near_tp1_or_better") ||
 		!strings.Contains(nearTP1, "peak giveback may be a trailing-exit signal") {
 		t.Fatalf("near-TP1 position hint missing:\n%s", nearTP1)
+	}
+
+	microProfit := engine.formatPositionInfo(1, PositionInfo{
+		Symbol:           "TESTUSDT",
+		Side:             "long",
+		EntryPrice:       100,
+		MarkPrice:        100.3,
+		Quantity:         1,
+		UnrealizedPnLPct: 6.0,
+		PeakPnLPct:       5.8,
+		Leverage:         20,
+	}, ctx)
+	if !strings.Contains(microProfit, "protection_state=pre_tp1") ||
+		!strings.Contains(microProfit, "raw_move=+0.30%") ||
+		!strings.Contains(microProfit, "peak giveback alone is not a trailing-exit trigger") {
+		t.Fatalf("micro-profit position should stay pre-TP1:\n%s", microProfit)
 	}
 }
 
@@ -477,6 +494,19 @@ func TestFormatHunterV7SignalJSONMarksWatchOnlyAsDoNotOpen(t *testing.T) {
 		V7RiskTags:         []string{"pre_move_radar", "do_not_open_until_confirmed"},
 		V7ReasonCodes:      []string{"watch_only_no_direct_open"},
 		V7RequiredConfirms: []string{"15m_close_above_bb_upper_or_4h_resistance"},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:        true,
+			PassedReview:      false,
+			EntryZonePosition: 72.5,
+			RR:                1.42,
+			MissingReview: []local.V7ConfirmationCheck{
+				{
+					Code:     "taker_buy_15m_gt_0_52",
+					Passed:   false,
+					Severity: local.V7ConfirmReviewWait,
+				},
+			},
+		},
 	}
 
 	raw := engine.formatHunterV7SignalJSON(coin)
@@ -495,6 +525,16 @@ func TestFormatHunterV7SignalJSONMarksWatchOnlyAsDoNotOpen(t *testing.T) {
 	}
 	if payload["tier_reason"] != "watch_only_confirm_required" {
 		t.Fatalf("tier_reason = %v, want watch_only_confirm_required", payload["tier_reason"])
+	}
+	confirmSummary, ok := payload["confirmation_summary"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("confirmation_summary missing: %#v", payload["confirmation_summary"])
+	}
+	if confirmSummary["passed_review"] != false {
+		t.Fatalf("passed_review = %v, want false", confirmSummary["passed_review"])
+	}
+	if confirmSummary["rr"] != 1.42 {
+		t.Fatalf("rr = %v, want 1.42", confirmSummary["rr"])
 	}
 	semantics, ok := payload["tag_semantics"].([]interface{})
 	if !ok || len(semantics) == 0 {

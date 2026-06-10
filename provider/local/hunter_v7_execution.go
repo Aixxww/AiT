@@ -8,6 +8,8 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 	}
 	normalizeV7TargetsForExecution(sig, ctx.CurrentPrice)
 	tightenV7InvalidationForExecution(sig, ctx)
+	summary := EvaluateV7Confirmations(sig, ctx, cfg)
+	sig.ConfirmSummary = &summary
 
 	quality := V7ExecNearConfirm
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)

@@ -265,17 +265,18 @@ type V7SignalOutput struct {
 	AIPriority     float64 `json:"ai_priority"`
 
 	// Structured trade context
-	ReasonCodes      []string           `json:"reason_codes"`
-	RiskTags         []string           `json:"risk_tags"`
-	EntryMode        V7EntryMode        `json:"entry_mode"`
-	ExecutionQuality V7ExecutionQuality `json:"execution_quality,omitempty"`
-	EntryZone        V7PriceZone        `json:"entry_zone"`
-	Invalidation     V7InvalidationRule `json:"invalidation"`
-	Targets          []V7Target         `json:"targets"`
-	RequiredConfirms []string           `json:"required_confirmations"`
-	Confidence       string             `json:"confidence"`
-	RiskLevel        V7RiskLevel        `json:"risk_level"`
-	MarketRegime     V7MarketRegime     `json:"market_regime"`
+	ReasonCodes      []string               `json:"reason_codes"`
+	RiskTags         []string               `json:"risk_tags"`
+	EntryMode        V7EntryMode            `json:"entry_mode"`
+	ExecutionQuality V7ExecutionQuality     `json:"execution_quality,omitempty"`
+	EntryZone        V7PriceZone            `json:"entry_zone"`
+	Invalidation     V7InvalidationRule     `json:"invalidation"`
+	Targets          []V7Target             `json:"targets"`
+	RequiredConfirms []string               `json:"required_confirmations"`
+	ConfirmSummary   *V7ConfirmationSummary `json:"confirmation_summary,omitempty"`
+	Confidence       string                 `json:"confidence"`
+	RiskLevel        V7RiskLevel            `json:"risk_level"`
+	MarketRegime     V7MarketRegime         `json:"market_regime"`
 
 	// Raw data snapshot for AI prompt enrichment
 	PriceCtx       *V7PriceContext       `json:"price_context,omitempty"`
