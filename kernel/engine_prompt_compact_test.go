@@ -146,10 +146,12 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"Hunter v7 Execution Rules",
 		"choose the best open or provide one precise blocked_reason",
 		"weak upper-zone pullbacks",
-		"Peak PnL reached near TP1",
+		"Peak PnL reached protection near-TP1",
 		"gives back >=45% from the peak",
 		"do not use `hold` to claim stop tightening",
 		"second protection chance",
+		"pre-TP1 noise",
+		"close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal",
 		"crossing from a positive peak to negative PnL is >100% giveback",
 	} {
 		if !strings.Contains(prompt, want) {
@@ -158,6 +160,53 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 	}
 	if strings.Contains(prompt, "Low confidence (60-69): Use 30-50%") {
 		t.Fatalf("prompt should not imply confidence 60-69 may open under Hunter v7 min confidence\n%s", prompt)
+	}
+}
+
+func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{
+		CoinSource: store.CoinSourceConfig{
+			SourceType: "hunter_v7",
+		},
+	})
+	ctx := &Context{
+		MarketDataMap: map[string]*market.Data{
+			"TESTUSDT": {
+				Symbol:       "TESTUSDT",
+				CurrentPrice: 100,
+			},
+		},
+	}
+
+	preTP1 := engine.formatPositionInfo(1, PositionInfo{
+		Symbol:           "TESTUSDT",
+		Side:             "long",
+		EntryPrice:       100,
+		MarkPrice:        100.1,
+		Quantity:         1,
+		UnrealizedPnLPct: 2.0,
+		PeakPnLPct:       4.2,
+		Leverage:         20,
+	}, ctx)
+	if !strings.Contains(preTP1, "protection_state=pre_tp1") ||
+		!strings.Contains(preTP1, "peak giveback alone is not a trailing-exit trigger") ||
+		!strings.Contains(preTP1, "confirmed 5m+15m structural reversal") {
+		t.Fatalf("pre-TP1 position hint missing:\n%s", preTP1)
+	}
+
+	nearTP1 := engine.formatPositionInfo(1, PositionInfo{
+		Symbol:           "TESTUSDT",
+		Side:             "long",
+		EntryPrice:       100,
+		MarkPrice:        100.3,
+		Quantity:         1,
+		UnrealizedPnLPct: 6.0,
+		PeakPnLPct:       5.8,
+		Leverage:         20,
+	}, ctx)
+	if !strings.Contains(nearTP1, "protection_state=near_tp1_or_better") ||
+		!strings.Contains(nearTP1, "peak giveback may be a trailing-exit signal") {
+		t.Fatalf("near-TP1 position hint missing:\n%s", nearTP1)
 	}
 }
 
