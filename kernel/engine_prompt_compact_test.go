@@ -883,6 +883,39 @@ func TestClassifyHunterV7CandidateTierAllowsCleanMomentumReview(t *testing.T) {
 	}
 }
 
+func TestClassifyHunterV7CandidateTierAllowsRelativeStrengthMomentumReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "BABYUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       66.08,
+		V7SetupScore:       57.6,
+		V7TimingScore:      86,
+		V7RiskScore:        15,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"solid_24h_momentum",
+			"solid_4h_momentum",
+			"holding_1h",
+			"oi_healthy_growth",
+			"taker_neutral_buy",
+			"no_pullback_still_running",
+			"strong_symbol_regime_override",
+		},
+		V7RiskTags:       []string{"regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.5004404557567651},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "momentum_reviewable_relative_strength_floor" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE momentum_reviewable_relative_strength_floor", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierBlocksDirtyMomentumReview(t *testing.T) {
 	tests := []struct {
 		name string

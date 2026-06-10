@@ -17,6 +17,8 @@ const (
 	positionProtectorIdleInterval     = 60 * time.Second
 	protectorTP1PnLPct                = 6.0
 	protectorTP2PnLPct                = 12.0
+	protectorTP1MinPriceMovePct       = 1.0
+	protectorTP2MinPriceMovePct       = 1.5
 	protectorTP1CloseRatio            = 0.40
 	protectorTP2CloseRatio            = 0.50
 	protectorTrailDrawdownPct         = 35.0
@@ -108,6 +110,7 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		}
 
 		currentPnLPct := calculateLeveragedPnLPct(side, entryPrice, markPrice, leverage)
+		currentPriceMovePct := calculateUnleveragedPnLPct(side, entryPrice, markPrice)
 
 		// Construct unique position identifier (distinguish long/short)
 		posKey := symbol + "_" + side
@@ -116,7 +119,7 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
-		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct)
+		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct, currentPriceMovePct)
 		if shouldUseFastProtectionInterval(state, currentPnLPct) {
 			nextInterval = positionProtectorFastInterval
 		}
@@ -156,7 +159,17 @@ func calculateLeveragedPnLPct(side string, entryPrice, markPrice float64, levera
 	return ((entryPrice - markPrice) / entryPrice) * float64(leverage) * 100
 }
 
-func choosePositionProtectionAction(state *positionProtectionState, currentPnLPct float64) (protectionAction, float64) {
+func calculateUnleveragedPnLPct(side string, entryPrice, markPrice float64) float64 {
+	if entryPrice <= 0 {
+		return 0
+	}
+	if side == "long" {
+		return ((markPrice - entryPrice) / entryPrice) * 100
+	}
+	return ((entryPrice - markPrice) / entryPrice) * 100
+}
+
+func choosePositionProtectionAction(state *positionProtectionState, currentPnLPct, currentPriceMovePct float64) (protectionAction, float64) {
 	if state == nil {
 		return protectionNone, 0
 	}
@@ -167,10 +180,10 @@ func choosePositionProtectionAction(state *positionProtectionState, currentPnLPc
 	if state.PeakPnLPct > 0 && currentPnLPct < state.PeakPnLPct {
 		drawdownPct = ((state.PeakPnLPct - currentPnLPct) / state.PeakPnLPct) * 100
 	}
-	if !state.TP1Done && currentPnLPct >= protectorTP1PnLPct {
+	if !state.TP1Done && currentPnLPct >= protectorTP1PnLPct && currentPriceMovePct >= protectorTP1MinPriceMovePct {
 		return protectionTP1, drawdownPct
 	}
-	if state.TP1Done && !state.TP2Done && currentPnLPct >= protectorTP2PnLPct {
+	if state.TP1Done && !state.TP2Done && currentPnLPct >= protectorTP2PnLPct && currentPriceMovePct >= protectorTP2MinPriceMovePct {
 		return protectionTP2, drawdownPct
 	}
 	if state.TP1Done && state.PeakPnLPct >= protectorTP1PnLPct && currentPnLPct > 0 && drawdownPct >= protectorTrailDrawdownPct {
@@ -180,6 +193,7 @@ func choosePositionProtectionAction(state *positionProtectionState, currentPnLPc
 	secondChancePnLPct := protectorTP1PnLPct * protectorNearTP1SecondChanceRatio
 	if !state.TP1Done &&
 		state.PeakPnLPct >= nearTP1PeakPnLPct &&
+		currentPriceMovePct >= protectorTP1MinPriceMovePct &&
 		currentPnLPct >= secondChancePnLPct &&
 		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration {
 		return protectionGivebackClose, drawdownPct
@@ -188,12 +202,13 @@ func choosePositionProtectionAction(state *positionProtectionState, currentPnLPc
 		state.PeakPnLPct >= nearTP1PeakPnLPct &&
 		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
 		drawdownPct >= protectorNearTP1GivebackPct &&
-		(currentPnLPct >= protectorPreTPMinCurrentPnLPct || currentPnLPct <= protectorNearTP1LossExitPnLPct) {
+		((currentPnLPct >= protectorPreTPMinCurrentPnLPct && currentPriceMovePct >= protectorTP1MinPriceMovePct) || currentPnLPct <= protectorNearTP1LossExitPnLPct) {
 		return protectionGivebackClose, drawdownPct
 	}
 	if !state.TP1Done &&
 		state.PeakPnLPct >= protectorPreTPPeakPnLPct &&
 		currentPnLPct >= protectorPreTPMinCurrentPnLPct &&
+		currentPriceMovePct >= protectorTP1MinPriceMovePct &&
 		time.Since(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
 		drawdownPct >= protectorPreTPGivebackPct {
 		return protectionGivebackClose, drawdownPct

@@ -598,18 +598,36 @@ func TestCalculateLeveragedPnLPctLongAndShort(t *testing.T) {
 	}
 }
 
+func TestCalculateUnleveragedPnLPctLongAndShort(t *testing.T) {
+	if got := calculateUnleveragedPnLPct("long", 100, 101); got != 1 {
+		t.Fatalf("long pnl = %v, want 1", got)
+	}
+	if got := calculateUnleveragedPnLPct("short", 100, 99); got != 1 {
+		t.Fatalf("short pnl = %v, want 1", got)
+	}
+}
+
 func TestChoosePositionProtectionActionTP1ThenTP2(t *testing.T) {
 	state := &positionProtectionState{InitialQuantity: 100, PeakPnLPct: 0}
 
-	action, _ := choosePositionProtectionAction(state, protectorTP1PnLPct)
+	action, _ := choosePositionProtectionAction(state, protectorTP1PnLPct, protectorTP1MinPriceMovePct)
 	if action != protectionTP1 {
 		t.Fatalf("action = %q, want TP1", action)
 	}
 
 	state.TP1Done = true
-	action, _ = choosePositionProtectionAction(state, protectorTP2PnLPct)
+	action, _ = choosePositionProtectionAction(state, protectorTP2PnLPct, protectorTP2MinPriceMovePct)
 	if action != protectionTP2 {
 		t.Fatalf("action = %q, want TP2", action)
+	}
+}
+
+func TestChoosePositionProtectionActionDoesNotTP1OnLeveragedMicroMove(t *testing.T) {
+	state := &positionProtectionState{InitialQuantity: 100, PeakPnLPct: 0}
+
+	action, _ := choosePositionProtectionAction(state, protectorTP1PnLPct, 0.30)
+	if action != protectionNone {
+		t.Fatalf("action = %q, want none for leveraged micro move", action)
 	}
 }
 
@@ -621,7 +639,7 @@ func TestChoosePositionProtectionActionTrailClose(t *testing.T) {
 		PeakPnLPct:      20,
 	}
 
-	action, drawdown := choosePositionProtectionAction(state, 12)
+	action, drawdown := choosePositionProtectionAction(state, 12, 1.2)
 	if action != protectionTrailClose {
 		t.Fatalf("action = %q, want trail close", action)
 	}
@@ -637,7 +655,7 @@ func TestChoosePositionProtectionActionPreTPGiveback(t *testing.T) {
 		OpenedAt:        time.Now().Add(-5 * time.Minute),
 	}
 
-	action, drawdown := choosePositionProtectionAction(state, 1)
+	action, drawdown := choosePositionProtectionAction(state, 1, 0.5)
 	if action != protectionNone {
 		t.Fatalf("action = %q, want none for young low-peak position", action)
 	}
@@ -651,7 +669,7 @@ func TestChoosePositionProtectionActionPreTPGiveback(t *testing.T) {
 		OpenedAt:        time.Now().Add(-25 * time.Minute),
 	}
 
-	action, drawdown = choosePositionProtectionAction(state, 3.5)
+	action, drawdown = choosePositionProtectionAction(state, 3.5, protectorTP1MinPriceMovePct)
 	if action != protectionGivebackClose {
 		t.Fatalf("action = %q, want giveback close for mature high-peak position", action)
 	}
@@ -667,7 +685,7 @@ func TestChoosePositionProtectionActionNearTP1Giveback(t *testing.T) {
 		OpenedAt:        time.Now().Add(-40 * time.Minute),
 	}
 
-	action, drawdown := choosePositionProtectionAction(state, 3.0)
+	action, drawdown := choosePositionProtectionAction(state, 3.0, protectorTP1MinPriceMovePct)
 	if action != protectionGivebackClose {
 		t.Fatalf("action = %q, want near-TP1 giveback close", action)
 	}
@@ -680,7 +698,7 @@ func TestChoosePositionProtectionActionNearTP1Giveback(t *testing.T) {
 		PeakPnLPct:      5.99,
 		OpenedAt:        time.Now().Add(-5 * time.Minute),
 	}
-	action, _ = choosePositionProtectionAction(youngState, 3.0)
+	action, _ = choosePositionProtectionAction(youngState, 3.0, protectorTP1MinPriceMovePct)
 	if action != protectionNone {
 		t.Fatalf("action = %q, want none before minimum hold duration", action)
 	}
@@ -693,7 +711,7 @@ func TestChoosePositionProtectionActionNearTP1GivebackToLoss(t *testing.T) {
 		OpenedAt:        time.Now().Add(-40 * time.Minute),
 	}
 
-	action, drawdown := choosePositionProtectionAction(state, -1.8)
+	action, drawdown := choosePositionProtectionAction(state, -1.8, -0.18)
 	if action != protectionNone {
 		t.Fatalf("action = %q, want no mechanical close for small post-TP1 loss", action)
 	}
@@ -701,7 +719,7 @@ func TestChoosePositionProtectionActionNearTP1GivebackToLoss(t *testing.T) {
 		t.Fatalf("drawdown = %v, want >100 after peak profit crosses to loss", drawdown)
 	}
 
-	action, drawdown = choosePositionProtectionAction(state, -5.5)
+	action, drawdown = choosePositionProtectionAction(state, -5.5, -0.55)
 	if action != protectionGivebackClose {
 		t.Fatalf("action = %q, want near-TP1 giveback close after material loss", action)
 	}
@@ -717,7 +735,7 @@ func TestChoosePositionProtectionActionNearTP1SecondChance(t *testing.T) {
 		OpenedAt:        time.Now().Add(-50 * time.Minute),
 	}
 
-	action, _ := choosePositionProtectionAction(state, 5.54)
+	action, _ := choosePositionProtectionAction(state, 5.54, protectorTP1MinPriceMovePct)
 	if action != protectionGivebackClose {
 		t.Fatalf("action = %q, want near-TP1 second-chance close", action)
 	}
@@ -727,7 +745,7 @@ func TestChoosePositionProtectionActionNearTP1SecondChance(t *testing.T) {
 		PeakPnLPct:      5.99,
 		OpenedAt:        time.Now().Add(-5 * time.Minute),
 	}
-	action, _ = choosePositionProtectionAction(youngState, 5.54)
+	action, _ = choosePositionProtectionAction(youngState, 5.54, protectorTP1MinPriceMovePct)
 	if action != protectionNone {
 		t.Fatalf("action = %q, want none before minimum hold duration", action)
 	}
@@ -737,7 +755,7 @@ func TestChoosePositionProtectionActionNearTP1SecondChance(t *testing.T) {
 		PeakPnLPct:      5.54,
 		OpenedAt:        time.Now().Add(-50 * time.Minute),
 	}
-	action, _ = choosePositionProtectionAction(noPriorNearTP1, 5.54)
+	action, _ = choosePositionProtectionAction(noPriorNearTP1, 5.54, protectorTP1MinPriceMovePct)
 	if action != protectionNone {
 		t.Fatalf("action = %q, want none without prior near-TP1 peak", action)
 	}

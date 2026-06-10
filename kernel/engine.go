@@ -857,6 +857,20 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			hunterV7LeaderMomentumHasCleanPullback(coin) {
 			return true, "momentum_reviewable_high_priority_pullback"
 		}
+		if coin.V7ExecutionQuality == "ready" &&
+			coin.V7AIPriority >= 62 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 65 &&
+			coin.V7RiskScore < 25 &&
+			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 80) &&
+			hunterV7TakerBuyConfirmedAtLeast(coin, 0.50) &&
+			hunterV7LeaderMomentumHasCleanPullback(coin) &&
+			containsStringValue(coin.V7ReasonCodes, "strong_symbol_regime_override") &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_4h_momentum", "strong_4h_momentum"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_24h_momentum", "strong_24h_momentum"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_healthy_growth", "oi_moderate_growth"}) {
+			return true, "momentum_reviewable_relative_strength_floor"
+		}
 	case "pullback_reversal_long":
 		if coin.V7AIPriority >= 48 &&
 			coin.V7SetupScore >= 70 &&
