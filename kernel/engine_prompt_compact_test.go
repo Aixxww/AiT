@@ -956,6 +956,44 @@ func TestClassifyHunterV7CandidateTierAllowsRelativeStrengthMomentumReview(t *te
 	}
 }
 
+func TestClassifyHunterV7CandidateTierAllowsConfirmedRelativeStrengthMomentumReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "MAGMAUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       64.8,
+		V7SetupScore:       65.6,
+		V7TimingScore:      78,
+		V7RiskScore:        15,
+		V7LiquidityScore:   65,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"strong_24h_momentum",
+			"solid_4h_momentum",
+			"accelerating_1h",
+			"oi_healthy_growth",
+			"taker_neutral_buy",
+			"no_pullback_still_running",
+			"strong_symbol_regime_override",
+		},
+		V7RiskTags:       []string{"regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.527},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: true,
+			RR:           3.08,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "momentum_reviewable_confirmed_relative_strength" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE momentum_reviewable_confirmed_relative_strength", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierBlocksDirtyMomentumReview(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1013,6 +1051,39 @@ func TestClassifyHunterV7CandidateTierBlocksDirtyMomentumReview(t *testing.T) {
 				V7LiquidityScore:   100,
 				V7RiskLevel:        "LOW",
 				V7ReasonCodes:      []string{"holding_1h", "shallow_pullback"},
+			},
+		},
+		{
+			name: "chase risk overheated confirmation failed",
+			coin: CandidateCoin{
+				Symbol:             "MAGMAUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "leader_momentum_long",
+				V7Status:           "wait_confirm",
+				V7ExecutionQuality: "chase_risk",
+				V7AIPriority:       52.5,
+				V7SetupScore:       73.6,
+				V7TimingScore:      88,
+				V7RiskScore:        15,
+				V7LiquidityScore:   65,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes: []string{
+					"strong_24h_momentum",
+					"strong_4h_momentum",
+					"accelerating_1h",
+					"oi_healthy_growth",
+					"taker_sustained_buy",
+					"momentum_rsi_overheated_wait",
+				},
+				V7RiskTags:       []string{"momentum_overheated", "execution_stop_tightened"},
+				V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.60},
+				V7EntryZone:      local.V7PriceZone{Lower: 0.4934, Upper: 0.5055},
+				V7PriceContext:   &local.V7PriceContext{Last: 0.50177},
+				V7ConfirmSummary: &local.V7ConfirmationSummary{
+					PassedHard:   true,
+					PassedReview: false,
+					RR:           3.13,
+				},
 			},
 		},
 	}

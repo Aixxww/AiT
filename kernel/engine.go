@@ -864,6 +864,21 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			coin.V7SetupScore >= 55 &&
 			coin.V7TimingScore >= 65 &&
 			coin.V7RiskScore < 25 &&
+			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 60) &&
+			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) &&
+			hunterV7LeaderMomentumHasCleanPullback(coin) &&
+			hunterV7ConfirmationSummaryReviewPassed(coin) &&
+			containsStringValue(coin.V7ReasonCodes, "strong_symbol_regime_override") &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_4h_momentum", "strong_4h_momentum"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_24h_momentum", "strong_24h_momentum"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_healthy_growth", "oi_moderate_growth"}) {
+			return true, "momentum_reviewable_confirmed_relative_strength"
+		}
+		if coin.V7ExecutionQuality == "ready" &&
+			coin.V7AIPriority >= 62 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 65 &&
+			coin.V7RiskScore < 25 &&
 			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 80) &&
 			hunterV7TakerBuyConfirmedAtLeast(coin, 0.50) &&
 			hunterV7LeaderMomentumHasCleanPullback(coin) &&
@@ -959,6 +974,9 @@ func hunterV7ChaseRiskReviewableReason(coin CandidateCoin) (bool, string) {
 	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
 		return false, ""
 	}
+	if coin.V7SetupType == "leader_momentum_long" && hunterV7LeaderMomentumOverheatedOrUnconfirmed(coin) {
+		return false, ""
+	}
 	switch coin.V7SetupType {
 	case "leader_momentum_long":
 		if coin.V7AIPriority >= 45 &&
@@ -986,6 +1004,17 @@ func hunterV7ChaseRiskReviewableReason(coin CandidateCoin) (bool, string) {
 		return true, "chase_risk_reviewable_entry_zone_wait"
 	}
 	return false, ""
+}
+
+func hunterV7LeaderMomentumOverheatedOrUnconfirmed(coin CandidateCoin) bool {
+	if containsStringValue(coin.V7RiskTags, "momentum_overheated") ||
+		containsStringValue(coin.V7ReasonCodes, "momentum_rsi_overheated_wait") {
+		return true
+	}
+	if coin.V7ConfirmSummary != nil && !coin.V7ConfirmSummary.PassedReview {
+		return true
+	}
+	return false
 }
 
 // hunterV7EntryZoneReachable checks if price is within or near the entry zone.
@@ -1233,6 +1262,13 @@ func hunterV7LeaderMomentumHasCleanPullback(coin CandidateCoin) bool {
 		}
 	}
 	return false
+}
+
+func hunterV7ConfirmationSummaryReviewPassed(coin CandidateCoin) bool {
+	if coin.V7ConfirmSummary == nil {
+		return false
+	}
+	return coin.V7ConfirmSummary.PassedHard && coin.V7ConfirmSummary.PassedReview
 }
 
 func hunterV7LeaderMomentumLatePullbackWait(coin CandidateCoin) bool {
