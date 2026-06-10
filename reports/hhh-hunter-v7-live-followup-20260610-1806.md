@@ -132,3 +132,45 @@ Expected behavior after this follow-up:
 - clean confirmed relative-strength leaders still reach `REVIEWABLE`
 - overheated chase-risk leaders stay `WATCH`
 - HHH avoids both old 0-token candidate starvation and avoidable LLM calls on obvious wait-only overheat
+
+## 20:00 CST Counter-trend Loss Review
+
+New losing trades after the open-rate fixes:
+
+| Position | Entry CST | Exit CST | Net PnL | Setup |
+|---|---:|---:|---:|---|
+| `CLOUSDT LONG` | 2026-06-10 18:28:39 | 2026-06-10 18:53:38 | `-0.094804` | `panic_reversal_long` |
+| `BUSDT LONG` | 2026-06-10 18:58:40 | 2026-06-10 19:46:12 | `-0.324297` | `panic_reversal_long` |
+
+Both were counter-trend long entries:
+
+- setup: `panic_reversal_long`
+- market/regime context: `trend_down` / `regime_against_direction`
+- kernel tier before fix: `EXECUTABLE`
+- LLM opened because 5m/taker/RR looked acceptable
+
+The structured confirmation summary shows why these should not have been executable:
+
+`CLOUSDT` at 18:28:
+
+- `confirmation_summary.passed_review=false`
+- missing review check: `5m_close_above_ema20_or_entry_zone_mid`
+- data-layer actual price was below entry-zone midpoint
+
+`BUSDT` at 18:58:
+
+- `confirmation_summary.passed_review=false`
+- missing review check: `5m_close_above_ema20_or_entry_zone_mid`
+- later hold decisions show the trade was quickly trapped below 5m/15m structure
+
+Root cause:
+
+`panic_reversal_ready_core_ok` did not consume `confirmation_summary`. In trend-down counter-trend conditions, that let a provider-level `ready` signal become `EXECUTABLE` even when the shared confirmation evaluator had already marked the setup as not review-passed. The LLM then overrode the failed structured confirmation by reasoning from a single 5m EMA/taker/RR check.
+
+Follow-up code fix:
+
+- Added global `countertrend_confirmation_wait`.
+- For any setup with `risk_tags` containing `regime_against_direction`, if `confirmation_summary.passed_review=false`, kernel tier is forced to `WATCH`.
+- Updated Hunter v7 prompt: counter-trend candidates with `confirmation_summary.passed_review=false` must wait and cannot be overridden by high priority, single 5m EMA reclaim, strong taker buy, or acceptable RR.
+
+This keeps high-quality counter-trend reversals possible only when the structured confirmation summary actually passes. It directly targets the counter-trend loss mode without banning all panic reversal longs or adding symbol-specific exceptions.

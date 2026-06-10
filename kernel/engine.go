@@ -638,6 +638,9 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 	if reason := hunterV7PanicReversalTrendDownStructureWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
+	if reason := hunterV7CounterTrendConfirmationWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 	if reason := hunterV7BackendCappedRRWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
@@ -1169,6 +1172,16 @@ func hunterV7PanicReversalTrendDownStructureWaitReason(coin CandidateCoin) strin
 		return ""
 	}
 	return "panic_reversal_trend_down_structure_wait"
+}
+
+func hunterV7CounterTrendConfirmationWaitReason(coin CandidateCoin) string {
+	if !containsStringValue(coin.V7RiskTags, "regime_against_direction") {
+		return ""
+	}
+	if coin.V7ConfirmSummary == nil || coin.V7ConfirmSummary.PassedReview {
+		return ""
+	}
+	return "countertrend_confirmation_wait"
 }
 
 func hunterV7TrendDownPanicReversalStrongEnough(coin CandidateCoin) bool {

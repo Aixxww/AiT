@@ -146,6 +146,7 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"Hunter v7 Execution Rules",
 		"choose the best open or provide one precise blocked_reason",
 		"weak upper-zone pullbacks",
+		"confirmation_summary.passed_review=false",
 		"Peak PnL reached protection near-TP1",
 		"raw_move >=1.0%",
 		"gives back >=45% from the peak",
@@ -664,6 +665,43 @@ func TestClassifyHunterV7CandidateTierDemotesTrendDownKnifeCatchPanicReversal(t 
 	}
 }
 
+func TestClassifyHunterV7CandidateTierBlocksCounterTrendPanicFailedConfirmation(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "BUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "panic_reversal_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7MarketRegime:     "trend_down",
+		V7AIPriority:       73.1,
+		V7SetupScore:       75.6,
+		V7TimingScore:      55,
+		V7RiskScore:        15,
+		V7LiquidityScore:   65,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"moderate_capitulation", "oi_declining", "solid_reclaim", "taker_buy_aggressive", "1h_green_shoot", "rsi_recovering_from_extreme"},
+		V7RiskTags:         []string{"regime_against_direction", "execution_stop_tightened"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.606},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: false,
+			MissingReview: []local.V7ConfirmationCheck{
+				{
+					Code:     "5m_close_above_ema20_or_entry_zone_mid",
+					Passed:   false,
+					Severity: local.V7ConfirmReviewWait,
+				},
+			},
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "countertrend_confirmation_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH countertrend_confirmation_wait", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierAllowsStrongTrendDownPanicReversalException(t *testing.T) {
 	coin := CandidateCoin{
 		Symbol:             "FLUSHUSDT",
@@ -689,6 +727,11 @@ func TestClassifyHunterV7CandidateTierAllowsStrongTrendDownPanicReversalExceptio
 		V7RiskTags:       []string{"regime_against_direction", "execution_stop_tightened"},
 		V7PriceContext:   &local.V7PriceContext{Change1h: 3.4, Change4h: -0.6, Change24h: -22},
 		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.64},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: true,
+			RR:           2.1,
+		},
 	}
 
 	tier, reason := classifyHunterV7CandidateTier(coin)
