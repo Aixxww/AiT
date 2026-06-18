@@ -194,6 +194,8 @@ type AutoTrader struct {
 	lastContextBalanceAt   time.Time                // Last successful account balance time
 	lastContextPositions   []map[string]interface{} // Last successful positions response
 	lastContextPositionsAt time.Time
+	v7OutcomeTracker       *local.SignalOutcomeTracker
+	v7OutcomeCancel        context.CancelFunc
 }
 
 // NewAutoTrader creates an automatic trader
@@ -454,7 +456,46 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	}
 
 	// Set up Hunter v7 signal recorder for funnel attribution
+	var v7OutcomeTracker *local.SignalOutcomeTracker
 	if st != nil && coinSrc.SourceType == "hunter_v7" {
+		v7OutcomeTracker = local.NewSignalOutcomeTracker(nil, func(symbol string) float64 {
+			price, err := trader.GetMarketPrice(symbol)
+			if err != nil || price <= 0 {
+				return 0
+			}
+			return price
+		})
+		v7OutcomeTracker.SetCandleSource(func(symbol string) *local.TrackedCandle {
+			return latestHunterV7TrackedCandle(snapEngine, symbol)
+		})
+		v7OutcomeTracker.SetCandleHistorySource(func(symbol string, since time.Time) []local.TrackedCandle {
+			return hunterV7TrackedCandlesSince(snapEngine, symbol, since)
+		})
+		v7BackfillFetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
+			Timeout: 8 * time.Second,
+			KlineIntervals: []datafetch.KlineInterval{
+				{Interval: "1m", Limit: 100},
+			},
+		})
+		v7OutcomeTracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []local.TrackedCandle {
+			return hunterV7BackfillCandles(v7BackfillFetcher, symbol, from, to)
+		})
+		v7OutcomeTracker.SetOutcomeCallback(func(outcome local.TrackedOutcome) {
+			if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, store.HunterV7SignalTrackUpdate{
+				Status:       string(outcome.Status),
+				CurrentPrice: outcome.CurrentPrice,
+				ExitPrice:    outcome.ExitPrice,
+				StopPrice:    outcome.StopUsed,
+				PnLPct:       outcome.PnLPct,
+				MFE:          outcome.MaxFavorable,
+				MAE:          outcome.MaxAdverse,
+				ExitTime:     outcome.ExitTime,
+				Snapshots:    outcome.SnapshotJSON,
+			}); err != nil {
+				logger.Warnf("⚠️ [%s] Failed to update V7 tracking outcome: %v", config.Name, err)
+			}
+		})
+
 		strategyEngine.SetV7SignalRecorder(func(cycleNum int, records []local.V7SignalRecord, regime local.V7MarketRegime) {
 			if len(records) == 0 {
 				return
@@ -481,6 +522,13 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					change1h = sig.PriceCtx.Change1h
 					change4h = sig.PriceCtx.Change4h
 					change24h = sig.PriceCtx.Change24h
+				}
+				var readyScore, windowHealth float64
+				dataQuality := ""
+				if sig.ExecutionReadiness != nil {
+					readyScore = sig.ExecutionReadiness.ReadyScore
+					windowHealth = sig.ExecutionReadiness.WindowHealth
+					dataQuality = sig.ExecutionReadiness.DataQuality
 				}
 				dbRecords = append(dbRecords, store.HunterV7SignalRecord{
 					CycleNumber:       cycleNum,
@@ -513,12 +561,50 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					Change1h:          change1h,
 					Change4h:          change4h,
 					Change24h:         change24h,
+					ReadyScore:        readyScore,
+					WindowHealth:      windowHealth,
+					DataQuality:       dataQuality,
+					TP0Price:          sig.TP0Price,
+					TP0RR:             sig.TP0RR,
+					TP1Price:          sig.TP1Price,
+					TP1RR:             sig.TP1RR,
+					TP2Price:          sig.TP2Price,
+					TP2RR:             sig.TP2RR,
+					ResonanceBonus:    sig.ResonanceBonus,
 					BlockedGate:       rec.BlockedGate,
+					TrackStatus:       string(local.TrackedActive),
 					RawJSON:           string(rawJSON),
 				})
 			}
 			if err := st.HunterV7Signal().CreateBatch(dbRecords); err != nil {
 				logger.Warnf("⚠️ [%s] Failed to persist V7 signal records: %v", config.Name, err)
+				return
+			}
+			for i, dbRec := range dbRecords {
+				if dbRec.ID <= 0 || i >= len(records) {
+					continue
+				}
+				rec := records[i]
+				if !shouldTrackHunterV7Signal(rec) {
+					continue
+				}
+				entry := hunterV7SignalEntryPrice(rec.Signal)
+				if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
+					continue
+				}
+				v7OutcomeTracker.Register(
+					dbRec.ID,
+					rec.Signal.Symbol,
+					string(rec.Signal.Direction),
+					string(rec.Signal.SetupType),
+					rec.Tier,
+					entry,
+					rec.Signal.Invalidation.Price,
+					rec.Signal.TP0Price,
+					rec.Signal.TP1Price,
+					rec.Signal.TP2Price,
+					now,
+				)
 			}
 		})
 	}
@@ -550,6 +636,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		lastBalanceSyncTime:   time.Now(),
 		userID:                userID,
 		snapshotEngine:        snapEngine,
+		v7OutcomeTracker:      v7OutcomeTracker,
 	}, nil
 }
 
@@ -586,6 +673,19 @@ func (at *AutoTrader) Run() (err error) {
 
 	// Start drawdown monitoring
 	at.startDrawdownMonitor()
+
+	if at.v7OutcomeTracker != nil {
+		trackerCtx, trackerCancel := context.WithCancel(context.Background())
+		at.v7OutcomeCancel = trackerCancel
+		at.v7OutcomeTracker.Start(trackerCtx)
+		at.monitorWg.Add(1)
+		go func() {
+			defer at.monitorWg.Done()
+			<-at.stopMonitorCh
+			trackerCancel()
+		}()
+		at.logInfof("📈 Hunter v7 signal outcome tracker enabled")
+	}
 
 	// Start Lighter order sync if using Lighter exchange
 	if at.exchange == "lighter" {
@@ -739,9 +839,125 @@ func (at *AutoTrader) Stop() {
 	at.isRunning = false
 	at.isRunningMutex.Unlock()
 
+	if at.v7OutcomeCancel != nil {
+		at.v7OutcomeCancel()
+	}
 	close(at.stopMonitorCh) // Notify monitoring goroutine to stop
 	at.monitorWg.Wait()     // Wait for monitoring goroutine to finish
 	logger.Info("⏹ Automatic trading system stopped")
+}
+
+func shouldTrackHunterV7Signal(rec local.V7SignalRecord) bool {
+	if rec.Tier == string(local.V7ReadinessExecutable) || rec.Tier == string(local.V7ReadinessReviewable) {
+		return true
+	}
+	if rec.Signal.ExecutionReadiness != nil {
+		tier := rec.Signal.ExecutionReadiness.Tier
+		return tier == local.V7ReadinessExecutable || tier == local.V7ReadinessReviewable
+	}
+	return false
+}
+
+func hunterV7SignalEntryPrice(sig local.V7SignalOutput) float64 {
+	if sig.EntryZone.Lower > 0 && sig.EntryZone.Upper >= sig.EntryZone.Lower {
+		return (sig.EntryZone.Lower + sig.EntryZone.Upper) / 2
+	}
+	if sig.PriceCtx != nil && sig.PriceCtx.Last > 0 {
+		return sig.PriceCtx.Last
+	}
+	return 0
+}
+
+func latestHunterV7TrackedCandle(snapshotEngine *kernel.SnapshotEngine, symbol string) *local.TrackedCandle {
+	candles := hunterV7TrackedCandlesSince(snapshotEngine, symbol, time.Time{})
+	if len(candles) == 0 {
+		return nil
+	}
+	last := candles[len(candles)-1]
+	return &last
+}
+
+func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol string, since time.Time) []local.TrackedCandle {
+	if snapshotEngine == nil || symbol == "" {
+		return nil
+	}
+	snap := snapshotEngine.GetSnapshot()
+	if snap == nil || snap.Symbols == nil {
+		return nil
+	}
+	ss := snap.Symbols[symbol]
+	if ss == nil || len(ss.Klines) == 0 {
+		return nil
+	}
+	klines := ss.Klines["1m"]
+	if len(klines) == 0 {
+		return nil
+	}
+	out := make([]local.TrackedCandle, 0, len(klines))
+	for _, k := range klines {
+		candleTime := time.UnixMilli(k.CloseTime).UTC()
+		if !since.IsZero() && !candleTime.After(since) {
+			continue
+		}
+		closePrice := k.Close
+		if closePrice <= 0 {
+			closePrice = ss.Price
+		}
+		if closePrice <= 0 {
+			continue
+		}
+		out = append(out, local.TrackedCandle{
+			T:      candleTime,
+			Open:   k.Open,
+			High:   k.High,
+			Low:    k.Low,
+			Close:  closePrice,
+			Volume: k.Volume,
+		})
+	}
+	return out
+}
+
+func hunterV7BackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from, to time.Time) []local.TrackedCandle {
+	if fetcher == nil || symbol == "" || from.IsZero() {
+		return nil
+	}
+	if to.IsZero() || to.Before(from) {
+		to = time.Now().UTC()
+	}
+	minutes := int(to.Sub(from).Minutes()) + 3
+	if minutes < 10 {
+		minutes = 10
+	}
+	if minutes > 120 {
+		minutes = 120
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	klines, err := fetcher.FetchKlines(ctx, symbol, "1m", minutes)
+	if err != nil {
+		logger.Warnf("⚠️ Hunter v7 1m backfill failed for %s: %v", symbol, err)
+		return nil
+	}
+	out := make([]local.TrackedCandle, 0, len(klines))
+	for _, k := range klines {
+		candleTime := time.UnixMilli(k.CloseTime).UTC()
+		if candleTime.Before(from) || candleTime.After(to.Add(time.Minute)) {
+			continue
+		}
+		if k.Close <= 0 {
+			continue
+		}
+		out = append(out, local.TrackedCandle{
+			T:      candleTime,
+			Open:   k.Open,
+			High:   k.High,
+			Low:    k.Low,
+			Close:  k.Close,
+			Volume: k.Volume,
+		})
+	}
+	return out
 }
 
 // GetID gets trader ID

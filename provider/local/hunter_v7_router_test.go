@@ -274,6 +274,39 @@ func TestV7ExecutionQualityDowngradesLowTimingLeaderMomentum(t *testing.T) {
 	}
 }
 
+func TestV7ExecutionQualityKeepsIntradayScalpWatchOnlyUnderGlobalGeometry(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "SCALPUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupIntradayScalp,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryFastConfirm,
+		TimingScore:  88,
+		RiskScore:    12,
+		SetupScore:   78,
+		EntryZone:    V7PriceZone{Lower: 99.8, Upper: 100.2},
+		Invalidation: V7InvalidationRule{Price: 99.5},
+		Targets:      []V7Target{{Price: 100.8}, {Price: 101.5}, {Price: 103}},
+		ReasonCodes:  []string{"intraday_scalp_entry", "strong_5m_velocity"},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100, ATR5m: 0.8, ATR15m: 1, ATR1h: 2}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality != V7ExecWatchOnly {
+		t.Fatalf("execution quality = %s, want %s", sig.ExecutionQuality, V7ExecWatchOnly)
+	}
+	if sig.Status != V7StatusWaitConfirm {
+		t.Fatalf("status = %s, want %s", sig.Status, V7StatusWaitConfirm)
+	}
+	if !containsString(sig.ReasonCodes, "scalp_backend_geometry_context") {
+		t.Fatalf("missing scalp geometry reason: %+v", sig.ReasonCodes)
+	}
+	if !containsString(sig.RiskTags, "scalp_global_geometry_incompatible") {
+		t.Fatalf("missing scalp geometry risk tag: %+v", sig.RiskTags)
+	}
+}
+
 func TestFilterV7SignalsAddsReviewableFloorWhenOnlyWatchSignalsRemain(t *testing.T) {
 	signals := []V7SignalOutput{
 		{
@@ -543,6 +576,113 @@ func TestDiversifyV7SignalsPromotesSetupCoverageBeforeFilling(t *testing.T) {
 	}
 }
 
+func TestApplyV7CorrelationFilterCapsThemeButPreservesMinOutput(t *testing.T) {
+	signals := []V7SignalOutput{
+		{Symbol: "M1USDT", Direction: V7DirLong, SetupType: V7SetupLeaderMomentumLong, AIPriority: 90},
+		{Symbol: "M2USDT", Direction: V7DirLong, SetupType: V7SetupTrendBreakoutLong, AIPriority: 89},
+		{Symbol: "M3USDT", Direction: V7DirLong, SetupType: V7SetupDisplacementLong, AIPriority: 88},
+		{Symbol: "P1USDT", Direction: V7DirLong, SetupType: V7SetupPanicReversalLong, AIPriority: 70},
+	}
+
+	got := applyV7CorrelationFilter(signals, V7Config{
+		MinOutput:              3,
+		MaxOutput:              10,
+		CorrelationMaxPerTheme: 2,
+	})
+
+	if len(got) != 3 {
+		t.Fatalf("signals = %d, want 3", len(got))
+	}
+	if !containsV7Symbol(got, "M1USDT") || !containsV7Symbol(got, "M2USDT") {
+		t.Fatalf("top two momentum signals should remain: %+v", got)
+	}
+	if !containsV7Symbol(got, "P1USDT") {
+		t.Fatalf("alternate theme should remain: %+v", got)
+	}
+	if containsV7Symbol(got, "M3USDT") {
+		t.Fatalf("third same-theme signal should be capped: %+v", got)
+	}
+}
+
+func TestApplyV7CorrelationFilterCanBackfillToMinOutput(t *testing.T) {
+	signals := []V7SignalOutput{
+		{Symbol: "M1USDT", Direction: V7DirLong, SetupType: V7SetupLeaderMomentumLong, AIPriority: 90},
+		{Symbol: "M2USDT", Direction: V7DirLong, SetupType: V7SetupTrendBreakoutLong, AIPriority: 89},
+		{Symbol: "M3USDT", Direction: V7DirLong, SetupType: V7SetupDisplacementLong, AIPriority: 88},
+	}
+
+	got := applyV7CorrelationFilter(signals, V7Config{
+		MinOutput:              3,
+		MaxOutput:              10,
+		CorrelationMaxPerTheme: 2,
+	})
+
+	if len(got) != 3 {
+		t.Fatalf("signals = %d, want min output backfilled to 3", len(got))
+	}
+	if !containsV7Symbol(got, "M3USDT") {
+		t.Fatalf("third signal should be restored to preserve min output: %+v", got)
+	}
+	if !containsString(got[2].RiskTags, "correlation_floor_context") {
+		t.Fatalf("backfilled signal missing context tag: %+v", got[2].RiskTags)
+	}
+}
+
+func TestSectorRotationEnhancesLeaderThemeInRotationRegime(t *testing.T) {
+	universe := []V7SymbolContext{
+		{Symbol: "SOLUSDT", Change4h: 6, Change24h: 18},
+		{Symbol: "SUIUSDT", Change4h: 5, Change24h: 16},
+		{Symbol: "APTUSDT", Change4h: 4, Change24h: 14},
+		{Symbol: "DOGEUSDT", Change4h: 0.5, Change24h: 2},
+		{Symbol: "PEPEUSDT", Change4h: 0.2, Change24h: 1},
+	}
+	analyzer := NewSectorRotationAnalyzer(universe)
+	sig := &V7SignalOutput{
+		Symbol:      "SOLUSDT",
+		Direction:   V7DirLong,
+		SetupType:   V7SetupLeaderMomentumLong,
+		SetupScore:  70,
+		TimingScore: 60,
+	}
+
+	analyzer.EnhanceSignal(sig, &universe[0], V7RegimeRotation)
+
+	if sig.SetupScore != 74 || sig.TimingScore != 62 {
+		t.Fatalf("scores = %.1f/%.1f, want 74/62", sig.SetupScore, sig.TimingScore)
+	}
+	if !containsString(sig.ReasonCodes, "sector_rotation_leader") {
+		t.Fatalf("missing sector leader reason: %+v", sig.ReasonCodes)
+	}
+	if !containsString(sig.ReasonCodes, "sector_theme_l1_l2") {
+		t.Fatalf("missing sector theme reason: %+v", sig.ReasonCodes)
+	}
+}
+
+func TestSectorRotationDoesNotEnhanceOutsideRotationRegime(t *testing.T) {
+	universe := []V7SymbolContext{
+		{Symbol: "SOLUSDT", Change4h: 6, Change24h: 18},
+		{Symbol: "SUIUSDT", Change4h: 5, Change24h: 16},
+		{Symbol: "DOGEUSDT", Change4h: 0, Change24h: 1},
+	}
+	analyzer := NewSectorRotationAnalyzer(universe)
+	sig := &V7SignalOutput{
+		Symbol:      "SOLUSDT",
+		Direction:   V7DirLong,
+		SetupType:   V7SetupLeaderMomentumLong,
+		SetupScore:  70,
+		TimingScore: 60,
+	}
+
+	analyzer.EnhanceSignal(sig, &universe[0], V7RegimeTrendUp)
+
+	if sig.SetupScore != 70 || sig.TimingScore != 60 {
+		t.Fatalf("scores changed outside rotation: %.1f/%.1f", sig.SetupScore, sig.TimingScore)
+	}
+	if containsString(sig.ReasonCodes, "sector_rotation_leader") {
+		t.Fatalf("unexpected sector leader reason: %+v", sig.ReasonCodes)
+	}
+}
+
 func TestPreMoveRadarBuildsWatchOnlySignals(t *testing.T) {
 	ctx := V7SymbolContext{
 		Symbol:            "EARLYUSDT",
@@ -669,6 +809,60 @@ func TestFundingShortStrong4hFlushAvoidsWeakFlushTag(t *testing.T) {
 	}
 }
 
+func TestFundingFastTrackRelaxesShortZoneGate(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "FUNDFASTUSDT",
+		Direction:    V7DirShort,
+		SetupType:    V7SetupFundingReversal,
+		Status:       V7StatusCandidate,
+		Confidence:   "B",
+		TimingScore:  72,
+		RiskScore:    15,
+		EntryMode:    V7EntryWaitReject,
+		EntryZone:    V7PriceZone{Lower: 100, Upper: 110},
+		Invalidation: V7InvalidationRule{Price: 112},
+		Targets:      []V7Target{{Price: 93}},
+		ReasonCodes:  []string{"funding_extreme_fast_track"},
+		RiskTags:     []string{"fast_tracked_funding"},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 105, ATR15m: 1, ATR1h: 3}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if containsString(sig.ReasonCodes, "wait_zone_retest_required") {
+		t.Fatalf("fast-track signal should not require 65%% retest zone: reasons=%+v", sig.ReasonCodes)
+	}
+	if containsString(sig.RiskTags, "not_near_short_retest_zone") {
+		t.Fatalf("fast-track signal should not get short retest risk tag: %+v", sig.RiskTags)
+	}
+}
+
+func TestFundingShortWithoutFastTrackKeepsZoneGate(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "FUNDSLOWUSDT",
+		Direction:    V7DirShort,
+		SetupType:    V7SetupFundingReversal,
+		Status:       V7StatusCandidate,
+		Confidence:   "B",
+		TimingScore:  72,
+		RiskScore:    15,
+		EntryMode:    V7EntryWaitReject,
+		EntryZone:    V7PriceZone{Lower: 100, Upper: 110},
+		Invalidation: V7InvalidationRule{Price: 112},
+		Targets:      []V7Target{{Price: 93}},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 105, ATR15m: 1, ATR1h: 3}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if !containsString(sig.ReasonCodes, "wait_zone_retest_required") {
+		t.Fatalf("non-fast-track signal should keep short retest gate: reasons=%+v", sig.ReasonCodes)
+	}
+	if !containsString(sig.RiskTags, "not_near_short_retest_zone") {
+		t.Fatalf("non-fast-track signal missing short retest risk tag: %+v", sig.RiskTags)
+	}
+}
+
 func TestAppendV7WatchSignalsDoesNotConsumeConfirmedMaxOutput(t *testing.T) {
 	confirmed := []V7SignalOutput{
 		{Symbol: "READY1USDT", Direction: V7DirLong, SetupType: V7SetupPanicReversalLong, AIPriority: 80},
@@ -688,6 +882,117 @@ func TestAppendV7WatchSignalsDoesNotConsumeConfirmedMaxOutput(t *testing.T) {
 	}
 	if got[0].Symbol != "READY1USDT" || got[1].Symbol != "READY2USDT" || got[2].Symbol != "WATCH1USDT" {
 		t.Fatalf("unexpected output order/symbols: %+v", got)
+	}
+}
+
+func TestRouterRecomputesReadinessAfterTimingBooster(t *testing.T) {
+	ctx := V7SymbolContext{
+		Symbol:       "CHASEUSDT",
+		CurrentPrice: 100,
+		Change1h:     3,
+		Change4h:     10,
+		Change24h:    24,
+		ATR15m:       1,
+		ATR1h:        2,
+		ATR4h:        5,
+		High1h:       102,
+		Low1h:        96,
+		High4h:       104,
+		Low4h:        94,
+		TakerBuy15m:  0.54,
+		RSI5m:        86,
+		Snapshot: &SymbolSnapshotData{
+			QuoteVolume24h: 80_000_000,
+			TradeCount24h:  120_000,
+			OI:             20_000_000,
+			OIDelta1h:      4,
+			OIDelta4h:      12,
+			FundingRate:    0.0001,
+			LSR:            1.1,
+		},
+	}
+	cfg := DefaultV7Config()
+	cfg.MinAIPriority = 1
+	cfg.FallbackMinAIPriority = 1
+	cfg.MaxOutput = 20
+
+	result := NewV7Router().RouteDetailed([]V7SymbolContext{ctx}, V7RegimeRotation, cfg)
+	var sig *V7SignalOutput
+	for i := range result.RawSignals {
+		if result.RawSignals[i].Symbol == "CHASEUSDT" && result.RawSignals[i].SetupType == V7SetupLeaderMomentumLong {
+			sig = &result.RawSignals[i]
+			break
+		}
+	}
+	if sig == nil {
+		t.Fatalf("leader momentum signal not found in raw result: %+v", result.RawSignals)
+	}
+	if !containsString(sig.ReasonCodes, "chase_high_protection") || !containsString(sig.ReasonCodes, "rsi5m_overbought") {
+		t.Fatalf("timing booster reasons missing: reasons=%+v timing=%.1f", sig.ReasonCodes, sig.TimingScore)
+	}
+	if sig.TimingScore >= 60 {
+		t.Fatalf("timing score = %.1f, want < 60 after booster", sig.TimingScore)
+	}
+	if sig.ExecutionQuality != V7ExecWatchOnly {
+		t.Fatalf("execution quality = %s, want %s after post-booster finalize", sig.ExecutionQuality, V7ExecWatchOnly)
+	}
+	if sig.ExecutionReadiness == nil || sig.ExecutionReadiness.Tier != V7ReadinessWatch {
+		t.Fatalf("readiness = %+v, want WATCH after post-booster finalize", sig.ExecutionReadiness)
+	}
+}
+
+func TestRouterRefreshesReadinessAfterFinalRiskFilter(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:           "RISKUSDT",
+		Direction:        V7DirLong,
+		SetupType:        V7SetupPanicReversalLong,
+		Status:           V7StatusCandidate,
+		ExecutionQuality: V7ExecReady,
+		RiskLevel:        V7RiskExtreme,
+		RiskScore:        92,
+		TimingScore:      80,
+		AIPriority:       80,
+		EntryZone:        V7PriceZone{Lower: 99, Upper: 101},
+		Invalidation:     V7InvalidationRule{Price: 98},
+		Targets:          []V7Target{{Price: 104}},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+
+	refreshV7ExecutionReadiness(sig, ctx)
+
+	if sig.ExecutionReadiness == nil || sig.ExecutionReadiness.Tier != V7ReadinessRejected {
+		t.Fatalf("readiness = %+v, want REJECTED after risk filter", sig.ExecutionReadiness)
+	}
+	if sig.ExecutionReadiness.BlockedGate != "router_priority" {
+		t.Fatalf("blocked gate = %s, want router_priority", sig.ExecutionReadiness.BlockedGate)
+	}
+}
+
+func TestRouterRefreshesReadinessAfterFinalLiquidityFilter(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:           "ILLIQUSDT",
+		Direction:        V7DirLong,
+		SetupType:        V7SetupLeaderMomentumLong,
+		Status:           V7StatusFiltered,
+		ExecutionQuality: V7ExecReady,
+		RiskLevel:        V7RiskLow,
+		RiskScore:        20,
+		LiquidityScore:   20,
+		TimingScore:      80,
+		AIPriority:       80,
+		EntryZone:        V7PriceZone{Lower: 99, Upper: 101},
+		Invalidation:     V7InvalidationRule{Price: 98},
+		Targets:          []V7Target{{Price: 104}},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+
+	refreshV7ExecutionReadiness(sig, ctx)
+
+	if sig.ExecutionReadiness == nil || sig.ExecutionReadiness.Tier != V7ReadinessRejected {
+		t.Fatalf("readiness = %+v, want REJECTED after liquidity/status filter", sig.ExecutionReadiness)
+	}
+	if sig.ExecutionReadiness.Reason != "hard_filtered" {
+		t.Fatalf("reason = %s, want hard_filtered", sig.ExecutionReadiness.Reason)
 	}
 }
 

@@ -192,6 +192,7 @@ func (m *accumulationBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 
 	// Timing score
 	sig.TimingScore = calcTimingScore(sig, ctx)
+	ApplyV7OIAccumulationEvidence(sig, ctx)
 
 	return sig
 }

@@ -141,4 +141,39 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeMixed, V7SetupRangeReversion}:     1.0,
 	{V7RegimeMixed, V7SetupFundingReversal}:    1.0,
 	{V7RegimeMixed, V7SetupDisplacementLong}:   1.0,
+
+	// ===== v8 new modules =====
+
+	// Intraday Scalp: thrives in range/compression with volatility
+	{V7RegimeTrendUp, V7SetupIntradayScalp}:     1.0,
+	{V7RegimeTrendDown, V7SetupIntradayScalp}:   0.5,
+	{V7RegimeRange, V7SetupIntradayScalp}:        1.1,
+	{V7RegimePanicDump, V7SetupIntradayScalp}:    0.3,
+	{V7RegimePullback, V7SetupIntradayScalp}:     0.8,
+	{V7RegimeManiaPump, V7SetupIntradayScalp}:    0.6,
+	{V7RegimeCompression, V7SetupIntradayScalp}:  1.2,
+	{V7RegimeRotation, V7SetupIntradayScalp}:     1.0,
+	{V7RegimeMixed, V7SetupIntradayScalp}:        0.9,
+
+	// Volatility Squeeze Breakout: best in compression/range
+	{V7RegimeTrendUp, V7SetupVolatilitySqueeze}:     0.9,
+	{V7RegimeTrendDown, V7SetupVolatilitySqueeze}:   0.6,
+	{V7RegimeRange, V7SetupVolatilitySqueeze}:        1.2,
+	{V7RegimePanicDump, V7SetupVolatilitySqueeze}:    0.4,
+	{V7RegimePullback, V7SetupVolatilitySqueeze}:     0.8,
+	{V7RegimeManiaPump, V7SetupVolatilitySqueeze}:    0.5,
+	{V7RegimeCompression, V7SetupVolatilitySqueeze}:  1.3,
+	{V7RegimeRotation, V7SetupVolatilitySqueeze}:     1.0,
+	{V7RegimeMixed, V7SetupVolatilitySqueeze}:        0.9,
+
+	// Whale Flow Reversal: best in rotation/range
+	{V7RegimeTrendUp, V7SetupWhaleFlow}:     0.8,
+	{V7RegimeTrendDown, V7SetupWhaleFlow}:   0.7,
+	{V7RegimeRange, V7SetupWhaleFlow}:        1.1,
+	{V7RegimePanicDump, V7SetupWhaleFlow}:    0.5,
+	{V7RegimePullback, V7SetupWhaleFlow}:     0.9,
+	{V7RegimeManiaPump, V7SetupWhaleFlow}:    0.6,
+	{V7RegimeCompression, V7SetupWhaleFlow}:  1.0,
+	{V7RegimeRotation, V7SetupWhaleFlow}:     1.2,
+	{V7RegimeMixed, V7SetupWhaleFlow}:        0.9,
 }

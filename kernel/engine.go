@@ -99,6 +99,7 @@ type CandidateCoin struct {
 	V7ConfirmSummary   *local.V7ConfirmationSummary `json:"-"`
 	V7PriceContext     *local.V7PriceContext        `json:"-"`
 	V7DerivativesCtx   *local.V7DerivativesContext  `json:"-"`
+	V7Readiness        *local.V7ExecutionReadiness  `json:"-"`
 	V7VWAP15m          float64                      `json:"-"`
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
@@ -347,6 +348,9 @@ func (e *StrategyEngine) buildV7SignalRecords(signals []local.V7SignalOutput, ca
 			rec.Tier = cc.V7ExecutionTier
 			rec.TierReason = cc.V7TierReason
 			rec.BlockedGate = v7BlockedGate(cc)
+			if cc.V7Readiness != nil && cc.V7Readiness.BlockedGate != "" {
+				rec.BlockedGate = cc.V7Readiness.BlockedGate
+			}
 		} else {
 			rec.Tier = ""
 			if sig.Status == local.V7StatusFiltered {
@@ -544,6 +548,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7ConfirmSummary:   sig.ConfirmSummary,
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
+			V7Readiness:        sig.ExecutionReadiness,
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
@@ -562,7 +567,48 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 	return candidates
 }
 
+type HunterV7ExecutionGeometry struct {
+	MaxTPMovePct float64
+	MinSLMovePct float64
+	MaxDriftPct  float64
+	MinRR        float64
+}
+
+func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct, minRR float64, hunterV7 bool) HunterV7ExecutionGeometry {
+	geometry := HunterV7ExecutionGeometry{
+		MaxTPMovePct: maxTPMovePct,
+		MinSLMovePct: minSLMovePct,
+		MaxDriftPct:  maxDriftPct,
+		MinRR:        minRR,
+	}
+	if !hunterV7 {
+		return geometry
+	}
+	if geometry.MaxTPMovePct <= 0 {
+		geometry.MaxTPMovePct = 3.0
+	}
+	if geometry.MinSLMovePct <= 0 {
+		geometry.MinSLMovePct = 2.0
+	}
+	if geometry.MaxDriftPct <= 0 {
+		geometry.MaxDriftPct = 0.5
+	}
+	if geometry.MinRR <= 0 {
+		geometry.MinRR = hunterV7BackendMinRR
+	}
+	minFeasibleTPPct := (geometry.MinSLMovePct + geometry.MaxDriftPct) * geometry.MinRR
+	minFeasibleTPPct += 0.25
+	if geometry.MaxTPMovePct < minFeasibleTPPct {
+		geometry.MaxTPMovePct = minFeasibleTPPct
+	}
+	return geometry
+}
+
 func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
+	return classifyHunterV7CandidateTierWithGeometry(coin, HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true))
+}
+
+func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	if coin.V7SetupType == "" {
 		return "", ""
 	}
@@ -621,9 +667,6 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 		return "WATCH", "watch_only_confirm_required"
 	}
 	if coin.V7ExecutionQuality == "chase_risk" {
-		if ok, reason := hunterV7ChaseRiskReviewableReason(coin); ok {
-			return "REVIEWABLE", reason
-		}
 		return "WATCH", "chase_risk_wait_reentry"
 	}
 	if coin.V7Status == "conflict_watch" {
@@ -641,8 +684,11 @@ func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
 	if reason := hunterV7CounterTrendConfirmationWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
-	if reason := hunterV7BackendCappedRRWaitReason(coin); reason != "" {
+	if reason := hunterV7BackendCappedRRWaitReason(coin, geometry); reason != "" {
 		return "WATCH", reason
+	}
+	if ok, reason := hunterV7ReadinessReviewableReason(coin); ok {
+		return "REVIEWABLE", reason
 	}
 
 	if ok, reason := hunterV7ExecutableCandidateReason(coin); ok {
@@ -891,6 +937,9 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_healthy_growth", "oi_moderate_growth"}) {
 			return true, "momentum_reviewable_relative_strength_floor"
 		}
+		if ok, reason := hunterV7LeaderMomentumFlexibleReviewableReason(coin); ok {
+			return true, reason
+		}
 	case "pullback_reversal_long":
 		if coin.V7AIPriority >= 48 &&
 			coin.V7SetupScore >= 70 &&
@@ -917,6 +966,18 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			containsStringValue(coin.V7ReasonCodes, "confirmed_breakout") &&
 			containsStringValue(coin.V7ReasonCodes, "taker_aggressive_buy") {
 			return true, "breakout_reviewable_confirmed_low_risk_floor"
+		}
+		if coin.V7ExecutionQuality == "near_confirm" &&
+			coin.V7AIPriority >= 45 &&
+			coin.V7SetupScore >= 38 &&
+			coin.V7TimingScore >= 45 &&
+			coin.V7RiskScore < 35 &&
+			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 60) &&
+			hunterV7TakerBuyAtLeast(coin, 0.52) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_adequate", "oi_increasing", "oi_stable_breakout"}) &&
+			containsStringValue(coin.V7ReasonCodes, "clear_air_above") {
+			return true, "breakout_reviewable_low_risk_pressure_floor"
 		}
 	case "pre_breakout_watch", "pre_squeeze_watch", "pre_distribution_watch", "accumulation_watch":
 		if hunterV7WatchUpgradedReviewable(coin) {
@@ -950,6 +1011,129 @@ func hunterV7PanicReversalCoreFlowOK(coin CandidateCoin) bool {
 	return hunterV7TakerBuyAtLeast(coin, 0.50)
 }
 
+func hunterV7ReadinessReviewableReason(coin CandidateCoin) (bool, string) {
+	if coin.V7Readiness == nil || coin.V7Readiness.Tier != local.V7ReadinessReviewable {
+		return false, ""
+	}
+	if coin.V7RiskScore >= 55 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
+		return false, ""
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
+		return false, ""
+	}
+	if !hunterV7EntryZoneReachable(coin) || !hunterV7TakerBuyAligned(coin) {
+		return false, ""
+	}
+	if len(coin.V7Readiness.MissingHard) > 0 {
+		return false, ""
+	}
+	minReady := 62.0
+	switch coin.V7SetupType {
+	case "trend_breakout_long", "accumulation_breakout_long", "displacement_momentum_long", "leader_momentum_long":
+		minReady = 60
+	case "panic_reversal_long", "funding_reversal", "range_reversion":
+		minReady = 68
+	}
+	if coin.V7Readiness.ReadyScore > 0 && coin.V7Readiness.ReadyScore < minReady {
+		return false, ""
+	}
+	if coin.V7Readiness.BlockedGate == "execution_geometry" || coin.V7Readiness.BlockedGate == "prompt_data_quality" {
+		return false, ""
+	}
+	return true, "readiness_reviewable_" + coin.V7Readiness.Reason
+}
+
+func hunterV7LeaderMomentumFlexibleReviewableReason(coin CandidateCoin) (bool, string) {
+	if coin.V7SetupType != "leader_momentum_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return false, ""
+	}
+	if coin.V7ExecutionQuality == "chase_risk" ||
+		containsAnyStringValue(coin.V7RiskTags, []string{"momentum_confirmation_missing", "momentum_overheated", "momentum_chase_risk"}) ||
+		containsStringValue(coin.V7ReasonCodes, "momentum_rsi_overheated_wait") {
+		return false, ""
+	}
+	if coin.V7RiskScore >= 55 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
+		return false, ""
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
+		return false, ""
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{"do_not_market_chase", "momentum_crowded_long", "funding_extreme"}) {
+		return false, ""
+	}
+	if coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 || coin.V7Targets[0].Price <= 0 {
+		return false, ""
+	}
+	if containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") || !hunterV7EntryZoneReachable(coin) {
+		return false, ""
+	}
+
+	evidence := hunterV7LeaderMomentumEvidenceCount(coin)
+	if evidence < 3 {
+		return false, ""
+	}
+	score := hunterV7LeaderMomentumReviewScore(coin, evidence)
+	if score < 62 {
+		return false, ""
+	}
+	if coin.V7AIPriority < 50 && coin.V7SetupScore < 70 {
+		return false, ""
+	}
+	if coin.V7TimingScore < 50 && !containsAnyStringValue(coin.V7ReasonCodes, []string{"accelerating_1h", "holding_1h", "shallow_pullback", "micro_pullback"}) {
+		return false, ""
+	}
+	if !hunterV7TakerBuyAligned(coin) {
+		return false, ""
+	}
+	return true, "momentum_reviewable_flexible_score"
+}
+
+func hunterV7LeaderMomentumEvidenceCount(coin CandidateCoin) int {
+	evidence := 0
+	for _, code := range coin.V7ReasonCodes {
+		switch code {
+		case "strong_24h_momentum", "solid_24h_momentum", "moderate_24h_momentum",
+			"strong_4h_momentum", "solid_4h_momentum",
+			"accelerating_1h", "holding_1h",
+			"oi_healthy_growth", "oi_moderate_growth", "oi_explosive_growth",
+			"taker_sustained_buy", "taker_aggressive_buy", "taker_neutral_buy",
+			"volume_expansion", "confirmed_breakout",
+			"micro_pullback", "shallow_pullback", "shallow_pullback_1h":
+			evidence++
+		}
+	}
+	if strings.EqualFold(coin.V7Confidence, "A") || strings.EqualFold(coin.V7Confidence, "B") {
+		evidence++
+	}
+	return evidence
+}
+
+func hunterV7LeaderMomentumReviewScore(coin CandidateCoin, evidence int) float64 {
+	flow := 50.0
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0 {
+		flow = 50 + (coin.V7DerivativesCtx.TakerBuy15m-0.50)*160
+		if flow < 35 {
+			flow = 35
+		}
+		if flow > 100 {
+			flow = 100
+		}
+	}
+	score := coin.V7SetupScore*0.24 + coin.V7TimingScore*0.20 + coin.V7AIPriority*0.18 +
+		coin.V7RegimeFitScore*0.10 + coin.V7LiquidityScore*0.06 + flow*0.10 + float64(evidence)*3.0
+	score -= maxFloat64(0, coin.V7RiskScore-35) * 0.45
+	if coin.V7ExecutionQuality == "ready" {
+		score += 4
+	}
+	if coin.V7ExecutionQuality == "chase_risk" {
+		score -= 4
+	}
+	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.PassedHard {
+		score += 3
+	}
+	return score
+}
+
 func hunterV7WatchUpgradedReviewable(coin CandidateCoin) bool {
 	if coin.V7ExecutionQuality != "near_confirm" &&
 		!containsStringValue(coin.V7ReasonCodes, "watch_upgraded_reviewable") {
@@ -978,7 +1162,7 @@ func hunterV7ChaseRiskReviewableReason(coin CandidateCoin) (bool, string) {
 		return false, ""
 	}
 	if coin.V7SetupType == "leader_momentum_long" && hunterV7LeaderMomentumOverheatedOrUnconfirmed(coin) {
-		return false, ""
+		return hunterV7LeaderMomentumFlexibleReviewableReason(coin)
 	}
 	switch coin.V7SetupType {
 	case "leader_momentum_long":
@@ -1437,13 +1621,21 @@ const (
 	hunterV7BackendMinRR            = 1.5
 	hunterV7BackendMinStopPct       = 2.0
 	hunterV7BackendStopRepairBuffer = 0.10
-	hunterV7BackendMaxTPPct         = 4.0
 )
 
-func hunterV7BackendCappedRRWaitReason(coin CandidateCoin) string {
+func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7ExecutionGeometry) string {
 	price := hunterV7ReferencePrice(coin)
 	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
 		return ""
+	}
+	if geometry.MinRR <= 0 {
+		geometry.MinRR = hunterV7BackendMinRR
+	}
+	if geometry.MinSLMovePct <= 0 {
+		geometry.MinSLMovePct = hunterV7BackendMinStopPct
+	}
+	if geometry.MaxTPMovePct <= 0 {
+		geometry.MaxTPMovePct = HunterV7EffectiveExecutionGeometry(0, 0, 0, geometry.MinRR, true).MaxTPMovePct
 	}
 
 	riskPct := 0.0
@@ -1460,8 +1652,8 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin) string {
 	}
 
 	effectiveRiskPct := riskPct
-	if effectiveRiskPct < hunterV7BackendMinStopPct {
-		effectiveRiskPct = hunterV7BackendMinStopPct + hunterV7BackendStopRepairBuffer
+	if effectiveRiskPct < geometry.MinSLMovePct {
+		effectiveRiskPct = geometry.MinSLMovePct + hunterV7BackendStopRepairBuffer
 	}
 
 	bestRewardPct := 0.0
@@ -1470,8 +1662,8 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin) string {
 		if rewardPct <= 0 {
 			continue
 		}
-		if rewardPct > hunterV7BackendMaxTPPct {
-			rewardPct = hunterV7BackendMaxTPPct
+		if rewardPct > geometry.MaxTPMovePct {
+			rewardPct = geometry.MaxTPMovePct
 		}
 		if rewardPct > bestRewardPct {
 			bestRewardPct = rewardPct
@@ -1481,7 +1673,7 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin) string {
 		return ""
 	}
 
-	if bestRewardPct/effectiveRiskPct < hunterV7BackendMinRR {
+	if bestRewardPct/effectiveRiskPct < geometry.MinRR {
 		return "backend_rr_infeasible"
 	}
 	return ""
@@ -1582,6 +1774,13 @@ func containsAnyStringValue(values []string, wants []string) bool {
 		}
 	}
 	return false
+}
+
+func maxFloat64(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // hunterScoresToCandidateCoins converts snapshot Hunter scores to CandidateCoin format.

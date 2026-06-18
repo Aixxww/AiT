@@ -819,6 +819,64 @@ func TestShouldUseFastProtectionInterval(t *testing.T) {
 	}
 }
 
+func TestDynamicProtectionStopUpdatesStopLossOnlyWhenProtective(t *testing.T) {
+	ft := &contextTestTrader{}
+	at := testRiskAutoTrader()
+	at.trader = ft
+	state := &positionProtectionState{
+		InitialQuantity: 10,
+		PeakPnLPct:      12,
+		OpenedAt:        time.Now().Add(-45 * time.Minute),
+	}
+
+	if err := at.updateDynamicProtectionStop("BTCUSDT", "long", 10, 100, 106, 10, state); err != nil {
+		t.Fatalf("dynamic stop update failed: %v", err)
+	}
+	if ft.cancelStopLossCalls != 1 || len(ft.stopLossCalls) != 1 {
+		t.Fatalf("expected one stop-loss replacement, cancel=%d calls=%d", ft.cancelStopLossCalls, len(ft.stopLossCalls))
+	}
+	call := ft.stopLossCalls[0]
+	if call.positionSide != "LONG" || call.stopPrice <= protectionBaseStopFromRisk("long", 100, 10) || call.stopPrice >= 106 {
+		t.Fatalf("unexpected long stop call: %+v", call)
+	}
+
+	state.LastStopUpdateAt = time.Now().Add(-positionProtectorBaseInterval)
+	if err := at.updateDynamicProtectionStop("BTCUSDT", "long", 10, 100, 102, 10, state); err != nil {
+		t.Fatalf("second dynamic stop update failed: %v", err)
+	}
+	if len(ft.stopLossCalls) != 1 {
+		t.Fatalf("expected no less-protective rewrite, calls=%d", len(ft.stopLossCalls))
+	}
+
+	state.LastStopUpdateAt = time.Now().Add(-positionProtectorBaseInterval)
+	state.PeakPnLPct = 70
+	if err := at.updateDynamicProtectionStop("BTCUSDT", "long", 10, 100, 106, 10, state); err != nil {
+		t.Fatalf("trailing dynamic stop update failed: %v", err)
+	}
+	if len(ft.stopLossCalls) != 2 {
+		t.Fatalf("expected trailing stop rewrite, calls=%d", len(ft.stopLossCalls))
+	}
+	if got := ft.stopLossCalls[1].stopPrice; got <= 100 || got >= 106 {
+		t.Fatalf("trailing stop = %v, want locked above entry and below mark", got)
+	}
+}
+
+func TestProtectionStopHelpersShort(t *testing.T) {
+	base := protectionBaseStopFromRisk("short", 100, 10)
+	if base <= 100 {
+		t.Fatalf("short base stop = %v, want above entry", base)
+	}
+	if !isMoreProtectiveStop("short", 101, 102) {
+		t.Fatalf("short lower stop should be more protective")
+	}
+	if !isStopOnProtectiveSide("short", 101, 100) {
+		t.Fatalf("short stop should be above mark price")
+	}
+	if isStopOnProtectiveSide("short", 99, 100) {
+		t.Fatalf("short stop below mark should be rejected")
+	}
+}
+
 func TestProtectionCloseQuantityClosesAllWhenPartialTooSmall(t *testing.T) {
 	at := testRiskAutoTrader()
 	closeQty, closeAll := at.protectionCloseQuantity(10, 1, protectorTP1CloseRatio)

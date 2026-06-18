@@ -48,7 +48,13 @@ const (
 	V7SetupPreDistribution    V7SetupType = "pre_distribution_watch"
 	V7SetupAccumulationWatch  V7SetupType = "accumulation_watch"
 	V7SetupDisplacementLong   V7SetupType = "displacement_momentum_long"
-	V7SetupModuleNoMatch      V7SetupType = "module_no_match"
+
+	// v8 new modules (Phase 2 P1-D)
+	V7SetupIntradayScalp     V7SetupType = "intraday_scalp_long"
+	V7SetupVolatilitySqueeze V7SetupType = "volatility_squeeze_breakout"
+	V7SetupWhaleFlow         V7SetupType = "whale_flow_reversal"
+
+	V7SetupModuleNoMatch V7SetupType = "module_no_match"
 )
 
 // V7SignalStatus represents the signal's lifecycle state.
@@ -181,6 +187,11 @@ type V7SymbolContext struct {
 	Velocity15m      float64 // latest 15m close-to-close change %
 	VolumeBurst5m    float64 // latest 5m volume / recent average
 	VolumeBurst15m   float64 // latest 15m volume / recent average
+
+	// 5m micro-structure data (v8 timing booster)
+	RSI5m      float64 // 5m RSI for timing booster
+	OI5m       float64 // 5m OI change
+	TakerBuy5m float64 // 5m taker buy ratio
 }
 
 // SymbolSnapshotData is a lightweight copy of the snapshot data needed by modules.
@@ -247,6 +258,30 @@ type V7DerivativesContext struct {
 	TakerBuy15m float64 `json:"taker_buy_ratio_15m"`
 }
 
+type V7ReadinessTier string
+
+const (
+	V7ReadinessExecutable V7ReadinessTier = "EXECUTABLE"
+	V7ReadinessReviewable V7ReadinessTier = "REVIEWABLE"
+	V7ReadinessWatch      V7ReadinessTier = "WATCH"
+	V7ReadinessRejected   V7ReadinessTier = "REJECTED"
+)
+
+type V7ExecutionReadiness struct {
+	Tier             V7ReadinessTier `json:"tier"`
+	Reason           string          `json:"reason"`
+	ReadyScore       float64         `json:"ready_score"`
+	WindowHealth     float64         `json:"window_health"`
+	EntryZonePos     float64         `json:"entry_zone_position"`
+	PriceDeviation   float64         `json:"price_deviation_pct"`
+	DataQuality      string          `json:"data_quality"`
+	MissingHard      []string        `json:"missing_hard,omitempty"`
+	MissingExecution []string        `json:"missing_execution,omitempty"`
+	MissingContext   []string        `json:"missing_context,omitempty"`
+	BlockedGate      string          `json:"blocked_gate,omitempty"`
+	NextConfirm      []string        `json:"next_confirmations,omitempty"`
+}
+
 // V7SignalOutput is the structured output from a single signal module.
 // This is the primary output of the Hunter v7 engine — it contains everything
 // the AI trading engine needs to make a decision.
@@ -282,8 +317,27 @@ type V7SignalOutput struct {
 	PriceCtx       *V7PriceContext       `json:"price_context,omitempty"`
 	DerivativesCtx *V7DerivativesContext `json:"derivatives_context,omitempty"`
 
+	ExecutionReadiness *V7ExecutionReadiness `json:"execution_readiness,omitempty"`
+
 	// Liquidity context for adaptive OI threshold in prompt-data filter
 	QuoteVolume24h float64 `json:"quote_volume_24h,omitempty"` // 24h quote volume (USD)
+
+	// Multi-timeframe TP targets (new in v8)
+	TP0Price      float64 `json:"tp0_price,omitempty"`
+	TP0RR         float64 `json:"tp0_rr,omitempty"`
+	TP0TimeWindow string  `json:"tp0_time_window,omitempty"`
+	TP0Method     string  `json:"tp0_method,omitempty"`
+	TP1Price      float64 `json:"tp1_price,omitempty"`
+	TP1RR         float64 `json:"tp1_rr,omitempty"`
+	TP1TimeWindow string  `json:"tp1_time_window,omitempty"`
+	TP1Method     string  `json:"tp1_method,omitempty"`
+	TP2Price      float64 `json:"tp2_price,omitempty"`
+	TP2RR         float64 `json:"tp2_rr,omitempty"`
+	TP2TimeWindow string  `json:"tp2_time_window,omitempty"`
+	TP2Method     string  `json:"tp2_method,omitempty"`
+
+	// Resonance scoring (Phase 2 prep)
+	ResonanceBonus float64 `json:"resonance_bonus,omitempty"`
 }
 
 // V7SignalModule is the interface that every trading setup module must implement.
@@ -341,27 +395,29 @@ type V7AttributionSummary struct {
 
 // V7Config holds configuration for the Hunter v7 engine.
 type V7Config struct {
-	MaxOutput             int                          `json:"max_output"`
-	MinOutput             int                          `json:"min_output"`
-	WatchOutput           int                          `json:"watch_output"`
-	MinAIPriority         float64                      `json:"min_ai_priority"`
-	FallbackMinAIPriority float64                      `json:"fallback_min_ai_priority"`
-	Aggressive            bool                         `json:"aggressive"`
-	SetupThresholds       map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
-	SignalRecorder        V7SignalRecorder             `json:"-"` // Optional callback for signal persistence
-	CycleNumber           int                          `json:"-"` // Current cycle number for recorder
-	WatchStateManager     *V7SignalStateManager        `json:"-"` // Optional cross-cycle watch state tracker
+	MaxOutput              int                          `json:"max_output"`
+	MinOutput              int                          `json:"min_output"`
+	WatchOutput            int                          `json:"watch_output"`
+	MinAIPriority          float64                      `json:"min_ai_priority"`
+	FallbackMinAIPriority  float64                      `json:"fallback_min_ai_priority"`
+	CorrelationMaxPerTheme int                          `json:"correlation_max_per_theme"`
+	Aggressive             bool                         `json:"aggressive"`
+	SetupThresholds        map[string]V7SetupThresholds `json:"setup_thresholds,omitempty"`
+	SignalRecorder         V7SignalRecorder             `json:"-"` // Optional callback for signal persistence
+	CycleNumber            int                          `json:"-"` // Current cycle number for recorder
+	WatchStateManager      *V7SignalStateManager        `json:"-"` // Optional cross-cycle watch state tracker
 }
 
 // DefaultV7Config returns sensible defaults.
 func DefaultV7Config() V7Config {
 	return V7Config{
-		MaxOutput:             30,
-		MinOutput:             3,
-		WatchOutput:           5,
-		MinAIPriority:         55,
-		FallbackMinAIPriority: 45,
-		SetupThresholds:       DefaultSetupThresholds(),
+		MaxOutput:              30,
+		MinOutput:              3,
+		WatchOutput:            5,
+		MinAIPriority:          55,
+		FallbackMinAIPriority:  45,
+		CorrelationMaxPerTheme: 3,
+		SetupThresholds:        DefaultSetupThresholds(),
 	}
 }
 
@@ -479,6 +535,28 @@ func DefaultSetupThresholds() map[string]V7SetupThresholds {
 			MinConfidence:   "C",
 		},
 		string(V7SetupDisplacementLong): {
+			MinAIPriority:   50,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		// v8 new modules
+		string(V7SetupIntradayScalp): {
+			MinAIPriority:   50,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupVolatilitySqueeze): {
+			MinAIPriority:   50,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupWhaleFlow): {
 			MinAIPriority:   50,
 			MinZonePosShort: 0,
 			MaxZonePosLong:  100,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/provider/local"
 	"math"
 	"regexp"
 	"strconv"
@@ -35,12 +36,14 @@ const (
 )
 
 type positionProtectionState struct {
-	InitialQuantity float64
-	TP1Done         bool
-	TP2Done         bool
-	PeakPnLPct      float64
-	OpenedAt        time.Time
-	LastActionAt    time.Time
+	InitialQuantity  float64
+	TP1Done          bool
+	TP2Done          bool
+	PeakPnLPct       float64
+	DynamicStop      float64
+	OpenedAt         time.Time
+	LastActionAt     time.Time
+	LastStopUpdateAt time.Time
 }
 
 type protectionAction string
@@ -119,6 +122,9 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
+		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
+			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
+		}
 		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct, currentPriceMovePct)
 		if shouldUseFastProtectionInterval(state, currentPnLPct) {
 			nextInterval = positionProtectorFastInterval
@@ -139,6 +145,83 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.markProtectionAction(posKey, action, closedAll)
 	}
 	return nextInterval
+}
+
+func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity, entryPrice, markPrice float64, leverage int, state *positionProtectionState) error {
+	if state == nil || quantity <= 0 || entryPrice <= 0 || markPrice <= 0 {
+		return nil
+	}
+	if !state.LastStopUpdateAt.IsZero() && time.Since(state.LastStopUpdateAt) < positionProtectorBaseInterval {
+		return nil
+	}
+	baseStop := protectionBaseStopFromRisk(side, entryPrice, leverage)
+	if baseStop <= 0 {
+		return nil
+	}
+	maxFavorableDelta := state.PeakPnLPct / 100 / float64(leverage) * entryPrice
+	if maxFavorableDelta < 0 {
+		maxFavorableDelta = 0
+	}
+	isLong := side == "long"
+	stop := local.DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
+	if stop <= 0 || !isMoreProtectiveStop(side, stop, state.DynamicStop) || !isStopOnProtectiveSide(side, stop, markPrice) {
+		return nil
+	}
+	positionSide := "SHORT"
+	if isLong {
+		positionSide = "LONG"
+	}
+	if err := at.trader.CancelStopLossOrders(symbol); err != nil {
+		return err
+	}
+	if err := at.trader.SetStopLoss(symbol, positionSide, quantity, stop); err != nil {
+		return err
+	}
+	state.DynamicStop = stop
+	state.LastStopUpdateAt = time.Now()
+	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f", symbol, side, quantity, stop)
+	return nil
+}
+
+func protectionBaseStopFromRisk(side string, entryPrice float64, leverage int) float64 {
+	if entryPrice <= 0 || leverage <= 0 {
+		return 0
+	}
+	riskPct := 0.35 / float64(leverage)
+	if riskPct <= 0 {
+		return 0
+	}
+	if side == "long" {
+		return entryPrice * (1 - riskPct)
+	}
+	return entryPrice * (1 + riskPct)
+}
+
+func isMoreProtectiveStop(side string, next, prev float64) bool {
+	if next <= 0 {
+		return false
+	}
+	if prev <= 0 {
+		return true
+	}
+	minDelta := prev * 0.0002
+	if minDelta <= 0 {
+		minDelta = 0.00000001
+	}
+	if side == "long" {
+		return next > prev+minDelta
+	}
+	return next < prev-minDelta
+}
+
+func isStopOnProtectiveSide(side string, stop, markPrice float64) bool {
+	if stop <= 0 || markPrice <= 0 {
+		return false
+	}
+	if side == "long" {
+		return stop < markPrice
+	}
+	return stop > markPrice
 }
 
 func shouldUseFastProtectionInterval(state *positionProtectionState, currentPnLPct float64) bool {
@@ -644,24 +727,13 @@ func (at *AutoTrader) ensureHunterV7FeasibleTakeProfitCap(pct float64) float64 {
 		return pct
 	}
 	riskControl := at.config.StrategyConfig.RiskControl
-	minRR := riskControl.MinRiskRewardRatio
-	if minRR <= 0 {
-		minRR = 1.5
-	}
-	minStopPct := at.minStopLossPriceMovePct()
-	if minStopPct <= 0 {
-		minStopPct = 2.0
-	}
-	maxDriftPct := at.maxEntryPriceDeviationPct()
-	if maxDriftPct <= 0 {
-		maxDriftPct = 0.5
-	}
-	minFeasiblePct := (minStopPct + maxDriftPct) * minRR
-	minFeasiblePct += 0.25 // execution/rounding buffer in percentage points
-	if pct < minFeasiblePct {
-		return minFeasiblePct
-	}
-	return pct
+	return kernel.HunterV7EffectiveExecutionGeometry(
+		pct,
+		riskControl.MinStopLossPriceMovePct,
+		riskControl.MaxEntryPriceDeviationPct,
+		riskControl.MinRiskRewardRatio,
+		true,
+	).MaxTPMovePct
 }
 
 func (at *AutoTrader) minStopLossPriceMovePct() float64 {

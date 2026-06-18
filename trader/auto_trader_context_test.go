@@ -16,6 +16,15 @@ type contextTestTrader struct {
 	positions                 []map[string]interface{}
 	positionsErr              error
 	invalidatePositionsCalled int
+	cancelStopLossCalls       int
+	stopLossCalls             []contextStopLossCall
+}
+
+type contextStopLossCall struct {
+	symbol       string
+	positionSide string
+	quantity     float64
+	stopPrice    float64
 }
 
 func (t *contextTestTrader) GetBalance() (map[string]interface{}, error) {
@@ -53,13 +62,22 @@ func (t *contextTestTrader) SetMarginMode(string, bool) error {
 	return nil
 }
 func (t *contextTestTrader) GetMarketPrice(string) (float64, error) { return 100, nil }
-func (t *contextTestTrader) SetStopLoss(string, string, float64, float64) error {
+func (t *contextTestTrader) SetStopLoss(symbol, positionSide string, quantity, stopPrice float64) error {
+	t.stopLossCalls = append(t.stopLossCalls, contextStopLossCall{
+		symbol:       symbol,
+		positionSide: positionSide,
+		quantity:     quantity,
+		stopPrice:    stopPrice,
+	})
 	return nil
 }
 func (t *contextTestTrader) SetTakeProfit(string, string, float64, float64) error {
 	return nil
 }
-func (t *contextTestTrader) CancelStopLossOrders(string) error   { return nil }
+func (t *contextTestTrader) CancelStopLossOrders(string) error {
+	t.cancelStopLossCalls++
+	return nil
+}
 func (t *contextTestTrader) CancelTakeProfitOrders(string) error { return nil }
 func (t *contextTestTrader) CancelAllOrders(string) error        { return nil }
 func (t *contextTestTrader) CancelStopOrders(string) error       { return nil }

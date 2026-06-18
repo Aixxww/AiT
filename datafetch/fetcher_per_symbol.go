@@ -251,6 +251,19 @@ func (f *DataFetcher) fetchKlines(ctx context.Context, symbol, interval string, 
 	return parseKlines(raw), nil
 }
 
+// FetchKlines fetches Binance Futures klines for a single symbol/interval.
+// It is intentionally narrow so higher-level services can backfill short
+// execution windows without running a full snapshot cycle.
+func (f *DataFetcher) FetchKlines(ctx context.Context, symbol, interval string, limit int) ([]Kline, error) {
+	if f == nil {
+		return nil, fmt.Errorf("nil data fetcher")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	return f.fetchKlines(ctx, symbol, interval, limit)
+}
+
 func init() {
 	// Suppress unused import warning for log
 	_ = log.Println

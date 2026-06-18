@@ -34,6 +34,10 @@ func NewV7Router() *V7Router {
 		&rangeReversionModule{},
 		&fundingReversalModule{},
 		&displacementMomentumLongModule{},
+		// v8 new modules (Phase 2)
+		&intradayScalpLongModule{},
+		&volatilitySqueezeBreakoutModule{},
+		&whaleFlowReversalModule{},
 	}
 	return r
 }
@@ -47,6 +51,13 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) V7RouteResult {
 	// Compute BTC/ETH 4h change baseline for strong-symbol override
 	btcETHBaseline4h := computeBTCETHBaseline4h(universe)
+
+	// v8 components (created once per route cycle)
+	timingBooster := DefaultTimingBooster()
+	panicOverride := DefaultPanicWeightOverride()
+	fundingFastTrack := DefaultFundingFastTrack()
+	resonanceScorer := DefaultResonanceScorer()
+	sectorRotation := NewSectorRotationAnalyzer(universe)
 
 	var allSignals []V7SignalOutput
 
@@ -103,13 +114,38 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 			sig.RiskScore = riskScore
 			sig.RiskLevel = ClassifyV7RiskLevel(riskScore)
 
-			// Translate raw setup scores into executable signal quality before
-			// ranking. This keeps early/watch-only context visible while moving
-			// trade-ready setups above noisy low-timing candidates.
+			// ---- v8 enhancements (Phase 1 P0) ----
+
+			// Multi-timeframe TP targets
+			ApplyMultiTimeframeTP(sig, ctx)
+
+			// Timing booster: chase-high / overbought protection
+			timingBooster.EnhanceTiming(sig, ctx)
+
+			// Funding fast-track: relax zone requirements for extreme funding
+			if fundingFastTrack.ShouldFastTrack(sig, ctx) {
+				fundingFastTrack.ApplyFastTrack(sig)
+			}
+
+			// Sector rotation leadership: small boost for themes with broad relative strength.
+			sectorRotation.EnhanceSignal(sig, ctx, regime)
+
+			// Condition resonance: non-linear co-occurrence bonus/penalty
+			resonanceScorer.ApplyToSignal(sig)
+
+			// Translate post-enhancement scores into executable signal quality.
+			// This must run after TP/timing/fast-track/resonance adjustments so
+			// readiness tiers and blocked gates reflect the final signal.
 			finalizeV7SignalForExecution(sig, ctx, cfg)
 
 			// Compute AI Priority (composite ranking score)
 			sig.AIPriority = CalcAIPriority(sig, cfg)
+
+			// Panic weight override: boost timing weight for panic+reversal combos
+			sig.AIPriority = panicOverride.AdjustAIPriority(sig.AIPriority, sig.TimingScore, sig.MarketRegime, sig.SetupType)
+
+			// Resonance bonus placeholder (Phase 2 prep)
+			sig.AIPriority = clampFloat(sig.AIPriority+sig.ResonanceBonus, 0, 100)
 
 			// Filter: risk extreme
 			if riskScore >= 90 {
@@ -122,6 +158,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 				sig.Status = V7StatusFiltered
 				sig.RiskTags = append(sig.RiskTags, "liquidity_filtered")
 			}
+			refreshV7ExecutionReadiness(sig, ctx)
 
 			allSignals = append(allSignals, *sig)
 		}
@@ -131,6 +168,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 	allSignals = ResolveV7Conflicts(allSignals)
 
 	confirmed := filterV7SignalsForLLM(allSignals, cfg)
+	confirmed = applyV7CorrelationFilter(confirmed, cfg)
 	watches := BuildV7PreMoveRadar(universe, regime, cfg)
 	out := appendV7WatchSignals(confirmed, watches, cfg)
 	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
@@ -143,6 +181,14 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 		WatchSignals:     watches,
 		OutputSignals:    out,
 	}
+}
+
+func refreshV7ExecutionReadiness(sig *V7SignalOutput, ctx *V7SymbolContext) {
+	if sig == nil || ctx == nil {
+		return
+	}
+	readiness := CalculateV7ExecutionReadiness(sig, ctx)
+	sig.ExecutionReadiness = &readiness
 }
 
 func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7SignalOutput, regime V7MarketRegime) []V7SignalOutput {
@@ -275,6 +321,57 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		filtered = diversifyV7Signals(filtered, maxOutput)
 	}
 	return filtered
+}
+
+func applyV7CorrelationFilter(signals []V7SignalOutput, cfg V7Config) []V7SignalOutput {
+	if len(signals) == 0 {
+		return signals
+	}
+	maxPerTheme := cfg.CorrelationMaxPerTheme
+	if maxPerTheme < 0 {
+		return signals
+	}
+	if maxPerTheme == 0 {
+		maxPerTheme = 3
+	}
+	minOutput := cfg.MinOutput
+	if minOutput <= 0 {
+		minOutput = 3
+	}
+	maxOutput := cfg.MaxOutput
+	if maxOutput > 0 && minOutput > maxOutput {
+		minOutput = maxOutput
+	}
+
+	filtered := NewCorrelationFilter(maxPerTheme).FilterByCorrelation(signals)
+	if len(filtered) >= minOutput || len(filtered) >= len(signals) {
+		return filtered
+	}
+
+	seen := make(map[string]struct{}, len(filtered))
+	for _, sig := range filtered {
+		seen[v7SignalIdentity(sig)] = struct{}{}
+	}
+	for _, sig := range signals {
+		if len(filtered) >= minOutput {
+			break
+		}
+		key := v7SignalIdentity(sig)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "correlation_floor_context")
+		filtered = append(filtered, sig)
+		seen[key] = struct{}{}
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].AIPriority > filtered[j].AIPriority
+	})
+	return filtered
+}
+
+func v7SignalIdentity(sig V7SignalOutput) string {
+	return sig.Symbol + "\x00" + string(sig.SetupType) + "\x00" + string(sig.Direction)
 }
 
 func hasV7OpenReviewSignal(signals []V7SignalOutput) bool {

@@ -23,6 +23,7 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 	}
 
 	thresholds := cfg.GetSetupThresholds(sig.SetupType)
+	thresholds = fundingFastTrackThresholds(sig, thresholds)
 	if pos, ok := v7EntryZonePositionPct(sig, ctx.CurrentPrice); ok {
 		if sig.Direction == V7DirShort && thresholds.MinZonePosShort > 0 && int(pos) < thresholds.MinZonePosShort {
 			quality = worseV7ExecutionQuality(quality, V7ExecWatchOnly)
@@ -49,6 +50,11 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 		if sig.TimingScore >= 45 && sig.RiskScore < 55 && rrOK && rr >= 1.5 {
 			quality = betterV7ExecutionQuality(quality, V7ExecReady)
 		}
+	case V7SetupIntradayScalp:
+		quality = worseV7ExecutionQuality(quality, V7ExecWatchOnly)
+		sig.Status = V7StatusWaitConfirm
+		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "scalp_backend_geometry_context")
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "scalp_global_geometry_incompatible")
 	case V7SetupFundingReversal:
 		finalizeFundingReversalExecution(sig, ctx, &quality)
 	case V7SetupShortSqueezeLong:
@@ -89,6 +95,8 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 		quality = V7ExecReady
 	}
 	sig.ExecutionQuality = quality
+	readiness := CalculateV7ExecutionReadiness(sig, ctx)
+	sig.ExecutionReadiness = &readiness
 }
 
 func finalizeFundingReversalExecution(sig *V7SignalOutput, ctx *V7SymbolContext, quality *V7ExecutionQuality) {
@@ -125,6 +133,23 @@ func finalizeFundingReversalExecution(sig *V7SignalOutput, ctx *V7SymbolContext,
 			}
 		}
 	}
+}
+
+func fundingFastTrackThresholds(sig *V7SignalOutput, thresholds V7SetupThresholds) V7SetupThresholds {
+	if sig == nil || sig.SetupType != V7SetupFundingReversal {
+		return thresholds
+	}
+	if !hasV7ExecutionRiskTag(sig, "fast_tracked_funding") &&
+		!containsV7String(sig.ReasonCodes, "funding_extreme_fast_track") {
+		return thresholds
+	}
+	if sig.Direction == V7DirShort && thresholds.MinZonePosShort > 40 {
+		thresholds.MinZonePosShort = 40
+	}
+	if sig.Direction == V7DirLong && thresholds.MaxZonePosLong < 60 {
+		thresholds.MaxZonePosLong = 60
+	}
+	return thresholds
 }
 
 func v7SignalRiskReward(sig *V7SignalOutput, price float64) (float64, bool) {

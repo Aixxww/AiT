@@ -271,36 +271,22 @@ func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
 }
 
 func (e *StrategyEngine) effectiveExecutionGeometry() (maxTPMovePct, minSLMovePct, maxDriftPct float64) {
+	geometry := e.hunterV7ExecutionGeometry()
+	return geometry.MaxTPMovePct, geometry.MinSLMovePct, geometry.MaxDriftPct
+}
+
+func (e *StrategyEngine) hunterV7ExecutionGeometry() HunterV7ExecutionGeometry {
 	if e == nil {
-		return 0, 0, 0
+		return HunterV7ExecutionGeometry{}
 	}
 	riskControl := e.config.RiskControl
-	maxTPMovePct = riskControl.MaxTakeProfitPriceMovePct
-	minSLMovePct = riskControl.MinStopLossPriceMovePct
-	maxDriftPct = riskControl.MaxEntryPriceDeviationPct
-
-	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
-		if maxTPMovePct <= 0 {
-			maxTPMovePct = 3.0
-		}
-		if minSLMovePct <= 0 {
-			minSLMovePct = 2.0
-		}
-		if maxDriftPct <= 0 {
-			maxDriftPct = 0.5
-		}
-		minRR := riskControl.MinRiskRewardRatio
-		if minRR <= 0 {
-			minRR = 1.5
-		}
-		minFeasibleTPPct := (minSLMovePct + maxDriftPct) * minRR
-		minFeasibleTPPct += 0.25 // execution/rounding buffer in percentage points
-		if maxTPMovePct < minFeasibleTPPct {
-			maxTPMovePct = minFeasibleTPPct
-		}
-	}
-
-	return maxTPMovePct, minSLMovePct, maxDriftPct
+	return HunterV7EffectiveExecutionGeometry(
+		riskControl.MaxTakeProfitPriceMovePct,
+		riskControl.MinStopLossPriceMovePct,
+		riskControl.MaxEntryPriceDeviationPct,
+		riskControl.MinRiskRewardRatio,
+		strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7"),
+	)
 }
 
 func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
@@ -677,6 +663,7 @@ type hunterV7PromptCandidate struct {
 
 func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder, ctx *Context, positionSymbols map[string]bool) {
 	items := make([]hunterV7PromptCandidate, 0, len(ctx.CandidateCoins))
+	geometry := e.hunterV7ExecutionGeometry()
 	for _, coin := range ctx.CandidateCoins {
 		if positionSymbols[market.Normalize(coin.Symbol)] {
 			continue
@@ -686,10 +673,11 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			continue
 		}
 		coin = hunterV7CandidateWithLiveMarketPrice(coin, data)
-		tier, reason := coin.V7ExecutionTier, coin.V7TierReason
-		if tier == "" {
-			tier, reason = classifyHunterV7CandidateTier(coin)
-		}
+		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, geometry)
+		coin.V7ExecutionTier = tier
+		coin.V7TierReason = reason
+		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
+		coin.V7Readiness = &readiness
 		items = append(items, hunterV7PromptCandidate{
 			Coin:   coin,
 			Data:   data,
@@ -703,6 +691,17 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		tj := hunterV7TierRank(items[j].Tier)
 		if ti != tj {
 			return ti < tj
+		}
+		ri := 0.0
+		rj := 0.0
+		if items[i].Coin.V7Readiness != nil {
+			ri = items[i].Coin.V7Readiness.ReadyScore
+		}
+		if items[j].Coin.V7Readiness != nil {
+			rj = items[j].Coin.V7Readiness.ReadyScore
+		}
+		if ri != rj {
+			return ri > rj
 		}
 		return items[i].Coin.V7AIPriority > items[j].Coin.V7AIPriority
 	})
@@ -756,7 +755,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		}
 	}
 
-	sb.WriteString("### Open-review candidates (full context, max 5)\n\n")
+	openReviewLimit := hunterV7OpenReviewExpansionLimit(execCount+reviewableCount, len(ctx.Positions), e.config.RiskControl.MaxPositions)
+	sb.WriteString(fmt.Sprintf("### Open-review candidates (full context, max %d)\n\n", openReviewLimit))
 	displayedOpenReview := 0
 	if positionLimitReached {
 		sb.WriteString("- None (position limit reached; open-review candidates are summary-only below)\n\n")
@@ -765,9 +765,15 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			if item.Tier != "EXECUTABLE" && item.Tier != "REVIEWABLE" {
 				continue
 			}
-			if displayedOpenReview >= 5 {
-				sb.WriteString(fmt.Sprintf("- %s %s setup=%s ai_priority=%.1f reason=%s (not expanded; lower priority)\n",
-					item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7AIPriority, item.Reason))
+			if displayedOpenReview >= openReviewLimit {
+				compact := e.formatHunterV7CompactSignalJSON(item.Coin)
+				if compact != "" {
+					sb.WriteString(fmt.Sprintf("- %s %s tier=%s compact_execution_json=%s\n",
+						item.Coin.Symbol, item.Coin.Direction, item.Tier, compact))
+				} else {
+					sb.WriteString(fmt.Sprintf("- %s %s setup=%s ai_priority=%.1f reason=%s (compact only; lower priority)\n",
+						item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7AIPriority, item.Reason))
+				}
 				continue
 			}
 			displayedOpenReview++
@@ -874,6 +880,128 @@ func hunterV7TierRank(tier string) int {
 	}
 }
 
+func hunterV7OpenReviewExpansionLimit(openReviewCount, positionCount, maxPositions int) int {
+	limit := 8
+	if positionCount > 0 && (maxPositions <= 0 || positionCount < maxPositions) {
+		limit = 6
+	}
+	return limit
+}
+
+func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tier, reason string) local.V7ExecutionReadiness {
+	readiness := local.V7ExecutionReadiness{
+		Tier:         local.V7ReadinessTier(tier),
+		Reason:       reason,
+		ReadyScore:   coin.V7AIPriority,
+		WindowHealth: math.Min(100, math.Max(0, coin.V7TimingScore)),
+		EntryZonePos: -1,
+		DataQuality:  "complete",
+		NextConfirm:  append([]string{}, coin.V7RequiredConfirms...),
+	}
+	if readiness.Tier == "" {
+		readiness.Tier = local.V7ReadinessWatch
+	}
+	if coin.V7Readiness != nil {
+		readiness.ReadyScore = coin.V7Readiness.ReadyScore
+		readiness.WindowHealth = coin.V7Readiness.WindowHealth
+		readiness.NextConfirm = append([]string{}, coin.V7Readiness.NextConfirm...)
+	}
+
+	price := 0.0
+	if data != nil {
+		price = data.CurrentPrice
+	}
+	if price <= 0 && coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
+	}
+	if price > 0 && coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
+		readiness.EntryZonePos = (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+		readiness.PriceDeviation = hunterV7EntryZoneDeviationPct(price, coin.V7EntryZone)
+		readiness.WindowHealth = hunterV7PromptWindowHealth(coin, readiness.EntryZonePos)
+	}
+
+	missing := hunterV7CompactMissingFieldGroups(data, &coin)
+	readiness.MissingHard = missing.Hard
+	readiness.MissingExecution = missing.Execution
+	readiness.MissingContext = missing.Context
+	if missing.hasMissing() {
+		readiness.DataQuality = "partial"
+	}
+	if reason == "backend_rr_infeasible" {
+		readiness.Tier = local.V7ReadinessWatch
+		readiness.Reason = reason
+		readiness.BlockedGate = "execution_geometry"
+		readiness.ReadyScore = math.Min(readiness.ReadyScore, 55)
+		return readiness
+	}
+	switch {
+	case len(missing.Hard) > 0:
+		readiness.BlockedGate = "prompt_data_quality"
+		if readiness.Tier == local.V7ReadinessExecutable {
+			readiness.Tier = local.V7ReadinessReviewable
+			readiness.Reason = missing.Hard[0] + "_missing"
+		}
+	case len(missing.Execution) > 0:
+		readiness.BlockedGate = "confirmation_missing"
+		if readiness.Tier == local.V7ReadinessExecutable {
+			readiness.Tier = local.V7ReadinessReviewable
+			readiness.Reason = missing.Execution[0] + "_missing"
+		}
+	case tier == "WATCH":
+		readiness.BlockedGate = "kernel_tier"
+	case tier == "REJECTED":
+		readiness.BlockedGate = "kernel_tier_rejected"
+	}
+	readiness.ReadyScore = hunterV7PromptReadyScore(coin, readiness.WindowHealth, missing)
+	return readiness
+}
+
+func hunterV7EntryZoneDeviationPct(price float64, zone local.V7PriceZone) float64 {
+	if price <= 0 || zone.Lower <= 0 || zone.Upper <= zone.Lower {
+		return 0
+	}
+	if price >= zone.Lower && price <= zone.Upper {
+		return 0
+	}
+	if price < zone.Lower {
+		return (price - zone.Lower) / zone.Lower * 100
+	}
+	return (price - zone.Upper) / zone.Upper * 100
+}
+
+func hunterV7PromptWindowHealth(coin CandidateCoin, zonePos float64) float64 {
+	score := 35.0
+	if zonePos >= 0 && zonePos <= 100 {
+		score += 35
+		if zonePos >= 15 && zonePos <= 85 {
+			score += 10
+		}
+	} else if math.Abs(zonePos) <= 140 {
+		score += 12
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		if hunterV7TakerBuyAtMost(coin, 0.50) {
+			score += 12
+		}
+	} else if hunterV7TakerBuyAtLeast(coin, 0.50) {
+		score += 12
+	}
+	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.PassedReview {
+		score += 8
+	}
+	return math.Min(100, math.Max(0, score))
+}
+
+func hunterV7PromptReadyScore(coin CandidateCoin, windowHealth float64, missing hunterV7MissingFieldGroups) float64 {
+	score := coin.V7SetupScore*0.25 + coin.V7TimingScore*0.20 + coin.V7RegimeFitScore*0.10 +
+		coin.V7LiquidityScore*0.05 + coin.V7AIPriority*0.20 + windowHealth*0.20
+	score -= math.Max(0, coin.V7RiskScore-35) * 0.35
+	score -= float64(len(missing.Execution)) * 5
+	score -= float64(len(missing.Context)) * 2
+	score -= float64(len(missing.Hard)) * 20
+	return math.Min(100, math.Max(0, score))
+}
+
 func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, item hunterV7PromptCandidate, index int, ctx *Context) {
 	coin := item.Coin
 	coin.V7ExecutionTier = item.Tier
@@ -898,9 +1026,50 @@ func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, ite
 	sb.WriteString("\n")
 }
 
+func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) string {
+	if coin.V7ExecutionTier == "" {
+		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTierWithGeometry(coin, e.hunterV7ExecutionGeometry())
+	}
+	type compactSignal struct {
+		Symbol             string                      `json:"symbol"`
+		Direction          string                      `json:"direction"`
+		SetupType          string                      `json:"setup_type"`
+		ExecutionTier      string                      `json:"execution_tier"`
+		TierReason         string                      `json:"tier_reason"`
+		AIPriority         float64                     `json:"ai_priority"`
+		ExecutionQuality   string                      `json:"execution_quality,omitempty"`
+		RiskScore          float64                     `json:"risk_score"`
+		EntryZone          local.V7PriceZone           `json:"entry_zone"`
+		Invalidation       local.V7InvalidationRule    `json:"invalidation"`
+		Targets            []local.V7Target            `json:"targets"`
+		PriceContext       *local.V7PriceContext       `json:"price_context,omitempty"`
+		ExecutionReadiness *local.V7ExecutionReadiness `json:"execution_readiness,omitempty"`
+	}
+	payload := compactSignal{
+		Symbol:             coin.Symbol,
+		Direction:          coin.Direction,
+		SetupType:          coin.V7SetupType,
+		ExecutionTier:      coin.V7ExecutionTier,
+		TierReason:         coin.V7TierReason,
+		AIPriority:         coin.V7AIPriority,
+		ExecutionQuality:   coin.V7ExecutionQuality,
+		RiskScore:          coin.V7RiskScore,
+		EntryZone:          coin.V7EntryZone,
+		Invalidation:       coin.V7Invalidation,
+		Targets:            coin.V7Targets,
+		PriceContext:       coin.V7PriceContext,
+		ExecutionReadiness: coin.V7Readiness,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 	if coin.V7SetupType != "" && coin.V7ExecutionTier == "" {
-		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTier(coin)
+		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTierWithGeometry(coin, e.hunterV7ExecutionGeometry())
 	}
 
 	type v7SignalForAI struct {
@@ -933,6 +1102,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Targets               []local.V7Target              `json:"targets"`
 		PriceContext          *local.V7PriceContext         `json:"price_context,omitempty"`
 		DerivativesContext    *local.V7DerivativesContext   `json:"derivatives_context,omitempty"`
+		ExecutionReadiness    *local.V7ExecutionReadiness   `json:"execution_readiness,omitempty"`
 	}
 
 	payload := v7SignalForAI{
@@ -965,6 +1135,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Targets:               coin.V7Targets,
 		PriceContext:          coin.V7PriceContext,
 		DerivativesContext:    coin.V7DerivativesCtx,
+		ExecutionReadiness:    coin.V7Readiness,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -1403,12 +1574,27 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 	if rule := hunterV7ExecutionHardRule(price, coin); rule != "" {
 		parts = append(parts, "hard_rule="+rule)
 	}
-	if missing := hunterV7CompactMissingFields(data, coin); len(missing) > 0 {
-		parts = append(parts,
-			"compact_data_quality=partial",
-			fmt.Sprintf("missing=%s", strings.Join(missing, ",")),
-			"missing_fields_rule=wait_unless_all_required_confirmations_are_visible",
-		)
+	missing := hunterV7CompactMissingFieldGroups(data, coin)
+	if missing.hasMissing() {
+		parts = append(parts, "compact_data_quality=partial")
+		if len(missing.Hard) > 0 {
+			parts = append(parts,
+				fmt.Sprintf("missing_hard=%s", strings.Join(missing.Hard, ",")),
+				"missing_hard_rule=wait",
+			)
+		}
+		if len(missing.Execution) > 0 {
+			parts = append(parts,
+				fmt.Sprintf("missing_execution=%s", strings.Join(missing.Execution, ",")),
+				"missing_execution_rule=review_or_wait_for_setup_confirmation",
+			)
+		}
+		if len(missing.Context) > 0 {
+			parts = append(parts,
+				fmt.Sprintf("missing_context=%s", strings.Join(missing.Context, ",")),
+				"missing_context_rule=do_not_global_wait_reduce_confidence_or_size",
+			)
+		}
 	} else {
 		parts = append(parts, "compact_data_quality=complete")
 	}
@@ -1417,47 +1603,67 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 	return sb.String()
 }
 
+type hunterV7MissingFieldGroups struct {
+	Hard      []string
+	Execution []string
+	Context   []string
+}
+
+func (m hunterV7MissingFieldGroups) hasMissing() bool {
+	return len(m.Hard) > 0 || len(m.Execution) > 0 || len(m.Context) > 0
+}
+
 func hunterV7CompactMissingFields(data *market.Data, coin *CandidateCoin) []string {
+	groups := hunterV7CompactMissingFieldGroups(data, coin)
+	out := make([]string, 0, len(groups.Hard)+len(groups.Execution)+len(groups.Context))
+	out = append(out, groups.Hard...)
+	out = append(out, groups.Execution...)
+	out = append(out, groups.Context...)
+	return out
+}
+
+func hunterV7CompactMissingFieldGroups(data *market.Data, coin *CandidateCoin) hunterV7MissingFieldGroups {
+	groups := hunterV7MissingFieldGroups{}
 	if coin == nil {
-		return nil
+		return groups
 	}
-	missing := make([]string, 0, 8)
 	if coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= coin.V7EntryZone.Lower {
-		missing = append(missing, "entry_zone")
+		groups.Hard = append(groups.Hard, "entry_zone")
 	}
 	if coin.V7Invalidation.Price <= 0 {
-		missing = append(missing, "invalidation")
+		groups.Hard = append(groups.Hard, "invalidation")
 	}
 	if len(coin.V7Targets) == 0 || coin.V7Targets[0].Price <= 0 {
-		missing = append(missing, "target1")
+		groups.Hard = append(groups.Hard, "target1")
 	}
 	if coin.V7DerivativesCtx == nil {
-		missing = append(missing, "derivatives_context")
+		groups.Execution = append(groups.Execution, "derivatives_context")
 	} else if coin.V7DerivativesCtx.TakerBuy15m <= 0 {
-		missing = append(missing, "taker_buy_15m")
+		groups.Execution = append(groups.Execution, "taker_buy_15m")
 	}
 	if data == nil {
-		return append(missing, "market_data")
+		groups.Hard = append(groups.Hard, "market_data")
+		return groups
 	}
 	tf15 := data.TimeframeData["15m"]
 	if tf15 == nil || len(tf15.Klines) == 0 {
-		missing = append(missing, "15m_kline")
+		groups.Execution = append(groups.Execution, "15m_kline")
 	} else {
 		if tf15.ATR14 <= 0 {
-			missing = append(missing, "15m_atr")
+			groups.Context = append(groups.Context, "15m_atr")
 		}
 		if _, ok := lastFloat(tf15.EMA20Values); !ok {
-			missing = append(missing, "15m_ema20")
+			groups.Execution = append(groups.Execution, "15m_ema20")
 		}
 	}
 	if hunterV7RequiresVWAP(coin) && hunterV7CompactVWAP15m(data, coin) <= 0 {
-		missing = append(missing, "15m_vwap")
+		groups.Execution = append(groups.Execution, "15m_vwap")
 	}
 	tf5 := data.TimeframeData["5m"]
 	if tf5 == nil || len(tf5.Klines) == 0 {
-		missing = append(missing, "5m_kline")
+		groups.Execution = append(groups.Execution, "5m_kline")
 	}
-	return missing
+	return groups
 }
 
 func executionTFCompact(label string, price float64, data *market.TimeframeSeriesData, vwap float64) string {
