@@ -394,6 +394,34 @@ func TestBuildUserPromptCanUpgradeHunterV7TierAfterLivePriceReturnsToWindow(t *t
 	}
 }
 
+func TestBuildUserPromptDemotesExecutableWhenPromptReadinessMissingExecution(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{
+		Language: "en",
+		CoinSource: store.CoinSourceConfig{
+			SourceType: "hunter_v7",
+		},
+	})
+	coin := hunterV7PromptReadyLeaderCandidate("MISSKUSDT", 100)
+	data := hunterV7PromptTestMarketData("MISSKUSDT", 100)
+	delete(data.TimeframeData, "15m")
+	delete(data.TimeframeData, "5m")
+	ctx := &Context{
+		CandidateCoins: []CandidateCoin{coin},
+		MarketDataMap:  map[string]*market.Data{"MISSKUSDT": data},
+	}
+
+	prompt := engine.BuildUserPrompt(ctx)
+	for _, want := range []string{
+		"Tier Summary: EXECUTABLE=0 | REVIEWABLE=1 | WATCH=0 | REJECTED=0",
+		"execution_tier=REVIEWABLE tier_reason=prompt_readiness_15m_kline_missing",
+		"\"missing_execution\":[\"15m_kline\",\"5m_kline\"]",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q\n%s", want, prompt)
+		}
+	}
+}
+
 func TestBuildUserPromptEmitsCompactJSONForOverflowOpenReviewCandidates(t *testing.T) {
 	engine := NewStrategyEngine(&store.StrategyConfig{
 		Language: "en",
@@ -559,6 +587,10 @@ func TestBuildUserPromptDoesNotExpandHunterV7CandidatesAtPositionLimit(t *testin
 				V7RiskScore:        20,
 				V7LiquidityScore:   90,
 				V7RiskLevel:        "LOW",
+				V7EntryZone:        local.V7PriceZone{Lower: 0.99, Upper: 1.02},
+				V7Invalidation:     local.V7InvalidationRule{Price: 0.98},
+				V7Targets:          []local.V7Target{{Price: 1.08}},
+				V7PriceContext:     &local.V7PriceContext{Last: 1.01},
 				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.56},
 			},
 		},
@@ -572,7 +604,7 @@ func TestBuildUserPromptDoesNotExpandHunterV7CandidatesAtPositionLimit(t *testin
 	for _, want := range []string{
 		"Current positions have reached Max Positions",
 		"### Open-disabled candidate summary",
-		"READYUSDT LONG tier=EXECUTABLE",
+		"READYUSDT LONG tier=WATCH",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("position-limit prompt missing %q\n%s", want, prompt)
@@ -1016,6 +1048,101 @@ func TestClassifyHunterV7CandidateTierDemotesBackendCappedRRInfeasible(t *testin
 
 	if tier != "WATCH" || reason != "backend_rr_infeasible" {
 		t.Fatalf("tier = %q (%s), want WATCH backend_rr_infeasible", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierDemotesMissingExecutionReadiness(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DEXEUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       85.5,
+		V7SetupScore:       100,
+		V7TimingScore:      83,
+		V7RiskScore:        8,
+		V7LiquidityScore:   75,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"strong_24h_momentum", "strong_4h_momentum", "holding_1h", "oi_healthy_growth", "taker_sustained_buy"},
+		V7EntryZone:        local.V7PriceZone{Lower: 16.25, Upper: 16.62},
+		V7Invalidation:     local.V7InvalidationRule{Price: 16.18},
+		V7Targets:          []local.V7Target{{Price: 17.34}, {Price: 17.65}},
+		V7PriceContext:     &local.V7PriceContext{Last: 16.52},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.606},
+		V7Readiness: &local.V7ExecutionReadiness{
+			Tier:             local.V7ReadinessReviewable,
+			Reason:           "15m_kline_missing",
+			ReadyScore:       78.9,
+			MissingExecution: []string{"15m_kline", "5m_kline"},
+			BlockedGate:      "confirmation_missing",
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "missing_execution_15m_kline" {
+		t.Fatalf("tier = %q (%s), want WATCH missing_execution_15m_kline", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierBlocksWaitOnlyReasonCodes(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DEXEUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       85.5,
+		V7SetupScore:       100,
+		V7TimingScore:      83,
+		V7RiskScore:        8,
+		V7LiquidityScore:   75,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"strong_24h_momentum", "strong_4h_momentum", "holding_1h", "oi_healthy_growth", "taker_sustained_buy", "no_pullback_still_running"},
+		V7EntryZone:        local.V7PriceZone{Lower: 16.25, Upper: 16.62},
+		V7Invalidation:     local.V7InvalidationRule{Price: 16.18},
+		V7Targets:          []local.V7Target{{Price: 17.34}, {Price: 17.65}},
+		V7PriceContext:     &local.V7PriceContext{Last: 16.52},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.606},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier == "EXECUTABLE" {
+		t.Fatalf("tier = %q (%s), wait-only no-pullback reason must block direct open", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierKeepsSqueezeFeasibleWithExtendedTargets(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "REUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "volatility_squeeze_breakout",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       72.2,
+		V7SetupScore:       72,
+		V7TimingScore:      81.4,
+		V7RiskScore:        30,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"volatility_squeeze_detected", "oi_building", "bb_compressed"},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.43779, Upper: 0.45726561552300726},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.41831438447699276},
+		V7Targets: []local.V7Target{
+			{Price: 0.4491756155230073},
+			{Price: 0.4686512310460145},
+			{Price: 0.507602462092029},
+		},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.4297},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.56},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier == "WATCH" && reason == "backend_rr_infeasible" {
+		t.Fatalf("squeeze should not be blocked by global backend geometry: tier=%q reason=%s", tier, reason)
 	}
 }
 
@@ -2240,6 +2367,7 @@ func hunterV7PromptTestMarketData(symbol string, price float64) *market.Data {
 					{Open: price * 0.985, High: price * 1.00, Low: price * 0.98, Close: price * 0.995, Volume: 110000},
 					{Open: price * 0.995, High: price * 1.01, Low: price * 0.99, Close: price, Volume: 130000},
 				},
+				EMA20Values: []float64{price * 0.995},
 				RSI7Values:  []float64{58},
 				RSI14Values: []float64{55},
 				ATR14:       price * 0.01,

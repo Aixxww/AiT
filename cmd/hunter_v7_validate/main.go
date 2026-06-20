@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,14 +52,16 @@ type formatCheck struct {
 }
 
 type aiRecognitionCheck struct {
-	PromptContainsV7JSON     bool `json:"prompt_contains_v7_json"`
-	PromptContainsSetupType  bool `json:"prompt_contains_setup_type"`
-	PromptContainsEntryMode  bool `json:"prompt_contains_entry_mode"`
-	PromptContainsRiskLevel  bool `json:"prompt_contains_risk_level"`
-	PromptContainsConfirms   bool `json:"prompt_contains_confirmations"`
-	PromptContainsInvalid    bool `json:"prompt_contains_invalidation"`
-	PromptCandidateCoinCount int  `json:"prompt_candidate_coin_count"`
-	PromptBytes              int  `json:"prompt_bytes"`
+	PromptContainsV7JSON      bool           `json:"prompt_contains_v7_json"`
+	PromptContainsSetupType   bool           `json:"prompt_contains_setup_type"`
+	PromptContainsEntryMode   bool           `json:"prompt_contains_entry_mode"`
+	PromptContainsRiskLevel   bool           `json:"prompt_contains_risk_level"`
+	PromptContainsConfirms    bool           `json:"prompt_contains_confirmations"`
+	PromptContainsInvalid     bool           `json:"prompt_contains_invalidation"`
+	PromptContainsTierSummary bool           `json:"prompt_contains_tier_summary"`
+	PromptTierCounts          map[string]int `json:"prompt_tier_counts"`
+	PromptCandidateCoinCount  int            `json:"prompt_candidate_coin_count"`
+	PromptBytes               int            `json:"prompt_bytes"`
 }
 
 type opportunityCoverCheck struct {
@@ -422,6 +425,9 @@ func validateFormat(signals []local.V7SignalOutput) (formatCheck, []issue) {
 			check.ExecutableGapCount++
 			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "missing_entry_mode", Detail: "AI cannot distinguish immediate entry vs wait-confirm"})
 		}
+		if sig.Status == local.V7StatusConflictWatch {
+			continue
+		}
 		if sig.Invalidation.Price <= 0 {
 			check.ExecutableGapCount++
 			issues = append(issues, issue{Severity: "high", Symbol: symbol, Code: "missing_invalidation", Detail: "signal lacks a concrete invalidation price"})
@@ -456,16 +462,50 @@ func needsConfirmations(sig local.V7SignalOutput) bool {
 }
 
 func validatePrompt(prompt string, candidateCount int) aiRecognitionCheck {
+	promptTierCounts := parsePromptTierCounts(prompt)
 	return aiRecognitionCheck{
-		PromptContainsV7JSON:     strings.Contains(prompt, "hunter_v7_signal_json: {"),
-		PromptContainsSetupType:  strings.Contains(prompt, "\"setup_type\""),
-		PromptContainsEntryMode:  strings.Contains(prompt, "\"entry_mode\""),
-		PromptContainsRiskLevel:  strings.Contains(prompt, "\"risk_level\""),
-		PromptContainsConfirms:   strings.Contains(prompt, "\"required_confirmations\""),
-		PromptContainsInvalid:    strings.Contains(prompt, "\"invalidation\""),
-		PromptCandidateCoinCount: candidateCount,
-		PromptBytes:              len([]byte(prompt)),
+		PromptContainsV7JSON:      strings.Contains(prompt, "hunter_v7_signal_json: {"),
+		PromptContainsSetupType:   strings.Contains(prompt, "\"setup_type\""),
+		PromptContainsEntryMode:   strings.Contains(prompt, "\"entry_mode\""),
+		PromptContainsRiskLevel:   strings.Contains(prompt, "\"risk_level\""),
+		PromptContainsConfirms:    strings.Contains(prompt, "\"required_confirmations\""),
+		PromptContainsInvalid:     strings.Contains(prompt, "\"invalidation\""),
+		PromptContainsTierSummary: len(promptTierCounts) > 0,
+		PromptTierCounts:          promptTierCounts,
+		PromptCandidateCoinCount:  candidateCount,
+		PromptBytes:               len([]byte(prompt)),
 	}
+}
+
+func parsePromptTierCounts(prompt string) map[string]int {
+	const prefix = "Tier Summary:"
+	for _, line := range strings.Split(prompt, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.Contains(line, prefix) {
+			continue
+		}
+		_, summary, ok := strings.Cut(line, prefix)
+		if !ok {
+			continue
+		}
+		counts := map[string]int{}
+		for _, part := range strings.Split(summary, "|") {
+			key, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+			if !ok {
+				continue
+			}
+			n, err := strconv.Atoi(strings.TrimSpace(value))
+			if err != nil {
+				continue
+			}
+			key = strings.TrimSpace(key)
+			if key != "" {
+				counts[key] = n
+			}
+		}
+		return counts
+	}
+	return nil
 }
 
 func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
@@ -530,6 +570,9 @@ func promptIssues(c aiRecognitionCheck) []issue {
 	}
 	if !c.PromptContainsConfirms || !c.PromptContainsInvalid {
 		issues = append(issues, issue{Severity: "high", Code: "prompt_missing_execution_fields", Detail: "AIT prompt lacks confirmations or invalidation fields"})
+	}
+	if !c.PromptContainsTierSummary {
+		issues = append(issues, issue{Severity: "medium", Code: "prompt_missing_tier_summary", Detail: "AIT prompt lacks final execution tier summary; validator cannot compare prompt-final tier distribution"})
 	}
 	return issues
 }
@@ -598,7 +641,8 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("- setup 分布：%s\n", sortedMap(r.OpportunityCover.BySetupType)))
 	sb.WriteString(fmt.Sprintf("- status 分布：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
 	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
-	sb.WriteString(fmt.Sprintf("- tier 分布：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
+	sb.WriteString(fmt.Sprintf("- runtime tier 分布（后端初筛）：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
+	sb.WriteString(fmt.Sprintf("- prompt-final tier 分布（AIT 最终可执行口径）：%s\n", sortedMap(r.AIRecognition.PromptTierCounts)))
 	sb.WriteString(fmt.Sprintf("- 覆盖家族：momentum=%v, reversal=%v, squeeze=%v, range=%v, funding=%v, accumulation=%v, distribution=%v\n\n",
 		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
@@ -637,7 +681,8 @@ func printConsoleSummary(r validationReport, rawPath, mdPath string) {
 		r.Snapshot.SymbolCount, r.Snapshot.UniverseCount, r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h, r.Snapshot.RestErrors)
 	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
 		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
-	fmt.Printf("tiers: %s\n", sortedMap(r.OpportunityCover.ByExecutionTier))
+	fmt.Printf("runtime tiers: %s\n", sortedMap(r.OpportunityCover.ByExecutionTier))
+	fmt.Printf("prompt-final tiers: %s\n", sortedMap(r.AIRecognition.PromptTierCounts))
 	fmt.Printf("format: json=%v/%v missing=%d executable_gaps=%d prompt_v7_json=%v\n",
 		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
 		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON)

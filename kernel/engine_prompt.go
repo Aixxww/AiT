@@ -678,6 +678,9 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		coin.V7TierReason = reason
 		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
 		coin.V7Readiness = &readiness
+		tier, reason = hunterV7TierFromPromptReadiness(tier, reason, readiness)
+		coin.V7ExecutionTier = tier
+		coin.V7TierReason = reason
 		items = append(items, hunterV7PromptCandidate{
 			Coin:   coin,
 			Data:   data,
@@ -850,6 +853,24 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		sb.WriteString(fmt.Sprintf("- %s: %d\n", reason, reasonCounts[reason]))
 	}
 	sb.WriteString("\n")
+}
+
+func hunterV7TierFromPromptReadiness(tier, reason string, readiness local.V7ExecutionReadiness) (string, string) {
+	switch readiness.Tier {
+	case local.V7ReadinessRejected:
+		if tier != "REJECTED" {
+			return "REJECTED", "prompt_readiness_" + readiness.Reason
+		}
+	case local.V7ReadinessWatch:
+		if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+			return "WATCH", "prompt_readiness_" + readiness.Reason
+		}
+	case local.V7ReadinessReviewable:
+		if tier == "EXECUTABLE" {
+			return "REVIEWABLE", "prompt_readiness_" + readiness.Reason
+		}
+	}
+	return tier, reason
 }
 
 func hunterV7CandidateWithLiveMarketPrice(coin CandidateCoin, data *market.Data) CandidateCoin {

@@ -637,6 +637,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 		return "REJECTED", "risk_score_gte_65"
 	}
 
+	if reason := hunterV7ReadinessMissingExecutionWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 	if coin.V7SetupType == "funding_reversal" &&
 		containsStringValue(coin.V7RiskTags, "oi_building_no_flush") &&
 		!hunterV7FundingShortMixedOIReviewAllowed(coin) {
@@ -719,6 +722,12 @@ func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin) (string, string
 
 func hunterV7ExecutableCandidateReason(coin CandidateCoin) (bool, string) {
 	if coin.V7RiskScore >= 65 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
+		return false, ""
+	}
+	if coin.V7Readiness != nil && len(coin.V7Readiness.MissingExecution) > 0 {
+		return false, ""
+	}
+	if hunterV7DirectOpenWaitOnlyReason(coin) != "" {
 		return false, ""
 	}
 	if coin.V7SetupType == "funding_reversal" && containsStringValue(coin.V7RiskTags, "oi_building_no_flush") {
@@ -1041,6 +1050,33 @@ func hunterV7ReadinessReviewableReason(coin CandidateCoin) (bool, string) {
 		return false, ""
 	}
 	return true, "readiness_reviewable_" + coin.V7Readiness.Reason
+}
+
+func hunterV7ReadinessMissingExecutionWaitReason(coin CandidateCoin) string {
+	if coin.V7Readiness == nil || len(coin.V7Readiness.MissingExecution) == 0 {
+		return ""
+	}
+	return "missing_execution_" + coin.V7Readiness.MissingExecution[0]
+}
+
+func hunterV7DirectOpenWaitOnlyReason(coin CandidateCoin) string {
+	for _, tag := range coin.V7ReasonCodes {
+		switch tag {
+		case "no_pullback_still_running", "chase_high_protection", "momentum_rsi_overheated_wait":
+			if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionWaitOnly {
+				return "wait_only_reason_" + tag
+			}
+		}
+	}
+	for _, tag := range coin.V7RiskTags {
+		switch tag {
+		case "momentum_confirmation_missing", "momentum_overheated", "momentum_chase_risk", "do_not_market_chase":
+			if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionWaitOnly {
+				return "wait_only_risk_" + tag
+			}
+		}
+	}
+	return ""
 }
 
 func hunterV7LeaderMomentumFlexibleReviewableReason(coin CandidateCoin) (bool, string) {
@@ -1628,6 +1664,7 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
 		return ""
 	}
+	geometry = hunterV7SetupExecutionGeometry(coin, geometry)
 	if geometry.MinRR <= 0 {
 		geometry.MinRR = hunterV7BackendMinRR
 	}
@@ -1677,6 +1714,26 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 		return "backend_rr_infeasible"
 	}
 	return ""
+}
+
+func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) HunterV7ExecutionGeometry {
+	switch coin.V7SetupType {
+	case "volatility_squeeze_breakout", "displacement_momentum_long":
+		if geometry.MinRR <= 0 || geometry.MinRR > 1.35 {
+			geometry.MinRR = 1.35
+		}
+		if geometry.MaxTPMovePct <= 0 || geometry.MaxTPMovePct < 12 {
+			geometry.MaxTPMovePct = 12
+		}
+	case "intraday_scalp_long":
+		if geometry.MinRR <= 0 || geometry.MinRR > 1.0 {
+			geometry.MinRR = 1.0
+		}
+		if geometry.MaxTPMovePct <= 0 || geometry.MaxTPMovePct < 3 {
+			geometry.MaxTPMovePct = 3
+		}
+	}
+	return geometry
 }
 
 func hunterV7ReferencePrice(coin CandidateCoin) float64 {
