@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -60,20 +61,73 @@ func NewServer(traderManager *manager.TraderManager, st *store.Store, cryptoServ
 	return s
 }
 
-// corsMiddleware CORS middleware
+// corsMiddleware CORS middleware.
+// By default allows only localhost origins. Set CORS_ALLOWED_ORIGINS env var
+// to a comma-separated list of allowed origins (e.g. "https://mydomain.com").
+// Set CORS_ALLOWED_ORIGINS=* to allow all origins (not recommended in production).
 func corsMiddleware() gin.HandlerFunc {
+	allowedOrigins := getAllowedOrigins()
+
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+		if origin != "" && isOriginAllowed(origin, allowedOrigins) {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Vary", "Origin")
+		} else if len(allowedOrigins) == 0 {
+			// No explicit config: allow localhost origins only
+			if isLocalhostOrigin(origin) {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				c.Writer.Header().Set("Vary", "Origin")
+			}
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusOK)
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
 		c.Next()
 	}
+}
+
+// getAllowedOrigins reads CORS_ALLOWED_ORIGINS from environment.
+func getAllowedOrigins() []string {
+	env := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if env == "" {
+		return nil
+	}
+	var origins []string
+	for _, o := range strings.Split(env, ",") {
+		o = strings.TrimSpace(o)
+		if o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
+}
+
+// isOriginAllowed checks if origin is in the allowed list (supports wildcard).
+func isOriginAllowed(origin string, allowed []string) bool {
+	for _, a := range allowed {
+		if a == "*" || strings.EqualFold(a, origin) {
+			return true
+		}
+	}
+	return false
+}
+
+// isLocalhostOrigin checks if the origin is a localhost address.
+func isLocalhostOrigin(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	lower := strings.ToLower(origin)
+	return strings.Contains(lower, "://localhost") ||
+		strings.Contains(lower, "://127.0.0.1") ||
+		strings.Contains(lower, "://[::1]")
 }
 
 // setupRoutes Setup routes
@@ -97,10 +151,10 @@ func (s *Server) setupRoutes() {
 		api.POST("/wallet/validate", s.handleWalletValidate)
 		api.POST("/wallet/generate", s.handleWalletGenerate)
 
-		// Crypto related endpoints (no authentication required, not exposed to bot)
+		// Crypto config and public key (no authentication required — needed before login)
 		api.GET("/crypto/config", s.cryptoHandler.HandleGetCryptoConfig)
 		api.GET("/crypto/public-key", s.cryptoHandler.HandleGetPublicKey)
-		api.POST("/crypto/decrypt", s.cryptoHandler.HandleDecryptSensitiveData)
+		// NOTE: /crypto/decrypt moved to protected routes to prevent decryption oracle attacks
 
 		// Public competition data (no authentication required)
 		s.route(api, "GET", "/traders", "Public trader list", s.handlePublicTraderList)
@@ -127,14 +181,18 @@ func (s *Server) setupRoutes() {
 		s.route(api, "POST", "/strategies/estimate-tokens", "Estimate token usage for a strategy config", s.handleEstimateTokens)
 		s.route(api, "GET", "/strategies/token-calibration", "Compute token calibration factor from historical decisions", s.handleTokenCalibration)
 
-		// Authentication related routes (no authentication required)
-		s.route(api, "POST", "/register", "Register new user", s.handleRegister)
-		s.route(api, "POST", "/login", "User login, returns JWT token", s.handleLogin)
-		s.route(api, "POST", "/reset-password", "Reset password", s.handleResetPassword)
+		// Authentication related routes (no authentication required, rate-limited)
+		authGroup := api.Group("/", rateLimitAuthMiddleware())
+		s.route(authGroup, "POST", "/register", "Register new user", s.handleRegister)
+		s.route(authGroup, "POST", "/login", "User login, returns JWT token", s.handleLogin)
+		s.route(authGroup, "POST", "/reset-password", "Reset password (localhost only)", s.handleResetPassword)
 
 		// Routes requiring authentication
 		protected := api.Group("/", s.authMiddleware())
 		{
+			// Crypto decrypt (requires authentication to prevent decryption oracle attacks)
+			protected.POST("/crypto/decrypt", s.cryptoHandler.HandleDecryptSensitiveData)
+
 			// Logout (add to blacklist)
 			s.route(protected, "POST", "/logout", "Logout (blacklist token)", s.handleLogout)
 			s.route(protected, "POST", "/onboarding/beginner", "Prepare beginner claw402 wallet and default model", s.handleBeginnerOnboarding)
@@ -297,7 +355,7 @@ StrategyConfig fields:
   indicators.rsi_periods: [7,14] default
   indicators.atr_periods: [14] default
   indicators.boll_periods: [20] default
-  indicators.aitos_api_key: ALWAYS "cm_568c67eae410d912c54c"
+  indicators.aitos_api_key: set via AITOS_API_KEY environment variable
   indicators.enable_quant_data: ALWAYS true
   indicators.enable_quant_oi: ALWAYS true
   indicators.enable_quant_netflow: ALWAYS true

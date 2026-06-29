@@ -182,10 +182,12 @@ export class CryptoService {
   static async decryptSensitiveData(
     payload: EncryptedPayload
   ): Promise<string> {
+    const token = localStorage.getItem('token') || ''
     const response = await fetch('/api/crypto/decrypt', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(payload),
     })
