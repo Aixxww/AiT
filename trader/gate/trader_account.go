@@ -12,16 +12,10 @@ import (
 
 // GetBalance retrieves account balance
 func (t *GateTrader) GetBalance() (map[string]interface{}, error) {
-	// Check cache
-	t.balanceCacheMutex.RLock()
-	if t.cachedBalance != nil && time.Since(t.balanceCacheTime) < t.cacheDuration {
-		cached := t.cachedBalance
-		t.balanceCacheMutex.RUnlock()
+	if cached, ok := t.balanceCache.Get(); ok {
 		return cached, nil
 	}
-	t.balanceCacheMutex.RUnlock()
 
-	// Fetch from API
 	accounts, _, err := t.client.FuturesApi.ListFuturesAccounts(t.ctx, "usdt")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get balance: %w", err)
@@ -37,27 +31,16 @@ func (t *GateTrader) GetBalance() (map[string]interface{}, error) {
 		"totalUnrealizedProfit": unrealizedPnl,
 	}
 
-	// Update cache
-	t.balanceCacheMutex.Lock()
-	t.cachedBalance = result
-	t.balanceCacheTime = time.Now()
-	t.balanceCacheMutex.Unlock()
-
+	t.balanceCache.Set(result)
 	return result, nil
 }
 
 // GetPositions retrieves all open positions
 func (t *GateTrader) GetPositions() ([]map[string]interface{}, error) {
-	// Check cache
-	t.positionsCacheMutex.RLock()
-	if t.cachedPositions != nil && time.Since(t.positionsCacheTime) < t.cacheDuration {
-		cached := t.cachedPositions
-		t.positionsCacheMutex.RUnlock()
+	if cached, ok := t.positionsCache.Get(); ok {
 		return cached, nil
 	}
-	t.positionsCacheMutex.RUnlock()
 
-	// Fetch from API
 	positions, _, err := t.client.FuturesApi.ListPositions(t.ctx, "usdt", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get positions: %w", err)
@@ -113,12 +96,7 @@ func (t *GateTrader) GetPositions() ([]map[string]interface{}, error) {
 		})
 	}
 
-	// Update cache
-	t.positionsCacheMutex.Lock()
-	t.cachedPositions = result
-	t.positionsCacheTime = time.Now()
-	t.positionsCacheMutex.Unlock()
-
+	t.positionsCache.Set(result)
 	return result, nil
 }
 

@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/trader/types"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // OpenLong opens a long position
@@ -719,23 +721,5 @@ func (t *BybitTrader) GetOrderBook(symbol string, depth int) (bids, asks [][]flo
 		return nil, nil, fmt.Errorf("Bybit get orderbook failed: %s", result.RetMsg)
 	}
 
-	// Parse bids
-	for _, b := range result.Result.B {
-		if len(b) >= 2 {
-			price, _ := strconv.ParseFloat(b[0], 64)
-			qty, _ := strconv.ParseFloat(b[1], 64)
-			bids = append(bids, []float64{price, qty})
-		}
-	}
-
-	// Parse asks
-	for _, a := range result.Result.A {
-		if len(a) >= 2 {
-			price, _ := strconv.ParseFloat(a[0], 64)
-			qty, _ := strconv.ParseFloat(a[1], 64)
-			asks = append(asks, []float64{price, qty})
-		}
-	}
-
-	return bids, asks, nil
+	return traderutil.ParseOrderBookEntries(result.Result.B), traderutil.ParseOrderBookEntries(result.Result.A), nil
 }

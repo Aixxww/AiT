@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/trader/types"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // GetBalance gets account balance
@@ -407,49 +409,7 @@ func (t *HyperliquidTrader) GetClosedPnL(startTime time.Time, limit int) ([]type
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter only closing trades (realizedPnl != 0)
-	var records []types.ClosedPnLRecord
-	for _, trade := range trades {
-		if trade.RealizedPnL == 0 {
-			continue
-		}
-
-		// Determine side (Hyperliquid uses one-way mode)
-		side := "long"
-		if trade.Side == "SELL" || trade.Side == "Sell" {
-			side = "long" // Selling closes long
-		} else {
-			side = "short" // Buying closes short
-		}
-
-		// Calculate entry price from PnL
-		var entryPrice float64
-		if trade.Quantity > 0 {
-			if side == "long" {
-				entryPrice = trade.Price - trade.RealizedPnL/trade.Quantity
-			} else {
-				entryPrice = trade.Price + trade.RealizedPnL/trade.Quantity
-			}
-		}
-
-		records = append(records, types.ClosedPnLRecord{
-			Symbol:      trade.Symbol,
-			Side:        side,
-			EntryPrice:  entryPrice,
-			ExitPrice:   trade.Price,
-			Quantity:    trade.Quantity,
-			RealizedPnL: trade.RealizedPnL,
-			Fee:         trade.Fee,
-			ExitTime:    trade.Time,
-			EntryTime:   trade.Time,
-			OrderID:     trade.TradeID,
-			ExchangeID:  trade.TradeID,
-			CloseType:   "unknown",
-		})
-	}
-
-	return records, nil
+	return traderutil.ClosedPnLFromTrades(trades), nil
 }
 
 // GetTrades retrieves trade history from Hyperliquid

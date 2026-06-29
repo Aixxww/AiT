@@ -47,24 +47,8 @@ func NewMiniMaxClientWithOptions(opts ...mcp.ClientOption) mcp.AIClient {
 	return minimaxClient
 }
 
-func (c *MiniMaxClient) SetAPIKey(apiKey string, customURL string, customModel string) {
-	c.APIKey = apiKey
-
-	if len(apiKey) > 8 {
-		c.Log.Infof("🔧 [MCP] MiniMax API Key: %s...%s", apiKey[:4], apiKey[len(apiKey)-4:])
-	}
-	if customURL != "" {
-		c.BaseURL = customURL
-		c.Log.Infof("🔧 [MCP] MiniMax using custom BaseURL: %s", customURL)
-	} else {
-		c.Log.Infof("🔧 [MCP] MiniMax using default BaseURL: %s", c.BaseURL)
-	}
-	if customModel != "" {
-		c.Model = customModel
-		c.Log.Infof("🔧 [MCP] MiniMax using custom Model: %s", customModel)
-	} else {
-		c.Log.Infof("🔧 [MCP] MiniMax using default Model: %s", c.Model)
-	}
+func (c *MiniMaxClient) SetAPIKey(apiKey, customURL, customModel string) {
+	c.Client.DefaultSetAPIKey(apiKey, customURL, customModel)
 }
 
 // MiniMax uses standard OpenAI-compatible API with Bearer auth

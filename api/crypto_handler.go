@@ -1,10 +1,13 @@
 package api
 
 import (
-	"github.com/Aixxww/AiT/config"
-	"github.com/Aixxww/AiT/crypto"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/Aixxww/AiT/config"
+	"github.com/Aixxww/AiT/crypto"
 
 	"github.com/gin-gonic/gin"
 )
@@ -79,6 +82,50 @@ func (h *CryptoHandler) HandleDecryptSensitiveData(c *gin.Context) {
 // ==================== Audit Log Query Endpoint ====================
 
 // Audit log functionality removed, not needed in current simplified implementation
+
+// ==================== Shared Decrypt-or-Parse Helper ====================
+
+// decryptOrParseJSON reads the raw request body and, depending on whether
+// transport encryption is enabled, either parses plain JSON or decrypts an
+// encrypted payload first. The result is unmarshalled into dst.
+//
+// This consolidates the identical decrypt-or-parse blocks previously
+// duplicated in handleUpdateExchangeConfigs, handleCreateExchange,
+// and handleUpdateModelConfigs.
+func (s *Server) decryptOrParseJSON(c *gin.Context, dst interface{}) error {
+	bodyBytes, err := c.GetRawData()
+	if err != nil {
+		return fmt.Errorf("failed to read request body: %w", err)
+	}
+
+	cfg := config.Get()
+	if !cfg.TransportEncryption {
+		if err := json.Unmarshal(bodyBytes, dst); err != nil {
+			return fmt.Errorf("invalid request format: %w", err)
+		}
+		return nil
+	}
+
+	var encryptedPayload crypto.EncryptedPayload
+	if err := json.Unmarshal(bodyBytes, &encryptedPayload); err != nil {
+		return fmt.Errorf("invalid request format, encrypted transmission required: %w", err)
+	}
+
+	if encryptedPayload.WrappedKey == "" {
+		return fmt.Errorf("encrypted transmission required: missing wrapped key")
+	}
+
+	decrypted, err := s.cryptoHandler.cryptoService.DecryptSensitiveData(&encryptedPayload)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt data: %w", err)
+	}
+
+	if err := json.Unmarshal([]byte(decrypted), dst); err != nil {
+		return fmt.Errorf("failed to parse decrypted data: %w", err)
+	}
+
+	return nil
+}
 
 // ==================== Utility Functions ====================
 

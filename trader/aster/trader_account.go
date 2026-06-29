@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/trader/types"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // GetBalance Get account balance
@@ -135,53 +137,7 @@ func (t *AsterTrader) GetClosedPnL(startTime time.Time, limit int) ([]types.Clos
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter only closing trades (realizedPnl != 0)
-	var records []types.ClosedPnLRecord
-	for _, trade := range trades {
-		if trade.RealizedPnL == 0 {
-			continue
-		}
-
-		// Determine side from PositionSide or trade direction
-		side := "long"
-		if trade.PositionSide == "SHORT" || trade.PositionSide == "short" {
-			side = "short"
-		} else if trade.PositionSide == "BOTH" || trade.PositionSide == "" {
-			if trade.Side == "SELL" || trade.Side == "Sell" {
-				side = "long"
-			} else {
-				side = "short"
-			}
-		}
-
-		// Calculate entry price from PnL
-		var entryPrice float64
-		if trade.Quantity > 0 {
-			if side == "long" {
-				entryPrice = trade.Price - trade.RealizedPnL/trade.Quantity
-			} else {
-				entryPrice = trade.Price + trade.RealizedPnL/trade.Quantity
-			}
-		}
-
-		records = append(records, types.ClosedPnLRecord{
-			Symbol:      trade.Symbol,
-			Side:        side,
-			EntryPrice:  entryPrice,
-			ExitPrice:   trade.Price,
-			Quantity:    trade.Quantity,
-			RealizedPnL: trade.RealizedPnL,
-			Fee:         trade.Fee,
-			ExitTime:    trade.Time,
-			EntryTime:   trade.Time,
-			OrderID:     trade.TradeID,
-			ExchangeID:  trade.TradeID,
-			CloseType:   "unknown",
-		})
-	}
-
-	return records, nil
+	return traderutil.ClosedPnLFromTrades(trades), nil
 }
 
 // AsterTradeRecord represents a trade from Aster API
@@ -276,24 +232,5 @@ func (t *AsterTrader) GetOrderBook(symbol string, depth int) (bids, asks [][]flo
 		return nil, nil, fmt.Errorf("failed to parse order book: %w", err)
 	}
 
-	// Convert string arrays to float64 arrays
-	bids = make([][]float64, len(result.Bids))
-	for i, bid := range result.Bids {
-		if len(bid) >= 2 {
-			price, _ := strconv.ParseFloat(bid[0], 64)
-			qty, _ := strconv.ParseFloat(bid[1], 64)
-			bids[i] = []float64{price, qty}
-		}
-	}
-
-	asks = make([][]float64, len(result.Asks))
-	for i, ask := range result.Asks {
-		if len(ask) >= 2 {
-			price, _ := strconv.ParseFloat(ask[0], 64)
-			qty, _ := strconv.ParseFloat(ask[1], 64)
-			asks[i] = []float64{price, qty}
-		}
-	}
-
-	return bids, asks, nil
+	return traderutil.ParseOrderBookEntries(result.Bids), traderutil.ParseOrderBookEntries(result.Asks), nil
 }

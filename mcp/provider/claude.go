@@ -66,18 +66,7 @@ func NewClaudeClientWithOptions(opts ...mcp.ClientOption) mcp.AIClient {
 
 // SetAPIKey stores credentials and optional custom endpoint / model.
 func (c *ClaudeClient) SetAPIKey(apiKey, customURL, customModel string) {
-	c.APIKey = apiKey
-	if len(apiKey) > 8 {
-		c.Log.Infof("🔧 [MCP] Claude API Key: %s...%s", apiKey[:4], apiKey[len(apiKey)-4:])
-	}
-	if customURL != "" {
-		c.BaseURL = customURL
-		c.Log.Infof("🔧 [MCP] Claude BaseURL: %s", customURL)
-	}
-	if customModel != "" {
-		c.Model = customModel
-		c.Log.Infof("🔧 [MCP] Claude Model: %s", customModel)
-	}
+	c.Client.DefaultSetAPIKey(apiKey, customURL, customModel)
 }
 
 // SetAuthHeader uses x-api-key instead of Authorization: Bearer.

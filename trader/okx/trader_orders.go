@@ -3,10 +3,12 @@ package okx
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/trader/types"
 	"strconv"
 	"strings"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
 )
 
 // OpenLong opens long position
@@ -926,23 +928,5 @@ func (t *OKXTrader) GetOrderBook(symbol string, depth int) (bids, asks [][]float
 		return nil, nil, nil
 	}
 
-	// Parse bids
-	for _, b := range result[0].Bids {
-		if len(b) >= 2 {
-			price, _ := strconv.ParseFloat(b[0], 64)
-			qty, _ := strconv.ParseFloat(b[1], 64)
-			bids = append(bids, []float64{price, qty})
-		}
-	}
-
-	// Parse asks
-	for _, a := range result[0].Asks {
-		if len(a) >= 2 {
-			price, _ := strconv.ParseFloat(a[0], 64)
-			qty, _ := strconv.ParseFloat(a[1], 64)
-			asks = append(asks, []float64{price, qty})
-		}
-	}
-
-	return bids, asks, nil
+	return traderutil.ParseOrderBookEntries(result[0].Bids), traderutil.ParseOrderBookEntries(result[0].Asks), nil
 }
