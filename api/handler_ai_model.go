@@ -111,7 +111,7 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 	var req UpdateModelConfigRequest
 	if err := s.decryptOrParseJSON(c, &req); err != nil {
 		logger.Infof("❌ Failed to parse model config (UserID: %s): %v", userID, err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 

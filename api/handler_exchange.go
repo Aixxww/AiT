@@ -124,7 +124,7 @@ func (s *Server) handleUpdateExchangeConfigs(c *gin.Context) {
 	var req UpdateExchangeConfigRequest
 	if err := s.decryptOrParseJSON(c, &req); err != nil {
 		logger.Infof("❌ Failed to parse exchange config (UserID: %s): %v", userID, err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
@@ -169,7 +169,7 @@ func (s *Server) handleCreateExchange(c *gin.Context) {
 	var req CreateExchangeRequest
 	if err := s.decryptOrParseJSON(c, &req); err != nil {
 		logger.Infof("❌ Failed to parse create exchange request (UserID: %s): %v", userID, err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 

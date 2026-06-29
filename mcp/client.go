@@ -172,7 +172,7 @@ func (client *Client) DefaultSetAPIKey(apiKey, customURL, customModel string) {
 	client.APIKey = apiKey
 
 	if len(apiKey) > 8 {
-		client.Log.Infof("🔧 [MCP] %s API Key: %s...%s", client.Provider, apiKey[:4], apiKey[len(apiKey)-4:])
+		client.Log.Infof("🔧 [MCP] %s API Key: %s****%s", client.Provider, apiKey[:2], apiKey[len(apiKey)-2:])
 	}
 	if customURL != "" {
 		client.BaseURL = customURL
