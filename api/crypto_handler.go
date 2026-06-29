@@ -45,7 +45,11 @@ func (h *CryptoHandler) HandleGetPublicKey(c *gin.Context) {
 		return
 	}
 
-	publicKey := h.cryptoService.GetPublicKeyPEM()
+	publicKey, err := h.cryptoService.GetPublicKeyPEM()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get public key"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"public_key":           publicKey,
 		"algorithm":            "RSA-OAEP-2048",

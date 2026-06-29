@@ -168,10 +168,10 @@ func (cs *CryptoService) HasDataKey() bool {
 	return len(cs.dataKey) > 0
 }
 
-func (cs *CryptoService) GetPublicKeyPEM() string {
+func (cs *CryptoService) GetPublicKeyPEM() (string, error) {
 	publicKeyDER, err := x509.MarshalPKIXPublicKey(cs.publicKey)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("marshal public key: %w", err)
 	}
 
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
@@ -179,7 +179,7 @@ func (cs *CryptoService) GetPublicKeyPEM() string {
 		Bytes: publicKeyDER,
 	})
 
-	return string(publicKeyPEM)
+	return string(publicKeyPEM), nil
 }
 
 func (cs *CryptoService) EncryptForStorage(plaintext string, aadParts ...string) (string, error) {
@@ -433,11 +433,9 @@ func (es *EncryptedString) Scan(value interface{}) error {
 	if globalCryptoService != nil && str != "" && globalCryptoService.IsEncryptedStorageValue(str) {
 		decrypted, err := globalCryptoService.DecryptFromStorage(str)
 		if err != nil {
-			// If decryption fails, return the original value
-			*es = EncryptedString(str)
-		} else {
-			*es = EncryptedString(decrypted)
+			return fmt.Errorf("failed to decrypt stored value: %w", err)
 		}
+		*es = EncryptedString(decrypted)
 	} else {
 		*es = EncryptedString(str)
 	}
@@ -455,8 +453,7 @@ func (es EncryptedString) Value() (driver.Value, error) {
 	if globalCryptoService != nil {
 		encrypted, err := globalCryptoService.EncryptForStorage(string(es))
 		if err != nil {
-			// If encryption fails, return the original value
-			return string(es), nil
+			return nil, fmt.Errorf("failed to encrypt value for storage: %w", err)
 		}
 		return encrypted, nil
 	}

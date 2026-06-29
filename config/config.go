@@ -3,12 +3,14 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/mcp"
-	"github.com/Aixxww/AiT/telemetry"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/mcp"
+	"github.com/Aixxww/AiT/telemetry"
 )
 
 // Global configuration instance
@@ -150,6 +152,8 @@ func Get() *Config {
 
 func generateRandomSecret() string {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand failure: %v", err))
+	}
 	return hex.EncodeToString(b)
 }

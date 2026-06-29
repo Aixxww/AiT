@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -100,7 +101,9 @@ func getConfig(st *store.Store, uid int64, key string) string {
 }
 
 func setConfig(st *store.Store, uid int64, key, val string) {
-	st.SetSystemConfig(fmt.Sprintf("setup_%s_%d", key, uid), val)
+	if err := st.SetSystemConfig(fmt.Sprintf("setup_%s_%d", key, uid), val); err != nil {
+		slog.Warn("setConfig: failed to persist setup config", "key", key, "uid", uid, "error", err)
+	}
 }
 
 // handleSetupFlow processes the setup conversation.

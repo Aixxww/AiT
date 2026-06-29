@@ -57,7 +57,7 @@ func main() {
 	if cfg.DBType == "sqlite" {
 		if dir := filepath.Dir(cfg.DBPath); dir != "." {
 			if err := os.MkdirAll(dir, 0755); err != nil {
-				logger.Errorf("Failed to create data directory: %v", err)
+				logger.Fatalf("Failed to create data directory %s: %v", dir, err)
 			}
 		}
 	}
