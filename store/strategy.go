@@ -3,12 +3,19 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+// getDefaultAITOSAPIKey returns the AITOS API key from the environment variable
+// AITOS_API_KEY. Falls back to an empty string if not set.
+func getDefaultAITOSAPIKey() string {
+	return os.Getenv("AITOS_API_KEY")
+}
 
 // Hard limits to prevent token explosion in AI requests
 const (
@@ -485,8 +492,8 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 			RSIPeriods:        []int{7, 14},
 			ATRPeriods:        []int{14},
 			BOLLPeriods:       []int{20},
-			// AITOS unified API key
-			AITOSAPIKey: "cm_568c67eae410d912c54c",
+			// AITOS unified API key (loaded from environment or user config)
+			AITOSAPIKey: getDefaultAITOSAPIKey(),
 			// Quant data
 			EnableQuantData:    true,
 			EnableQuantOI:      true,

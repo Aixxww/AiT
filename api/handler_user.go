@@ -189,8 +189,16 @@ func (s *Server) handleChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
 }
 
-// handleResetPassword Reset password via email and new password
+// handleResetPassword Reset password via email and new password.
+// Security: only allowed from loopback addresses (localhost) to prevent
+// unauthenticated remote password resets. Users on the same machine as the
+// server (i.e., the system owner) can perform recovery resets.
 func (s *Server) handleResetPassword(c *gin.Context) {
+	if !isLoopbackRequest(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Password reset is only allowed from localhost"})
+		return
+	}
+
 	var req struct {
 		Email       string `json:"email" binding:"required,email"`
 		NewPassword string `json:"new_password" binding:"required,min=6"`
@@ -224,6 +232,12 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 
 	logger.Infof("✓ User %s password has been reset", user.Email)
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful, please login with new password"})
+}
+
+// isLoopbackRequest checks if the request originates from a loopback address.
+func isLoopbackRequest(c *gin.Context) bool {
+	clientIP := c.ClientIP()
+	return clientIP == "127.0.0.1" || clientIP == "::1" || clientIP == "localhost"
 }
 
 // adoptOrphanRecords re-assigns ai_models and exchanges whose user_id no longer
