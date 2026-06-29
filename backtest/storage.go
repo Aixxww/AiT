@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/store"
 )
 
@@ -416,10 +417,12 @@ func LoadDecisionTrace(runID string, cycle int) (*store.DecisionRecord, error) {
 	for _, cand := range cands {
 		data, err := os.ReadFile(cand.path)
 		if err != nil {
+			logger.Infof("skip unreadable decision file %s: %v", cand.path, err)
 			continue
 		}
 		var record store.DecisionRecord
 		if err := json.Unmarshal(data, &record); err != nil {
+			logger.Infof("skip malformed decision file %s: %v", cand.path, err)
 			continue
 		}
 		if cycle <= 0 || record.CycleNumber == cycle {
@@ -481,10 +484,12 @@ func LoadDecisionRecords(runID string, limit, offset int) ([]*store.DecisionReco
 	for _, file := range files[offset:end] {
 		data, err := os.ReadFile(file.path)
 		if err != nil {
+			logger.Infof("skip unreadable decision file %s: %v", file.path, err)
 			continue
 		}
 		var record store.DecisionRecord
 		if err := json.Unmarshal(data, &record); err != nil {
+			logger.Infof("skip malformed decision file %s: %v", file.path, err)
 			continue
 		}
 		records = append(records, &record)
@@ -557,5 +562,7 @@ func persistDecisionRecord(runID string, record *store.DecisionRecord) {
 	if !usingDB() || record == nil {
 		return
 	}
-	_ = saveDecisionRecordDB(runID, record)
+	if err := saveDecisionRecordDB(runID, record); err != nil {
+		logger.Infof("failed to persist decision record for run %s: %v", runID, err)
+	}
 }

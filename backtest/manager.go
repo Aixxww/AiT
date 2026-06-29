@@ -417,7 +417,9 @@ func (m *Manager) storeMetadata(runID string, meta *RunMetadata) {
 	}
 	m.metadata[runID] = meta
 	m.mu.Unlock()
-	_ = SaveRunMetadata(meta)
+	if err := SaveRunMetadata(meta); err != nil {
+		logger.Infof("failed to save run metadata for %s: %v", runID, err)
+	}
 	if err := updateRunIndex(meta, nil); err != nil {
 		logger.Infof("failed to update run index for %s: %v", runID, err)
 	}

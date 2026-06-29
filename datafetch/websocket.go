@@ -225,6 +225,7 @@ func (wm *WSManager) handleMessage(data []byte) {
 		Data   json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
+		log.Printf("datafetch/ws: failed to parse message: %v", err)
 		return
 	}
 
@@ -301,6 +302,7 @@ func (wm *WSManager) handleKline(snap *Snapshot, data json.RawMessage) {
 		} `json:"k"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
+		log.Printf("datafetch/ws: failed to parse kline: %v", err)
 		return
 	}
 
@@ -347,6 +349,7 @@ func (wm *WSManager) handleAggTrade(snap *Snapshot, data json.RawMessage) {
 		Time   int64  `json:"T"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
+		log.Printf("datafetch/ws: failed to parse aggTrade: %v", err)
 		return
 	}
 
