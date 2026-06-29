@@ -3,10 +3,12 @@ package bitget
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
 )
 
 // GetBalance gets account balance
@@ -177,23 +179,5 @@ func (t *BitgetTrader) GetOrderBook(symbol string, depth int) (bids, asks [][]fl
 		return nil, nil, fmt.Errorf("failed to parse order book: %w", err)
 	}
 
-	// Parse bids
-	for _, b := range result.Bids {
-		if len(b) >= 2 {
-			price, _ := strconv.ParseFloat(b[0], 64)
-			qty, _ := strconv.ParseFloat(b[1], 64)
-			bids = append(bids, []float64{price, qty})
-		}
-	}
-
-	// Parse asks
-	for _, a := range result.Asks {
-		if len(a) >= 2 {
-			price, _ := strconv.ParseFloat(a[0], 64)
-			qty, _ := strconv.ParseFloat(a[1], 64)
-			asks = append(asks, []float64{price, qty})
-		}
-	}
-
-	return bids, asks, nil
+	return traderutil.ParseOrderBookEntries(result.Bids), traderutil.ParseOrderBookEntries(result.Asks), nil
 }

@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Aixxww/AiT/trader/testutil"
 	"github.com/Aixxww/AiT/trader/types"
@@ -305,28 +304,37 @@ func TestGateTrader_RevertSymbol(t *testing.T) {
 	}
 }
 
-// TestGateTrader_CacheDuration tests cache duration
-func TestGateTrader_CacheDuration(t *testing.T) {
+// TestGateTrader_CacheBehavior tests TimedCache-based caching
+func TestGateTrader_CacheBehavior(t *testing.T) {
 	gt := NewGateTrader("test", "test")
 
-	// Verify default cache time is 15 seconds
-	assert.Equal(t, 15*time.Second, gt.cacheDuration)
+	// Cache should start empty
+	_, ok := gt.balanceCache.Get()
+	assert.False(t, ok)
+
+	// Set and retrieve
+	gt.balanceCache.Set(map[string]interface{}{"test": "data"})
+	val, ok := gt.balanceCache.Get()
+	assert.True(t, ok)
+	assert.Equal(t, "data", val["test"])
 }
 
-// TestGateTrader_ClearCache tests cache clearing
+// TestGateTrader_ClearCache tests cache clearing via Invalidate
 func TestGateTrader_ClearCache(t *testing.T) {
 	gt := NewGateTrader("test", "test")
 
 	// Set some cached data
-	gt.cachedBalance = map[string]interface{}{"test": "data"}
-	gt.cachedPositions = []map[string]interface{}{{"test": "data"}}
+	gt.balanceCache.Set(map[string]interface{}{"test": "data"})
+	gt.positionsCache.Set([]map[string]interface{}{{"test": "data"}})
 
 	// Clear cache
 	gt.clearCache()
 
 	// Verify cache is cleared
-	assert.Nil(t, gt.cachedBalance)
-	assert.Nil(t, gt.cachedPositions)
+	_, balOk := gt.balanceCache.Get()
+	assert.False(t, balOk)
+	_, posOk := gt.positionsCache.Get()
+	assert.False(t, posOk)
 }
 
 // ============================================================

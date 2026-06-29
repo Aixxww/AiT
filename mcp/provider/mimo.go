@@ -42,26 +42,10 @@ func NewMiMoClientWithOptions(opts ...mcp.ClientOption) mcp.AIClient {
 	return mimoClient
 }
 
-func (mimoClient *MiMoClient) SetAPIKey(apiKey string, customURL string, customModel string) {
-	mimoClient.APIKey = apiKey
-
-	if len(apiKey) > 8 {
-		mimoClient.Log.Infof("🔧 [MCP] MiMo API Key: %s...%s", apiKey[:4], apiKey[len(apiKey)-4:])
-	}
-	if customURL != "" {
-		mimoClient.BaseURL = customURL
-		mimoClient.Log.Infof("🔧 [MCP] MiMo using custom BaseURL: %s", customURL)
-	} else {
-		mimoClient.Log.Infof("🔧 [MCP] MiMo using default BaseURL: %s", mimoClient.BaseURL)
-	}
-	if customModel != "" {
-		mimoClient.Model = customModel
-		mimoClient.Log.Infof("🔧 [MCP] MiMo using custom Model: %s", customModel)
-	} else {
-		mimoClient.Log.Infof("🔧 [MCP] MiMo using default Model: %s", mimoClient.Model)
-	}
+func (c *MiMoClient) SetAPIKey(apiKey, customURL, customModel string) {
+	c.Client.DefaultSetAPIKey(apiKey, customURL, customModel)
 }
 
-func (mimoClient *MiMoClient) SetAuthHeader(reqHeaders http.Header) {
-	mimoClient.Client.SetAuthHeader(reqHeaders)
+func (c *MiMoClient) SetAuthHeader(reqHeaders http.Header) {
+	c.Client.SetAuthHeader(reqHeaders)
 }

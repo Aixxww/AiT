@@ -3,11 +3,14 @@ package binance
 import (
 	"context"
 	"fmt"
-	"github.com/Aixxww/AiT/logger"
-	"github.com/Aixxww/AiT/trader/types"
-	"github.com/adshao/go-binance/v2/futures"
 	"strconv"
 	"time"
+
+	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
+
+	"github.com/adshao/go-binance/v2/futures"
 )
 
 // GetBalance gets account balance (with cache)
@@ -60,54 +63,7 @@ func (t *FuturesTrader) GetClosedPnL(startTime time.Time, limit int) ([]types.Cl
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter only closing trades (realizedPnl != 0) and convert to ClosedPnLRecord
-	var records []types.ClosedPnLRecord
-	for _, trade := range trades {
-		if trade.RealizedPnL == 0 {
-			continue // Skip opening trades
-		}
-
-		// Determine side from trade
-		side := "long"
-		if trade.PositionSide == "SHORT" || trade.PositionSide == "short" {
-			side = "short"
-		} else if trade.PositionSide == "BOTH" || trade.PositionSide == "" {
-			// One-way mode: selling closes long, buying closes short
-			if trade.Side == "SELL" || trade.Side == "Sell" {
-				side = "long"
-			} else {
-				side = "short"
-			}
-		}
-
-		// Calculate entry price from PnL (mathematically accurate for this trade)
-		var entryPrice float64
-		if trade.Quantity > 0 {
-			if side == "long" {
-				entryPrice = trade.Price - trade.RealizedPnL/trade.Quantity
-			} else {
-				entryPrice = trade.Price + trade.RealizedPnL/trade.Quantity
-			}
-		}
-
-		records = append(records, types.ClosedPnLRecord{
-			Symbol:      trade.Symbol,
-			Side:        side,
-			EntryPrice:  entryPrice,
-			ExitPrice:   trade.Price,
-			Quantity:    trade.Quantity,
-			RealizedPnL: trade.RealizedPnL,
-			Fee:         trade.Fee,
-			ExitTime:    trade.Time,
-			EntryTime:   trade.Time, // Approximate
-			OrderID:     trade.TradeID,
-			ExchangeID:  trade.TradeID,
-			CloseType:   "unknown",
-		})
-	}
-
-	return records, nil
+	return traderutil.ClosedPnLFromTrades(trades), nil
 }
 
 // GetTrades retrieves trade history from Binance Futures using Income API

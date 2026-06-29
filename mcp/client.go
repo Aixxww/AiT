@@ -163,6 +163,31 @@ func (client *Client) SetAPIKey(apiKey, apiURL, customModel string) {
 	client.Model = customModel
 }
 
+// DefaultSetAPIKey provides the standard SetAPIKey implementation for
+// OpenAI-compatible providers. It stores the API key and optional custom URL /
+// model, logging each with a masked key preview. Providers that use standard
+// Bearer auth and follow the OpenAI convention can delegate their SetAPIKey
+// directly to this method instead of duplicating the same logic.
+func (client *Client) DefaultSetAPIKey(apiKey, customURL, customModel string) {
+	client.APIKey = apiKey
+
+	if len(apiKey) > 8 {
+		client.Log.Infof("🔧 [MCP] %s API Key: %s****%s", client.Provider, apiKey[:2], apiKey[len(apiKey)-2:])
+	}
+	if customURL != "" {
+		client.BaseURL = customURL
+		client.Log.Infof("🔧 [MCP] %s using custom BaseURL: %s", client.Provider, customURL)
+	} else {
+		client.Log.Infof("🔧 [MCP] %s using default BaseURL: %s", client.Provider, client.BaseURL)
+	}
+	if customModel != "" {
+		client.Model = customModel
+		client.Log.Infof("🔧 [MCP] %s using custom Model: %s", client.Provider, customModel)
+	} else {
+		client.Log.Infof("🔧 [MCP] %s using default Model: %s", client.Provider, client.Model)
+	}
+}
+
 func (client *Client) SetTimeout(timeout time.Duration) {
 	client.HTTPClient.Timeout = timeout
 }

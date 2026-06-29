@@ -3,10 +3,12 @@ package gate
 import (
 	"context"
 	"fmt"
-	"github.com/Aixxww/AiT/trader/types"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Aixxww/AiT/trader/traderutil"
+	"github.com/Aixxww/AiT/trader/types"
 
 	"github.com/gateio/gateapi-go/v6"
 )
@@ -18,16 +20,11 @@ type GateTrader struct {
 	client    *gateapi.APIClient
 	ctx       context.Context
 
-	// Cache fields
-	cachedBalance       map[string]interface{}
-	balanceCacheTime    time.Time
-	balanceCacheMutex   sync.RWMutex
-	cachedPositions     []map[string]interface{}
-	positionsCacheTime  time.Time
-	positionsCacheMutex sync.RWMutex
+	// Cache fields (using shared TimedCache utility)
+	balanceCache        *traderutil.TimedCache[map[string]interface{}]
+	positionsCache      *traderutil.TimedCache[[]map[string]interface{}]
 	contractsCache      map[string]*gateapi.Contract
 	contractsCacheMutex sync.RWMutex
-	cacheDuration       time.Duration
 }
 
 // NewGateTrader creates a new Gate trader instance
@@ -49,8 +46,9 @@ func NewGateTrader(apiKey, secretKey string) *GateTrader {
 		secretKey:      secretKey,
 		client:         client,
 		ctx:            ctx,
+		balanceCache:   traderutil.NewTimedCache[map[string]interface{}](15 * time.Second),
+		positionsCache: traderutil.NewTimedCache[[]map[string]interface{}](15 * time.Second),
 		contractsCache: make(map[string]*gateapi.Contract),
-		cacheDuration:  15 * time.Second,
 	}
 }
 
@@ -101,13 +99,8 @@ func (t *GateTrader) getContract(symbol string) (*gateapi.Contract, error) {
 
 // clearCache clears all caches
 func (t *GateTrader) clearCache() {
-	t.balanceCacheMutex.Lock()
-	t.cachedBalance = nil
-	t.balanceCacheMutex.Unlock()
-
-	t.positionsCacheMutex.Lock()
-	t.cachedPositions = nil
-	t.positionsCacheMutex.Unlock()
+	t.balanceCache.Invalidate()
+	t.positionsCache.Invalidate()
 }
 
 // Ensure GateTrader implements Trader interface
