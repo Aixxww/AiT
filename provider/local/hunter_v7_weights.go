@@ -37,6 +37,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeTrendUp, V7SetupRangeReversion}:     0.4, // Ranging doesn't apply
 	{V7RegimeTrendUp, V7SetupFundingReversal}:    0.7, // Lower priority
 	{V7RegimeTrendUp, V7SetupDisplacementLong}:   1.1, // Displacement in uptrend = strong
+	{V7RegimeTrendUp, V7SetupRangeExpansion}:     1.1, // Event continuation in uptrend
 
 	// ===== trend_down: Bear market =====
 	{V7RegimeTrendDown, V7SetupPullbackLong}:       0.6, // Risky to buy dips in downtrend
@@ -50,6 +51,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeTrendDown, V7SetupRangeReversion}:     0.6, // Less reliable
 	{V7RegimeTrendDown, V7SetupFundingReversal}:    1.0, // Crowding reversals work
 	{V7RegimeTrendDown, V7SetupDisplacementLong}:   0.6, // Risky displacement in bear
+	{V7RegimeTrendDown, V7SetupRangeExpansion}:     1.0, // Downside event continuation works
 
 	// ===== range: Sideways market =====
 	{V7RegimeRange, V7SetupPullbackLong}:       1.0, // Support bounces work
@@ -63,6 +65,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeRange, V7SetupRangeReversion}:     1.3, // KING of range markets
 	{V7RegimeRange, V7SetupFundingReversal}:    1.1, // Good in range
 	{V7RegimeRange, V7SetupDisplacementLong}:   0.7, // Range displacement less reliable
+	{V7RegimeRange, V7SetupRangeExpansion}:     0.9, // Only strong event breaks range
 
 	// ===== panic_dump: Crash =====
 	{V7RegimePanicDump, V7SetupPullbackLong}:       0.3, // Too early for dips
@@ -76,6 +79,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimePanicDump, V7SetupRangeReversion}:     0.2, // No range in panic
 	{V7RegimePanicDump, V7SetupFundingReversal}:    1.2, // Extreme funding during panic
 	{V7RegimePanicDump, V7SetupDisplacementLong}:   0.3, // Displacement long in crash = trap
+	{V7RegimePanicDump, V7SetupRangeExpansion}:     1.1, // Short-side event continuation
 
 	// ===== market_pullback: broad selloff, not a full panic cascade =====
 	{V7RegimePullback, V7SetupPullbackLong}:       1.0, // Support bounces only after confirmation
@@ -89,6 +93,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimePullback, V7SetupRangeReversion}:     0.6, // Ranges break during pullbacks
 	{V7RegimePullback, V7SetupFundingReversal}:    1.1, // Crowded positioning unwinds
 	{V7RegimePullback, V7SetupDisplacementLong}:   0.5, // Displacement during broad pullback risky
+	{V7RegimePullback, V7SetupRangeExpansion}:     1.0, // Selective expansion during pullback
 
 	// ===== mania_pump: Euphoria =====
 	{V7RegimeManiaPump, V7SetupPullbackLong}:       0.5, // Shallow dips in mania
@@ -102,6 +107,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeManiaPump, V7SetupRangeReversion}:     0.2, // No range
 	{V7RegimeManiaPump, V7SetupFundingReversal}:    1.3, // Funding EXTREME
 	{V7RegimeManiaPump, V7SetupDisplacementLong}:   1.2, // Displacement thrives in mania
+	{V7RegimeManiaPump, V7SetupRangeExpansion}:     1.2, // Event continuation but watch chase risk
 
 	// ===== compression: Pre-breakout =====
 	{V7RegimeCompression, V7SetupPullbackLong}:       0.9, // Possible
@@ -115,6 +121,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeCompression, V7SetupRangeReversion}:     1.0, // Could be ranging
 	{V7RegimeCompression, V7SetupFundingReversal}:    0.8, // Less relevant
 	{V7RegimeCompression, V7SetupDisplacementLong}:   1.2, // Displacement from compression = breakout
+	{V7RegimeCompression, V7SetupRangeExpansion}:     1.2, // Fresh range expansion after compression
 
 	// ===== rotation: Sector rotation =====
 	{V7RegimeRotation, V7SetupPullbackLong}:       1.0, // Sector pullbacks
@@ -128,6 +135,7 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeRotation, V7SetupRangeReversion}:     0.8, // Less relevant
 	{V7RegimeRotation, V7SetupFundingReversal}:    1.0, // Normal
 	{V7RegimeRotation, V7SetupDisplacementLong}:   1.0, // Sector displacement during rotation
+	{V7RegimeRotation, V7SetupRangeExpansion}:     1.1, // Sector event movers
 
 	// ===== mixed: No clear regime =====
 	{V7RegimeMixed, V7SetupPullbackLong}:       1.0, // Default weight
@@ -141,39 +149,40 @@ var regimeWeightMatrix = map[regimeWeightKey]float64{
 	{V7RegimeMixed, V7SetupRangeReversion}:     1.0,
 	{V7RegimeMixed, V7SetupFundingReversal}:    1.0,
 	{V7RegimeMixed, V7SetupDisplacementLong}:   1.0,
+	{V7RegimeMixed, V7SetupRangeExpansion}:     1.0,
 
 	// ===== v8 new modules =====
 
 	// Intraday Scalp: thrives in range/compression with volatility
 	{V7RegimeTrendUp, V7SetupIntradayScalp}:     1.0,
 	{V7RegimeTrendDown, V7SetupIntradayScalp}:   0.5,
-	{V7RegimeRange, V7SetupIntradayScalp}:        1.1,
-	{V7RegimePanicDump, V7SetupIntradayScalp}:    0.3,
-	{V7RegimePullback, V7SetupIntradayScalp}:     0.8,
-	{V7RegimeManiaPump, V7SetupIntradayScalp}:    0.6,
-	{V7RegimeCompression, V7SetupIntradayScalp}:  1.2,
-	{V7RegimeRotation, V7SetupIntradayScalp}:     1.0,
-	{V7RegimeMixed, V7SetupIntradayScalp}:        0.9,
+	{V7RegimeRange, V7SetupIntradayScalp}:       1.1,
+	{V7RegimePanicDump, V7SetupIntradayScalp}:   0.3,
+	{V7RegimePullback, V7SetupIntradayScalp}:    0.8,
+	{V7RegimeManiaPump, V7SetupIntradayScalp}:   0.6,
+	{V7RegimeCompression, V7SetupIntradayScalp}: 1.2,
+	{V7RegimeRotation, V7SetupIntradayScalp}:    1.0,
+	{V7RegimeMixed, V7SetupIntradayScalp}:       0.9,
 
 	// Volatility Squeeze Breakout: best in compression/range
 	{V7RegimeTrendUp, V7SetupVolatilitySqueeze}:     0.9,
 	{V7RegimeTrendDown, V7SetupVolatilitySqueeze}:   0.6,
-	{V7RegimeRange, V7SetupVolatilitySqueeze}:        1.2,
-	{V7RegimePanicDump, V7SetupVolatilitySqueeze}:    0.4,
-	{V7RegimePullback, V7SetupVolatilitySqueeze}:     0.8,
-	{V7RegimeManiaPump, V7SetupVolatilitySqueeze}:    0.5,
-	{V7RegimeCompression, V7SetupVolatilitySqueeze}:  1.3,
-	{V7RegimeRotation, V7SetupVolatilitySqueeze}:     1.0,
-	{V7RegimeMixed, V7SetupVolatilitySqueeze}:        0.9,
+	{V7RegimeRange, V7SetupVolatilitySqueeze}:       1.2,
+	{V7RegimePanicDump, V7SetupVolatilitySqueeze}:   0.4,
+	{V7RegimePullback, V7SetupVolatilitySqueeze}:    0.8,
+	{V7RegimeManiaPump, V7SetupVolatilitySqueeze}:   0.5,
+	{V7RegimeCompression, V7SetupVolatilitySqueeze}: 1.3,
+	{V7RegimeRotation, V7SetupVolatilitySqueeze}:    1.0,
+	{V7RegimeMixed, V7SetupVolatilitySqueeze}:       0.9,
 
 	// Whale Flow Reversal: best in rotation/range
 	{V7RegimeTrendUp, V7SetupWhaleFlow}:     0.8,
 	{V7RegimeTrendDown, V7SetupWhaleFlow}:   0.7,
-	{V7RegimeRange, V7SetupWhaleFlow}:        1.1,
-	{V7RegimePanicDump, V7SetupWhaleFlow}:    0.5,
-	{V7RegimePullback, V7SetupWhaleFlow}:     0.9,
-	{V7RegimeManiaPump, V7SetupWhaleFlow}:    0.6,
-	{V7RegimeCompression, V7SetupWhaleFlow}:  1.0,
-	{V7RegimeRotation, V7SetupWhaleFlow}:     1.2,
-	{V7RegimeMixed, V7SetupWhaleFlow}:        0.9,
+	{V7RegimeRange, V7SetupWhaleFlow}:       1.1,
+	{V7RegimePanicDump, V7SetupWhaleFlow}:   0.5,
+	{V7RegimePullback, V7SetupWhaleFlow}:    0.9,
+	{V7RegimeManiaPump, V7SetupWhaleFlow}:   0.6,
+	{V7RegimeCompression, V7SetupWhaleFlow}: 1.0,
+	{V7RegimeRotation, V7SetupWhaleFlow}:    1.2,
+	{V7RegimeMixed, V7SetupWhaleFlow}:       0.9,
 }

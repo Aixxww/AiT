@@ -253,3 +253,73 @@ func TestSignalOutcomeTrackerTimeoutOutcome(t *testing.T) {
 		t.Fatalf("status = %s, want %s", outcome.Status, TrackedTimeout)
 	}
 }
+
+func TestSignalOutcomeTrackerSetupStatsSplitTP0TP1AndNoSLSurvival(t *testing.T) {
+	signalTime := time.Now().Add(-5 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:      time.Hour,
+		TimeoutDuration:   time.Hour,
+		MaxTracked:        10,
+		EnableDynamicStop: false,
+	}, nil)
+	candles := map[string][]TrackedCandle{
+		"TP0USDT": {{T: signalTime.Add(time.Minute), Open: 100, High: 101.2, Low: 99.9, Close: 100.8}},
+		"TP1USDT": {{T: signalTime.Add(time.Minute), Open: 100, High: 103.2, Low: 99.9, Close: 102.8}},
+		"SLUSDT":  {{T: signalTime.Add(time.Minute), Open: 100, High: 100.2, Low: 94.8, Close: 95}},
+	}
+	tracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
+		return candles[symbol]
+	})
+
+	setup := string(V7SetupRangeExpansion)
+	tracker.Register(10, "TP0USDT", string(V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	tracker.Register(11, "TP1USDT", string(V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	tracker.Register(12, "SLUSDT", string(V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	tracker.TickNow()
+
+	stats := tracker.GetStatsBySetupType()[setup]
+	if stats.Total != 3 || stats.TP0Wins != 2 || stats.TP1Wins != 1 || stats.Stops != 1 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+	if stats.TP0WinRate < 66.6 || stats.TP1WinRate < 33.3 || stats.NoSLSurvivalRate < 66.6 {
+		t.Fatalf("unexpected split rates: %+v", stats)
+	}
+}
+
+func TestSignalOutcomeTrackerWatchTP0CreatesMissedOpportunityAudit(t *testing.T) {
+	signalTime := time.Now().Add(-5 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:                time.Hour,
+		TimeoutDuration:             time.Hour,
+		MaxTracked:                  10,
+		EnableDynamicStop:           false,
+		MissedOpportunityMinTouches: 2,
+	}, nil)
+	tracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
+		return []TrackedCandle{
+			{T: signalTime.Add(time.Minute), Open: 100, High: 101.2, Low: 99.8, Close: 100.8},
+			{T: signalTime.Add(2 * time.Minute), Open: 100.8, High: 101.3, Low: 100.1, Close: 101.1},
+		}
+	})
+
+	var outcomes []TrackedOutcome
+	tracker.SetOutcomeCallback(func(o TrackedOutcome) {
+		outcomes = append(outcomes, o)
+	})
+
+	setup := string(V7SetupPreBreakoutWatch)
+	tracker.Register(20, "WATCHUSDT", string(V7DirLong), setup, "WATCH", 100, 95, 101, 103, 106, signalTime)
+	tracker.TickNow()
+
+	active := tracker.GetActive()
+	if len(active) != 1 || !active[0].MissedOpportunityAudit {
+		t.Fatalf("watch signal should remain active with missed opportunity audit: %+v", active)
+	}
+	if len(outcomes) == 0 || !outcomes[len(outcomes)-1].MissedOpportunityAudit {
+		t.Fatalf("expected missed opportunity outcome, got %+v", outcomes)
+	}
+	stats := tracker.GetStatsBySetupType()[setup]
+	if stats.Total != 0 || stats.Wins != 0 || stats.MissedOpportunities != 1 {
+		t.Fatalf("watch audit must not count as real win stats: %+v", stats)
+	}
+}

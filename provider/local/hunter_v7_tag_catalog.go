@@ -68,6 +68,8 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"needs_oi_confirmation":               tagDef("needs_oi_confirmation", "risk_tag", "oi", "mixed", V7TagActionRequiredConfirm, "OI data is missing or inconclusive; require OI/volume confirmation before open."),
 	"displacement_rr_insufficient":        tagDef("displacement_rr_insufficient", "risk_tag", "risk", "bullish", V7TagActionRejectOnly, "Displacement target/stop geometry cannot provide minimum RR."),
 	"displacement_rr_repaired":            tagDef("displacement_rr_repaired", "risk_tag", "risk", "bullish", V7TagActionReduceOrWait, "Displacement first target is thin, but later continuation target provides minimum RR; verify live backend geometry before opening."),
+	"event_flow_confirmation_needed":      tagDef("event_flow_confirmation_needed", "risk_tag", "flow", "mixed", V7TagActionRequiredConfirm, "High-amplitude event lacks aligned taker flow; require live flow confirmation before opening."),
+	"event_chase_risk":                    tagDef("event_chase_risk", "risk_tag", "risk", "mixed", V7TagActionWaitOnly, "High-amplitude event is timing-late or too fast; wait for retest or renewed confirmation."),
 	"rsi_extreme_with_crowded_funding":    tagDef("rsi_extreme_with_crowded_funding", "risk_tag", "risk", "bullish", V7TagActionWaitOnly, "RSI and funding are both crowded; wait for reset."),
 	"execution_stop_tightened":            tagDef("execution_stop_tightened", "risk_tag", "risk", "neutral", V7TagActionReduceOrWait, "Router tightened stop to near structure; verify backend min stop and RR."),
 
@@ -135,6 +137,19 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"volume_expansion":                   tagDef("volume_expansion", "reason_code", "flow", "mixed", V7TagActionEvidence, "Volume expansion confirms participation; direction must be checked separately."),
 	"oi_delta_missing_displacement":      tagDef("oi_delta_missing_displacement", "reason_code", "oi", "mixed", V7TagActionRequiredConfirm, "Displacement lacks OI delta; require OI/volume follow-through before open."),
 	"displacement_extension_rr_valid":    tagDef("displacement_extension_rr_valid", "reason_code", "risk", "bullish", V7TagActionEvidence, "A later displacement continuation target restores minimum RR while the first target remains a partial/profit-management level."),
+	"range_expansion_event":              tagDef("range_expansion_event", "reason_code", "price", "mixed", V7TagActionEvidence, "24h amplitude plus short-term range expansion marks an event mover for directional review."),
+	"amplitude_24h_extreme":              tagDef("amplitude_24h_extreme", "reason_code", "price", "mixed", V7TagActionEvidence, "24h amplitude is extreme; candidate is active but must avoid chasing."),
+	"amplitude_24h_major":                tagDef("amplitude_24h_major", "reason_code", "price", "mixed", V7TagActionEvidence, "24h amplitude is major enough to require event-specific review."),
+	"amplitude_24h_event":                tagDef("amplitude_24h_event", "reason_code", "price", "mixed", V7TagActionEvidence, "24h amplitude is elevated and paired with short-term expansion."),
+	"massive_range_expansion_event":      tagDef("massive_range_expansion_event", "reason_code", "price", "mixed", V7TagActionOpenSupport, "1h range expansion is massive; supports opening only after live direction, entry, stop, and RR checks."),
+	"strong_range_expansion_event":       tagDef("strong_range_expansion_event", "reason_code", "price", "mixed", V7TagActionEvidence, "1h range expansion is strong and should be evaluated as an event mover."),
+	"moderate_range_expansion_event":     tagDef("moderate_range_expansion_event", "reason_code", "price", "mixed", V7TagActionEvidence, "1h range expansion is moderate; requires more live confirmation."),
+	"event_continuation_long":            tagDef("event_continuation_long", "reason_code", "price", "bullish", V7TagActionOpenSupport, "High-amplitude event has bullish follow-through; verify entry and RR before opening long."),
+	"event_breakdown_short":              tagDef("event_breakdown_short", "reason_code", "price", "bearish", V7TagActionOpenSupport, "High-amplitude event has bearish breakdown follow-through; verify entry and RR before opening short."),
+	"event_directional_followthrough":    tagDef("event_directional_followthrough", "reason_code", "price", "mixed", V7TagActionEvidence, "Event has directional follow-through but still needs live confirmation."),
+	"volume_burst_15m":                   tagDef("volume_burst_15m", "reason_code", "flow", "mixed", V7TagActionEvidence, "15m volume burst confirms active participation in the event move."),
+	"volume_burst_5m":                    tagDef("volume_burst_5m", "reason_code", "flow", "mixed", V7TagActionEvidence, "5m volume burst supports short-term event timing."),
+	"taker_sell_aligned":                 tagDef("taker_sell_aligned", "reason_code", "flow", "bearish", V7TagActionEvidence, "Sell-side taker flow aligns with a short setup."),
 
 	// Required confirmations.
 	"15m_close_above_vwap_or_ema20_or_entry_zone_upper": tagDef("15m_close_above_vwap_or_ema20_or_entry_zone_upper", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long confirmation requires a 15m close above VWAP/EMA20 or entry-zone upper bound."),

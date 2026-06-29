@@ -22,15 +22,16 @@ import (
 )
 
 type validationReport struct {
-	GeneratedAt       string                 `json:"generated_at"`
-	Snapshot          snapshotSummary        `json:"snapshot"`
-	Config            local.V7Config         `json:"config"`
-	FormatCheck       formatCheck            `json:"format_check"`
-	AIRecognition     aiRecognitionCheck     `json:"ai_recognition"`
-	OpportunityCover  opportunityCoverCheck  `json:"opportunity_cover"`
-	Signals           []local.V7SignalOutput `json:"signals"`
-	PromptPreviewPath string                 `json:"prompt_preview_path"`
-	Issues            []issue                `json:"issues"`
+	GeneratedAt       string                       `json:"generated_at"`
+	Snapshot          snapshotSummary              `json:"snapshot"`
+	Config            local.V7Config               `json:"config"`
+	FormatCheck       formatCheck                  `json:"format_check"`
+	AIRecognition     aiRecognitionCheck           `json:"ai_recognition"`
+	OpportunityCover  opportunityCoverCheck        `json:"opportunity_cover"`
+	Signals           []local.V7SignalOutput       `json:"signals"`
+	PotentialPool     []local.V7PotentialCandidate `json:"potential_pool"`
+	PromptPreviewPath string                       `json:"prompt_preview_path"`
+	Issues            []issue                      `json:"issues"`
 }
 
 type snapshotSummary struct {
@@ -65,23 +66,25 @@ type aiRecognitionCheck struct {
 }
 
 type opportunityCoverCheck struct {
-	SignalCount     int            `json:"signal_count"`
-	LongCount       int            `json:"long_count"`
-	ShortCount      int            `json:"short_count"`
-	BySetupType     map[string]int `json:"by_setup_type"`
-	ByStatus        map[string]int `json:"by_status"`
-	ByRiskLevel     map[string]int `json:"by_risk_level"`
-	ByEntryMode     map[string]int `json:"by_entry_mode"`
-	ByExecutionTier map[string]int `json:"by_execution_tier"`
-	ByMarketRegime  map[string]int `json:"by_market_regime"`
-	DistinctSetups  int            `json:"distinct_setups"`
-	HasMomentum     bool           `json:"has_momentum"`
-	HasReversal     bool           `json:"has_reversal"`
-	HasSqueeze      bool           `json:"has_squeeze"`
-	HasRange        bool           `json:"has_range"`
-	HasFunding      bool           `json:"has_funding"`
-	HasAccumulation bool           `json:"has_accumulation"`
-	HasDistribution bool           `json:"has_distribution"`
+	SignalCount             int            `json:"signal_count"`
+	LongCount               int            `json:"long_count"`
+	ShortCount              int            `json:"short_count"`
+	BySetupType             map[string]int `json:"by_setup_type"`
+	ByStatus                map[string]int `json:"by_status"`
+	ByRiskLevel             map[string]int `json:"by_risk_level"`
+	ByEntryMode             map[string]int `json:"by_entry_mode"`
+	ByExecutionTier         map[string]int `json:"by_execution_tier"`
+	ByMarketRegime          map[string]int `json:"by_market_regime"`
+	PotentialPoolCount      int            `json:"potential_pool_count"`
+	UnmatchedPotentialCount int            `json:"unmatched_potential_count"`
+	DistinctSetups          int            `json:"distinct_setups"`
+	HasMomentum             bool           `json:"has_momentum"`
+	HasReversal             bool           `json:"has_reversal"`
+	HasSqueeze              bool           `json:"has_squeeze"`
+	HasRange                bool           `json:"has_range"`
+	HasFunding              bool           `json:"has_funding"`
+	HasAccumulation         bool           `json:"has_accumulation"`
+	HasDistribution         bool           `json:"has_distribution"`
 }
 
 type issue struct {
@@ -194,9 +197,10 @@ func runValidation(opts validationOptions, round int) error {
 		}
 	}
 
-	universe := local.BuildV7Universe(snap)
-	regime := local.DetectV7MarketRegime(snap)
-	signals := local.ScoreHunterV7(snap, cfg)
+	v7Result := local.ScoreHunterV7Detailed(snap, cfg)
+	universe := v7Result.Universe
+	regime := v7Result.Regime
+	signals := v7Result.Signals
 	candidates := signalsToCandidates(signals)
 	prompt := buildPrompt(candidates, signals, strategyCfg)
 
@@ -229,11 +233,18 @@ func runValidation(opts validationOptions, round int) error {
 		},
 		Config:            cfg,
 		Signals:           signals,
+		PotentialPool:     v7Result.PotentialPool,
 		PromptPreviewPath: promptPath,
 	}
 	report.FormatCheck, report.Issues = validateFormat(signals)
 	report.AIRecognition = validatePrompt(prompt, len(candidates))
 	report.OpportunityCover = validateCoverage(signals)
+	report.OpportunityCover.PotentialPoolCount = len(v7Result.PotentialPool)
+	for _, candidate := range v7Result.PotentialPool {
+		if !candidate.MatchedModule {
+			report.OpportunityCover.UnmatchedPotentialCount++
+		}
+	}
 	report.Issues = append(report.Issues, promptIssues(report.AIRecognition)...)
 	report.Issues = append(report.Issues, coverageIssues(report.OpportunityCover)...)
 
@@ -283,6 +294,21 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
+			V7Readiness:        sig.ExecutionReadiness,
+			V7ExecutionContext: sig.ExecutionContext,
+			V7TP0Price:         sig.TP0Price,
+			V7TP0RR:            sig.TP0RR,
+			V7TP0TimeWindow:    sig.TP0TimeWindow,
+			V7TP0Method:        sig.TP0Method,
+			V7TP1Price:         sig.TP1Price,
+			V7TP1RR:            sig.TP1RR,
+			V7TP1TimeWindow:    sig.TP1TimeWindow,
+			V7TP1Method:        sig.TP1Method,
+			V7TP2Price:         sig.TP2Price,
+			V7TP2RR:            sig.TP2RR,
+			V7TP2TimeWindow:    sig.TP2TimeWindow,
+			V7TP2Method:        sig.TP2Method,
+			V7TPPlan:           sig.TPPlan,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
 		cc.V7ExecutionTier, cc.V7TierReason = kernel.ClassifyHunterV7CandidateTierForRuntime(cc)
@@ -643,11 +669,35 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
 	sb.WriteString(fmt.Sprintf("- runtime tier 分布（后端初筛）：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
 	sb.WriteString(fmt.Sprintf("- prompt-final tier 分布（AIT 最终可执行口径）：%s\n", sortedMap(r.AIRecognition.PromptTierCounts)))
+	sb.WriteString(fmt.Sprintf("- 潜力池：top=%d，未命中模块=%d\n", r.OpportunityCover.PotentialPoolCount, r.OpportunityCover.UnmatchedPotentialCount))
 	sb.WriteString(fmt.Sprintf("- 覆盖家族：momentum=%v, reversal=%v, squeeze=%v, range=%v, funding=%v, accumulation=%v, distribution=%v\n\n",
 		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
 
-	sb.WriteString("## 5. 问题清单\n\n")
+	sb.WriteString("## 5. 潜力池强制跟踪\n\n")
+	if len(r.PotentialPool) == 0 {
+		sb.WriteString("- 本轮未生成潜力池候选。\n\n")
+	} else {
+		sb.WriteString("| # | Symbol | Dir | Potential | Amp24h | Vel5m | Vel15m | VolBurst | OI1h | RS4h | ModuleHit | Setups |\n")
+		sb.WriteString("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|\n")
+		for i, p := range r.PotentialPool {
+			if i >= 20 {
+				break
+			}
+			burst := p.VolumeBurst5m
+			if p.VolumeBurst15m > burst {
+				burst = p.VolumeBurst15m
+			}
+			sb.WriteString(fmt.Sprintf("| %d | %s | %s | %.1f | %.1f%% | %+.2f%% | %+.2f%% | %.2fx | %+.2f%% | %+.2f%% | %v | %s |\n",
+				i+1, p.Symbol, p.Direction, p.OpportunityPotentialScore, p.Amplitude24h,
+				p.Velocity5m, p.Velocity15m, burst, p.OIDelta1h, p.RelativeStrength4h,
+				p.MatchedModule, formatSetupSlice(p.MatchedSetups)))
+		}
+		sb.WriteString("\n")
+		sb.WriteString("- 跟踪口径：潜力池用于 30m/60m MFE、MAE、后续模块命中审计；未命中模块的高分标的不计入真实开仓胜率。\n\n")
+	}
+
+	sb.WriteString("## 6. 问题清单\n\n")
 	if len(r.Issues) == 0 {
 		sb.WriteString("- 未发现格式或识别阻断问题。\n")
 	} else {
@@ -675,12 +725,25 @@ func sortedMap(m map[string]int) string {
 	return strings.Join(parts, ", ")
 }
 
+func formatSetupSlice(values []local.V7SetupType) string {
+	if len(values) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(values))
+	for _, v := range values {
+		parts = append(parts, string(v))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
+}
+
 func printConsoleSummary(r validationReport, rawPath, mdPath string) {
 	fmt.Printf("Hunter v7 validation complete\n")
 	fmt.Printf("snapshot: symbols=%d universe=%d regime=%s BTC24h=%+.2f%% ETH24h=%+.2f%% rest_errors=%d\n",
 		r.Snapshot.SymbolCount, r.Snapshot.UniverseCount, r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h, r.Snapshot.RestErrors)
 	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
 		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
+	fmt.Printf("potential_pool: top=%d unmatched=%d\n", r.OpportunityCover.PotentialPoolCount, r.OpportunityCover.UnmatchedPotentialCount)
 	fmt.Printf("runtime tiers: %s\n", sortedMap(r.OpportunityCover.ByExecutionTier))
 	fmt.Printf("prompt-final tiers: %s\n", sortedMap(r.AIRecognition.PromptTierCounts))
 	fmt.Printf("format: json=%v/%v missing=%d executable_gaps=%d prompt_v7_json=%v\n",

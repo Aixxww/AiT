@@ -224,6 +224,87 @@ func ApplyMultiTimeframeTP(sig *V7SignalOutput, ctx *V7SymbolContext) {
 	sig.TP2RR = mtp.TP2.RR
 	sig.TP2TimeWindow = mtp.TP2.TimeWindow
 	sig.TP2Method = mtp.TP2.Method
+	syncV7TargetsWithMultiTimeframeTP(sig, mtp, entry)
+	ApplyV7TakeProfitPlan(sig, ctx)
+}
+
+func ApplyV7TakeProfitPlan(sig *V7SignalOutput, ctx *V7SymbolContext) {
+	if sig == nil || ctx == nil {
+		return
+	}
+	entry := (sig.EntryZone.Lower + sig.EntryZone.Upper) / 2
+	if entry <= 0 {
+		entry = ctx.CurrentPrice
+	}
+	if entry <= 0 {
+		return
+	}
+
+	if isV7HighVelocitySetup(sig.SetupType) {
+		ensureV7TP0Distance(sig, entry, 1.2, 2.5)
+	}
+	if sig.TP0Price <= 0 {
+		return
+	}
+
+	dist := math.Abs(pctDiff(sig.TP0Price, entry))
+	plan := &V7TakeProfitPlan{
+		TP0Price:               sig.TP0Price,
+		TP0DistancePct:         dist,
+		TP0ReducePctMin:        30,
+		TP0ReducePctMax:        50,
+		MoveStopToBreakeven:    true,
+		TrailingStopMode:       "after_tp0_partial",
+		TrailingBasis:          []string{"5m_ema20", "15m_vwap", "0.8-1.2atr15m"},
+		TrailingDistancePctMin: 0.8,
+		TrailingDistancePctMax: 1.2,
+		StatsBucket:            "tp0_tp1_no_sl",
+	}
+	if !isV7HighVelocitySetup(sig.SetupType) {
+		plan.TrailingStopMode = "after_tp0_optional"
+	}
+	sig.TPPlan = plan
+}
+
+func isV7HighVelocitySetup(setup V7SetupType) bool {
+	switch setup {
+	case V7SetupRangeExpansion,
+		V7SetupDisplacementLong,
+		V7SetupLeaderMomentumLong,
+		V7SetupTrendBreakoutLong,
+		V7SetupVolatilitySqueeze:
+		return true
+	default:
+		return false
+	}
+}
+
+func ensureV7TP0Distance(sig *V7SignalOutput, entry, minPct, maxPct float64) {
+	if sig == nil || entry <= 0 {
+		return
+	}
+	dist := math.Abs(pctDiff(sig.TP0Price, entry))
+	if dist <= 0 {
+		dist = (minPct + maxPct) / 2
+	}
+	dist = math.Max(minPct, math.Min(maxPct, dist))
+	if sig.Direction == V7DirShort {
+		sig.TP0Price = entry * (1 - dist/100)
+	} else {
+		sig.TP0Price = entry * (1 + dist/100)
+	}
+	if sig.Invalidation.Price > 0 {
+		risk := math.Abs(entry - sig.Invalidation.Price)
+		if risk > 0 {
+			sig.TP0RR = math.Abs(sig.TP0Price-entry) / risk
+		}
+	}
+	if sig.TP0TimeWindow == "" {
+		sig.TP0TimeWindow = "5m-30m"
+	}
+	if sig.TP0Method == "" || sig.TP0Method == "nearest_0.8R" {
+		sig.TP0Method = "tp0_dynamic_1.2_2.5pct"
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -299,4 +380,48 @@ func calcRR(entry, stop, target float64, isLong bool) float64 {
 		return 0
 	}
 	return math.Abs(reward / risk)
+}
+
+func syncV7TargetsWithMultiTimeframeTP(sig *V7SignalOutput, mtp *MultiTimeframeTP, entry float64) {
+	if sig == nil || mtp == nil || mtp.TP1.Price <= 0 || entry <= 0 {
+		return
+	}
+	isLong := sig.Direction == V7DirLong
+	isDirectional := func(price float64) bool {
+		if price <= 0 {
+			return false
+		}
+		if isLong {
+			return price > entry
+		}
+		return price < entry
+	}
+	if !isDirectional(mtp.TP1.Price) {
+		return
+	}
+
+	original := append([]V7Target{}, sig.Targets...)
+	targets := []V7Target{{Price: mtp.TP1.Price, Reason: "tp1_" + mtp.TP1.Method}}
+	if isDirectional(mtp.TP2.Price) && !v7TargetPriceExists(targets, mtp.TP2.Price, entry) {
+		targets = append(targets, V7Target{Price: mtp.TP2.Price, Reason: "tp2_" + mtp.TP2.Method})
+	}
+	for _, target := range original {
+		if !isDirectional(target.Price) || v7TargetPriceExists(targets, target.Price, entry) {
+			continue
+		}
+		targets = append(targets, target)
+	}
+	sig.Targets = targets
+}
+
+func v7TargetPriceExists(targets []V7Target, price, entry float64) bool {
+	if price <= 0 || entry <= 0 {
+		return false
+	}
+	for _, target := range targets {
+		if math.Abs(target.Price-price)/entry < 0.001 {
+			return true
+		}
+	}
+	return false
 }

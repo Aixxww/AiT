@@ -48,6 +48,7 @@ const (
 	V7SetupPreDistribution    V7SetupType = "pre_distribution_watch"
 	V7SetupAccumulationWatch  V7SetupType = "accumulation_watch"
 	V7SetupDisplacementLong   V7SetupType = "displacement_momentum_long"
+	V7SetupRangeExpansion     V7SetupType = "range_expansion_event"
 
 	// v8 new modules (Phase 2 P1-D)
 	V7SetupIntradayScalp     V7SetupType = "intraday_scalp_long"
@@ -187,6 +188,7 @@ type V7SymbolContext struct {
 	Velocity15m      float64 // latest 15m close-to-close change %
 	VolumeBurst5m    float64 // latest 5m volume / recent average
 	VolumeBurst15m   float64 // latest 15m volume / recent average
+	ExecutionContext *V7ExecutionContext
 
 	// 5m micro-structure data (v8 timing booster)
 	RSI5m      float64 // 5m RSI for timing booster
@@ -258,6 +260,43 @@ type V7DerivativesContext struct {
 	TakerBuy15m float64 `json:"taker_buy_ratio_15m"`
 }
 
+type V7ExecutionTimeframeSummary struct {
+	Timeframe        string  `json:"timeframe"`
+	CandleCount      int     `json:"candle_count"`
+	LastClose        float64 `json:"last_close"`
+	RecentHigh3      float64 `json:"recent_high3,omitempty"`
+	RecentLow3       float64 `json:"recent_low3,omitempty"`
+	HasEMA20         bool    `json:"has_ema20"`
+	CloseVsEMA20Pct  float64 `json:"close_vs_ema20_pct,omitempty"`
+	HasATR           bool    `json:"has_atr"`
+	ATRPct           float64 `json:"atr_pct,omitempty"`
+	MinStop08ATRPct  float64 `json:"min_stop_0_8atr_pct,omitempty"`
+	HasVWAP20        bool    `json:"has_vwap20"`
+	VWAP20           float64 `json:"vwap20,omitempty"`
+	CloseVsVWAP20Pct float64 `json:"close_vs_vwap20_pct,omitempty"`
+	NoNewHigh        bool    `json:"no_new_high,omitempty"`
+	NoNewLow         bool    `json:"no_new_low,omitempty"`
+	VolumeVsAvg5     float64 `json:"volume_vs_avg5,omitempty"`
+}
+
+type V7ExecutionContext struct {
+	DataQuality string                                 `json:"data_quality"`
+	Timeframes  map[string]V7ExecutionTimeframeSummary `json:"timeframes,omitempty"`
+}
+
+type V7TakeProfitPlan struct {
+	TP0Price               float64  `json:"tp0_price,omitempty"`
+	TP0DistancePct         float64  `json:"tp0_distance_pct,omitempty"`
+	TP0ReducePctMin        float64  `json:"tp0_reduce_pct_min,omitempty"`
+	TP0ReducePctMax        float64  `json:"tp0_reduce_pct_max,omitempty"`
+	MoveStopToBreakeven    bool     `json:"move_stop_to_breakeven"`
+	TrailingStopMode       string   `json:"trailing_stop_mode,omitempty"`
+	TrailingBasis          []string `json:"trailing_basis,omitempty"`
+	TrailingDistancePctMin float64  `json:"trailing_distance_pct_min,omitempty"`
+	TrailingDistancePctMax float64  `json:"trailing_distance_pct_max,omitempty"`
+	StatsBucket            string   `json:"stats_bucket,omitempty"`
+}
+
 type V7ReadinessTier string
 
 const (
@@ -318,23 +357,25 @@ type V7SignalOutput struct {
 	DerivativesCtx *V7DerivativesContext `json:"derivatives_context,omitempty"`
 
 	ExecutionReadiness *V7ExecutionReadiness `json:"execution_readiness,omitempty"`
+	ExecutionContext   *V7ExecutionContext   `json:"execution_context,omitempty"`
 
 	// Liquidity context for adaptive OI threshold in prompt-data filter
 	QuoteVolume24h float64 `json:"quote_volume_24h,omitempty"` // 24h quote volume (USD)
 
 	// Multi-timeframe TP targets (new in v8)
-	TP0Price      float64 `json:"tp0_price,omitempty"`
-	TP0RR         float64 `json:"tp0_rr,omitempty"`
-	TP0TimeWindow string  `json:"tp0_time_window,omitempty"`
-	TP0Method     string  `json:"tp0_method,omitempty"`
-	TP1Price      float64 `json:"tp1_price,omitempty"`
-	TP1RR         float64 `json:"tp1_rr,omitempty"`
-	TP1TimeWindow string  `json:"tp1_time_window,omitempty"`
-	TP1Method     string  `json:"tp1_method,omitempty"`
-	TP2Price      float64 `json:"tp2_price,omitempty"`
-	TP2RR         float64 `json:"tp2_rr,omitempty"`
-	TP2TimeWindow string  `json:"tp2_time_window,omitempty"`
-	TP2Method     string  `json:"tp2_method,omitempty"`
+	TP0Price      float64           `json:"tp0_price,omitempty"`
+	TP0RR         float64           `json:"tp0_rr,omitempty"`
+	TP0TimeWindow string            `json:"tp0_time_window,omitempty"`
+	TP0Method     string            `json:"tp0_method,omitempty"`
+	TP1Price      float64           `json:"tp1_price,omitempty"`
+	TP1RR         float64           `json:"tp1_rr,omitempty"`
+	TP1TimeWindow string            `json:"tp1_time_window,omitempty"`
+	TP1Method     string            `json:"tp1_method,omitempty"`
+	TP2Price      float64           `json:"tp2_price,omitempty"`
+	TP2RR         float64           `json:"tp2_rr,omitempty"`
+	TP2TimeWindow string            `json:"tp2_time_window,omitempty"`
+	TP2Method     string            `json:"tp2_method,omitempty"`
+	TPPlan        *V7TakeProfitPlan `json:"take_profit_plan,omitempty"`
 
 	// Resonance scoring (Phase 2 prep)
 	ResonanceBonus float64 `json:"resonance_bonus,omitempty"`
@@ -362,6 +403,35 @@ type V7SignalRecord struct {
 	BlockedGate string // Where the signal was blocked in the funnel
 }
 
+type V7PotentialComponents struct {
+	Amplitude        float64 `json:"amplitude"`
+	Velocity         float64 `json:"velocity"`
+	VolumeBurst      float64 `json:"volume_burst"`
+	OIDelta          float64 `json:"oi_delta"`
+	FundingCrowding  float64 `json:"funding_crowding"`
+	RelativeStrength float64 `json:"relative_strength"`
+}
+
+type V7PotentialCandidate struct {
+	Symbol                    string                `json:"symbol"`
+	Direction                 V7Direction           `json:"direction"`
+	OpportunityPotentialScore float64               `json:"opportunity_potential_score"`
+	Components                V7PotentialComponents `json:"components"`
+	Amplitude24h              float64               `json:"amplitude_24h"`
+	Velocity5m                float64               `json:"velocity_5m"`
+	Velocity15m               float64               `json:"velocity_15m"`
+	VolumeBurst5m             float64               `json:"volume_burst_5m"`
+	VolumeBurst15m            float64               `json:"volume_burst_15m"`
+	OIDelta1h                 float64               `json:"oi_delta_1h"`
+	OIDelta4h                 float64               `json:"oi_delta_4h"`
+	FundingRate               float64               `json:"funding_rate"`
+	RelativeStrength4h        float64               `json:"relative_strength_4h"`
+	MatchedModule             bool                  `json:"matched_module"`
+	MatchedSetups             []V7SetupType         `json:"matched_setups,omitempty"`
+	TrackingWindows           []string              `json:"tracking_windows"`
+	AuditUse                  string                `json:"audit_use"`
+}
+
 // V7SignalRecorder is a callback invoked after ScoreHunterV7 completes,
 // enabling the caller to persist all raw signals for funnel attribution.
 type V7SignalRecorder func(cycleNumber int, records []V7SignalRecord, regime V7MarketRegime)
@@ -372,15 +442,17 @@ type V7RouteResult struct {
 	ConfirmedSignals []V7SignalOutput
 	WatchSignals     []V7SignalOutput
 	OutputSignals    []V7SignalOutput
+	PotentialPool    []V7PotentialCandidate
 }
 
 // V7ScoreResult is the detailed Hunter v7 scoring result used for attribution.
 type V7ScoreResult struct {
-	Regime      V7MarketRegime
-	Universe    []V7SymbolContext
-	RawSignals  []V7SignalOutput
-	Signals     []V7SignalOutput
-	Attribution V7AttributionSummary
+	Regime        V7MarketRegime
+	Universe      []V7SymbolContext
+	RawSignals    []V7SignalOutput
+	Signals       []V7SignalOutput
+	PotentialPool []V7PotentialCandidate
+	Attribution   V7AttributionSummary
 }
 
 // V7AttributionSummary captures per-cycle funnel counts for diagnostics.
@@ -535,6 +607,13 @@ func DefaultSetupThresholds() map[string]V7SetupThresholds {
 			MinConfidence:   "C",
 		},
 		string(V7SetupDisplacementLong): {
+			MinAIPriority:   50,
+			MinZonePosShort: 0,
+			MaxZonePosLong:  100,
+			RequireOIFlush:  false,
+			MinConfidence:   "C",
+		},
+		string(V7SetupRangeExpansion): {
 			MinAIPriority:   50,
 			MinZonePosShort: 0,
 			MaxZonePosLong:  100,

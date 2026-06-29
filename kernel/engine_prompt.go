@@ -741,6 +741,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出 blocked_reason_code。\n")
 			sb.WriteString("3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。\n")
 			sb.WriteString("4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。\n")
+			sb.WriteString("5. 动量/位移/放量突破/区间扩张开仓后必须执行 TP0 分批止盈：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。\n")
+			sb.WriteString("6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。\n")
 			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
 			sb.WriteString("Decision policy (strict tier funnel):\n")
@@ -748,6 +750,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE next: only after all EXECUTABLE candidates are blocked, evaluate REVIEWABLE. Open only when live candles/flow confirm entry zone, near structural stop, and RR; otherwise provide `blocked_reason_code`.\n")
 			sb.WriteString("3. WATCH is context only: WATCH candidates do not participate in open decisions. Do not use the absence of WATCH candidates as a global wait veto on EXECUTABLE/REVIEWABLE.\n")
 			sb.WriteString("4. REJECTED is forbidden: REJECTED candidates must not influence any open decision.\n")
+			sb.WriteString("5. For momentum/displacement/range-expansion/breakout opens, use the TP0 partial-profit plan: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1.\n")
+			sb.WriteString("6. If execution_tier=EXECUTABLE and data_quality=complete_for_execution, `regime_against_direction` alone must not downgrade to wait; reduce size when confirmation passed, but still wait when confirmation_summary.passed_review=false.\n")
 			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}
 	} else {
@@ -919,6 +923,9 @@ func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tie
 		DataQuality:  "complete",
 		NextConfirm:  append([]string{}, coin.V7RequiredConfirms...),
 	}
+	if coin.V7ExecutionContext != nil && coin.V7ExecutionContext.DataQuality == "complete_for_execution" {
+		readiness.DataQuality = "complete_for_execution"
+	}
 	if readiness.Tier == "" {
 		readiness.Tier = local.V7ReadinessWatch
 	}
@@ -1065,6 +1072,7 @@ func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) str
 		Targets            []local.V7Target            `json:"targets"`
 		PriceContext       *local.V7PriceContext       `json:"price_context,omitempty"`
 		ExecutionReadiness *local.V7ExecutionReadiness `json:"execution_readiness,omitempty"`
+		ExecutionContext   *local.V7ExecutionContext   `json:"execution_context,omitempty"`
 	}
 	payload := compactSignal{
 		Symbol:             coin.Symbol,
@@ -1080,6 +1088,7 @@ func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) str
 		Targets:            coin.V7Targets,
 		PriceContext:       coin.V7PriceContext,
 		ExecutionReadiness: coin.V7Readiness,
+		ExecutionContext:   coin.V7ExecutionContext,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -1121,9 +1130,23 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		EntryZone             local.V7PriceZone             `json:"entry_zone"`
 		Invalidation          local.V7InvalidationRule      `json:"invalidation"`
 		Targets               []local.V7Target              `json:"targets"`
+		TP0Price              float64                       `json:"tp0_price,omitempty"`
+		TP0RR                 float64                       `json:"tp0_rr,omitempty"`
+		TP0TimeWindow         string                        `json:"tp0_time_window,omitempty"`
+		TP0Method             string                        `json:"tp0_method,omitempty"`
+		TP1Price              float64                       `json:"tp1_price,omitempty"`
+		TP1RR                 float64                       `json:"tp1_rr,omitempty"`
+		TP1TimeWindow         string                        `json:"tp1_time_window,omitempty"`
+		TP1Method             string                        `json:"tp1_method,omitempty"`
+		TP2Price              float64                       `json:"tp2_price,omitempty"`
+		TP2RR                 float64                       `json:"tp2_rr,omitempty"`
+		TP2TimeWindow         string                        `json:"tp2_time_window,omitempty"`
+		TP2Method             string                        `json:"tp2_method,omitempty"`
+		TakeProfitPlan        *local.V7TakeProfitPlan       `json:"take_profit_plan,omitempty"`
 		PriceContext          *local.V7PriceContext         `json:"price_context,omitempty"`
 		DerivativesContext    *local.V7DerivativesContext   `json:"derivatives_context,omitempty"`
 		ExecutionReadiness    *local.V7ExecutionReadiness   `json:"execution_readiness,omitempty"`
+		ExecutionContext      *local.V7ExecutionContext     `json:"execution_context,omitempty"`
 	}
 
 	payload := v7SignalForAI{
@@ -1154,9 +1177,23 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		EntryZone:             coin.V7EntryZone,
 		Invalidation:          coin.V7Invalidation,
 		Targets:               coin.V7Targets,
+		TP0Price:              coin.V7TP0Price,
+		TP0RR:                 coin.V7TP0RR,
+		TP0TimeWindow:         coin.V7TP0TimeWindow,
+		TP0Method:             coin.V7TP0Method,
+		TP1Price:              coin.V7TP1Price,
+		TP1RR:                 coin.V7TP1RR,
+		TP1TimeWindow:         coin.V7TP1TimeWindow,
+		TP1Method:             coin.V7TP1Method,
+		TP2Price:              coin.V7TP2Price,
+		TP2RR:                 coin.V7TP2RR,
+		TP2TimeWindow:         coin.V7TP2TimeWindow,
+		TP2Method:             coin.V7TP2Method,
+		TakeProfitPlan:        coin.V7TPPlan,
 		PriceContext:          coin.V7PriceContext,
 		DerivativesContext:    coin.V7DerivativesCtx,
 		ExecutionReadiness:    coin.V7Readiness,
+		ExecutionContext:      coin.V7ExecutionContext,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -1565,6 +1602,25 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 	if coin.V7Invalidation.Price > 0 {
 		parts = append(parts, fmt.Sprintf("invalidation_dist=%+.2f%%", pctMove(price, coin.V7Invalidation.Price)))
 	}
+	if coin.V7TP0Price > 0 {
+		parts = append(parts, fmt.Sprintf("tp0_dist=%+.2f%%", pctMove(price, coin.V7TP0Price)))
+		if coin.V7TP0RR > 0 {
+			parts = append(parts, fmt.Sprintf("tp0_rr=%.2f", coin.V7TP0RR))
+		}
+	}
+	if coin.V7TP1Price > 0 {
+		parts = append(parts, fmt.Sprintf("tp1_dist=%+.2f%%", pctMove(price, coin.V7TP1Price)))
+	}
+	if coin.V7TP2Price > 0 {
+		parts = append(parts, fmt.Sprintf("tp2_dist=%+.2f%%", pctMove(price, coin.V7TP2Price)))
+	}
+	if coin.V7TPPlan != nil {
+		parts = append(parts,
+			fmt.Sprintf("tp0_reduce=%.0f-%.0f%%", coin.V7TPPlan.TP0ReducePctMin, coin.V7TPPlan.TP0ReducePctMax),
+			fmt.Sprintf("tp0_breakeven=%t", coin.V7TPPlan.MoveStopToBreakeven),
+			fmt.Sprintf("trailing_stop=%s", hunterV7CompactTrailingPlan(coin.V7TPPlan)),
+		)
+	}
 	if len(coin.V7Targets) > 0 && coin.V7Targets[0].Price > 0 {
 		parts = append(parts, fmt.Sprintf("target1_dist=%+.2f%%", pctMove(price, coin.V7Targets[0].Price)))
 	}
@@ -1583,11 +1639,15 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 		if tfSummary := executionTFCompact("15m", price, tf15, vwap15m); tfSummary != "" {
 			parts = append(parts, tfSummary)
 		}
+	} else if tfSummary := executionContextTFCompact("15m", coin); tfSummary != "" {
+		parts = append(parts, tfSummary)
 	}
 	if tf5 := data.TimeframeData["5m"]; tf5 != nil {
 		if tfSummary := executionTFCompact("5m", price, tf5, 0); tfSummary != "" {
 			parts = append(parts, tfSummary)
 		}
+	} else if tfSummary := executionContextTFCompact("5m", coin); tfSummary != "" {
+		parts = append(parts, tfSummary)
 	}
 	if warning := hunterV7ExecutionWarning(price, coin); warning != "" {
 		parts = append(parts, "warning="+warning)
@@ -1608,6 +1668,7 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 			parts = append(parts,
 				fmt.Sprintf("missing_execution=%s", strings.Join(missing.Execution, ",")),
 				"missing_execution_rule=review_or_wait_for_setup_confirmation",
+				fmt.Sprintf("conditional_open_if=%s", hunterV7ConditionalOpenChecklist(coin, missing.Execution)),
 			)
 		}
 		if len(missing.Context) > 0 {
@@ -1617,11 +1678,57 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 			)
 		}
 	} else {
-		parts = append(parts, "compact_data_quality=complete")
+		dataQuality := "complete"
+		if coin.V7ExecutionContext != nil && coin.V7ExecutionContext.DataQuality == "complete_for_execution" {
+			dataQuality = "complete_for_execution"
+		}
+		parts = append(parts, "compact_data_quality="+dataQuality)
 	}
 	sb.WriteString(strings.Join(parts, " | "))
 	sb.WriteString("\n")
 	return sb.String()
+}
+
+func hunterV7CompactTrailingPlan(plan *local.V7TakeProfitPlan) string {
+	if plan == nil {
+		return ""
+	}
+	basis := strings.Join(plan.TrailingBasis, "_or_")
+	if basis == "" {
+		basis = plan.TrailingStopMode
+	}
+	if plan.TrailingDistancePctMin > 0 && plan.TrailingDistancePctMax > 0 {
+		return fmt.Sprintf("%s_%.1f-%.1f%%", basis, plan.TrailingDistancePctMin, plan.TrailingDistancePctMax)
+	}
+	return basis
+}
+
+func hunterV7ConditionalOpenChecklist(coin *CandidateCoin, missingExecution []string) string {
+	items := make([]string, 0, len(missingExecution)+2)
+	if coin == nil {
+		for _, field := range missingExecution {
+			if field != "" {
+				items = append(items, field+"_resolved")
+			}
+		}
+		items = append(items, "entry_zone_valid", "invalidation_and_rr_valid")
+		return strings.Join(items, "+")
+	}
+	items = make([]string, 0, len(missingExecution)+len(coin.V7RequiredConfirms)+2)
+	for _, field := range missingExecution {
+		if field == "" {
+			continue
+		}
+		items = append(items, field+"_resolved")
+	}
+	for _, confirm := range coin.V7RequiredConfirms {
+		if confirm == "" {
+			continue
+		}
+		items = append(items, confirm+"_visible")
+	}
+	items = append(items, "entry_zone_valid", "invalidation_and_rr_valid")
+	return strings.Join(items, "+")
 }
 
 type hunterV7MissingFieldGroups struct {
@@ -1668,7 +1775,16 @@ func hunterV7CompactMissingFieldGroups(data *market.Data, coin *CandidateCoin) h
 	}
 	tf15 := data.TimeframeData["15m"]
 	if tf15 == nil || len(tf15.Klines) == 0 {
-		groups.Execution = append(groups.Execution, "15m_kline")
+		if summary, ok := hunterV7ExecutionContextTimeframe(coin, "15m"); ok {
+			if !summary.HasATR {
+				groups.Context = append(groups.Context, "15m_atr")
+			}
+			if !summary.HasEMA20 {
+				groups.Execution = append(groups.Execution, "15m_ema20")
+			}
+		} else {
+			groups.Execution = append(groups.Execution, "15m_kline")
+		}
 	} else {
 		if tf15.ATR14 <= 0 {
 			groups.Context = append(groups.Context, "15m_atr")
@@ -1682,9 +1798,60 @@ func hunterV7CompactMissingFieldGroups(data *market.Data, coin *CandidateCoin) h
 	}
 	tf5 := data.TimeframeData["5m"]
 	if tf5 == nil || len(tf5.Klines) == 0 {
-		groups.Execution = append(groups.Execution, "5m_kline")
+		if !hunterV7ExecutionContextHasKline(coin, "5m") {
+			groups.Execution = append(groups.Execution, "5m_kline")
+		}
 	}
 	return groups
+}
+
+func executionContextTFCompact(label string, coin *CandidateCoin) string {
+	if coin == nil || coin.V7ExecutionContext == nil {
+		return ""
+	}
+	tf, ok := coin.V7ExecutionContext.Timeframes[label]
+	if !ok || tf.CandleCount == 0 {
+		return ""
+	}
+	parts := []string{
+		fmt.Sprintf("%s_recent_high3=%.6f", label, tf.RecentHigh3),
+		fmt.Sprintf("%s_recent_low3=%.6f", label, tf.RecentLow3),
+	}
+	if tf.HasATR {
+		parts = append(parts,
+			fmt.Sprintf("%s_atr_pct=%.2f%%", label, tf.ATRPct),
+			fmt.Sprintf("%s_min_stop_0_8atr=%.2f%%", label, tf.MinStop08ATRPct),
+		)
+	}
+	if tf.HasEMA20 {
+		parts = append(parts, fmt.Sprintf("%s_close_vs_ema20=%+.2f%%", label, tf.CloseVsEMA20Pct))
+	}
+	if tf.HasVWAP20 {
+		parts = append(parts,
+			fmt.Sprintf("%s_vwap20=%.6f", label, tf.VWAP20),
+			fmt.Sprintf("%s_close_vs_vwap20=%+.2f%%", label, tf.CloseVsVWAP20Pct),
+			fmt.Sprintf("%s_close_below_vwap20=%t", label, tf.CloseVsVWAP20Pct < 0),
+			fmt.Sprintf("%s_close_above_vwap20=%t", label, tf.CloseVsVWAP20Pct > 0),
+		)
+	}
+	if tf.CandleCount >= 6 {
+		parts = append(parts,
+			fmt.Sprintf("%s_no_new_high=%t", label, tf.NoNewHigh),
+			fmt.Sprintf("%s_no_new_low=%t", label, tf.NoNewLow),
+		)
+		if tf.VolumeVsAvg5 > 0 {
+			parts = append(parts, fmt.Sprintf("%s_vol_vs_avg5=%.2fx", label, tf.VolumeVsAvg5))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func hunterV7ExecutionContextHasKline(coin *CandidateCoin, tf string) bool {
+	if coin == nil || coin.V7ExecutionContext == nil {
+		return false
+	}
+	summary, ok := coin.V7ExecutionContext.Timeframes[tf]
+	return ok && summary.CandleCount > 0
 }
 
 func executionTFCompact(label string, price float64, data *market.TimeframeSeriesData, vwap float64) string {
@@ -1745,6 +1912,9 @@ func hunterV7CompactVWAP15m(data *market.Data, coin *CandidateCoin) float64 {
 		if coin.V7PriceContext != nil && coin.V7PriceContext.VWAP15m > 0 {
 			return coin.V7PriceContext.VWAP15m
 		}
+		if summary, ok := hunterV7ExecutionContextTimeframe(coin, "15m"); ok && summary.HasVWAP20 {
+			return summary.VWAP20
+		}
 	}
 	if data == nil {
 		return 0
@@ -1754,6 +1924,17 @@ func hunterV7CompactVWAP15m(data *market.Data, coin *CandidateCoin) float64 {
 		return 0
 	}
 	return vwapFromKlines(lastNKlines(tf15.Klines, 20))
+}
+
+func hunterV7ExecutionContextTimeframe(coin *CandidateCoin, tf string) (local.V7ExecutionTimeframeSummary, bool) {
+	if coin == nil || coin.V7ExecutionContext == nil {
+		return local.V7ExecutionTimeframeSummary{}, false
+	}
+	summary, ok := coin.V7ExecutionContext.Timeframes[tf]
+	if !ok || summary.CandleCount == 0 {
+		return local.V7ExecutionTimeframeSummary{}, false
+	}
+	return summary, true
 }
 
 func hunterV7RequiresVWAP(coin *CandidateCoin) bool {

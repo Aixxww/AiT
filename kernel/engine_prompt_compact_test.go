@@ -113,6 +113,97 @@ func TestFormatCompactMarketDataAddsHunterV7ExecutionContext(t *testing.T) {
 	}
 }
 
+func TestFormatCompactMarketDataUsesHunterV7ExecutionContextFallback(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{
+		Indicators: store.IndicatorConfig{
+			EnableEMA:         true,
+			EnableATR:         true,
+			EnableBOLL:        true,
+			EnableVolume:      true,
+			EnableOI:          true,
+			EnableFundingRate: true,
+		},
+	})
+	data := &market.Data{
+		Symbol:       "TESTUSDT",
+		CurrentPrice: 100,
+		OpenInterest: &market.OIData{
+			Latest:  1000,
+			Average: 900,
+		},
+	}
+	coin := &CandidateCoin{
+		Symbol:             "TESTUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "range_expansion_event",
+		V7EntryMode:        "fast_confirm",
+		V7ExecutionQuality: "ready",
+		V7Confidence:       "B",
+		V7TimingScore:      74,
+		V7RiskScore:        18,
+		V7EntryZone:        local.V7PriceZone{Lower: 99, Upper: 101},
+		V7Invalidation:     local.V7InvalidationRule{Price: 97},
+		V7Targets:          []local.V7Target{{Price: 106, Reason: "tp1_median_1.5R_atr_structure"}},
+		V7RequiredConfirms: []string{"15m_close_above_vwap_or_ema20_or_entry_zone_upper"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{OIChange1h: 2.5, OIChange4h: 4.0, TakerBuy15m: 0.56},
+		V7ExecutionContext: &local.V7ExecutionContext{
+			DataQuality: "complete_for_execution",
+			Timeframes: map[string]local.V7ExecutionTimeframeSummary{
+				"15m": {
+					Timeframe:        "15m",
+					CandleCount:      24,
+					LastClose:        100,
+					RecentHigh3:      101.2,
+					RecentLow3:       98.8,
+					HasEMA20:         true,
+					CloseVsEMA20Pct:  1.1,
+					HasATR:           true,
+					ATRPct:           1.4,
+					MinStop08ATRPct:  1.12,
+					HasVWAP20:        true,
+					VWAP20:           99.2,
+					CloseVsVWAP20Pct: 0.81,
+					NoNewHigh:        false,
+					NoNewLow:         true,
+					VolumeVsAvg5:     2.2,
+				},
+				"5m": {
+					Timeframe:       "5m",
+					CandleCount:     24,
+					LastClose:       100,
+					RecentHigh3:     100.8,
+					RecentLow3:      99.3,
+					HasEMA20:        true,
+					CloseVsEMA20Pct: 0.7,
+					HasATR:          true,
+					ATRPct:          0.6,
+					MinStop08ATRPct: 0.48,
+					NoNewHigh:       true,
+					NoNewLow:        true,
+					VolumeVsAvg5:    1.7,
+				},
+			},
+		},
+	}
+
+	out := engine.formatCompactMarketData(data, coin)
+	for _, want := range []string{
+		"15m_recent_high3=101.200000",
+		"15m_vwap20=99.200000",
+		"5m_recent_low3=99.300000",
+		"compact_data_quality=complete",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("compact output missing %q\noutput:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{"missing_execution=15m_kline", "missing_execution=5m_kline", "missing_execution=15m_vwap", "missing_execution=15m_ema20"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("compact output should not report %q missing\noutput:\n%s", notWant, out)
+		}
+	}
+}
+
 func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 	engine := NewStrategyEngine(&store.StrategyConfig{
 		CoinSource: store.CoinSourceConfig{
@@ -780,6 +871,112 @@ func TestFormatHunterV7SignalJSONDefinesP2Tags(t *testing.T) {
 	}
 	if targets, ok := payload["targets"].([]interface{}); !ok || len(targets) != 2 {
 		t.Fatalf("targets missing or truncated: %#v", payload["targets"])
+	}
+}
+
+func TestHunterV7PromptExposesTP0PlanAndConditionalOpenChecklist(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{})
+	data := &market.Data{
+		Symbol:        "TP0USDT",
+		CurrentPrice:  100,
+		TimeframeData: map[string]*market.TimeframeSeriesData{},
+	}
+	coin := CandidateCoin{
+		Symbol:             "TP0USDT",
+		Direction:          "LONG",
+		V7SetupType:        string(local.V7SetupRangeExpansion),
+		V7Status:           "candidate",
+		V7ExecutionQuality: "good",
+		V7Confidence:       "B",
+		V7TimingScore:      72,
+		V7RiskScore:        28,
+		V7EntryMode:        "zone_retest",
+		V7EntryZone:        local.V7PriceZone{Lower: 99, Upper: 101},
+		V7Invalidation:     local.V7InvalidationRule{Price: 96},
+		V7Targets:          []local.V7Target{{Price: 104, Reason: "TP1"}},
+		V7TP0Price:         101.5,
+		V7TP0RR:            0.38,
+		V7TP1Price:         104,
+		V7TP2Price:         108,
+		V7TPPlan: &local.V7TakeProfitPlan{
+			TP0Price:               101.5,
+			TP0DistancePct:         1.5,
+			TP0ReducePctMin:        30,
+			TP0ReducePctMax:        50,
+			MoveStopToBreakeven:    true,
+			TrailingBasis:          []string{"5m_ema20", "15m_vwap", "0.8-1.2atr15m"},
+			TrailingDistancePctMin: 0.8,
+			TrailingDistancePctMax: 1.2,
+		},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.56},
+		V7RequiredConfirms: []string{"15m close above ema20", "taker buy keeps bid"},
+	}
+
+	out := engine.formatHunterV7ExecutionCompact(data, &coin)
+	for _, want := range []string{
+		"tp0_dist=+1.50%",
+		"tp0_reduce=30-50%",
+		"tp0_breakeven=true",
+		"trailing_stop=5m_ema20_or_15m_vwap_or_0.8-1.2atr15m_0.8-1.2%",
+		"missing_execution=15m_kline,5m_kline",
+		"conditional_open_if=15m_kline_resolved+5m_kline_resolved+15m close above ema20_visible+taker buy keeps bid_visible+entry_zone_valid+invalidation_and_rr_valid",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("compact output missing %q\n%s", want, out)
+		}
+	}
+
+	raw := engine.formatHunterV7SignalJSON(coin)
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("invalid json: %v\n%s", err, raw)
+	}
+	if payload["tp0_price"] != 101.5 || payload["tp1_price"] != 104.0 {
+		t.Fatalf("missing tp fields: %#v", payload)
+	}
+	if _, ok := payload["take_profit_plan"].(map[string]interface{}); !ok {
+		t.Fatalf("take_profit_plan missing: %#v", payload["take_profit_plan"])
+	}
+}
+
+func TestHunterV7PromptReadinessKeepsCompleteForExecutionQuality(t *testing.T) {
+	data := &market.Data{
+		Symbol:        "READYUSDT",
+		CurrentPrice:  100,
+		TimeframeData: map[string]*market.TimeframeSeriesData{},
+	}
+	coin := CandidateCoin{
+		Symbol:           "READYUSDT",
+		Direction:        "LONG",
+		V7SetupType:      string(local.V7SetupLeaderMomentumLong),
+		V7AIPriority:     75,
+		V7SetupScore:     78,
+		V7TimingScore:    76,
+		V7RegimeFitScore: 70,
+		V7LiquidityScore: 80,
+		V7RiskScore:      30,
+		V7EntryZone:      local.V7PriceZone{Lower: 99, Upper: 101},
+		V7Invalidation:   local.V7InvalidationRule{Price: 96},
+		V7Targets:        []local.V7Target{{Price: 104, Reason: "TP1"}},
+		V7RiskTags:       []string{"regime_against_direction"},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.58},
+		V7ExecutionContext: &local.V7ExecutionContext{
+			DataQuality: "complete_for_execution",
+			Timeframes: map[string]local.V7ExecutionTimeframeSummary{
+				"15m": {Timeframe: "15m", CandleCount: 30, HasEMA20: true, HasATR: true},
+				"5m":  {Timeframe: "5m", CandleCount: 30, HasEMA20: true, HasATR: true},
+			},
+		},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{PassedReview: true},
+	}
+
+	readiness := hunterV7PromptExecutionReadiness(coin, data, "EXECUTABLE", "runtime_executable")
+	if readiness.DataQuality != "complete_for_execution" {
+		t.Fatalf("data quality = %q, want complete_for_execution", readiness.DataQuality)
+	}
+	tier, reason := hunterV7TierFromPromptReadiness("EXECUTABLE", "runtime_executable", readiness)
+	if tier != "EXECUTABLE" || reason != "runtime_executable" {
+		t.Fatalf("tier=%s reason=%s, want EXECUTABLE runtime_executable", tier, reason)
 	}
 }
 

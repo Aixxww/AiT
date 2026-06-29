@@ -412,6 +412,15 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		}
 	}
 
+	executionKlines := make(map[string][]klineBar, 2)
+	if bars15m, ok := klines["15m"]; ok {
+		executionKlines["15m"] = datafetchKlinesToKlineBar(bars15m)
+	}
+	if bars5m, ok := klines["5m"]; ok {
+		executionKlines["5m"] = datafetchKlinesToKlineBar(bars5m)
+	}
+	ctx.ExecutionContext = buildV7ExecutionContextFromKlines(executionKlines, ctx.CurrentPrice)
+
 	// Classify pool after all derived pool metrics are available.
 	ctx.PoolType = classifyPool(ctx)
 

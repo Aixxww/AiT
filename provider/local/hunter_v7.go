@@ -49,6 +49,7 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 	route := router.RouteDetailed(universe, regime, cfg)
 	signals := route.OutputSignals
 	rawSignals := route.RawSignals
+	potentialPool := route.PotentialPool
 
 	// Step 4: Cross-cycle watch state upgrade (if state manager is configured)
 	if cfg.WatchStateManager != nil {
@@ -77,6 +78,7 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 
 	result.RawSignals = rawSignals
 	result.Signals = signals
+	result.PotentialPool = potentialPool
 	result.Attribution = buildV7AttributionSummary(universe, rawSignals, signals)
 	log.Printf("📊 Hunter v7 attribution: universe=%d pools=%v setups=%v status=%v quality=%v output=%v",
 		result.Attribution.UniverseTotal,

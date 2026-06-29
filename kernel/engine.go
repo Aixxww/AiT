@@ -100,6 +100,20 @@ type CandidateCoin struct {
 	V7PriceContext     *local.V7PriceContext        `json:"-"`
 	V7DerivativesCtx   *local.V7DerivativesContext  `json:"-"`
 	V7Readiness        *local.V7ExecutionReadiness  `json:"-"`
+	V7ExecutionContext *local.V7ExecutionContext    `json:"-"`
+	V7TP0Price         float64                      `json:"-"`
+	V7TP0RR            float64                      `json:"-"`
+	V7TP0TimeWindow    string                       `json:"-"`
+	V7TP0Method        string                       `json:"-"`
+	V7TP1Price         float64                      `json:"-"`
+	V7TP1RR            float64                      `json:"-"`
+	V7TP1TimeWindow    string                       `json:"-"`
+	V7TP1Method        string                       `json:"-"`
+	V7TP2Price         float64                      `json:"-"`
+	V7TP2RR            float64                      `json:"-"`
+	V7TP2TimeWindow    string                       `json:"-"`
+	V7TP2Method        string                       `json:"-"`
+	V7TPPlan           *local.V7TakeProfitPlan      `json:"-"`
 	V7VWAP15m          float64                      `json:"-"`
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
@@ -549,6 +563,20 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
 			V7Readiness:        sig.ExecutionReadiness,
+			V7ExecutionContext: sig.ExecutionContext,
+			V7TP0Price:         sig.TP0Price,
+			V7TP0RR:            sig.TP0RR,
+			V7TP0TimeWindow:    sig.TP0TimeWindow,
+			V7TP0Method:        sig.TP0Method,
+			V7TP1Price:         sig.TP1Price,
+			V7TP1RR:            sig.TP1RR,
+			V7TP1TimeWindow:    sig.TP1TimeWindow,
+			V7TP1Method:        sig.TP1Method,
+			V7TP2Price:         sig.TP2Price,
+			V7TP2RR:            sig.TP2RR,
+			V7TP2TimeWindow:    sig.TP2TimeWindow,
+			V7TP2Method:        sig.TP2Method,
+			V7TPPlan:           sig.TPPlan,
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}

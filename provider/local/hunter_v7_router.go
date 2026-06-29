@@ -34,6 +34,7 @@ func NewV7Router() *V7Router {
 		&rangeReversionModule{},
 		&fundingReversalModule{},
 		&displacementMomentumLongModule{},
+		&rangeExpansionEventModule{},
 		// v8 new modules (Phase 2)
 		&intradayScalpLongModule{},
 		&volatilitySqueezeBreakoutModule{},
@@ -80,6 +81,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 			if sig == nil {
 				continue
 			}
+			sig.ExecutionContext = ctx.ExecutionContext
 			// Propagate quote volume for adaptive OI threshold in prompt-data filter
 			if ctx.Snapshot != nil {
 				sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
@@ -171,15 +173,17 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 	confirmed = applyV7CorrelationFilter(confirmed, cfg)
 	watches := BuildV7PreMoveRadar(universe, regime, cfg)
 	out := appendV7WatchSignals(confirmed, watches, cfg)
-	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
 	raw := append([]V7SignalOutput{}, allSignals...)
 	raw = append(raw, watches...)
 	raw = append(raw, buildV7ModuleNoMatchSignals(universe, raw, regime)...)
+	potentialPool := BuildV7PotentialPool(universe, raw, defaultV7PotentialPoolLimit)
+	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
 	return V7RouteResult{
 		RawSignals:       raw,
 		ConfirmedSignals: confirmed,
 		WatchSignals:     watches,
 		OutputSignals:    out,
+		PotentialPool:    potentialPool,
 	}
 }
 
@@ -218,6 +222,7 @@ func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7Signal
 			RiskTags:         []string{"module_no_match"},
 			PriceCtx:         buildPriceCtx(ctx),
 			DerivativesCtx:   buildDerivCtx(ctx),
+			ExecutionContext: ctx.ExecutionContext,
 		}
 		if ctx.Snapshot != nil {
 			sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h

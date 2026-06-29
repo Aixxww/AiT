@@ -52,16 +52,19 @@ type TrackedCandle struct {
 
 // TrackedOutcome is emitted whenever a signal receives a fresh tracking update.
 type TrackedOutcome struct {
-	RecordID     int64         `json:"record_id"`
-	Status       TrackedStatus `json:"status"`
-	CurrentPrice float64       `json:"current_price"`
-	ExitPrice    float64       `json:"exit_price,omitempty"`
-	StopUsed     float64       `json:"stop_used,omitempty"`
-	MaxFavorable float64       `json:"max_favorable"`
-	MaxAdverse   float64       `json:"max_adverse"`
-	PnLPct       float64       `json:"pnl_pct"`
-	SnapshotJSON string        `json:"snapshot_json,omitempty"`
-	ExitTime     *time.Time    `json:"exit_time,omitempty"`
+	RecordID                int64         `json:"record_id"`
+	Status                  TrackedStatus `json:"status"`
+	CurrentPrice            float64       `json:"current_price"`
+	ExitPrice               float64       `json:"exit_price,omitempty"`
+	StopUsed                float64       `json:"stop_used,omitempty"`
+	MaxFavorable            float64       `json:"max_favorable"`
+	MaxAdverse              float64       `json:"max_adverse"`
+	PnLPct                  float64       `json:"pnl_pct"`
+	MissedOpportunityAudit  bool          `json:"missed_opportunity_audit,omitempty"`
+	MissedOpportunityReason string        `json:"missed_opportunity_reason,omitempty"`
+	MissedOpportunityAt     *time.Time    `json:"missed_opportunity_at,omitempty"`
+	SnapshotJSON            string        `json:"snapshot_json,omitempty"`
+	ExitTime                *time.Time    `json:"exit_time,omitempty"`
 }
 
 // TrackedSignal holds all state for a single signal being monitored.
@@ -87,42 +90,58 @@ type TrackedSignal struct {
 	ExitTime      *time.Time      `json:"exit_time,omitempty"`
 	ExitPrice     float64         `json:"exit_price"`
 	Snapshots     []PriceSnapshot `json:"snapshots,omitempty"`
+
+	TP0TouchStreak          int        `json:"tp0_touch_streak,omitempty"`
+	MissedOpportunityAudit  bool       `json:"missed_opportunity_audit,omitempty"`
+	MissedOpportunityReason string     `json:"missed_opportunity_reason,omitempty"`
+	MissedOpportunityAt     *time.Time `json:"missed_opportunity_at,omitempty"`
 }
 
 // SetupStats aggregates win/loss statistics per setup type.
 type SetupStats struct {
-	SetupType   string        `json:"setup_type"`
-	Total       int           `json:"total"`
-	Wins        int           `json:"wins"`
-	Losses      int           `json:"losses"`
-	WinRate     float64       `json:"win_rate"`
-	AvgPnL      float64       `json:"avg_pnl"`
-	AvgMFE      float64       `json:"avg_mfe"`
-	AvgMAE      float64       `json:"avg_mae"`
-	AvgDuration time.Duration `json:"avg_duration"`
+	SetupType           string        `json:"setup_type"`
+	Total               int           `json:"total"`
+	Wins                int           `json:"wins"`
+	Losses              int           `json:"losses"`
+	Stops               int           `json:"stops"`
+	Timeouts            int           `json:"timeouts"`
+	TP0Wins             int           `json:"tp0_wins"`
+	TP1Wins             int           `json:"tp1_wins"`
+	TP2Wins             int           `json:"tp2_wins"`
+	WinRate             float64       `json:"win_rate"`
+	TP0WinRate          float64       `json:"tp0_win_rate"`
+	TP1WinRate          float64       `json:"tp1_win_rate"`
+	NoSLSurvivalRate    float64       `json:"no_sl_survival_rate"`
+	AvgPnL              float64       `json:"avg_pnl"`
+	AvgMFE              float64       `json:"avg_mfe"`
+	AvgMAE              float64       `json:"avg_mae"`
+	AvgDuration         time.Duration `json:"avg_duration"`
+	MissedOpportunities int           `json:"missed_opportunities,omitempty"`
 }
 
 // TrackerConfig holds configuration for the signal outcome tracker.
 type TrackerConfig struct {
-	PollInterval          time.Duration // default 1 minute
-	TimeoutDuration       time.Duration // default 8 hours
-	MaxTracked            int           // default 200
-	SnapshotLimit         int           // default 480 = 8h @ 1m
-	ActiveOutcomeInterval time.Duration // default 5 minutes; terminal outcomes always emit
-	EnableDynamicStop     bool          // default true
-	ATRPercentile         float64       // default 50 when no volatility percentile is available
+	PollInterval                time.Duration // default 1 minute
+	TimeoutDuration             time.Duration // default 8 hours
+	MaxTracked                  int           // default 200
+	SnapshotLimit               int           // default 480 = 8h @ 1m
+	ActiveOutcomeInterval       time.Duration // default 5 minutes; terminal outcomes always emit
+	EnableDynamicStop           bool          // default true
+	ATRPercentile               float64       // default 50 when no volatility percentile is available
+	MissedOpportunityMinTouches int           // default 2 consecutive TP0 touches for WATCH audit
 }
 
 // DefaultTrackerConfig returns sensible defaults.
 func DefaultTrackerConfig() *TrackerConfig {
 	return &TrackerConfig{
-		PollInterval:          1 * time.Minute,
-		TimeoutDuration:       8 * time.Hour,
-		MaxTracked:            200,
-		SnapshotLimit:         480,
-		ActiveOutcomeInterval: 5 * time.Minute,
-		EnableDynamicStop:     true,
-		ATRPercentile:         50,
+		PollInterval:                1 * time.Minute,
+		TimeoutDuration:             8 * time.Hour,
+		MaxTracked:                  200,
+		SnapshotLimit:               480,
+		ActiveOutcomeInterval:       5 * time.Minute,
+		EnableDynamicStop:           true,
+		ATRPercentile:               50,
+		MissedOpportunityMinTouches: 2,
 	}
 }
 
@@ -292,6 +311,7 @@ func (t *SignalOutcomeTracker) tick() {
 		pnlPct := 0.0
 		terminal := false
 		processed := false
+		auditChanged := false
 		for _, candle := range candles {
 			if !sig.LastCandleAt.IsZero() && !candle.T.After(sig.LastCandleAt) {
 				continue
@@ -317,6 +337,9 @@ func (t *SignalOutcomeTracker) tick() {
 
 			stopUsed := t.updateDynamicStop(sig, price, candle.T)
 			t.appendSnapshot(sig, candle, pnlPct, stopUsed)
+			if t.updateMissedOpportunityAudit(sig, candle) {
+				auditChanged = true
+			}
 
 			var exitPrice float64
 			terminal, exitPrice = t.checkTerminalWithCandle(sig, candle, stopUsed)
@@ -346,7 +369,7 @@ func (t *SignalOutcomeTracker) tick() {
 			delete(t.activeSignals, id)
 		}
 
-		if terminal || t.shouldEmitActiveOutcome(sig, now) {
+		if terminal || auditChanged || t.shouldEmitActiveOutcome(sig, now) {
 			outcomes = append(outcomes, t.buildOutcome(sig, pnlPct))
 			sig.LastOutcomeAt = now
 		}
@@ -527,7 +550,40 @@ func (t *SignalOutcomeTracker) updateDynamicStop(sig *TrackedSignal, currentPric
 	return stopUsed
 }
 
+func (t *SignalOutcomeTracker) updateMissedOpportunityAudit(sig *TrackedSignal, candle TrackedCandle) bool {
+	if sig == nil || sig.Tier != "WATCH" || sig.TP0Price <= 0 || sig.MissedOpportunityAudit {
+		return false
+	}
+	touched := false
+	switch sig.Direction {
+	case string(V7DirLong):
+		touched = candle.High >= sig.TP0Price
+	case string(V7DirShort):
+		touched = candle.Low <= sig.TP0Price
+	}
+	if !touched {
+		sig.TP0TouchStreak = 0
+		return false
+	}
+	sig.TP0TouchStreak++
+	minTouches := 2
+	if t.config != nil && t.config.MissedOpportunityMinTouches > 0 {
+		minTouches = t.config.MissedOpportunityMinTouches
+	}
+	if sig.TP0TouchStreak < minTouches {
+		return false
+	}
+	auditAt := candle.T
+	sig.MissedOpportunityAudit = true
+	sig.MissedOpportunityAt = &auditAt
+	sig.MissedOpportunityReason = "watch_mfe_reached_tp0_threshold"
+	return true
+}
+
 func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candle TrackedCandle, stopUsed float64) (bool, float64) {
+	if sig.Tier == "WATCH" {
+		return false, 0
+	}
 	switch sig.Direction {
 	case string(V7DirLong):
 		if stopUsed > 0 && candle.Low <= stopUsed {
@@ -578,16 +634,19 @@ func (t *SignalOutcomeTracker) buildOutcome(sig *TrackedSignal, pnlPct float64) 
 		snapshotJSON = string(b)
 	}
 	return TrackedOutcome{
-		RecordID:     sig.RecordID,
-		Status:       sig.Status,
-		CurrentPrice: sig.CurrentPrice,
-		ExitPrice:    exitPrice,
-		StopUsed:     sig.DynamicStop,
-		MaxFavorable: sig.MaxFavorable,
-		MaxAdverse:   sig.MaxAdverse,
-		PnLPct:       pnlPct,
-		SnapshotJSON: snapshotJSON,
-		ExitTime:     sig.ExitTime,
+		RecordID:                sig.RecordID,
+		Status:                  sig.Status,
+		CurrentPrice:            sig.CurrentPrice,
+		ExitPrice:               exitPrice,
+		StopUsed:                sig.DynamicStop,
+		MaxFavorable:            sig.MaxFavorable,
+		MaxAdverse:              sig.MaxAdverse,
+		PnLPct:                  pnlPct,
+		MissedOpportunityAudit:  sig.MissedOpportunityAudit,
+		MissedOpportunityReason: sig.MissedOpportunityReason,
+		MissedOpportunityAt:     sig.MissedOpportunityAt,
+		SnapshotJSON:            snapshotJSON,
+		ExitTime:                sig.ExitTime,
 	}
 }
 
@@ -633,6 +692,17 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 	all = append(all, t.completed...)
 
 	for _, sig := range all {
+		if sig.Tier == "WATCH" {
+			st, ok := buckets[sig.SetupType]
+			if !ok {
+				st = &SetupStats{SetupType: sig.SetupType}
+				buckets[sig.SetupType] = st
+			}
+			if sig.MissedOpportunityAudit {
+				st.MissedOpportunities++
+			}
+			continue
+		}
 		if sig.Status == TrackedActive {
 			continue // only count completed
 		}
@@ -644,10 +714,23 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 		st.Total++
 		pnl := t.calcPnLPct(sig, sig.ExitPrice)
 		switch sig.Status {
-		case TrackedWinTP0, TrackedWinTP1, TrackedWinTP2:
+		case TrackedWinTP0:
 			st.Wins++
+			st.TP0Wins++
+		case TrackedWinTP1:
+			st.Wins++
+			st.TP0Wins++
+			st.TP1Wins++
+		case TrackedWinTP2:
+			st.Wins++
+			st.TP0Wins++
+			st.TP1Wins++
+			st.TP2Wins++
 		case TrackedStop:
 			st.Losses++
+			st.Stops++
+		case TrackedTimeout:
+			st.Timeouts++
 		}
 		st.AvgPnL += pnl
 		st.AvgMFE += sig.MaxFavorable
@@ -661,6 +744,9 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 	for k, st := range buckets {
 		if st.Total > 0 {
 			st.WinRate = float64(st.Wins) / float64(st.Total) * 100
+			st.TP0WinRate = float64(st.TP0Wins) / float64(st.Total) * 100
+			st.TP1WinRate = float64(st.TP1Wins) / float64(st.Total) * 100
+			st.NoSLSurvivalRate = float64(st.Total-st.Stops) / float64(st.Total) * 100
 			st.AvgPnL /= float64(st.Total)
 			st.AvgMFE /= float64(st.Total)
 			st.AvgMAE /= float64(st.Total)
