@@ -40,6 +40,7 @@ type positionProtectionState struct {
 	TP1Done          bool
 	TP2Done          bool
 	PeakPnLPct       float64
+	ActiveStopLoss   float64
 	DynamicStop      float64
 	OpenedAt         time.Time
 	LastActionAt     time.Time
@@ -91,6 +92,7 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 	}
 
 	nextInterval := positionProtectorBaseInterval
+	plannedRiskByPosition := at.latestOpenDecisionRiskByPosition(50)
 	for _, pos := range positions {
 		symbol := pos["symbol"].(string)
 		side := pos["side"].(string)
@@ -122,6 +124,9 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
+		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 {
+			state.rememberActiveStopLoss(side, plannedRisk.stopLoss)
+		}
 		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
 			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
 		}
@@ -164,7 +169,8 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 	}
 	isLong := side == "long"
 	stop := local.DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
-	if stop <= 0 || !isMoreProtectiveStop(side, stop, state.DynamicStop) || !isStopOnProtectiveSide(side, stop, markPrice) {
+	activeStop := mostProtectiveStop(side, state.ActiveStopLoss, state.DynamicStop)
+	if stop <= 0 || !isMoreProtectiveStop(side, stop, activeStop) || !isStopOnProtectiveSide(side, stop, markPrice) {
 		return nil
 	}
 	positionSide := "SHORT"
@@ -178,9 +184,36 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 		return err
 	}
 	state.DynamicStop = stop
+	state.ActiveStopLoss = stop
 	state.LastStopUpdateAt = time.Now()
-	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f", symbol, side, quantity, stop)
+	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f | previous_stop %.8f", symbol, side, quantity, stop, activeStop)
 	return nil
+}
+
+func (state *positionProtectionState) rememberActiveStopLoss(side string, stop float64) {
+	if state == nil || stop <= 0 {
+		return
+	}
+	state.ActiveStopLoss = mostProtectiveStop(side, state.ActiveStopLoss, stop)
+}
+
+func mostProtectiveStop(side string, a, b float64) float64 {
+	if a <= 0 {
+		return b
+	}
+	if b <= 0 {
+		return a
+	}
+	if side == "long" {
+		if b > a {
+			return b
+		}
+		return a
+	}
+	if b < a {
+		return b
+	}
+	return a
 }
 
 func protectionBaseStopFromRisk(side string, entryPrice float64, leverage int) float64 {

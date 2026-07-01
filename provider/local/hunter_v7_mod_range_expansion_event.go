@@ -119,7 +119,74 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 	sig.RequiredConfirms = rangeExpansionRequiredConfirms(dir)
 	sig.PriceCtx = buildPriceCtx(ctx)
 	sig.DerivativesCtx = buildDerivCtx(ctx)
+	rangeExpansionApplyQualityDowngrade(ctx, sig)
 	return sig
+}
+
+func rangeExpansionApplyQualityDowngrade(ctx *V7SymbolContext, sig *V7SignalOutput) {
+	if ctx == nil || sig == nil {
+		return
+	}
+	shortCoveringRisk := false
+	lowVolumeRisk := false
+	if sig.Direction == V7DirLong && ctx.Snapshot != nil && ctx.Snapshot.OIDelta1h < 0 && ctx.Snapshot.OIDelta4h < 0 {
+		shortCoveringRisk = true
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "short_covering_not_new_long_build")
+		sig.RequiredConfirms = appendV7Unique(sig.RequiredConfirms, "oi_delta_1h_positive_or_quote_volume_expands")
+	}
+	if rangeExpansionLowVolumeFollowthrough(ctx) {
+		lowVolumeRisk = true
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "range_expansion_low_volume_followthrough")
+		if sig.Direction == V7DirLong {
+			sig.RequiredConfirms = appendV7Unique(sig.RequiredConfirms, "taker_buy_15m_gt_0_52")
+		} else {
+			sig.RequiredConfirms = appendV7Unique(sig.RequiredConfirms, "taker_buy_15m_lt_0_48")
+		}
+	}
+	if !shortCoveringRisk && !lowVolumeRisk {
+		return
+	}
+	sig.TimingScore = clampFloat(sig.TimingScore-10, 25, 88)
+	if sig.Confidence == "B" {
+		sig.Confidence = "C"
+	}
+	if shortCoveringRisk && lowVolumeRisk {
+		sig.ExecutionQuality = V7ExecChaseRisk
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "event_chase_risk")
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "event_followthrough_quality_insufficient")
+		return
+	}
+	if sig.ExecutionQuality == "" || sig.ExecutionQuality == V7ExecReady {
+		sig.ExecutionQuality = V7ExecNearConfirm
+	}
+}
+
+func rangeExpansionLowVolumeFollowthrough(ctx *V7SymbolContext) bool {
+	if ctx == nil {
+		return false
+	}
+	if ctx.VolumeBurst15m > 0 && ctx.VolumeBurst15m < 0.8 {
+		return true
+	}
+	if ctx.ExecutionContext == nil {
+		return false
+	}
+	if tf, ok := ctx.ExecutionContext.Timeframes["15m"]; ok && tf.VolumeVsAvg5 > 0 && tf.VolumeVsAvg5 < 0.8 {
+		return true
+	}
+	return false
+}
+
+func appendV7Unique(values []string, value string) []string {
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func rangeExpansionEventDirection(ctx *V7SymbolContext) V7Direction {

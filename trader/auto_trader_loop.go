@@ -341,6 +341,9 @@ func (at *AutoTrader) runCycle() error {
 		} else {
 			actionRecord.Success = true
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("✓ %s %s succeeded", d.Symbol, d.Action))
+			if logLine := effectiveOpenContractLog(actionRecord); logLine != "" {
+				record.ExecutionLog = append(record.ExecutionLog, logLine)
+			}
 			// Brief delay after successful execution
 			time.Sleep(1 * time.Second)
 		}
@@ -354,6 +357,28 @@ func (at *AutoTrader) runCycle() error {
 	}
 
 	return nil
+}
+
+func effectiveOpenContractLog(action store.DecisionAction) string {
+	if action.Action != "open_long" && action.Action != "open_short" {
+		return ""
+	}
+	if action.EffectivePositionSizeUSD <= 0 && action.EffectiveStopLoss <= 0 && action.EffectiveTakeProfit <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("effective_contract %s %s notional=%.2f qty=%.8f entry=%.8f sl=%.8f tp=%.8f tp_capped=%t position_reduced=%t risk_at_sl=%.2f rr=%.2f",
+		action.Symbol,
+		action.Action,
+		action.EffectivePositionSizeUSD,
+		action.Quantity,
+		action.Price,
+		action.EffectiveStopLoss,
+		action.EffectiveTakeProfit,
+		action.TPWasCapped,
+		action.PositionWasReduced,
+		action.RiskAtStopUSD,
+		action.RRAfterBackendRepair,
+	)
 }
 
 func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record *store.DecisionRecord) bool {

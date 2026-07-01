@@ -80,9 +80,59 @@ func (at *AutoTrader) executeDecisionWithRecord(decision *kernel.Decision, actio
 	}
 }
 
+func (at *AutoTrader) recordEffectiveOpenContract(actionRecord *store.DecisionAction, decision *kernel.Decision, executionPrice, quantity, requestedPositionSize float64, tpWasCapped, positionWasReduced bool, side string) {
+	if actionRecord == nil || decision == nil {
+		return
+	}
+	actionRecord.Price = executionPrice
+	actionRecord.StopLoss = decision.StopLoss
+	actionRecord.TakeProfit = decision.TakeProfit
+	actionRecord.EffectiveStopLoss = decision.StopLoss
+	actionRecord.EffectiveTakeProfit = decision.TakeProfit
+	actionRecord.TPWasCapped = tpWasCapped
+	actionRecord.PositionWasReduced = positionWasReduced || (requestedPositionSize > 0 && decision.PositionSizeUSD > 0 && decision.PositionSizeUSD < requestedPositionSize)
+	if quantity > 0 {
+		actionRecord.Quantity = quantity
+	}
+	actionRecord.EffectivePositionSizeUSD = decision.PositionSizeUSD
+	if actionRecord.EffectivePositionSizeUSD <= 0 && executionPrice > 0 && quantity > 0 {
+		actionRecord.EffectivePositionSizeUSD = executionPrice * quantity
+	}
+	actionRecord.RiskAtStopUSD, actionRecord.RRAfterBackendRepair = effectiveOpenRiskMetrics(
+		side,
+		executionPrice,
+		decision.StopLoss,
+		decision.TakeProfit,
+		actionRecord.EffectivePositionSizeUSD,
+	)
+}
+
+func effectiveOpenRiskMetrics(side string, entryPrice, stopLoss, takeProfit, positionSizeUSD float64) (float64, float64) {
+	if entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0 || positionSizeUSD <= 0 {
+		return 0, 0
+	}
+	riskDistance := 0.0
+	rewardDistance := 0.0
+	switch side {
+	case "long":
+		riskDistance = entryPrice - stopLoss
+		rewardDistance = takeProfit - entryPrice
+	case "short":
+		riskDistance = stopLoss - entryPrice
+		rewardDistance = entryPrice - takeProfit
+	default:
+		return 0, 0
+	}
+	if riskDistance <= 0 || rewardDistance <= 0 {
+		return 0, 0
+	}
+	return positionSizeUSD * riskDistance / entryPrice, rewardDistance / riskDistance
+}
+
 // executeOpenLongWithRecord executes open long position and records detailed information
 func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	logger.Infof("  📈 Open long: %s", decision.Symbol)
+	requestedPositionSize := decision.PositionSizeUSD
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()
@@ -134,6 +184,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	if wasCapped {
 		decision.PositionSizeUSD = adjustedPositionSize
 	}
+	positionWasReduced := wasCapped
 
 	effectiveLeverage := at.resolveEffectiveLeverage(decision.Symbol, decision.Leverage)
 	decision.Leverage = effectiveLeverage
@@ -153,11 +204,13 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 			actualPositionSize, maxAffordablePositionSize, adjustedSize)
 		actualPositionSize = adjustedSize
 		decision.PositionSizeUSD = actualPositionSize
+		positionWasReduced = true
 	}
 
-	at.capTakeProfitToTP1(decision, executionPrice, "long")
+	tpWasCapped := at.capTakeProfitToTP1(decision, executionPrice, "long")
 	at.repairHunterV7OpenDecision(decision, executionPrice, "long")
 	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 		return err
 	}
 
@@ -166,14 +219,17 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	} else if wasCapped {
 		actualPositionSize = adjustedSize
 		decision.PositionSizeUSD = adjustedSize
+		positionWasReduced = true
 	}
 
 	// [CODE ENFORCED] Minimum position size check
 	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 		return err
 	}
 
 	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 		return err
 	}
 
@@ -181,6 +237,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
 	actionRecord.Price = executionPrice
+	at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, quantity, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 
 	// Set margin mode
 	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
@@ -224,6 +281,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 // executeOpenShortWithRecord executes open short position and records detailed information
 func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	logger.Infof("  📉 Open short: %s", decision.Symbol)
+	requestedPositionSize := decision.PositionSizeUSD
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()
@@ -275,6 +333,7 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	if wasCapped {
 		decision.PositionSizeUSD = adjustedPositionSize
 	}
+	positionWasReduced := wasCapped
 
 	effectiveLeverage := at.resolveEffectiveLeverage(decision.Symbol, decision.Leverage)
 	decision.Leverage = effectiveLeverage
@@ -294,11 +353,13 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 			actualPositionSize, maxAffordablePositionSize, adjustedSize)
 		actualPositionSize = adjustedSize
 		decision.PositionSizeUSD = actualPositionSize
+		positionWasReduced = true
 	}
 
-	at.capTakeProfitToTP1(decision, executionPrice, "short")
+	tpWasCapped := at.capTakeProfitToTP1(decision, executionPrice, "short")
 	at.repairHunterV7OpenDecision(decision, executionPrice, "short")
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 		return err
 	}
 
@@ -307,14 +368,17 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	} else if wasCapped {
 		actualPositionSize = adjustedSize
 		decision.PositionSizeUSD = adjustedSize
+		positionWasReduced = true
 	}
 
 	// [CODE ENFORCED] Minimum position size check
 	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 		return err
 	}
 
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 		return err
 	}
 
@@ -322,6 +386,7 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
 	actionRecord.Price = executionPrice
+	at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, quantity, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 
 	// Set margin mode
 	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {

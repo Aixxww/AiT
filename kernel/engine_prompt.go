@@ -93,6 +93,8 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		minRewardPct := minSLMovePct * riskControl.MinRiskRewardRatio
 		sb.WriteString(fmt.Sprintf("- Feasible open geometry: reward distance must be ≥%.2f%% for the minimum %.2f%% stop; if capped TP or price drift makes backend RR < %.2f, output wait\n",
 			minRewardPct, minSLMovePct, riskControl.MinRiskRewardRatio))
+		sb.WriteString(fmt.Sprintf("- Before any open, calculate effective_take_profit using the backend cap %.2f%% from executable/current price, then calculate effective_rr from that capped TP and your stop_loss. Do not justify an open with an uncapped far TP1. If effective_rr < %.2f, output wait with `blocked_reason_code=rr_insufficient`.\n",
+			maxTPMovePct, riskControl.MinRiskRewardRatio))
 		if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") && maxDriftPct > 0 {
 			sb.WriteString(fmt.Sprintf("- Hunter v7 stop buffer: prefer stop distance ≥%.2f%% from current/executable price when TP cap still preserves RR; avoid stops only barely above %.2f%% because allowed %.2f%% entry drift can make them fail backend validation\n",
 				minSLMovePct+maxDriftPct, minSLMovePct, maxDriftPct))
@@ -219,6 +221,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		sb.WriteString("严格按 EXECUTABLE → REVIEWABLE → WATCH(背景) → REJECTED(禁止) 顺序决策。不得因账户回撤、市场情绪或 WATCH 候选缺失而跳过 EXECUTABLE/REVIEWABLE 评估。\n\n")
 		sb.WriteString(fmt.Sprintf("完整判断 `EXECUTABLE` 与 `REVIEWABLE` 候选；`WATCH` 只作背景，`REJECTED` 不参与开仓。无持仓且存在开仓复核候选时，在最佳 open 与明确 blocked_reason 之间二选一。后端允许轻微修复：价格漂移 %.2f%% 内、SL 边界 %.2f%%、RR %.2f 且 TP 在 %.2f%% 可达范围内。\n",
 			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+		sb.WriteString(fmt.Sprintf("开仓前必须先把 take_profit 视为后端有效 TP：long=min(你的TP, price*(1+%.2f%%))，short=max(你的TP, price*(1-%.2f%%))；再用该 effective_take_profit 重算 effective_rr。若 capped 后 effective_rr < %.2f，必须 wait + `blocked_reason_code=rr_insufficient`，不得引用未封顶远端 TP1 作为开仓理由。\n",
+			maxTPMovePct, maxTPMovePct, minRR))
 		sb.WriteString("## blocked_reason_code 强制要求\n")
 		sb.WriteString("wait 决策必须输出 `blocked_reason_code` 字段（枚举值：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`）。绝对不得用自然语言 reasoning 代替此字段。如果 wait，必须有且只有一个 blocked_reason_code。\n")
 		sb.WriteString("`no_reviewable_candidate` 只能在 Tier Summary 显示 EXECUTABLE=0 且 REVIEWABLE=0 时使用；只要存在任一 EXECUTABLE/REVIEWABLE，就必须写真实阻断原因，例如 `entry_not_in_zone`、`rr_insufficient`、`confirmation_missing` 或 `backend_guard_risk`。\n")
@@ -242,6 +246,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	sb.WriteString("Evaluate strictly in order: EXECUTABLE → REVIEWABLE → WATCH (context) → REJECTED (forbidden). Never skip EXECUTABLE/REVIEWABLE evaluation due to account drawdown, market sentiment, or absence of WATCH candidates.\n\n")
 	sb.WriteString(fmt.Sprintf("Fully judge `EXECUTABLE` and `REVIEWABLE` candidates; `WATCH` is context and `REJECTED` is not open-eligible. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Backend may lightly repair drift %.2f%%, SL edge %.2f%%, and RR %.2f when TP stays within %.2f%%.\n",
 		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
+	sb.WriteString(fmt.Sprintf("Before opening, treat take_profit as the backend-effective TP: long=min(your TP, price*(1+%.2f%%)), short=max(your TP, price*(1-%.2f%%)); recalculate effective_rr from that capped TP and stop_loss. If capped effective_rr < %.2f, wait with `blocked_reason_code=rr_insufficient`; do not cite an uncapped far TP1 as the open rationale.\n",
+		maxTPMovePct, maxTPMovePct, minRR))
 	sb.WriteString("## blocked_reason_code Requirement\n")
 	sb.WriteString("Wait decisions MUST include a `blocked_reason_code` field (enum: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`). ABSOLUTELY do NOT substitute free-text reasoning for this field. If wait, there must be exactly one blocked_reason_code.\n")
 	sb.WriteString("Use `no_reviewable_candidate` ONLY when Tier Summary shows EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
@@ -741,7 +747,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出 blocked_reason_code。\n")
 			sb.WriteString("3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。\n")
 			sb.WriteString("4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。\n")
-			sb.WriteString("5. 动量/位移/放量突破/区间扩张开仓后必须执行 TP0 分批止盈：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。\n")
+			sb.WriteString("5. 动量/位移/放量突破/区间扩张开仓后必须执行 TP0 分批止盈语义：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。当前 JSON 只有单个 `take_profit` 字段时，必须输出“后端 cap 后仍满足 RR 的最近有效 TP”，不得输出会被 cap 后 RR 不足的远端 TP1；若近端有效 TP 不存在则 wait。\n")
 			sb.WriteString("6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。\n")
 			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
@@ -750,7 +756,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE next: only after all EXECUTABLE candidates are blocked, evaluate REVIEWABLE. Open only when live candles/flow confirm entry zone, near structural stop, and RR; otherwise provide `blocked_reason_code`.\n")
 			sb.WriteString("3. WATCH is context only: WATCH candidates do not participate in open decisions. Do not use the absence of WATCH candidates as a global wait veto on EXECUTABLE/REVIEWABLE.\n")
 			sb.WriteString("4. REJECTED is forbidden: REJECTED candidates must not influence any open decision.\n")
-			sb.WriteString("5. For momentum/displacement/range-expansion/breakout opens, use the TP0 partial-profit plan: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1.\n")
+			sb.WriteString("5. For momentum/displacement/range-expansion/breakout opens, use TP0 partial-profit semantics: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1. Because the current JSON schema has one `take_profit` field, output the nearest effective TP that still passes RR after backend cap; do not output a far TP1 that becomes RR-insufficient after capping. If no near effective TP passes, wait.\n")
 			sb.WriteString("6. If execution_tier=EXECUTABLE and data_quality=complete_for_execution, `regime_against_direction` alone must not downgrade to wait; reduce size when confirmation passed, but still wait when confirmation_summary.passed_review=false.\n")
 			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}

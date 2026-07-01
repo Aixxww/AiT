@@ -233,6 +233,36 @@ func TestCapTakeProfitToTP1LongAndShort(t *testing.T) {
 	}
 }
 
+func TestRecordEffectiveOpenContractCapturesBackendRepairs(t *testing.T) {
+	at := testRiskAutoTrader()
+	decision := &kernel.Decision{
+		Symbol:          "BTWUSDT",
+		Action:          "open_long",
+		PositionSizeUSD: 50.42,
+		StopLoss:        0.06487,
+		TakeProfit:      0.06906,
+	}
+	action := &store.DecisionAction{Action: "open_long", Symbol: "BTWUSDT"}
+
+	at.recordEffectiveOpenContract(action, decision, 0.06634, 759, 155, true, true, "long")
+
+	if action.EffectivePositionSizeUSD != 50.42 || action.EffectiveStopLoss != 0.06487 || action.EffectiveTakeProfit != 0.06906 {
+		t.Fatalf("unexpected effective contract: %+v", action)
+	}
+	if !action.TPWasCapped || !action.PositionWasReduced {
+		t.Fatalf("expected capped/reduced flags: %+v", action)
+	}
+	if action.RiskAtStopUSD <= 0 || action.RRAfterBackendRepair <= 0 {
+		t.Fatalf("expected risk/RR metrics: %+v", action)
+	}
+	logLine := effectiveOpenContractLog(*action)
+	for _, want := range []string{"effective_contract BTWUSDT open_long", "tp_capped=true", "position_reduced=true", "risk_at_sl=", "rr="} {
+		if !strings.Contains(logLine, want) {
+			t.Fatalf("effective contract log missing %q: %s", want, logLine)
+		}
+	}
+}
+
 func TestHunterV7RaisesTakeProfitCapWhenRiskGeometryIsInfeasible(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
@@ -858,6 +888,30 @@ func TestDynamicProtectionStopUpdatesStopLossOnlyWhenProtective(t *testing.T) {
 	}
 	if got := ft.stopLossCalls[1].stopPrice; got <= 100 || got >= 106 {
 		t.Fatalf("trailing stop = %v, want locked above entry and below mark", got)
+	}
+}
+
+func TestDynamicProtectionStopDoesNotLoosenRestoredActiveStopLoss(t *testing.T) {
+	ft := &contextTestTrader{}
+	at := testRiskAutoTrader()
+	at.trader = ft
+	state := &positionProtectionState{
+		InitialQuantity: 759,
+		PeakPnLPct:      0,
+		ActiveStopLoss:  0.06487,
+		OpenedAt:        time.Now().Add(-49 * time.Second),
+	}
+
+	err := at.updateDynamicProtectionStop("BTWUSDT", "long", 759, 0.06634, 0.06636, 10, state)
+	if err != nil {
+		t.Fatalf("dynamic stop update failed: %v", err)
+	}
+	if ft.cancelStopLossCalls != 0 || len(ft.stopLossCalls) != 0 {
+		t.Fatalf("expected no stop-loss replacement when candidate loosens active SL, cancel=%d calls=%d",
+			ft.cancelStopLossCalls, len(ft.stopLossCalls))
+	}
+	if state.ActiveStopLoss != 0.06487 {
+		t.Fatalf("active stop changed to %v, want original 0.06487", state.ActiveStopLoss)
 	}
 }
 

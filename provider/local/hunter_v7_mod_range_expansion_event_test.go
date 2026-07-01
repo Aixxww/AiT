@@ -52,3 +52,53 @@ func TestRangeExpansionEventModuleCapturesLongAndShortEvents(t *testing.T) {
 		t.Fatalf("short targets not directional: %+v", shortSig.Targets)
 	}
 }
+
+func TestRangeExpansionEventDowngradesWeakOIAndVolumeFollowthrough(t *testing.T) {
+	mod := &rangeExpansionEventModule{}
+	ctx := &V7SymbolContext{
+		Symbol:           "COVERUSDT",
+		CurrentPrice:     100,
+		Change1h:         4.5,
+		Change24h:        31,
+		Amplitude24h:     36,
+		RangeExpansion1h: 2.7,
+		Velocity15m:      2.1,
+		Velocity5m:       0.8,
+		VolumeBurst15m:   0.7,
+		TakerBuy15m:      0.55,
+		ATR15m:           1.4,
+		ATR1h:            2.4,
+		VWAP15m:          98.5,
+		Snapshot: &SymbolSnapshotData{
+			Price:          100,
+			QuoteVolume24h: 30_000_000,
+			OIDelta1h:      -2.1,
+			OIDelta4h:      -5.8,
+		},
+		ExecutionContext: &V7ExecutionContext{
+			DataQuality: "complete_for_execution",
+			Timeframes: map[string]V7ExecutionTimeframeSummary{
+				"15m": {Timeframe: "15m", VolumeVsAvg5: 0.7},
+			},
+		},
+	}
+
+	sig := mod.Score(ctx, V7RegimeMixed)
+	if sig == nil {
+		t.Fatal("expected range expansion signal")
+	}
+	if sig.ExecutionQuality != V7ExecChaseRisk {
+		t.Fatalf("execution quality = %s, want chase_risk (tags %+v reasons %+v)", sig.ExecutionQuality, sig.RiskTags, sig.ReasonCodes)
+	}
+	for _, want := range []string{"short_covering_not_new_long_build", "range_expansion_low_volume_followthrough", "event_chase_risk"} {
+		if !containsV7String(sig.RiskTags, want) {
+			t.Fatalf("missing risk tag %q: %+v", want, sig.RiskTags)
+		}
+	}
+	if !containsV7String(sig.ReasonCodes, "event_followthrough_quality_insufficient") {
+		t.Fatalf("missing quality reason: %+v", sig.ReasonCodes)
+	}
+	if !containsV7String(sig.RequiredConfirms, "oi_delta_1h_positive_or_quote_volume_expands") {
+		t.Fatalf("missing OI confirmation: %+v", sig.RequiredConfirms)
+	}
+}

@@ -86,19 +86,26 @@ type PositionSnapshot struct {
 
 // DecisionAction decision action
 type DecisionAction struct {
-	Action     string    `json:"action"`
-	Symbol     string    `json:"symbol"`
-	Quantity   float64   `json:"quantity"`
-	Leverage   int       `json:"leverage"`
-	Price      float64   `json:"price"`
-	StopLoss   float64   `json:"stop_loss,omitempty"`   // Stop loss price
-	TakeProfit float64   `json:"take_profit,omitempty"` // Take profit price
-	Confidence int       `json:"confidence,omitempty"`  // AI confidence (0-100)
-	Reasoning  string    `json:"reasoning,omitempty"`   // Brief reasoning
-	OrderID    int64     `json:"order_id"`
-	Timestamp  time.Time `json:"timestamp"`
-	Success    bool      `json:"success"`
-	Error      string    `json:"error"`
+	Action                   string    `json:"action"`
+	Symbol                   string    `json:"symbol"`
+	Quantity                 float64   `json:"quantity"`
+	Leverage                 int       `json:"leverage"`
+	Price                    float64   `json:"price"`
+	StopLoss                 float64   `json:"stop_loss,omitempty"`   // Stop loss price
+	TakeProfit               float64   `json:"take_profit,omitempty"` // Take profit price
+	Confidence               int       `json:"confidence,omitempty"`  // AI confidence (0-100)
+	Reasoning                string    `json:"reasoning,omitempty"`   // Brief reasoning
+	EffectivePositionSizeUSD float64   `json:"effective_position_size_usd,omitempty"`
+	EffectiveStopLoss        float64   `json:"effective_stop_loss,omitempty"`
+	EffectiveTakeProfit      float64   `json:"effective_take_profit,omitempty"`
+	TPWasCapped              bool      `json:"tp_was_capped,omitempty"`
+	PositionWasReduced       bool      `json:"position_was_reduced,omitempty"`
+	RiskAtStopUSD            float64   `json:"risk_at_stop_usd,omitempty"`
+	RRAfterBackendRepair     float64   `json:"rr_after_backend_repair,omitempty"`
+	OrderID                  int64     `json:"order_id"`
+	Timestamp                time.Time `json:"timestamp"`
+	Success                  bool      `json:"success"`
+	Error                    string    `json:"error"`
 }
 
 // Statistics statistics information
