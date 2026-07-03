@@ -334,7 +334,7 @@ func (at *AutoTrader) runCycle() error {
 			at.logErrorf("❌ Hunter v7 execution guard blocked (%s %s): %v", d.Symbol, d.Action, err)
 			actionRecord.Error = err.Error()
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s blocked: %v", d.Symbol, d.Action, err))
-		} else if err := at.executeDecisionWithRecord(&d, &actionRecord); err != nil {
+		} else if err := at.executeDecisionWithRecord(ctx, &d, &actionRecord); err != nil {
 			at.logErrorf("❌ Failed to execute decision (%s %s): %v", d.Symbol, d.Action, err)
 			actionRecord.Error = err.Error()
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s failed: %v", d.Symbol, d.Action, err))

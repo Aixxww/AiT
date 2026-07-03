@@ -180,6 +180,10 @@ func (pb *PositionBuilder) handleClose(
 		logger.Infof("  ✅ Full close: %s %s %.6f @ %.2f (avg exit: %.2f, entry: %.2f, PnL: %.2f)",
 			symbol, side, closeQty, price, finalExitPrice, position.EntryPrice, totalPnL)
 
+		if err := pb.positionStore.ApplyPendingCloseIntent(position.ID, traderID, symbol, side); err != nil {
+			logger.Infof("  ⚠️  Failed to apply pending close intent for %s %s: %v", symbol, side, err)
+		}
+
 		return pb.positionStore.ClosePositionFully(
 			position.ID,
 			finalExitPrice,

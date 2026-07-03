@@ -62,12 +62,12 @@ func (at *AutoTrader) resolveOpenExecutionPrice(symbol, side string, fallbackPri
 }
 
 // executeDecisionWithRecord executes AI decision and records detailed information
-func (at *AutoTrader) executeDecisionWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
+func (at *AutoTrader) executeDecisionWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	switch decision.Action {
 	case "open_long":
-		return at.executeOpenLongWithRecord(decision, actionRecord)
+		return at.executeOpenLongWithRecord(ctx, decision, actionRecord)
 	case "open_short":
-		return at.executeOpenShortWithRecord(decision, actionRecord)
+		return at.executeOpenShortWithRecord(ctx, decision, actionRecord)
 	case "close_long":
 		return at.executeCloseLongWithRecord(decision, actionRecord)
 	case "close_short":
@@ -130,9 +130,10 @@ func effectiveOpenRiskMetrics(side string, entryPrice, stopLoss, takeProfit, pos
 }
 
 // executeOpenLongWithRecord executes open long position and records detailed information
-func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
+func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	logger.Infof("  📈 Open long: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
+	decisionPriceBeforeRepair := decision.Price
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()
@@ -233,6 +234,14 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 		return err
 	}
 
+	if finalExecutionPrice, finalTPCapped, err := at.refreshHunterV7OpenPreflight(ctx, decision, executionPrice, decisionPriceBeforeRepair, "long"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, finalExecutionPrice, 0, requestedPositionSize, tpWasCapped || finalTPCapped, positionWasReduced, "long")
+		return err
+	} else {
+		executionPrice = finalExecutionPrice
+		tpWasCapped = tpWasCapped || finalTPCapped
+	}
+
 	// Calculate quantity with adjusted position size
 	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
@@ -279,9 +288,10 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *kernel.Decision, actio
 }
 
 // executeOpenShortWithRecord executes open short position and records detailed information
-func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, actionRecord *store.DecisionAction) error {
+func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	logger.Infof("  📉 Open short: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
+	decisionPriceBeforeRepair := decision.Price
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()
@@ -380,6 +390,14 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *kernel.Decision, acti
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 		return err
+	}
+
+	if finalExecutionPrice, finalTPCapped, err := at.refreshHunterV7OpenPreflight(ctx, decision, executionPrice, decisionPriceBeforeRepair, "short"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, finalExecutionPrice, 0, requestedPositionSize, tpWasCapped || finalTPCapped, positionWasReduced, "short")
+		return err
+	} else {
+		executionPrice = finalExecutionPrice
+		tpWasCapped = tpWasCapped || finalTPCapped
 	}
 
 	// Calculate quantity with adjusted position size

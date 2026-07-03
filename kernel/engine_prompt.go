@@ -237,6 +237,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		sb.WriteString("动量/突破类（如 leader_momentum_long、trend_breakout_long）若实时价跌破 signal stop/invalidation、entry_zone 下沿，或 5m 动量从强转弱，不得把回落视为更好入场，必须 wait。\n")
 		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
 		sb.WriteString("whale_flow_reversal LONG 不允许追 entry_zone 上半区；若 entry_zone_position >45%，必须 wait 或选择下一个合格 EXECUTABLE/REVIEWABLE 候选，避免触发后端入场区保护。\n")
+		sb.WriteString("range_expansion_event SHORT 是高波动事件追空，必须防反弹：若 15m close 低于 EMA20 超过 10%、entry_zone_position >80%、实时价相对决策价已反弹超过 0.30%，或 required confirmation 不是明确的 below VWAP/EMA20/entry_zone_lower，必须 wait + `blocked_reason_code=backend_guard_risk` 或 `confirmation_missing`。\n")
+		sb.WriteString("open_short 绝对不得把 `15m close above VWAP/EMA20`、`close above VWAP` 或 `close above EMA20` 解释为 SHORT 确认通过；出现这种方向语义冲突时必须 wait + `blocked_reason_code=confirmation_missing`。\n")
 		sb.WriteString("凡 hunter_v7_signal_json.required_confirmations 出现的条件，必须在 confirmation_summary 中明确通过；若失败、缺失、不可判定或 reasoning 想解释成 context-only，必须 wait + `blocked_reason_code=confirmation_missing`。\n")
 		sb.WriteString("不得把 required_confirmations 写成“留给 LLM/context 交叉确认”；若 confirmation_summary.context_checks 里出现 required confirmation，视为未验证，不允许 open。\n")
 		sb.WriteString("高波动山寨开仓的 take_profit 必须使用 5m-30m 内最近有效 TP（TP0/近端 TP1），不得为了满足 RR 引用远端 TP1/TP2；若最近有效 TP capped 后 RR 不足，必须 wait。\n")
@@ -268,6 +270,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	sb.WriteString("For momentum/breakout setups such as leader_momentum_long or trend_breakout_long, if live price breaks below signal stop/invalidation, below entry_zone.lower, or 5m momentum flips from strong to weak, do not treat the pullback as a better entry; wait.\n")
 	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
 	sb.WriteString("For whale_flow_reversal LONG, do not chase the upper half of entry_zone; if entry_zone_position is >45%, wait or select the next valid EXECUTABLE/REVIEWABLE candidate to avoid the backend entry-zone guard.\n")
+	sb.WriteString("range_expansion_event SHORT is a high-volatility chase-short setup. If 15m close is more than 10% below EMA20, entry_zone_position is >80%, live price has rebounded more than 0.30% above the decision price, or required confirmation is not explicitly below VWAP/EMA20/entry_zone_lower, wait with `blocked_reason_code=backend_guard_risk` or `confirmation_missing`.\n")
+	sb.WriteString("For open_short, NEVER treat `15m close above VWAP/EMA20`, `close above VWAP`, or `close above EMA20` as passed SHORT confirmation. That direction conflict must wait with `blocked_reason_code=confirmation_missing`.\n")
 	sb.WriteString("Every condition listed in hunter_v7_signal_json.required_confirmations must be explicitly passed in confirmation_summary. If it failed, is missing, cannot be verified, or reasoning tries to treat it as context-only, wait with `blocked_reason_code=confirmation_missing`.\n")
 	sb.WriteString("Do not describe required_confirmations as left to LLM/context cross-checking; if confirmation_summary.context_checks contains a required confirmation, treat it as unverified and do not open.\n")
 	sb.WriteString("For high-volatility altcoins, take_profit must be the nearest effective 5m-30m target (TP0/near TP1). Do not cite far TP1/TP2 only to satisfy RR. If the nearest effective capped TP does not pass RR, wait.\n")
@@ -763,6 +767,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。\n")
 			sb.WriteString("7. EXECUTABLE 且 confirmation_summary.passed_review=true、confirmation_summary.rr/effective_rr 已达标时，优先给出保守仓位 open；不得用未列明计算过程的 `rr_insufficient` 覆盖后端已验证 RR。\n")
 			sb.WriteString("8. whale_flow_reversal LONG 若 entry_zone_position >45%，该候选会被后端保护拦截；必须 wait 或继续评估下一个候选。\n")
+			sb.WriteString("9. range_expansion_event SHORT 若 15m close 极端低于 EMA20、entry_zone_position >80%、实时价已反弹，或把 above VWAP/EMA20 当作 SHORT 确认，必须 wait；这是后端硬保护。\n")
 			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
 			sb.WriteString("Decision policy (strict tier funnel):\n")
@@ -774,6 +779,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("6. If execution_tier=EXECUTABLE and data_quality=complete_for_execution, `regime_against_direction` alone must not downgrade to wait; reduce size when confirmation passed, but still wait when confirmation_summary.passed_review=false.\n")
 			sb.WriteString("7. When an EXECUTABLE candidate has confirmation_summary.passed_review=true and confirmation_summary.rr/effective_rr already passes, prefer a conservative open; do not override backend-validated RR with `rr_insufficient` unless your explicit recomputation shows it fails.\n")
 			sb.WriteString("8. A whale_flow_reversal LONG with entry_zone_position >45% will be rejected by the backend guard; wait or continue to the next candidate.\n")
+			sb.WriteString("9. A range_expansion_event SHORT must wait if 15m close is extremely below EMA20, entry_zone_position is >80%, live price has rebounded, or the reasoning treats above VWAP/EMA20 as SHORT confirmation; this is backend-enforced.\n")
 			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}
 	} else {

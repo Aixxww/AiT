@@ -125,6 +125,24 @@ func (TraderPosition) TableName() string {
 	return "trader_positions"
 }
 
+type PositionCloseIntent struct {
+	ID          int64  `gorm:"primaryKey;autoIncrement"`
+	TraderID    string `gorm:"column:trader_id;not null;index:idx_position_close_intents_lookup"`
+	Symbol      string `gorm:"column:symbol;not null;index:idx_position_close_intents_lookup"`
+	Side        string `gorm:"column:side;not null;index:idx_position_close_intents_lookup"`
+	CloseReason string `gorm:"column:close_reason;not null"`
+	Source      string `gorm:"column:source;not null;default:system_protector"`
+	AppliedAt   int64  `gorm:"column:applied_at;default:0;index:idx_position_close_intents_lookup"`
+	CreatedAt   int64  `gorm:"column:created_at"`
+	UpdatedAt   int64  `gorm:"column:updated_at"`
+}
+
+func (PositionCloseIntent) TableName() string {
+	return "position_close_intents"
+}
+
+const pendingCloseIntentTTL = 15 * time.Minute
+
 // PositionStore position storage
 type PositionStore struct {
 	db *gorm.DB
@@ -161,11 +179,14 @@ func (s *PositionStore) InitTables() error {
 
 			// Just ensure index exists
 			s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_exchange_pos_unique ON trader_positions(exchange_id, exchange_position_id) WHERE exchange_position_id != ''`)
+			if err := s.db.AutoMigrate(&PositionCloseIntent{}); err != nil {
+				return fmt.Errorf("failed to migrate position_close_intents table: %w", err)
+			}
 			return nil
 		}
 	}
 
-	if err := s.db.AutoMigrate(&TraderPosition{}); err != nil {
+	if err := s.db.AutoMigrate(&TraderPosition{}, &PositionCloseIntent{}); err != nil {
 		return fmt.Errorf("failed to migrate trader_positions table: %w", err)
 	}
 
@@ -333,6 +354,82 @@ func (s *PositionStore) MarkPositionCloseIntent(id int64, closeReason, source st
 		"close_reason": closeReason,
 		"source":       source,
 		"updated_at":   nowMs,
+	}).Error
+}
+
+func (s *PositionStore) RecordPendingCloseIntent(traderID, symbol, side, closeReason, source string) error {
+	traderID = strings.TrimSpace(traderID)
+	symbol = normalizePositionSymbol(symbol)
+	side = normalizePositionSide(side)
+	closeReason = strings.TrimSpace(closeReason)
+	source = strings.TrimSpace(source)
+	if source == "" {
+		source = "system_protector"
+	}
+	if traderID == "" || symbol == "" || side == "" || closeReason == "" {
+		return nil
+	}
+
+	nowMs := time.Now().UTC().UnixMilli()
+	cutoffMs := nowMs - pendingCloseIntentTTL.Milliseconds()
+	_ = s.db.Model(&PositionCloseIntent{}).
+		Where("trader_id = ? AND symbol = ? AND side = ? AND applied_at = 0 AND created_at < ?", traderID, symbol, side, cutoffMs).
+		Updates(map[string]interface{}{
+			"applied_at": nowMs,
+			"updated_at": nowMs,
+		}).Error
+
+	var existing PositionCloseIntent
+	err := s.db.Where("trader_id = ? AND symbol = ? AND side = ? AND applied_at = 0 AND created_at >= ?", traderID, symbol, side, cutoffMs).
+		Order("created_at DESC, id DESC").
+		First(&existing).Error
+	if err == nil {
+		return s.db.Model(&PositionCloseIntent{}).Where("id = ?", existing.ID).Updates(map[string]interface{}{
+			"close_reason": closeReason,
+			"source":       source,
+			"updated_at":   nowMs,
+		}).Error
+	}
+	if err != gorm.ErrRecordNotFound {
+		return err
+	}
+	return s.db.Create(&PositionCloseIntent{
+		TraderID:    traderID,
+		Symbol:      symbol,
+		Side:        side,
+		CloseReason: closeReason,
+		Source:      source,
+		CreatedAt:   nowMs,
+		UpdatedAt:   nowMs,
+	}).Error
+}
+
+func (s *PositionStore) ApplyPendingCloseIntent(positionID int64, traderID, symbol, side string) error {
+	traderID = strings.TrimSpace(traderID)
+	symbol = normalizePositionSymbol(symbol)
+	side = normalizePositionSide(side)
+	if positionID <= 0 || traderID == "" || symbol == "" || side == "" {
+		return nil
+	}
+
+	var intent PositionCloseIntent
+	cutoffMs := time.Now().UTC().Add(-pendingCloseIntentTTL).UnixMilli()
+	err := s.db.Where("trader_id = ? AND symbol = ? AND side = ? AND applied_at = 0 AND created_at >= ?", traderID, symbol, side, cutoffMs).
+		Order("created_at DESC, id DESC").
+		First(&intent).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := s.MarkPositionCloseIntent(positionID, intent.CloseReason, intent.Source); err != nil {
+		return err
+	}
+	nowMs := time.Now().UTC().UnixMilli()
+	return s.db.Model(&PositionCloseIntent{}).Where("id = ?", intent.ID).Updates(map[string]interface{}{
+		"applied_at": nowMs,
+		"updated_at": nowMs,
 	}).Error
 }
 

@@ -716,6 +716,86 @@ func TestHunterV7ExecutionGuardRejectsWhaleFlowLongAboveZoneLimit(t *testing.T) 
 	}
 }
 
+func TestHunterV7LiveOpenGuardRejectsShortReasoningDirectionConflict(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "BLESSUSDT",
+				Direction:   "SHORT",
+				V7SetupType: "range_expansion_event",
+			},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol:    "BLESSUSDT",
+		Action:    "open_short",
+		Reasoning: "SHORT confirmation: 15m close above VWAP/EMA20 true, taker flow weak.",
+	}
+
+	err := at.validateHunterV7LiveOpenGuard(ctx, decision, "short", 0.0085, 0.0085)
+	if err == nil || !strings.Contains(err.Error(), "direction_confirmation_conflict") {
+		t.Fatalf("expected direction conflict rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7LiveOpenGuardRejectsRangeExpansionShortReboundFromDecisionPrice(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "LABUSDT",
+				Direction:   "SHORT",
+				V7SetupType: "range_expansion_event",
+				V7DerivativesCtx: &local.V7DerivativesContext{
+					TakerBuy15m: 0.42,
+				},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "LABUSDT", Action: "open_short"}
+
+	err := at.validateHunterV7LiveOpenGuard(ctx, decision, "short", 7.243, 7.146)
+	if err == nil || !strings.Contains(err.Error(), "rebound_risk_wait") {
+		t.Fatalf("expected rebound risk rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7LiveOpenGuardRejectsRangeExpansionShortDeepBelowEMA(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "LABUSDT",
+				Direction:   "SHORT",
+				V7SetupType: "range_expansion_event",
+				V7ExecutionContext: &local.V7ExecutionContext{
+					Timeframes: map[string]local.V7ExecutionTimeframeSummary{
+						"15m": {
+							Timeframe:       "15m",
+							CandleCount:     30,
+							HasEMA20:        true,
+							CloseVsEMA20Pct: -18.5,
+						},
+					},
+				},
+				V7DerivativesCtx: &local.V7DerivativesContext{
+					TakerBuy15m: 0.42,
+				},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "LABUSDT", Action: "open_short"}
+
+	err := at.validateHunterV7LiveOpenGuard(ctx, decision, "short", 7.14, 7.14)
+	if err == nil || !strings.Contains(err.Error(), "late-short exhaustion") {
+		t.Fatalf("expected late-short exhaustion rejection, got: %v", err)
+	}
+}
+
 func TestCalculateLeveragedPnLPctLongAndShort(t *testing.T) {
 	if got := calculateLeveragedPnLPct("long", 100, 101, 10); got != 10 {
 		t.Fatalf("long pnl = %v, want 10", got)

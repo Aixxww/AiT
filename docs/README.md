@@ -77,6 +77,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Document | Description | 描述 |
 |----------|-------------|------|
 | [Hunter v7 Signal Router 架构](architecture/HUNTER_V7_SIGNAL_ROUTER.zh-CN.md) | SnapshotStore-based v7 signal router and JSON protocol | SnapshotStore 热快照、多形态信号路由、AIT JSON 标签协议 |
+| [Hunter v7 执行前风控与平仓归因更新](hunter-v7-execution-guard-and-close-intent-20260704.md) | Live pre-open guard, range expansion short controls, and protected close intent attribution | 执行前实时风控、事件追空保护和平仓归因保真 |
 | [Hunter v7 全链路信号召回与策略胜率改造方案](hunter-v7-fullchain-signal-strategy-optimization-plan-20260611.md) | Full-chain plan for signal recall, execution readiness, tier/prompt consistency, and trading guard feedback | 数据源、Hunter v7、策略分层、Prompt、执行风控与归因闭环的系统改造方案 |
 | [Hunter v7 实时链路校准实施方案](hunter-v7-realtime-calibration-implementation-plan-20260609.md) | Binance live-data validation, REST pacing, OI notional, amplitude/detail calibration | Binance 实时数据验证、REST 限速、OI 名义值、大波动入口校准 |
 | [Hunter v7 架构与标签语义治理](hunter-v7-architecture-tag-taxonomy-20260609.md) | Tag catalog, LLM action semantics, and minimal-code architecture cleanup | 标签 catalog、LLM 行为语义和最小代码量架构治理 |
@@ -93,6 +94,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 |----------|-------------|------|
 | [2026-06-07 Session Review](reports/ait-session-review-20260607.md) | Hunter v7 candidate visibility, live open failure root causes, risk geometry fixes, and dashboard performance changes | Hunter v7 候选可见性、实盘开仓失败根因、风控几何修复与看板性能优化 |
 | [2026-06-08 Hunter v7 / VVV Live Monitor](hunter-v7-vvv-live-monitor-2026-06-08.md) | VVV live-trading review for Hunter v7 open rate, win-rate regressions, signal tags, and LLM execution quality | VVV 实盘复盘：Hunter v7 开仓率、胜率回归、信号标签和 LLM 执行质量 |
+| [2026-07-03 KKK 开仓率与盈利能力优化报告](../reports/kkk-open-rate-profitability-optimization-20260703.md) | KKK live-trading review, range expansion short loss causes, execution guard fixes, and close intent attribution | KKK 实盘复盘、事件追空亏损根因、执行前风控和平仓归因修复 |
 
 ---
 
@@ -155,7 +157,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Community | ✅ Complete | 2026-05-23 |
 | Architecture | ✅ Complete | 2026-05-23 |
 | Roadmap | ✅ Complete | 2026-05-23 |
-| Hunter Docs | ✅ Complete | 2026-06-09 |
+| Hunter Docs | ✅ Complete | 2026-07-04 |
 | API Reference | 📋 Planned | - |
 
 **Legend:**
@@ -193,5 +195,5 @@ Found an error or want to improve the docs?
 
 ---
 
-**Last Updated:** 2026-06-08
+**Last Updated:** 2026-07-04
 **Maintained by:** [AiT Community](https://github.com/Aixxww/AiT)

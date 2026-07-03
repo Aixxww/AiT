@@ -608,6 +608,9 @@ func (at *AutoTrader) markPendingProtectedClose(symbol, side, closeReason string
 		if err != nil {
 			logger.Infof("⚠️ Failed to load position for protected close reason (%s %s): %v", symbol, side, err)
 		}
+		if err := at.store.Position().RecordPendingCloseIntent(at.id, symbol, side, closeReason, "system_protector"); err != nil {
+			logger.Infof("⚠️ Failed to record pending protected close reason (%s %s %s): %v", symbol, side, closeReason, err)
+		}
 		return
 	}
 	if err := at.store.Position().MarkPositionCloseIntent(pos.ID, closeReason, "system_protector"); err != nil {
@@ -1168,6 +1171,99 @@ func (at *AutoTrader) repairHunterV7RiskReward(decision *kernel.Decision, curren
 	logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s RR %.2f < %.2f; adjusting take_profit %.8f → %.8f",
 		decision.Symbol, ratio, minRR, oldTP, decision.TakeProfit)
 	return true
+}
+
+func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision *kernel.Decision, currentPrice, decisionPriceBeforeRepair float64, side string) (float64, bool, error) {
+	if decision == nil || !at.isHunterV7Strategy() || (decision.Action != "open_long" && decision.Action != "open_short") {
+		return currentPrice, false, nil
+	}
+	finalPrice := at.resolveOpenExecutionPrice(decision.Symbol, side, currentPrice)
+	if finalPrice <= 0 {
+		finalPrice = currentPrice
+	}
+
+	tpWasCapped := at.capTakeProfitToTP1(decision, finalPrice, side)
+	at.repairHunterV7OpenDecision(decision, finalPrice, side)
+	if err := at.validateOpenDecision(decision, finalPrice, side); err != nil {
+		return finalPrice, tpWasCapped, err
+	}
+	if err := at.validateHunterV7LiveOpenGuard(ctx, decision, side, finalPrice, decisionPriceBeforeRepair); err != nil {
+		return finalPrice, tpWasCapped, err
+	}
+	return finalPrice, tpWasCapped, nil
+}
+
+func (at *AutoTrader) validateHunterV7LiveOpenGuard(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) error {
+	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
+		return nil
+	}
+	candidate := hunterV7CandidateForDecision(ctx, decision)
+	if candidate == nil || candidate.V7SetupType == "" {
+		return nil
+	}
+	if err := validateHunterV7DecisionReasoningDirection(decision); err != nil {
+		return err
+	}
+	if err := validateHunterV7WhaleFlowGuard(candidate, decision, livePrice); err != nil {
+		return err
+	}
+	if !strings.EqualFold(candidate.V7SetupType, "range_expansion_event") || side != "short" || decision.Action != "open_short" {
+		return nil
+	}
+	if decisionPriceBeforeRepair > 0 && livePrice > decisionPriceBeforeRepair {
+		reboundPct := (livePrice/decisionPriceBeforeRepair - 1) * 100
+		if reboundPct >= 0.30 {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: live price rebounded %.3f%% above AI decision price after preflight repair (rebound_risk_wait)",
+				decision.Symbol, reboundPct)
+		}
+	}
+	if candidate.V7Readiness != nil && candidate.V7Readiness.EntryZonePos > 80 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: entry_zone_position %.1f%% exceeds 80%% late-short limit (rebound_risk_wait)",
+			decision.Symbol, candidate.V7Readiness.EntryZonePos)
+	}
+	if candidate.V7ConfirmSummary != nil && candidate.V7ConfirmSummary.EntryZonePosition > 80 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: confirmation entry_zone_position %.1f%% exceeds 80%% late-short limit (rebound_risk_wait)",
+			decision.Symbol, candidate.V7ConfirmSummary.EntryZonePosition)
+	}
+	if tf, ok := hunterV7CandidateExecutionTimeframe(candidate, "15m"); ok && tf.HasEMA20 && tf.CloseVsEMA20Pct <= -10 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: 15m close %.2f%% below EMA20, late-short exhaustion risk (rebound_risk_wait)",
+			decision.Symbol, tf.CloseVsEMA20Pct)
+	}
+	if taker := hunterV7CandidateTakerBuy15m(candidate); taker >= 0.48 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: taker_buy_15m %.3f no longer confirms short continuation (confirmation_missing)",
+			decision.Symbol, taker)
+	}
+	return nil
+}
+
+func hunterV7CandidateExecutionTimeframe(candidate *kernel.CandidateCoin, tf string) (local.V7ExecutionTimeframeSummary, bool) {
+	if candidate == nil || candidate.V7ExecutionContext == nil {
+		return local.V7ExecutionTimeframeSummary{}, false
+	}
+	summary, ok := candidate.V7ExecutionContext.Timeframes[tf]
+	return summary, ok && summary.CandleCount > 0
+}
+
+func validateHunterV7DecisionReasoningDirection(decision *kernel.Decision) error {
+	if decision == nil || decision.Action != "open_short" {
+		return nil
+	}
+	reasoning := strings.ToLower(decision.Reasoning)
+	if reasoning == "" {
+		return nil
+	}
+	conflictingAbove := strings.Contains(reasoning, "15m close above vwap/ema20") ||
+		strings.Contains(reasoning, "15m close above vwap") ||
+		strings.Contains(reasoning, "15m close above ema20")
+	if conflictingAbove && !strings.Contains(reasoning, "not above") && !strings.Contains(reasoning, "below") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: reasoning treats 15m close above VWAP/EMA20 as short confirmation (direction_confirmation_conflict)",
+			decision.Symbol)
+	}
+	if strings.Contains(reasoning, "15m close above vwap/ema20 true") || strings.Contains(reasoning, "15m close above vwap/ema20 ✓") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: reasoning conflicts with short required confirmation (direction_confirmation_conflict)",
+			decision.Symbol)
+	}
+	return nil
 }
 
 func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decision *kernel.Decision) error {
