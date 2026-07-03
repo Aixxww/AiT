@@ -80,3 +80,41 @@ func TestHighVelocityTakeProfitPlanClampsTP0AndKeepsTarget1AsTP1(t *testing.T) {
 		t.Fatalf("targets[0] should remain TP1, target=%+v tp1=%.8f", sig.Targets, sig.TP1Price)
 	}
 }
+
+func TestHighVolatilityWhaleFlowUsesNearTP0Bounds(t *testing.T) {
+	ctx := &V7SymbolContext{
+		CurrentPrice: 100,
+		ATR15m:       0.3,
+		ATR1h:        1.2,
+		VWAP15m:      100.4,
+		BBUpper15m:   101.0,
+		BBMiddle15m:  100,
+		BBLower15m:   99,
+		High1h:       105,
+		High4h:       108,
+		Low1h:        97,
+		Low4h:        95,
+	}
+	sig := &V7SignalOutput{
+		Direction:    V7DirLong,
+		SetupType:    V7SetupWhaleFlow,
+		RiskTags:     []string{"high_volatility"},
+		MarketRegime: V7RegimeRotation,
+		EntryZone:    V7PriceZone{Lower: 99.5, Upper: 100.5},
+		Invalidation: V7InvalidationRule{Price: 98},
+	}
+
+	ApplyMultiTimeframeTP(sig, ctx)
+
+	if sig.TPPlan == nil {
+		t.Fatal("expected TP execution plan")
+	}
+	entry := 100.0
+	dist := math.Abs((sig.TP0Price - entry) / entry * 100)
+	if dist < 0.8-1e-9 || dist > 1.6+1e-9 {
+		t.Fatalf("tp0 distance = %.4f%%, want within 0.8%%-1.6%%", dist)
+	}
+	if sig.TP0Method != "tp0_dynamic" {
+		t.Fatalf("tp0 method = %q, want tp0_dynamic", sig.TP0Method)
+	}
+}

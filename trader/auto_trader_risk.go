@@ -13,30 +13,48 @@ import (
 )
 
 const (
-	positionProtectorFastInterval     = 15 * time.Second
-	positionProtectorBaseInterval     = 30 * time.Second
-	positionProtectorIdleInterval     = 60 * time.Second
-	protectorTP1PnLPct                = 6.0
-	protectorTP2PnLPct                = 12.0
-	protectorTP1MinPriceMovePct       = 1.0
-	protectorTP2MinPriceMovePct       = 1.5
-	protectorTP1CloseRatio            = 0.40
-	protectorTP2CloseRatio            = 0.50
-	protectorTrailDrawdownPct         = 35.0
-	protectorPreTPPeakPnLPct          = 8.0
-	protectorPreTPGivebackPct         = 80.0
-	protectorNearTP1PeakRatio         = 0.95
-	protectorNearTP1SecondChanceRatio = 0.90
-	protectorNearTP1GivebackPct       = 45.0
-	protectorNearTP1LossExitPnLPct    = -5.0
-	protectorPreTPMinCurrentPnLPct    = 3.0
-	protectorPreTPMinHoldDuration     = 20 * time.Minute
-	protectorBreakevenBufferPct       = 0.001
-	protectorDefaultMinCloseNotional  = 12.0
+	positionProtectorFastInterval         = 15 * time.Second
+	positionProtectorBaseInterval         = 30 * time.Second
+	positionProtectorIdleInterval         = 60 * time.Second
+	protectorTP1PnLPct                    = 6.0
+	protectorTP2PnLPct                    = 12.0
+	protectorTP1MinPriceMovePct           = 1.0
+	protectorTP2MinPriceMovePct           = 1.5
+	protectorTP0PnLPct                    = 8.0
+	protectorTP0CloseRatio                = 0.35
+	protectorTP1CloseRatio                = 0.40
+	protectorTP2CloseRatio                = 0.50
+	protectorTrailDrawdownPct             = 35.0
+	protectorDynamicStopMinHoldDuration   = 10 * time.Minute
+	protectorDynamicStopEarlyPeakPnLPct   = 8.0
+	protectorDynamicStopEarlyPriceMovePct = 0.60
+	protectorProfitFloorPeakPnLPct        = 5.0
+	protectorProfitFloorBufferPnLPct      = 0.8
+	protectorProfitFloorNetBufferPnLPct   = 3.0
+	protectorProfitLockMidPeakPnLPct      = 10.0
+	protectorProfitLockHighPeakPnLPct     = 15.0
+	protectorProfitLockMidRatio           = 0.30
+	protectorProfitLockHighRatio          = 0.45
+	protectorProfitLockMidDrawdownPct     = 50.0
+	protectorProfitLockHighDrawdownPct    = 45.0
+	protectorPreTPPeakPnLPct              = 8.0
+	protectorPreTPGivebackPct             = 80.0
+	protectorNearTP1PeakRatio             = 0.95
+	protectorNearTP1SecondChanceRatio     = 0.90
+	protectorNearTP1GivebackPct           = 45.0
+	protectorNearTP1LossExitPnLPct        = -5.0
+	protectorPreTPMinCurrentPnLPct        = 3.0
+	protectorPreTPMinHoldDuration         = 20 * time.Minute
+	protectorEarlyLossCheckDuration       = 15 * time.Minute
+	protectorEarlyLossExitPnLPct          = -8.0
+	protectorHardLossExitPnLPct           = -12.0
+	protectorBreakevenBufferPct           = 0.001
+	protectorDefaultMinCloseNotional      = 12.0
 )
 
 type positionProtectionState struct {
 	InitialQuantity  float64
+	TP0Done          bool
 	TP1Done          bool
 	TP2Done          bool
 	PeakPnLPct       float64
@@ -51,10 +69,12 @@ type protectionAction string
 
 const (
 	protectionNone          protectionAction = ""
+	protectionTP0           protectionAction = "tp0"
 	protectionTP1           protectionAction = "tp1"
 	protectionTP2           protectionAction = "tp2"
 	protectionTrailClose    protectionAction = "trail_close"
 	protectionGivebackClose protectionAction = "giveback_close"
+	protectionHardLossClose protectionAction = "hard_loss_close"
 )
 
 // startDrawdownMonitor starts drawdown monitoring
@@ -163,14 +183,25 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 	if baseStop <= 0 {
 		return nil
 	}
+	activeStop := mostProtectiveStop(side, state.ActiveStopLoss, state.DynamicStop)
+	if activeStop > 0 && shouldDelayDynamicProtectionStop(state, calculateUnleveragedPnLPct(side, entryPrice, markPrice)) {
+		return nil
+	}
 	maxFavorableDelta := state.PeakPnLPct / 100 / float64(leverage) * entryPrice
 	if maxFavorableDelta < 0 {
 		maxFavorableDelta = 0
 	}
 	isLong := side == "long"
 	stop := local.DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
-	activeStop := mostProtectiveStop(side, state.ActiveStopLoss, state.DynamicStop)
-	if stop <= 0 || !isMoreProtectiveStop(side, stop, activeStop) || !isStopOnProtectiveSide(side, stop, markPrice) {
+	floorStop := protectionProfitFloorStop(side, entryPrice, leverage, state.PeakPnLPct)
+	candidateStop := 0.0
+	if isStopOnProtectiveSide(side, stop, markPrice) {
+		candidateStop = mostProtectiveStop(side, candidateStop, stop)
+	}
+	if isStopOnProtectiveSide(side, floorStop, markPrice) {
+		candidateStop = mostProtectiveStop(side, candidateStop, floorStop)
+	}
+	if candidateStop <= 0 || !isMoreProtectiveStop(side, candidateStop, activeStop) {
 		return nil
 	}
 	positionSide := "SHORT"
@@ -180,14 +211,27 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 	if err := at.trader.CancelStopLossOrders(symbol); err != nil {
 		return err
 	}
-	if err := at.trader.SetStopLoss(symbol, positionSide, quantity, stop); err != nil {
+	if err := at.trader.SetStopLoss(symbol, positionSide, quantity, candidateStop); err != nil {
 		return err
 	}
-	state.DynamicStop = stop
-	state.ActiveStopLoss = stop
+	state.DynamicStop = candidateStop
+	state.ActiveStopLoss = candidateStop
 	state.LastStopUpdateAt = time.Now()
-	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f | previous_stop %.8f", symbol, side, quantity, stop, activeStop)
+	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f | previous_stop %.8f | peak %.2f%%", symbol, side, quantity, candidateStop, activeStop, state.PeakPnLPct)
 	return nil
+}
+
+func shouldDelayDynamicProtectionStop(state *positionProtectionState, currentPriceMovePct float64) bool {
+	if state == nil || state.OpenedAt.IsZero() {
+		return false
+	}
+	if time.Since(state.OpenedAt) >= protectorDynamicStopMinHoldDuration {
+		return false
+	}
+	if state.PeakPnLPct >= protectorDynamicStopEarlyPeakPnLPct {
+		return false
+	}
+	return currentPriceMovePct < protectorDynamicStopEarlyPriceMovePct
 }
 
 func (state *positionProtectionState) rememberActiveStopLoss(side string, stop float64) {
@@ -228,6 +272,31 @@ func protectionBaseStopFromRisk(side string, entryPrice float64, leverage int) f
 		return entryPrice * (1 - riskPct)
 	}
 	return entryPrice * (1 + riskPct)
+}
+
+func protectionProfitFloorStop(side string, entryPrice float64, leverage int, peakPnLPct float64) float64 {
+	if entryPrice <= 0 || leverage <= 0 || peakPnLPct < protectorProfitFloorPeakPnLPct {
+		return 0
+	}
+	lockPnLPct := math.Max(protectorProfitFloorBufferPnLPct, protectorProfitFloorNetBufferPnLPct)
+	switch {
+	case peakPnLPct >= protectorProfitLockHighPeakPnLPct:
+		lockPnLPct = math.Max(lockPnLPct, peakPnLPct*protectorProfitLockHighRatio)
+	case peakPnLPct >= protectorProfitLockMidPeakPnLPct:
+		lockPnLPct = math.Max(lockPnLPct, peakPnLPct*protectorProfitLockMidRatio)
+	}
+	priceMovePct := lockPnLPct / 100 / float64(leverage)
+	if side == "long" {
+		return entryPrice * (1 + priceMovePct)
+	}
+	return entryPrice * (1 - priceMovePct)
+}
+
+func protectionPositionAge(state *positionProtectionState) time.Duration {
+	if state == nil || state.OpenedAt.IsZero() {
+		return 0
+	}
+	return time.Since(state.OpenedAt)
 }
 
 func isMoreProtectiveStop(side string, next, prev float64) bool {
@@ -296,7 +365,27 @@ func choosePositionProtectionAction(state *positionProtectionState, currentPnLPc
 	if state.PeakPnLPct > 0 && currentPnLPct < state.PeakPnLPct {
 		drawdownPct = ((state.PeakPnLPct - currentPnLPct) / state.PeakPnLPct) * 100
 	}
+	age := protectionPositionAge(state)
+	if currentPnLPct <= protectorHardLossExitPnLPct ||
+		(age <= protectorEarlyLossCheckDuration && currentPnLPct <= protectorEarlyLossExitPnLPct) {
+		return protectionHardLossClose, drawdownPct
+	}
+	if state.PeakPnLPct >= protectorProfitFloorPeakPnLPct && currentPnLPct <= 0 {
+		return protectionGivebackClose, drawdownPct
+	}
+	if !state.TP0Done && state.PeakPnLPct >= protectorTP0PnLPct && currentPnLPct >= protectorTP0PnLPct {
+		return protectionTP0, drawdownPct
+	}
+	if state.PeakPnLPct >= protectorProfitLockHighPeakPnLPct && currentPnLPct > 0 && drawdownPct >= protectorProfitLockHighDrawdownPct {
+		return protectionGivebackClose, drawdownPct
+	}
+	if state.PeakPnLPct >= protectorProfitLockMidPeakPnLPct && currentPnLPct > 0 && drawdownPct >= protectorProfitLockMidDrawdownPct {
+		return protectionGivebackClose, drawdownPct
+	}
 	if !state.TP1Done && currentPnLPct >= protectorTP1PnLPct && currentPriceMovePct >= protectorTP1MinPriceMovePct {
+		return protectionTP1, drawdownPct
+	}
+	if state.TP0Done && !state.TP1Done && state.PeakPnLPct >= protectorProfitLockHighPeakPnLPct && currentPnLPct >= protectorTP0PnLPct {
 		return protectionTP1, drawdownPct
 	}
 	if state.TP1Done && !state.TP2Done && currentPnLPct >= protectorTP2PnLPct && currentPriceMovePct >= protectorTP2MinPriceMovePct {
@@ -394,24 +483,39 @@ func (at *AutoTrader) markProtectionAction(posKey string, action protectionActio
 	}
 	state.LastActionAt = time.Now()
 	switch action {
+	case protectionTP0:
+		state.TP0Done = true
 	case protectionTP1:
 		state.TP1Done = true
 	case protectionTP2:
 		state.TP2Done = true
-	case protectionTrailClose, protectionGivebackClose:
+	case protectionTrailClose, protectionGivebackClose, protectionHardLossClose:
 		delete(at.protectionState, posKey)
 	}
 }
 
 func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, markPrice, entryPrice float64, action protectionAction) (bool, error) {
 	switch action {
+	case protectionTP0:
+		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP0CloseRatio)
+		logger.Infof("🟢 TP0 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
+		if closeAll {
+			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
+		}
+		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
+			return false, err
+		}
+		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
+			logger.Infof("⚠️ Failed to rebuild stops after TP0 close (%s %s): %v", symbol, side, err)
+		}
+		return false, nil
 	case protectionTP1:
 		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP1CloseRatio)
 		logger.Infof("🟢 TP1 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
 		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0)
+			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
 		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty); err != nil {
+		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
 		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
@@ -422,18 +526,18 @@ func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, mar
 		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP2CloseRatio)
 		logger.Infof("🟢 TP2 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
 		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0)
+			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
 		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty); err != nil {
+		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
 		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
 			logger.Infof("⚠️ Failed to rebuild stops after TP2 close (%s %s): %v", symbol, side, err)
 		}
 		return false, nil
-	case protectionTrailClose, protectionGivebackClose:
+	case protectionTrailClose, protectionGivebackClose, protectionHardLossClose:
 		logger.Infof("🟢 Trail protection close triggered: %s %s | action=%s | mark %.8f", symbol, side, action, markPrice)
-		return true, at.closeProtectedPosition(symbol, side, 0)
+		return true, at.closeProtectedPosition(symbol, side, 0, string(action))
 	default:
 		return false, nil
 	}
@@ -474,7 +578,7 @@ func (at *AutoTrader) rebuildProtectionStops(symbol, side string, remainingQty, 
 	return at.trader.SetStopLoss(symbol, "SHORT", remainingQty, stopPrice)
 }
 
-func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float64) error {
+func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float64, closeReason string) error {
 	switch side {
 	case "long":
 		order, err := at.trader.CloseLong(symbol, quantity)
@@ -491,7 +595,24 @@ func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float
 	default:
 		return fmt.Errorf("unknown position direction: %s", side)
 	}
+	at.markPendingProtectedClose(symbol, side, closeReason)
 	return nil
+}
+
+func (at *AutoTrader) markPendingProtectedClose(symbol, side, closeReason string) {
+	if at.store == nil || symbol == "" || closeReason == "" {
+		return
+	}
+	pos, err := at.store.Position().GetOpenPositionBySymbol(at.id, symbol, strings.ToUpper(side))
+	if err != nil || pos == nil {
+		if err != nil {
+			logger.Infof("⚠️ Failed to load position for protected close reason (%s %s): %v", symbol, side, err)
+		}
+		return
+	}
+	if err := at.store.Position().MarkPositionCloseIntent(pos.ID, closeReason, "system_protector"); err != nil {
+		logger.Infof("⚠️ Failed to mark protected close reason (%s %s %s): %v", symbol, side, closeReason, err)
+	}
 }
 
 // emergencyClosePosition emergency close position function
@@ -1062,15 +1183,24 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		return nil
 	}
 
-	// Look up per-setup guard thresholds from strategy config
-	guard := at.setupGuardForSetup(candidate.V7SetupType)
-	if guard == nil {
-		return nil // no guard configured for this setup
+	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
+		return err
+	}
+	if err := validateHunterV7RiskTagCombos(candidate, decision); err != nil {
+		return err
 	}
 
+	// Look up per-setup guard thresholds from strategy config
+	guard := at.setupGuardForSetup(candidate.V7SetupType)
 	price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
-	if price <= 0 {
-		return nil
+	if price > 0 {
+		if err := validateHunterV7WhaleFlowGuard(candidate, decision, price); err != nil {
+			return err
+		}
+	}
+
+	if guard == nil {
+		return nil // no guard configured for this setup
 	}
 
 	// OI flush check (for setups that require it, e.g. funding_reversal)
@@ -1099,6 +1229,113 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	}
 
 	return nil
+}
+
+func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if candidate == nil || decision == nil || len(candidate.V7RequiredConfirms) == 0 {
+		return nil
+	}
+	summary := candidate.V7ConfirmSummary
+	if summary == nil {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmations cannot be machine-verified (confirmation_missing)",
+			candidate.V7SetupType, decision.Symbol)
+	}
+	required := map[string]struct{}{}
+	for _, code := range candidate.V7RequiredConfirms {
+		if code != "" {
+			required[code] = struct{}{}
+		}
+	}
+	if len(required) == 0 {
+		return nil
+	}
+	for _, check := range summary.MissingHard {
+		if _, ok := required[check.Code]; ok {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmation %s failed (confirmation_missing)",
+				candidate.V7SetupType, decision.Symbol, check.Code)
+		}
+	}
+	for _, check := range summary.MissingReview {
+		if _, ok := required[check.Code]; ok {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmation %s failed (confirmation_missing)",
+				candidate.V7SetupType, decision.Symbol, check.Code)
+		}
+	}
+	for _, check := range summary.ContextChecks {
+		if _, ok := required[check.Code]; ok {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmation %s is context-only/unverified (confirmation_missing)",
+				candidate.V7SetupType, decision.Symbol, check.Code)
+		}
+	}
+	return nil
+}
+
+func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if candidate == nil || decision == nil {
+		return nil
+	}
+	tags := candidate.V7RiskTags
+	if containsStringValue(tags, "high_volatility") && containsStringValue(tags, "execution_stop_tightened") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: high_volatility + execution_stop_tightened requires wait-only confirmation (wait_only_risk_combo)",
+			candidate.V7SetupType, decision.Symbol)
+	}
+	if containsStringValue(tags, "high_volatility") && strings.EqualFold(candidate.V7Confidence, "C") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: high_volatility + confidence=C requires wait-only confirmation (wait_only_risk_combo)",
+			candidate.V7SetupType, decision.Symbol)
+	}
+	if containsStringValue(tags, "moderate_liquidity") && containsStringValue(tags, "high_volatility") && decision.PositionSizeUSD > 0 {
+		oldSize := decision.PositionSizeUSD
+		decision.PositionSizeUSD = oldSize / 3
+		logger.Infof("  ⚠️ [HUNTER V7 GUARD] %s %s high_volatility + moderate_liquidity: reducing position size %.2f → %.2f",
+			candidate.V7SetupType, decision.Symbol, oldSize, decision.PositionSizeUSD)
+	}
+	return nil
+}
+
+func validateHunterV7WhaleFlowGuard(candidate *kernel.CandidateCoin, decision *kernel.Decision, price float64) error {
+	if candidate == nil || decision == nil || candidate.V7SetupType != "whale_flow_reversal" || decision.Action != "open_long" {
+		return nil
+	}
+	if pos, ok := hunterV7EntryZonePositionPct(candidate, price); ok && pos > 45 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: entry zone position %.1f%% exceeds 45%% confirmation limit",
+			decision.Symbol, pos)
+	}
+	if taker := hunterV7CandidateTakerBuy15m(candidate); taker > 0 && taker < 0.56 {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: taker_buy_15m %.3f below 0.560",
+			decision.Symbol, taker)
+	}
+	mid := hunterV7EntryZoneMidPrice(candidate)
+	if mid > 0 && price < mid {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: price %.8f below entry-zone mid %.8f",
+			decision.Symbol, price, mid)
+	}
+	return nil
+}
+
+func hunterV7CandidateTakerBuy15m(candidate *kernel.CandidateCoin) float64 {
+	if candidate == nil {
+		return 0
+	}
+	if candidate.V7DerivativesCtx != nil && candidate.V7DerivativesCtx.TakerBuy15m > 0 {
+		return candidate.V7DerivativesCtx.TakerBuy15m
+	}
+	return 0
+}
+
+func hunterV7EntryZoneMidPrice(candidate *kernel.CandidateCoin) float64 {
+	if candidate == nil || candidate.V7EntryZone.Lower <= 0 || candidate.V7EntryZone.Upper <= candidate.V7EntryZone.Lower {
+		return 0
+	}
+	return (candidate.V7EntryZone.Lower + candidate.V7EntryZone.Upper) / 2
+}
+
+func containsStringValue(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(value, want) {
+			return true
+		}
+	}
+	return false
 }
 
 // setupGuardForSetup returns the guard config for a given setup type.

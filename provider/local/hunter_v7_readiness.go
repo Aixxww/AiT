@@ -53,6 +53,12 @@ func CalculateV7ExecutionReadiness(sig *V7SignalOutput, ctx *V7SymbolContext) V7
 		readiness.Tier = V7ReadinessRejected
 		readiness.Reason = "invalid_rr"
 		readiness.BlockedGate = "execution_geometry"
+	case len(v7MissingRequiredConfirmationCodes(sig)) > 0:
+		missing := v7MissingRequiredConfirmationCodes(sig)
+		readiness.Tier = V7ReadinessWatch
+		readiness.Reason = "confirmation_missing_" + missing[0]
+		readiness.BlockedGate = "confirmation_missing"
+		readiness.NextConfirm = missing
 	case sig.RiskScore >= 65:
 		readiness.Tier = V7ReadinessRejected
 		readiness.Reason = "risk_score_gte_65"
@@ -80,6 +86,40 @@ func CalculateV7ExecutionReadiness(sig *V7SignalOutput, ctx *V7SymbolContext) V7
 		readiness.BlockedGate = "kernel_tier"
 	}
 	return readiness
+}
+
+func v7MissingRequiredConfirmationCodes(sig *V7SignalOutput) []string {
+	if sig == nil || len(sig.RequiredConfirms) == 0 {
+		return nil
+	}
+	if sig.ConfirmSummary == nil {
+		return append([]string{}, sig.RequiredConfirms...)
+	}
+	required := make(map[string]struct{}, len(sig.RequiredConfirms))
+	for _, code := range sig.RequiredConfirms {
+		if code != "" {
+			required[code] = struct{}{}
+		}
+	}
+	if len(required) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(required))
+	appendMissing := func(checks []V7ConfirmationCheck, requireFailed bool) {
+		for _, check := range checks {
+			if _, ok := required[check.Code]; !ok {
+				continue
+			}
+			if requireFailed && check.Passed {
+				continue
+			}
+			out = appendIfMissing(out, check.Code)
+		}
+	}
+	appendMissing(sig.ConfirmSummary.MissingHard, false)
+	appendMissing(sig.ConfirmSummary.MissingReview, false)
+	appendMissing(sig.ConfirmSummary.ContextChecks, true)
+	return out
 }
 
 func v7ReadinessMissingFields(sig *V7SignalOutput, ctx *V7SymbolContext) (hard, execution, context []string) {

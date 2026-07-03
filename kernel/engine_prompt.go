@@ -223,6 +223,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 		sb.WriteString(fmt.Sprintf("开仓前必须先把 take_profit 视为后端有效 TP：long=min(你的TP, price*(1+%.2f%%))，short=max(你的TP, price*(1-%.2f%%))；再用该 effective_take_profit 重算 effective_rr。若 capped 后 effective_rr < %.2f，必须 wait + `blocked_reason_code=rr_insufficient`，不得引用未封顶远端 TP1 作为开仓理由。\n",
 			maxTPMovePct, maxTPMovePct, minRR))
+		sb.WriteString(fmt.Sprintf("若 execution_tier=EXECUTABLE 且 hunter_v7_signal_json.confirmation_summary.passed_review=true，并且 confirmation_summary.rr/effective_rr 已达到 %.2f，默认视为后端 RR 已验证；不得重新臆造更严格的结构 RR。只有明确列出当前可执行价、后端 capped effective_take_profit、stop_loss 后仍低于 %.2f，才允许 wait + `blocked_reason_code=rr_insufficient`。\n",
+			minRR, minRR))
 		sb.WriteString("## blocked_reason_code 强制要求\n")
 		sb.WriteString("wait 决策必须输出 `blocked_reason_code` 字段（枚举值：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`）。绝对不得用自然语言 reasoning 代替此字段。如果 wait，必须有且只有一个 blocked_reason_code。\n")
 		sb.WriteString("`no_reviewable_candidate` 只能在 Tier Summary 显示 EXECUTABLE=0 且 REVIEWABLE=0 时使用；只要存在任一 EXECUTABLE/REVIEWABLE，就必须写真实阻断原因，例如 `entry_not_in_zone`、`rr_insufficient`、`confirmation_missing` 或 `backend_guard_risk`。\n")
@@ -234,11 +236,15 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		}
 		sb.WriteString("动量/突破类（如 leader_momentum_long、trend_breakout_long）若实时价跌破 signal stop/invalidation、entry_zone 下沿，或 5m 动量从强转弱，不得把回落视为更好入场，必须 wait。\n")
 		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
+		sb.WriteString("whale_flow_reversal LONG 不允许追 entry_zone 上半区；若 entry_zone_position >45%，必须 wait 或选择下一个合格 EXECUTABLE/REVIEWABLE 候选，避免触发后端入场区保护。\n")
+		sb.WriteString("凡 hunter_v7_signal_json.required_confirmations 出现的条件，必须在 confirmation_summary 中明确通过；若失败、缺失、不可判定或 reasoning 想解释成 context-only，必须 wait + `blocked_reason_code=confirmation_missing`。\n")
+		sb.WriteString("不得把 required_confirmations 写成“留给 LLM/context 交叉确认”；若 confirmation_summary.context_checks 里出现 required confirmation，视为未验证，不允许 open。\n")
+		sb.WriteString("高波动山寨开仓的 take_profit 必须使用 5m-30m 内最近有效 TP（TP0/近端 TP1），不得为了满足 RR 引用远端 TP1/TP2；若最近有效 TP capped 后 RR 不足，必须 wait。\n")
 		sb.WriteString("凡 signal risk_tags 含 regime_against_direction 且 hunter_v7_signal_json.confirmation_summary.passed_review=false，必须 wait；这是逆势开仓的统一硬边界，不得用高 priority、单个 5m EMA 穿越、taker 强或 RR 足够覆盖失败确认。\n")
 		sb.WriteString("panic_reversal_long 在 trend_down/逆势且 24h 深跌、4h 仍下行时，5m close 仅轻微站上 EMA20 或 entry_zone_mid 不足以开仓；必须等待更强结构确认（优先 15m 收复 EMA20/VWAP 或连续 5m 站稳）和 taker_buy_15m 明显增强，否则输出 confirmation_missing。\n")
 		sb.WriteString("panic_reversal_long 若处于 trend_down/逆势且 hunter_v7_signal_json.confirmation_summary.passed_review=false，必须 wait；不得把单个 5m EMA 穿越、taker_buy 强或 RR 足够当作覆盖该失败确认的开仓理由。\n")
 		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
-		sb.WriteString("持仓管理：若 Peak PnL 已接近保护 TP1（当前保护 TP1 6%，near-TP1 为 Peak PnL >=5.7%，且未杠杆价格涨幅 raw_move >=1.0%），随后从峰值回撤 >=45% 或当前 PnL 回到盈亏平衡/亏损，才可优先视为退出/减风险信号；除非有非常明确的延续证据，否则输出可执行的 `close_long`/`close_short`，不得只因未到 SL/TP 而 `hold`，也不得用 `hold` 声称收紧止损。若曾经错过 near-TP1，之后又回到 TP1 的 90% 以上，这是二次保护机会，但仍必须满足 raw_move >=1.0%。若 Peak PnL 低于 5.7%，或 raw_move <1.0%，它属于 pre-TP1/微利波动，峰值回吐或回到微利/微亏本身不是移动止盈触发；只有计划 SL/硬失效，或 5m 与 15m 同时确认结构反转（跌破入场/EMA20、低点下移、买盘/OI 走弱）才可 close。峰值回撤按 `(Peak PnL - Current PnL) / Peak PnL` 计算；正峰值后跌到负 PnL 代表回吐超过 100%，但 pre-TP1/微利状态不能仅凭该比例退出。\n")
+		sb.WriteString("持仓管理：保护器以杠杆后 ROE 为准。Peak PnL >=5% 后，盈亏平衡/亏损优先视为退出或减风险信号；Peak >=10% 后若从峰值回撤约 50%，Peak >=15% 后若回撤约 45%，除非 5m/15m 与资金流同时给出明确延续证据，否则输出可执行的 `close_long`/`close_short`。当前 PnL >=8% 可接受 TP0 减仓 30%-50% 并推保本；开仓后前 15 分钟 PnL <=-8% 或任意时刻 PnL <=-12% 是硬止损/失效信号。不得只因未到原始 SL/TP 而 `hold`，也不得用 `hold` 声称已经收紧止损。\n")
 		return
 	}
 	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
@@ -248,6 +254,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 	sb.WriteString(fmt.Sprintf("Before opening, treat take_profit as the backend-effective TP: long=min(your TP, price*(1+%.2f%%)), short=max(your TP, price*(1-%.2f%%)); recalculate effective_rr from that capped TP and stop_loss. If capped effective_rr < %.2f, wait with `blocked_reason_code=rr_insufficient`; do not cite an uncapped far TP1 as the open rationale.\n",
 		maxTPMovePct, maxTPMovePct, minRR))
+	sb.WriteString(fmt.Sprintf("If execution_tier=EXECUTABLE, hunter_v7_signal_json.confirmation_summary.passed_review=true, and confirmation_summary.rr/effective_rr is already >= %.2f, treat backend RR as validated; do not invent a stricter structural RR. Use `rr_insufficient` only when you explicitly recompute from executable price, backend-capped effective_take_profit, and stop_loss and it is still below %.2f.\n",
+		minRR, minRR))
 	sb.WriteString("## blocked_reason_code Requirement\n")
 	sb.WriteString("Wait decisions MUST include a `blocked_reason_code` field (enum: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`). ABSOLUTELY do NOT substitute free-text reasoning for this field. If wait, there must be exactly one blocked_reason_code.\n")
 	sb.WriteString("Use `no_reviewable_candidate` ONLY when Tier Summary shows EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
@@ -259,11 +267,15 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	}
 	sb.WriteString("For momentum/breakout setups such as leader_momentum_long or trend_breakout_long, if live price breaks below signal stop/invalidation, below entry_zone.lower, or 5m momentum flips from strong to weak, do not treat the pullback as a better entry; wait.\n")
 	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
+	sb.WriteString("For whale_flow_reversal LONG, do not chase the upper half of entry_zone; if entry_zone_position is >45%, wait or select the next valid EXECUTABLE/REVIEWABLE candidate to avoid the backend entry-zone guard.\n")
+	sb.WriteString("Every condition listed in hunter_v7_signal_json.required_confirmations must be explicitly passed in confirmation_summary. If it failed, is missing, cannot be verified, or reasoning tries to treat it as context-only, wait with `blocked_reason_code=confirmation_missing`.\n")
+	sb.WriteString("Do not describe required_confirmations as left to LLM/context cross-checking; if confirmation_summary.context_checks contains a required confirmation, treat it as unverified and do not open.\n")
+	sb.WriteString("For high-volatility altcoins, take_profit must be the nearest effective 5m-30m target (TP0/near TP1). Do not cite far TP1/TP2 only to satisfy RR. If the nearest effective capped TP does not pass RR, wait.\n")
 	sb.WriteString("For any signal with risk_tags containing regime_against_direction and hunter_v7_signal_json.confirmation_summary.passed_review=false, wait. This is the unified counter-trend open boundary; do not override the failed confirmation with high priority, one 5m EMA reclaim, strong taker flow, or acceptable RR.\n")
 	sb.WriteString("For panic_reversal_long in trend_down/counter-trend with a deep 24h dump and still-negative 4h structure, a small 5m close above EMA20 or entry_zone_mid is not enough to open; require stronger structure confirmation, preferably a 15m reclaim of EMA20/VWAP or consecutive 5m holds, plus clearly stronger taker_buy_15m. Otherwise output confirmation_missing.\n")
 	sb.WriteString("For panic_reversal_long in trend_down/counter-trend, if hunter_v7_signal_json.confirmation_summary.passed_review=false, wait; do not override that failed confirmation with a single 5m EMA reclaim, strong taker buy, or acceptable RR.\n")
 	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
-	sb.WriteString("Position management: if Peak PnL reached protection near-TP1 (protection TP1 is 6%; near-TP1 means Peak PnL >=5.7% AND unleveraged price raw_move >=1.0%) and then gives back >=45% from the peak or current PnL crosses to breakeven/loss, treat it first as an exit/risk-reduction signal; output an executable risk-reducing `close_long`/`close_short` unless there is a very explicit continuation signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. If a missed near-TP1 trade later returns above 90% of TP1, treat it as a second protection chance only when raw_move >=1.0%. If Peak PnL is below 5.7% or raw_move <1.0%, it is pre-TP1/micro-profit noise: peak giveback or returning to tiny profit/loss is not a trailing-take-profit trigger by itself; close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal (entry/EMA20 lost, lower lows, weakening buy flow/OI). Peak giveback is `(Peak PnL - Current PnL) / Peak PnL`; crossing from a positive peak to negative PnL is >100% giveback, but pre-TP1/micro-profit state cannot exit from that ratio alone.\n")
+	sb.WriteString("Position management: the protector uses leveraged ROE. Once Peak PnL >=5%, breakeven/loss is first an exit or risk-reduction signal. Once Peak >=10%, about 50% giveback from peak is a protection close signal; once Peak >=15%, about 45% giveback is a protection close signal unless 5m/15m structure and flow both give explicit continuation evidence. Current PnL >=8% can justify TP0 partial close of 30%-50% and moving the stop to breakeven. In the first 15 minutes, PnL <=-8% is a hard invalidation signal; at any age, PnL <=-12% is hard stop territory. Do not `hold` only because original SL/TP has not been reached, and do not use `hold` to claim stop tightening.\n")
 }
 
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
@@ -684,7 +696,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		coin.V7TierReason = reason
 		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
 		coin.V7Readiness = &readiness
-		tier, reason = hunterV7TierFromPromptReadiness(tier, reason, readiness)
+		tier, reason = hunterV7TierFromPromptReadiness(coin, tier, reason, readiness)
 		coin.V7ExecutionTier = tier
 		coin.V7TierReason = reason
 		items = append(items, hunterV7PromptCandidate{
@@ -747,8 +759,10 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。只有实时 K线/资金流确认入场区、近端止损和 RR 后才允许 open，否则给出 blocked_reason_code。\n")
 			sb.WriteString("3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。\n")
 			sb.WriteString("4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。\n")
-			sb.WriteString("5. 动量/位移/放量突破/区间扩张开仓后必须执行 TP0 分批止盈语义：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。当前 JSON 只有单个 `take_profit` 字段时，必须输出“后端 cap 后仍满足 RR 的最近有效 TP”，不得输出会被 cap 后 RR 不足的远端 TP1；若近端有效 TP 不存在则 wait。\n")
+			sb.WriteString("5. 动量/位移/放量突破/区间扩张/鲸鱼流反转开仓后必须执行 TP0 分批止盈语义：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。当前 JSON 只有单个 `take_profit` 字段时，必须输出“后端 cap 后仍满足 RR 的最近有效 TP”，不得输出会被 cap 后 RR 不足的远端 TP1；若近端有效 TP 不存在则 wait。\n")
 			sb.WriteString("6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。\n")
+			sb.WriteString("7. EXECUTABLE 且 confirmation_summary.passed_review=true、confirmation_summary.rr/effective_rr 已达标时，优先给出保守仓位 open；不得用未列明计算过程的 `rr_insufficient` 覆盖后端已验证 RR。\n")
+			sb.WriteString("8. whale_flow_reversal LONG 若 entry_zone_position >45%，该候选会被后端保护拦截；必须 wait 或继续评估下一个候选。\n")
 			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
 			sb.WriteString("Decision policy (strict tier funnel):\n")
@@ -756,8 +770,10 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("2. REVIEWABLE next: only after all EXECUTABLE candidates are blocked, evaluate REVIEWABLE. Open only when live candles/flow confirm entry zone, near structural stop, and RR; otherwise provide `blocked_reason_code`.\n")
 			sb.WriteString("3. WATCH is context only: WATCH candidates do not participate in open decisions. Do not use the absence of WATCH candidates as a global wait veto on EXECUTABLE/REVIEWABLE.\n")
 			sb.WriteString("4. REJECTED is forbidden: REJECTED candidates must not influence any open decision.\n")
-			sb.WriteString("5. For momentum/displacement/range-expansion/breakout opens, use TP0 partial-profit semantics: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1. Because the current JSON schema has one `take_profit` field, output the nearest effective TP that still passes RR after backend cap; do not output a far TP1 that becomes RR-insufficient after capping. If no near effective TP passes, wait.\n")
+			sb.WriteString("5. For momentum/displacement/range-expansion/breakout/whale-flow reversal opens, use TP0 partial-profit semantics: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1. Because the current JSON schema has one `take_profit` field, output the nearest effective TP that still passes RR after backend cap; do not output a far TP1 that becomes RR-insufficient after capping. If no near effective TP passes, wait.\n")
 			sb.WriteString("6. If execution_tier=EXECUTABLE and data_quality=complete_for_execution, `regime_against_direction` alone must not downgrade to wait; reduce size when confirmation passed, but still wait when confirmation_summary.passed_review=false.\n")
+			sb.WriteString("7. When an EXECUTABLE candidate has confirmation_summary.passed_review=true and confirmation_summary.rr/effective_rr already passes, prefer a conservative open; do not override backend-validated RR with `rr_insufficient` unless your explicit recomputation shows it fails.\n")
+			sb.WriteString("8. A whale_flow_reversal LONG with entry_zone_position >45% will be rejected by the backend guard; wait or continue to the next candidate.\n")
 			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}
 	} else {
@@ -865,7 +881,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 	sb.WriteString("\n")
 }
 
-func hunterV7TierFromPromptReadiness(tier, reason string, readiness local.V7ExecutionReadiness) (string, string) {
+func hunterV7TierFromPromptReadiness(coin CandidateCoin, tier, reason string, readiness local.V7ExecutionReadiness) (string, string) {
 	switch readiness.Tier {
 	case local.V7ReadinessRejected:
 		if tier != "REJECTED" {
@@ -880,7 +896,39 @@ func hunterV7TierFromPromptReadiness(tier, reason string, readiness local.V7Exec
 			return "REVIEWABLE", "prompt_readiness_" + readiness.Reason
 		}
 	}
+	if semanticReason := hunterV7PromptSemanticWaitReason(coin, readiness); semanticReason != "" {
+		if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+			return "WATCH", semanticReason
+		}
+	}
 	return tier, reason
+}
+
+func hunterV7PromptSemanticWaitReason(coin CandidateCoin, readiness local.V7ExecutionReadiness) string {
+	if coin.V7SetupType == string(local.V7SetupRangeExpansion) && strings.EqualFold(coin.Direction, "SHORT") {
+		change24h := 0.0
+		if coin.V7PriceContext != nil {
+			change24h = coin.V7PriceContext.Change24h
+		}
+		if change24h <= -12 &&
+			containsAnyStringValue(coin.V7RiskTags, []string{
+				"event_chase_risk",
+				"event_flow_confirmation_needed",
+				"range_expansion_low_volume_followthrough",
+				"short_covering_not_new_long_build",
+			}) {
+			return "range_expansion_short_exhaustion_retest_wait"
+		}
+	}
+	if coin.V7SetupType == string(local.V7SetupWhaleFlow) {
+		if readiness.DataQuality != "complete_for_execution" ||
+			readiness.BlockedGate == "prompt_data_quality" ||
+			len(readiness.MissingHard) > 0 ||
+			len(readiness.MissingExecution) > 0 {
+			return "whale_flow_execution_data_wait"
+		}
+	}
+	return ""
 }
 
 func hunterV7CandidateWithLiveMarketPrice(coin CandidateCoin, data *market.Data) CandidateCoin {
@@ -1300,12 +1348,24 @@ func (e *StrategyEngine) formatPositionInfo(index int, pos PositionInfo, ctx *Co
 
 func formatHunterV7PositionProtectionHint(pos PositionInfo) string {
 	rawMovePct := hunterV7PositionRawMovePct(pos)
-	if pos.PeakPnLPct >= hunterV7ProtectionNearTP1PeakPnLPct && rawMovePct >= hunterV7ProtectionTP1MinRawMovePct {
-		return fmt.Sprintf("protection_state=near_tp1_or_better peak_pnl=%.2f%% near_tp1_threshold=%.2f%% raw_move=%+.2f%% raw_move_threshold=%.2f%%; peak giveback may be a trailing-exit signal if continuation is not explicit.\n",
-			pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct, rawMovePct, hunterV7ProtectionTP1MinRawMovePct)
+	if pos.UnrealizedPnLPct <= -12 {
+		return fmt.Sprintf("protection_state=hard_loss peak_pnl=%.2f%% current_pnl=%+.2f%% raw_move=%+.2f%%; hard stop territory, prioritize close unless exchange state already closing.\n",
+			pos.PeakPnLPct, pos.UnrealizedPnLPct, rawMovePct)
 	}
-	return fmt.Sprintf("protection_state=pre_tp1 peak_pnl=%.2f%% near_tp1_threshold=%.2f%% raw_move=%+.2f%% raw_move_threshold=%.2f%%; peak giveback alone is not a trailing-exit trigger. Close only on planned SL/hard invalidation or confirmed 5m+15m structural reversal.\n",
-		pos.PeakPnLPct, hunterV7ProtectionNearTP1PeakPnLPct, rawMovePct, hunterV7ProtectionTP1MinRawMovePct)
+	if pos.PeakPnLPct >= 15 {
+		return fmt.Sprintf("protection_state=high_profit_lock peak_pnl=%.2f%% current_pnl=%+.2f%% raw_move=%+.2f%%; protect roughly 40-50%% of peak or close on material giveback unless continuation is explicit.\n",
+			pos.PeakPnLPct, pos.UnrealizedPnLPct, rawMovePct)
+	}
+	if pos.PeakPnLPct >= 10 {
+		return fmt.Sprintf("protection_state=mid_profit_lock peak_pnl=%.2f%% current_pnl=%+.2f%% raw_move=%+.2f%%; protect roughly 25-35%% of peak or close on major giveback unless continuation is explicit.\n",
+			pos.PeakPnLPct, pos.UnrealizedPnLPct, rawMovePct)
+	}
+	if pos.PeakPnLPct >= 5 {
+		return fmt.Sprintf("protection_state=breakeven_floor peak_pnl=%.2f%% current_pnl=%+.2f%% raw_move=%+.2f%%; do not let a 5%%+ peak turn into net loss without explicit continuation evidence.\n",
+			pos.PeakPnLPct, pos.UnrealizedPnLPct, rawMovePct)
+	}
+	return fmt.Sprintf("protection_state=pre_profit_floor peak_pnl=%.2f%% current_pnl=%+.2f%% raw_move=%+.2f%%; close on planned SL/hard invalidation or confirmed 5m+15m structural reversal.\n",
+		pos.PeakPnLPct, pos.UnrealizedPnLPct, rawMovePct)
 }
 
 func hunterV7PositionRawMovePct(pos PositionInfo) float64 {

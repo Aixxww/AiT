@@ -236,21 +236,23 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"treat take_profit as the backend-effective TP",
 		"capped effective_rr < 1.50",
 		"do not cite an uncapped far TP1",
+		"confirmation_summary.rr/effective_rr is already >= 1.50",
+		"do not invent a stricter structural RR",
 		"Min Confidence: ≥70 to open position",
 		"Confidence below 70 must output wait; do not open by reducing position size.",
 		"`confidence`: 0-100 (opening recommended ≥ 70)",
 		"Hunter v7 Execution Rules",
 		"choose the best open or provide one precise blocked_reason",
 		"weak upper-zone pullbacks",
+		"entry_zone_position is >45%",
+		"required_confirmations must be explicitly passed",
+		"context-only",
+		"Do not describe required_confirmations as left to LLM/context cross-checking",
+		"take_profit must be the nearest effective 5m-30m target",
 		"confirmation_summary.passed_review=false",
-		"Peak PnL reached protection near-TP1",
-		"raw_move >=1.0%",
-		"gives back >=45% from the peak",
+		"Peak >=15%",
+		"PnL <=-12%",
 		"do not use `hold` to claim stop tightening",
-		"second protection chance",
-		"pre-TP1/micro-profit noise",
-		"close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal",
-		"crossing from a positive peak to negative PnL is >100% giveback",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt missing %q\n%s", want, prompt)
@@ -286,13 +288,12 @@ func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
 		PeakPnLPct:       4.2,
 		Leverage:         20,
 	}, ctx)
-	if !strings.Contains(preTP1, "protection_state=pre_tp1") ||
-		!strings.Contains(preTP1, "peak giveback alone is not a trailing-exit trigger") ||
+	if !strings.Contains(preTP1, "protection_state=pre_profit_floor") ||
 		!strings.Contains(preTP1, "confirmed 5m+15m structural reversal") {
-		t.Fatalf("pre-TP1 position hint missing:\n%s", preTP1)
+		t.Fatalf("pre-profit-floor position hint missing:\n%s", preTP1)
 	}
 
-	nearTP1 := engine.formatPositionInfo(1, PositionInfo{
+	breakeven := engine.formatPositionInfo(1, PositionInfo{
 		Symbol:           "TESTUSDT",
 		Side:             "long",
 		EntryPrice:       100,
@@ -302,9 +303,9 @@ func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
 		PeakPnLPct:       5.8,
 		Leverage:         20,
 	}, ctx)
-	if !strings.Contains(nearTP1, "protection_state=near_tp1_or_better") ||
-		!strings.Contains(nearTP1, "peak giveback may be a trailing-exit signal") {
-		t.Fatalf("near-TP1 position hint missing:\n%s", nearTP1)
+	if !strings.Contains(breakeven, "protection_state=breakeven_floor") ||
+		!strings.Contains(breakeven, "do not let a 5%+ peak turn into net loss") {
+		t.Fatalf("breakeven-floor position hint missing:\n%s", breakeven)
 	}
 
 	microProfit := engine.formatPositionInfo(1, PositionInfo{
@@ -317,10 +318,9 @@ func TestFormatPositionInfoAddsHunterV7ProtectionState(t *testing.T) {
 		PeakPnLPct:       5.8,
 		Leverage:         20,
 	}, ctx)
-	if !strings.Contains(microProfit, "protection_state=pre_tp1") ||
-		!strings.Contains(microProfit, "raw_move=+0.30%") ||
-		!strings.Contains(microProfit, "peak giveback alone is not a trailing-exit trigger") {
-		t.Fatalf("micro-profit position should stay pre-TP1:\n%s", microProfit)
+	if !strings.Contains(microProfit, "protection_state=breakeven_floor") ||
+		!strings.Contains(microProfit, "raw_move=+0.30%") {
+		t.Fatalf("micro-profit position should stay breakeven-floor:\n%s", microProfit)
 	}
 }
 
@@ -406,6 +406,9 @@ func TestBuildUserPromptUsesHunterV7CandidateTiers(t *testing.T) {
 		"one `take_profit` field",
 		"nearest effective TP that still passes RR after backend cap",
 		"far TP1 that becomes RR-insufficient after capping",
+		"confirmation_summary.rr/effective_rr already passes",
+		"do not override backend-validated RR",
+		"entry_zone_position >45%",
 		"### Open-review candidates (full context, max 8)",
 		"#### 1. READYUSDT [LONG] (Hunter)",
 		"execution_tier=EXECUTABLE tier_reason=long_setup_ready_confirmed",
@@ -982,9 +985,48 @@ func TestHunterV7PromptReadinessKeepsCompleteForExecutionQuality(t *testing.T) {
 	if readiness.DataQuality != "complete_for_execution" {
 		t.Fatalf("data quality = %q, want complete_for_execution", readiness.DataQuality)
 	}
-	tier, reason := hunterV7TierFromPromptReadiness("EXECUTABLE", "runtime_executable", readiness)
+	tier, reason := hunterV7TierFromPromptReadiness(coin, "EXECUTABLE", "runtime_executable", readiness)
 	if tier != "EXECUTABLE" || reason != "runtime_executable" {
 		t.Fatalf("tier=%s reason=%s, want EXECUTABLE runtime_executable", tier, reason)
+	}
+}
+
+func TestHunterV7PromptSemanticDowngradesLateRangeExpansionShort(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:         "DUMPUSDT",
+		Direction:      "SHORT",
+		V7SetupType:    string(local.V7SetupRangeExpansion),
+		V7RiskTags:     []string{"event_chase_risk"},
+		V7PriceContext: &local.V7PriceContext{Change24h: -18},
+	}
+	readiness := local.V7ExecutionReadiness{
+		Tier:        local.V7ReadinessExecutable,
+		Reason:      "readiness_ready",
+		DataQuality: "complete_for_execution",
+	}
+
+	tier, reason := hunterV7TierFromPromptReadiness(coin, "EXECUTABLE", "runtime_executable", readiness)
+	if tier != "WATCH" || reason != "range_expansion_short_exhaustion_retest_wait" {
+		t.Fatalf("tier=%s reason=%s, want WATCH range_expansion_short_exhaustion_retest_wait", tier, reason)
+	}
+}
+
+func TestHunterV7PromptSemanticDowngradesWhaleFlowWithoutExecutionData(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:      "WHALEUSDT",
+		Direction:   "LONG",
+		V7SetupType: string(local.V7SetupWhaleFlow),
+	}
+	readiness := local.V7ExecutionReadiness{
+		Tier:             local.V7ReadinessExecutable,
+		Reason:           "readiness_ready",
+		DataQuality:      "partial",
+		MissingExecution: []string{"taker_buy_15m"},
+	}
+
+	tier, reason := hunterV7TierFromPromptReadiness(coin, "EXECUTABLE", "runtime_executable", readiness)
+	if tier != "WATCH" || reason != "whale_flow_execution_data_wait" {
+		t.Fatalf("tier=%s reason=%s, want WATCH whale_flow_execution_data_wait", tier, reason)
 	}
 }
 
@@ -1288,6 +1330,42 @@ func TestClassifyHunterV7CandidateTierDemotesMissingExecutionReadiness(t *testin
 
 	if tier != "WATCH" || reason != "missing_execution_15m_kline" {
 		t.Fatalf("tier = %q (%s), want WATCH missing_execution_15m_kline", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierDemotesMissingRequiredConfirmation(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "TACUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "whale_flow_reversal",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       85,
+		V7SetupScore:       90,
+		V7TimingScore:      82,
+		V7RiskScore:        0,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7EntryZone:        local.V7PriceZone{Lower: 0.03736, Upper: 0.03898},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.03741},
+		V7Targets:          []local.V7Target{{Price: 0.04419}},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.038102},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.498},
+		V7RequiredConfirms: []string{"directional_15m_close_long", "taker_flow_confirms_long"},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: false,
+			MissingReview: []local.V7ConfirmationCheck{
+				{Code: "taker_flow_confirms_long", Passed: false, Severity: local.V7ConfirmReviewWait},
+			},
+			RR: 2.0,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "confirmation_missing_taker_flow_confirms_long" {
+		t.Fatalf("tier = %q (%s), want WATCH confirmation_missing_taker_flow_confirms_long", tier, reason)
 	}
 }
 
@@ -2159,6 +2237,94 @@ func TestClassifyHunterV7CandidateTierUsesReadinessReviewableFallback(t *testing
 
 	if tier != "REVIEWABLE" || reason != "readiness_reviewable_readiness_reviewable" {
 		t.Fatalf("tier = %q (%s), want REVIEWABLE readiness_reviewable_readiness_reviewable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsConfirmedRangeExpansionDespiteChaseProtection(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "PIPPINUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "range_expansion_event",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       77.6,
+		V7SetupScore:       90.2,
+		V7TimingScore:      72,
+		V7RiskScore:        0,
+		V7LiquidityScore:   65,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"range_expansion_event",
+			"amplitude_24h_event",
+			"moderate_range_expansion_event",
+			"event_continuation_long",
+			"volume_burst_15m",
+			"taker_buy_aligned",
+			"chase_high_protection",
+		},
+		V7RequiredConfirms: []string{
+			"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+			"taker_buy_15m_gt_0_52",
+			"no_new_low_after_reclaim",
+		},
+		V7EntryZone:      local.V7PriceZone{Lower: 0.0198713612, Upper: 0.0201740918},
+		V7Invalidation:   local.V7InvalidationRule{Price: 0.0196695408},
+		V7Targets:        []local.V7Target{{Price: 0.0207609969}, {Price: 0.0214992672}},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.02009, Change1h: 3.56, Change4h: 3.56, Change24h: 19.928, VWAP15m: 0.0184823005},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.573},
+		V7Readiness: &local.V7ExecutionReadiness{
+			Tier:         local.V7ReadinessExecutable,
+			Reason:       "readiness_ready",
+			ReadyScore:   82.8,
+			WindowHealth: 100,
+			EntryZonePos: 72.22,
+			DataQuality:  "complete",
+		},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:        true,
+			PassedReview:      true,
+			EntryZonePosition: 72.22,
+			StopDistancePct:   2.09,
+			RewardPct:         7.01,
+			RR:                3.35,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "EXECUTABLE" || reason != "range_expansion_ready_confirmed_continuation" {
+		t.Fatalf("tier = %q (%s), want EXECUTABLE range_expansion_ready_confirmed_continuation", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierRejectsExtremeVolatilityRangeExpansion(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "ALLOUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "range_expansion_event",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       77.6,
+		V7SetupScore:       90.2,
+		V7TimingScore:      72,
+		V7RiskScore:        0,
+		V7LiquidityScore:   65,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"range_expansion_event", "event_continuation_long", "volume_burst_15m", "taker_buy_aligned", "chase_high_protection"},
+		V7RiskTags:         []string{"extreme_volatility", "execution_stop_tightened"},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.3565729584, Upper: 0.3668011699},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.3565729584},
+		V7Targets:          []local.V7Target{{Price: 0.3844160104}},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.36396, Change1h: 4.48, Change4h: 4.54, Change24h: 53.402, VWAP15m: 0.3188628103},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.5613},
+		V7Readiness:        &local.V7ExecutionReadiness{Tier: local.V7ReadinessReviewable, Reason: "readiness_reviewable", ReadyScore: 80.1, WindowHealth: 100, EntryZonePos: 72.22, DataQuality: "complete"},
+		V7ConfirmSummary:   &local.V7ConfirmationSummary{PassedHard: true, PassedReview: true, EntryZonePosition: 72.22, StopDistancePct: 2.03, RewardPct: 11.87, RR: 5.85},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REJECTED" || reason != "extreme_volatility" {
+		t.Fatalf("tier = %q (%s), want REJECTED extreme_volatility", tier, reason)
 	}
 }
 

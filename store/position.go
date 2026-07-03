@@ -292,6 +292,7 @@ func (s *PositionStore) ReducePositionQuantity(id int64, reduceQty float64, exit
 	// Check if position should be fully closed (quantity reduced to ~0)
 	const QUANTITY_TOLERANCE = 0.0001
 	if newQty <= QUANTITY_TOLERANCE {
+		closeReason, closeSource := preserveSyncCloseIntent(pos, "sync")
 		// Auto-close: set status to CLOSED
 		return s.db.Model(&TraderPosition{}).Where("id = ?", id).Updates(map[string]interface{}{
 			"quantity":     0,
@@ -300,7 +301,8 @@ func (s *PositionStore) ReducePositionQuantity(id int64, reduceQty float64, exit
 			"realized_pnl": newPnL,
 			"status":       "CLOSED",
 			"exit_time":    nowMs,
-			"close_reason": "sync",
+			"close_reason": closeReason,
+			"source":       closeSource,
 			"updated_at":   nowMs,
 		}).Error
 	}
@@ -324,6 +326,16 @@ func (s *PositionStore) UpdatePositionExchangeInfo(id int64, exchangeID, exchang
 	}).Error
 }
 
+// MarkPositionCloseIntent records the local reason/source before exchange sync confirms the close.
+func (s *PositionStore) MarkPositionCloseIntent(id int64, closeReason, source string) error {
+	nowMs := time.Now().UTC().UnixMilli()
+	return s.db.Model(&TraderPosition{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"close_reason": closeReason,
+		"source":       source,
+		"updated_at":   nowMs,
+	}).Error
+}
+
 // ClosePositionFully marks position as fully closed
 // exitTimeMs is Unix milliseconds UTC
 func (s *PositionStore) ClosePositionFully(id int64, exitPrice float64, exitOrderID string, exitTimeMs int64, totalRealizedPnL float64, totalFee float64, closeReason string) error {
@@ -336,6 +348,7 @@ func (s *PositionStore) ClosePositionFully(id int64, exitPrice float64, exitOrde
 	if pos.EntryQuantity > 0 {
 		quantity = pos.EntryQuantity
 	}
+	closeReason, closeSource := preserveSyncCloseIntent(pos, closeReason)
 
 	return s.db.Model(&TraderPosition{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"quantity":      quantity,
@@ -346,8 +359,27 @@ func (s *PositionStore) ClosePositionFully(id int64, exitPrice float64, exitOrde
 		"fee":           totalFee,
 		"status":        "CLOSED",
 		"close_reason":  closeReason,
+		"source":        closeSource,
 		"updated_at":    time.Now().UTC().UnixMilli(),
 	}).Error
+}
+
+func preserveSyncCloseIntent(pos TraderPosition, closeReason string) (string, string) {
+	source := pos.Source
+	if strings.TrimSpace(source) == "" {
+		source = "sync"
+	}
+	if closeReason == "sync" {
+		if existingReason := strings.TrimSpace(pos.CloseReason); existingReason != "" && existingReason != "sync" {
+			closeReason = existingReason
+			if source == "sync" || source == "" {
+				source = "system_protector"
+			}
+			return closeReason, source
+		}
+		return closeReason, "sync"
+	}
+	return closeReason, source
 }
 
 // DeleteAllOpenPositions deletes all OPEN positions for a trader

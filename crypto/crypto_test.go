@@ -288,7 +288,10 @@ func TestIsEncryptedStorageValue(t *testing.T) {
 
 func TestGetPublicKeyPEM(t *testing.T) {
 	cs := testCryptoService(t)
-	pem := cs.GetPublicKeyPEM()
+	pem, err := cs.GetPublicKeyPEM()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if !strings.HasPrefix(pem, "-----BEGIN PUBLIC KEY-----") {
 		t.Fatalf("unexpected PEM: %s", pem[:40])
 	}

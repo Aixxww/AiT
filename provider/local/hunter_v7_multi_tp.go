@@ -241,7 +241,8 @@ func ApplyV7TakeProfitPlan(sig *V7SignalOutput, ctx *V7SymbolContext) {
 	}
 
 	if isV7HighVelocitySetup(sig.SetupType) {
-		ensureV7TP0Distance(sig, entry, 1.2, 2.5)
+		minPct, maxPct := v7TP0DistanceBounds(sig)
+		ensureV7TP0Distance(sig, entry, minPct, maxPct)
 	}
 	if sig.TP0Price <= 0 {
 		return
@@ -269,6 +270,7 @@ func ApplyV7TakeProfitPlan(sig *V7SignalOutput, ctx *V7SymbolContext) {
 func isV7HighVelocitySetup(setup V7SetupType) bool {
 	switch setup {
 	case V7SetupRangeExpansion,
+		V7SetupWhaleFlow,
 		V7SetupDisplacementLong,
 		V7SetupLeaderMomentumLong,
 		V7SetupTrendBreakoutLong,
@@ -277,6 +279,15 @@ func isV7HighVelocitySetup(setup V7SetupType) bool {
 	default:
 		return false
 	}
+}
+
+func v7TP0DistanceBounds(sig *V7SignalOutput) (float64, float64) {
+	if sig != nil &&
+		(sig.SetupType == V7SetupRangeExpansion || sig.SetupType == V7SetupWhaleFlow) &&
+		containsV7String(sig.RiskTags, "high_volatility") {
+		return 0.8, 1.6
+	}
+	return 1.2, 2.5
 }
 
 func ensureV7TP0Distance(sig *V7SignalOutput, entry, minPct, maxPct float64) {
@@ -302,9 +313,7 @@ func ensureV7TP0Distance(sig *V7SignalOutput, entry, minPct, maxPct float64) {
 	if sig.TP0TimeWindow == "" {
 		sig.TP0TimeWindow = "5m-30m"
 	}
-	if sig.TP0Method == "" || sig.TP0Method == "nearest_0.8R" {
-		sig.TP0Method = "tp0_dynamic_1.2_2.5pct"
-	}
+	sig.TP0Method = "tp0_dynamic"
 }
 
 // ---------------------------------------------------------------------------

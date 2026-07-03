@@ -619,6 +619,103 @@ func TestHunterV7ExecutionGuardAllowsFundingReversalShortNearZoneLower(t *testin
 	}
 }
 
+func TestHunterV7ExecutionGuardRejectsContextOnlyRequiredConfirmation(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:             "BTWUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "whale_flow_reversal",
+				V7RequiredConfirms: []string{"directional_15m_close_long"},
+				V7ConfirmSummary: &local.V7ConfirmationSummary{
+					PassedHard:   true,
+					PassedReview: true,
+					ContextChecks: []local.V7ConfirmationCheck{
+						{Code: "directional_15m_close_long", Passed: false, Severity: local.V7ConfirmContext},
+					},
+				},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "BTWUSDT", Action: "open_long", Price: 1}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "context-only") {
+		t.Fatalf("expected context-only required confirmation rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardRejectsHighVolatilityTightStopCombo(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "SYNUSDT",
+				Direction:   "LONG",
+				V7SetupType: "whale_flow_reversal",
+				V7RiskTags:  []string{"high_volatility", "execution_stop_tightened"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "SYNUSDT", Action: "open_long", Price: 1}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "wait_only_risk_combo") {
+		t.Fatalf("expected high volatility tight-stop rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardReducesModerateLiquidityHighVolatilitySize(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "ALTUSDT",
+				Direction:   "SHORT",
+				V7SetupType: "range_expansion_event",
+				V7RiskTags:  []string{"moderate_liquidity", "high_volatility"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "ALTUSDT", Action: "open_short", Price: 1, PositionSizeUSD: 60}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err != nil {
+		t.Fatalf("unexpected size-cap rejection: %v", err)
+	}
+	if decision.PositionSizeUSD != 20 {
+		t.Fatalf("position size = %v, want 20", decision.PositionSizeUSD)
+	}
+}
+
+func TestHunterV7ExecutionGuardRejectsWhaleFlowLongAboveZoneLimit(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:      "RIFUSDT",
+				Direction:   "LONG",
+				V7SetupType: "whale_flow_reversal",
+				V7EntryZone: local.V7PriceZone{Lower: 1.00, Upper: 1.10},
+				V7DerivativesCtx: &local.V7DerivativesContext{
+					TakerBuy15m: 0.58,
+				},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "RIFUSDT", Action: "open_long", Price: 1.052}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "exceeds 45") {
+		t.Fatalf("expected whale flow zone rejection, got: %v", err)
+	}
+}
+
 func TestCalculateLeveragedPnLPctLongAndShort(t *testing.T) {
 	if got := calculateLeveragedPnLPct("long", 100, 101, 10); got != 10 {
 		t.Fatalf("long pnl = %v, want 10", got)
@@ -645,6 +742,7 @@ func TestChoosePositionProtectionActionTP1ThenTP2(t *testing.T) {
 		t.Fatalf("action = %q, want TP1", action)
 	}
 
+	state.TP0Done = true
 	state.TP1Done = true
 	action, _ = choosePositionProtectionAction(state, protectorTP2PnLPct, protectorTP2MinPriceMovePct)
 	if action != protectionTP2 {
@@ -661,9 +759,44 @@ func TestChoosePositionProtectionActionDoesNotTP1OnLeveragedMicroMove(t *testing
 	}
 }
 
+func TestChoosePositionProtectionActionTP0ForHighROE(t *testing.T) {
+	state := &positionProtectionState{
+		InitialQuantity: 100,
+		PeakPnLPct:      16,
+		OpenedAt:        time.Now().Add(-2 * time.Minute),
+	}
+
+	action, _ := choosePositionProtectionAction(state, 12, 0.6)
+	if action != protectionTP0 {
+		t.Fatalf("action = %q, want TP0 for high ROE even before raw TP1 move", action)
+	}
+}
+
+func TestChoosePositionProtectionActionHardLossClose(t *testing.T) {
+	state := &positionProtectionState{
+		InitialQuantity: 100,
+		OpenedAt:        time.Now().Add(-5 * time.Minute),
+	}
+
+	action, _ := choosePositionProtectionAction(state, -8.1, -0.81)
+	if action != protectionHardLossClose {
+		t.Fatalf("action = %q, want hard loss close for early loss", action)
+	}
+
+	state = &positionProtectionState{
+		InitialQuantity: 100,
+		OpenedAt:        time.Now().Add(-30 * time.Minute),
+	}
+	action, _ = choosePositionProtectionAction(state, -12.1, -1.21)
+	if action != protectionHardLossClose {
+		t.Fatalf("action = %q, want hard loss close for absolute loss", action)
+	}
+}
+
 func TestChoosePositionProtectionActionTrailClose(t *testing.T) {
 	state := &positionProtectionState{
 		InitialQuantity: 100,
+		TP0Done:         true,
 		TP1Done:         true,
 		TP2Done:         true,
 		PeakPnLPct:      20,
@@ -742,8 +875,8 @@ func TestChoosePositionProtectionActionNearTP1GivebackToLoss(t *testing.T) {
 	}
 
 	action, drawdown := choosePositionProtectionAction(state, -1.8, -0.18)
-	if action != protectionNone {
-		t.Fatalf("action = %q, want no mechanical close for small post-TP1 loss", action)
+	if action != protectionGivebackClose {
+		t.Fatalf("action = %q, want giveback close once 5%% peak crosses to loss", action)
 	}
 	if drawdown <= 100 {
 		t.Fatalf("drawdown = %v, want >100 after peak profit crosses to loss", drawdown)
@@ -915,6 +1048,77 @@ func TestDynamicProtectionStopDoesNotLoosenRestoredActiveStopLoss(t *testing.T) 
 	}
 }
 
+func TestDynamicProtectionStopDelaysEarlyProfitFloorForSmallMove(t *testing.T) {
+	ft := &contextTestTrader{}
+	at := testRiskAutoTrader()
+	at.trader = ft
+	state := &positionProtectionState{
+		InitialQuantity: 788,
+		PeakPnLPct:      5.59,
+		ActiveStopLoss:  0.01825548,
+		OpenedAt:        time.Now().Add(-2 * time.Minute),
+	}
+
+	err := at.updateDynamicProtectionStop("DEEPUSDT", "short", 788, 0.01788, 0.01783, 20, state)
+	if err != nil {
+		t.Fatalf("dynamic stop update failed: %v", err)
+	}
+	if ft.cancelStopLossCalls != 0 || len(ft.stopLossCalls) != 0 {
+		t.Fatalf("expected early small-move stop rewrite to be delayed, cancel=%d calls=%d",
+			ft.cancelStopLossCalls, len(ft.stopLossCalls))
+	}
+	if state.DynamicStop != 0 || state.ActiveStopLoss != 0.01825548 {
+		t.Fatalf("state changed unexpectedly: dynamic=%v active=%v", state.DynamicStop, state.ActiveStopLoss)
+	}
+}
+
+func TestDynamicProtectionStopAllowsEarlyLockAfterTP0Peak(t *testing.T) {
+	ft := &contextTestTrader{}
+	at := testRiskAutoTrader()
+	at.trader = ft
+	state := &positionProtectionState{
+		InitialQuantity: 788,
+		PeakPnLPct:      protectorDynamicStopEarlyPeakPnLPct,
+		ActiveStopLoss:  0.01825548,
+		OpenedAt:        time.Now().Add(-3 * time.Minute),
+	}
+
+	err := at.updateDynamicProtectionStop("DEEPUSDT", "short", 788, 0.01788, 0.01778, 20, state)
+	if err != nil {
+		t.Fatalf("dynamic stop update failed: %v", err)
+	}
+	if len(ft.stopLossCalls) != 1 {
+		t.Fatalf("expected early TP0-zone stop rewrite, got %d calls", len(ft.stopLossCalls))
+	}
+	got := ft.stopLossCalls[0].stopPrice
+	if got >= 0.01788 || got <= 0.01778 {
+		t.Fatalf("early profit-lock stop = %.8f, want between mark and entry", got)
+	}
+}
+
+func TestDynamicProtectionStopLocksProfitFloorForShort(t *testing.T) {
+	ft := &contextTestTrader{}
+	at := testRiskAutoTrader()
+	at.trader = ft
+	state := &positionProtectionState{
+		InitialQuantity: 100,
+		PeakPnLPct:      16.15,
+		OpenedAt:        time.Now().Add(-3 * time.Minute),
+	}
+
+	err := at.updateDynamicProtectionStop("IDOLUSDT", "short", 100, 0.01636, 0.01625, 20, state)
+	if err != nil {
+		t.Fatalf("dynamic stop update failed: %v", err)
+	}
+	if len(ft.stopLossCalls) != 1 {
+		t.Fatalf("expected one stop-loss call, got %d", len(ft.stopLossCalls))
+	}
+	got := ft.stopLossCalls[0].stopPrice
+	if got >= 0.01636 || got <= 0.01625 {
+		t.Fatalf("short profit floor stop = %.8f, want between mark and entry", got)
+	}
+}
+
 func TestProtectionStopHelpersShort(t *testing.T) {
 	base := protectionBaseStopFromRisk("short", 100, 10)
 	if base <= 100 {
@@ -928,6 +1132,15 @@ func TestProtectionStopHelpersShort(t *testing.T) {
 	}
 	if isStopOnProtectiveSide("short", 99, 100) {
 		t.Fatalf("short stop below mark should be rejected")
+	}
+	floor := protectionProfitFloorStop("short", 100, 20, 16)
+	if floor >= 100 {
+		t.Fatalf("short profit floor stop = %v, want below entry", floor)
+	}
+	earlyFloor := protectionProfitFloorStop("short", 0.01788, 20, 5.59)
+	lockedPnLPct := ((0.01788 - earlyFloor) / 0.01788) * 20 * 100
+	if lockedPnLPct < protectorProfitFloorNetBufferPnLPct {
+		t.Fatalf("locked PnL = %.2f%%, want at least %.2f%%", lockedPnLPct, protectorProfitFloorNetBufferPnLPct)
 	}
 }
 

@@ -292,6 +292,7 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7EntryZone:        sig.EntryZone,
 			V7Invalidation:     sig.Invalidation,
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
+			V7ConfirmSummary:   sig.ConfirmSummary,
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
 			V7Readiness:        sig.ExecutionReadiness,

@@ -665,6 +665,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 		return "REJECTED", "risk_score_gte_65"
 	}
 
+	if reason := hunterV7RequiredConfirmationWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 	if reason := hunterV7ReadinessMissingExecutionWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
@@ -740,6 +743,40 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	}
 
 	return "WATCH", "needs_confirmation"
+}
+
+func hunterV7RequiredConfirmationWaitReason(coin CandidateCoin) string {
+	if len(coin.V7RequiredConfirms) == 0 {
+		return ""
+	}
+	if coin.V7ConfirmSummary == nil {
+		return "confirmation_missing_summary"
+	}
+	required := make(map[string]struct{}, len(coin.V7RequiredConfirms))
+	for _, code := range coin.V7RequiredConfirms {
+		if code != "" {
+			required[code] = struct{}{}
+		}
+	}
+	if len(required) == 0 {
+		return ""
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingHard {
+		if _, ok := required[check.Code]; ok {
+			return "confirmation_missing_" + check.Code
+		}
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingReview {
+		if _, ok := required[check.Code]; ok {
+			return "confirmation_missing_" + check.Code
+		}
+	}
+	for _, check := range coin.V7ConfirmSummary.ContextChecks {
+		if _, ok := required[check.Code]; ok && !check.Passed {
+			return "confirmation_missing_" + check.Code
+		}
+	}
+	return ""
 }
 
 // ClassifyHunterV7CandidateTierForRuntime exposes the same prompt tiering rules
@@ -819,6 +856,14 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 55 &&
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "displacement_ready_confirmed"
+		}
+	case "range_expansion_event":
+		if hunterV7ConfirmedRangeExpansionContinuation(coin, true) &&
+			coin.V7AIPriority >= 65 &&
+			coin.V7SetupScore >= 65 &&
+			coin.V7TimingScore >= 60 &&
+			coin.V7RiskScore < 35 {
+			return true, "range_expansion_ready_confirmed_continuation"
 		}
 	case "distribution_short", "long_squeeze_short", "range_reversion":
 		if coin.V7AIPriority >= 55 &&
@@ -1029,6 +1074,14 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "displacement_reviewable_needs_confirm"
 		}
+	case "range_expansion_event":
+		if hunterV7ConfirmedRangeExpansionContinuation(coin, false) &&
+			coin.V7AIPriority >= 60 &&
+			coin.V7SetupScore >= 60 &&
+			coin.V7TimingScore >= 50 &&
+			coin.V7RiskScore < 45 {
+			return true, "range_expansion_reviewable_confirmed_continuation"
+		}
 	case "distribution_short", "long_squeeze_short", "range_reversion":
 		if coin.V7AIPriority >= 50 &&
 			coin.V7TimingScore >= 50 &&
@@ -1090,7 +1143,14 @@ func hunterV7ReadinessMissingExecutionWaitReason(coin CandidateCoin) string {
 func hunterV7DirectOpenWaitOnlyReason(coin CandidateCoin) string {
 	for _, tag := range coin.V7ReasonCodes {
 		switch tag {
-		case "no_pullback_still_running", "chase_high_protection", "momentum_rsi_overheated_wait":
+		case "chase_high_protection":
+			if hunterV7ConfirmedRangeExpansionContinuation(coin, true) {
+				continue
+			}
+			if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionWaitOnly {
+				return "wait_only_reason_" + tag
+			}
+		case "no_pullback_still_running", "momentum_rsi_overheated_wait":
 			if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionWaitOnly {
 				return "wait_only_reason_" + tag
 			}
@@ -1105,6 +1165,52 @@ func hunterV7DirectOpenWaitOnlyReason(coin CandidateCoin) string {
 		}
 	}
 	return ""
+}
+
+func hunterV7ConfirmedRangeExpansionContinuation(coin CandidateCoin, executable bool) bool {
+	if coin.V7SetupType != "range_expansion_event" {
+		return false
+	}
+	if coin.V7Readiness == nil || !hunterV7ConfirmationSummaryReviewPassed(coin) {
+		return false
+	}
+	if len(coin.V7Readiness.MissingHard) > 0 || len(coin.V7Readiness.MissingExecution) > 0 {
+		return false
+	}
+	if executable {
+		if coin.V7Readiness.Tier != local.V7ReadinessExecutable {
+			return false
+		}
+		if coin.V7Readiness.ReadyScore > 0 && coin.V7Readiness.ReadyScore < 75 {
+			return false
+		}
+		if coin.V7Readiness.EntryZonePos > 0 && coin.V7Readiness.EntryZonePos > 80 {
+			return false
+		}
+	} else {
+		if coin.V7Readiness.Tier != local.V7ReadinessExecutable && coin.V7Readiness.Tier != local.V7ReadinessReviewable {
+			return false
+		}
+		if coin.V7Readiness.ReadyScore > 0 && coin.V7Readiness.ReadyScore < 68 {
+			return false
+		}
+		if coin.V7Readiness.EntryZonePos > 0 && coin.V7Readiness.EntryZonePos > 90 {
+			return false
+		}
+	}
+	if hunterV7DangerRiskTagBlocksOpenReview(coin) {
+		return false
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
+		return false
+	}
+	if !hunterV7EntryZoneReachable(coin) {
+		return false
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		return hunterV7TakerBuyConfirmedAtMost(coin, 0.48)
+	}
+	return hunterV7TakerBuyConfirmedAtLeast(coin, 0.52)
 }
 
 func hunterV7LeaderMomentumFlexibleReviewableReason(coin CandidateCoin) (bool, string) {

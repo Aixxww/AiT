@@ -36,8 +36,9 @@ type V7ConfirmationSummary struct {
 }
 
 // EvaluateV7Confirmations evaluates confirmations that can be measured from the
-// current V7SymbolContext. Unknown or candle-specific confirmations remain
-// context checks so this does not over-tighten the strategy.
+// current V7SymbolContext. Unknown confirmations remain context checks so this
+// does not invent signal semantics, but catalogued execution confirmations
+// should be machine-checked whenever the local execution context has the data.
 func EvaluateV7Confirmations(sig *V7SignalOutput, ctx *V7SymbolContext, cfg V7Config) V7ConfirmationSummary {
 	summary := V7ConfirmationSummary{
 		PassedHard:   true,
@@ -149,12 +150,38 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity:  V7ConfirmReviewWait,
 			Reason:    "live price must be inside entry zone",
 		}, true
+	case "15m_close_above_vwap_or_ema20_or_entry_zone_upper":
+		return v7Directional15mCloseCheck(code, sig, ctx, true, sig.EntryZone.Upper), true
+	case "15m_close_below_vwap_or_ema20_or_entry_zone_lower":
+		return v7Directional15mCloseCheck(code, sig, ctx, false, sig.EntryZone.Lower), true
+	case "directional_15m_close_long":
+		return v7Directional15mCloseCheck(code, sig, ctx, true, v7EntryZoneMid(sig)), true
+	case "directional_15m_close_short":
+		return v7Directional15mCloseCheck(code, sig, ctx, false, v7EntryZoneMid(sig)), true
 	case "taker_buy_15m_gt_0_52", "taker_buy_15m_stays_above_0_52":
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.52, true), true
 	case "taker_buy_15m_lt_0_48":
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.48, false), true
 	case "taker_buy_15m_lt_0_45":
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.45, false), true
+	case "taker_flow_confirms_long":
+		threshold := 0.52
+		if sig.SetupType == V7SetupWhaleFlow {
+			threshold = 0.56
+		}
+		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, threshold, true), true
+	case "taker_flow_confirms_short":
+		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.48, false), true
+	case "risk_level_not_extreme":
+		passed := sig.RiskLevel != V7RiskExtreme && sig.RiskScore < 65
+		return V7ConfirmationCheck{
+			Code:      code,
+			Passed:    passed,
+			Actual:    sig.RiskScore,
+			Threshold: 65,
+			Severity:  V7ConfirmReviewWait,
+			Reason:    "risk level or risk score is too high for direct execution",
+		}, true
 	case "5m_close_above_ema20_or_entry_zone_mid":
 		mid := v7EntryZoneMid(sig)
 		return V7ConfirmationCheck{
@@ -204,6 +231,28 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity:  V7ConfirmReviewWait,
 			Reason:    "short trigger has not cleared entry-zone lower bound",
 		}, true
+	case "no_new_low_after_reclaim":
+		return v7NoNewExtremeCheck(code, ctx, true), true
+	case "no_new_high_after_rejection":
+		return v7NoNewExtremeCheck(code, ctx, false), true
+	case "5m_or_15m_rejection_at_resistance_or_entry_zone", "5m_or_15m_rejection_from_range_top":
+		check := v7NoNewExtremeCheck(code, ctx, false)
+		if check.Passed && sig.EntryZone.Upper > 0 && price > sig.EntryZone.Upper {
+			check.Passed = false
+			check.Actual = price
+			check.Threshold = sig.EntryZone.Upper
+			check.Reason = "short rejection needs price back at or below entry-zone resistance"
+		}
+		return check, true
+	case "5m_or_15m_rejection_at_support_or_entry_zone", "5m_or_15m_reclaim_from_range_bottom":
+		check := v7NoNewExtremeCheck(code, ctx, true)
+		if check.Passed && sig.EntryZone.Lower > 0 && price < sig.EntryZone.Lower {
+			check.Passed = false
+			check.Actual = price
+			check.Threshold = sig.EntryZone.Lower
+			check.Reason = "long reclaim needs price back at or above entry-zone support"
+		}
+		return check, true
 	case "oi_continues_inflow", "oi_delta_1h_positive_or_quote_volume_expands":
 		oiDelta := 0.0
 		if ctx.Snapshot != nil {
@@ -242,6 +291,93 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.50, true), true
 	}
 	return V7ConfirmationCheck{}, false
+}
+
+func v7Directional15mCloseCheck(code string, sig *V7SignalOutput, ctx *V7SymbolContext, long bool, zoneThreshold float64) V7ConfirmationCheck {
+	check := V7ConfirmationCheck{
+		Code:     code,
+		Severity: V7ConfirmReviewWait,
+		Reason:   "15m execution close is unavailable",
+	}
+	tf, ok := v7ExecutionTimeframe(ctx, "15m")
+	if !ok || tf.LastClose <= 0 {
+		return check
+	}
+
+	check.Actual = tf.LastClose
+	check.Threshold = zoneThreshold
+	if long {
+		passed := false
+		if tf.HasVWAP20 && tf.CloseVsVWAP20Pct >= 0 {
+			passed = true
+			check.Threshold = tf.VWAP20
+		}
+		if tf.HasEMA20 && tf.CloseVsEMA20Pct >= 0 {
+			passed = true
+		}
+		if zoneThreshold > 0 && tf.LastClose >= zoneThreshold {
+			passed = true
+		}
+		check.Passed = passed
+		check.Reason = "15m close is not above VWAP/EMA20 or the required long zone threshold"
+		return check
+	}
+
+	passed := false
+	if tf.HasVWAP20 && tf.CloseVsVWAP20Pct <= 0 {
+		passed = true
+		check.Threshold = tf.VWAP20
+	}
+	if tf.HasEMA20 && tf.CloseVsEMA20Pct <= 0 {
+		passed = true
+	}
+	if zoneThreshold > 0 && tf.LastClose <= zoneThreshold {
+		passed = true
+	}
+	check.Passed = passed
+	check.Reason = "15m close is not below VWAP/EMA20 or the required short zone threshold"
+	return check
+}
+
+func v7NoNewExtremeCheck(code string, ctx *V7SymbolContext, noNewLow bool) V7ConfirmationCheck {
+	check := V7ConfirmationCheck{
+		Code:     code,
+		Severity: V7ConfirmReviewWait,
+		Reason:   "5m/15m recent-high-low execution context is unavailable",
+	}
+	if tf, ok := v7ExecutionTimeframe(ctx, "15m"); ok {
+		if noNewLow {
+			check.Passed = tf.NoNewLow
+			check.Actual = tf.RecentLow3
+			check.Reason = "15m/5m made a new low after reclaim"
+		} else {
+			check.Passed = tf.NoNewHigh
+			check.Actual = tf.RecentHigh3
+			check.Reason = "15m/5m made a new high after rejection"
+		}
+	}
+	if tf, ok := v7ExecutionTimeframe(ctx, "5m"); ok {
+		if noNewLow {
+			check.Passed = check.Passed || tf.NoNewLow
+			if check.Actual == 0 {
+				check.Actual = tf.RecentLow3
+			}
+		} else {
+			check.Passed = check.Passed || tf.NoNewHigh
+			if check.Actual == 0 {
+				check.Actual = tf.RecentHigh3
+			}
+		}
+	}
+	return check
+}
+
+func v7ExecutionTimeframe(ctx *V7SymbolContext, timeframe string) (V7ExecutionTimeframeSummary, bool) {
+	if ctx == nil || ctx.ExecutionContext == nil || len(ctx.ExecutionContext.Timeframes) == 0 {
+		return V7ExecutionTimeframeSummary{}, false
+	}
+	tf, ok := ctx.ExecutionContext.Timeframes[timeframe]
+	return tf, ok
 }
 
 func v7TakerConfirmationCheck(code string, actual, threshold float64, above bool) V7ConfirmationCheck {
