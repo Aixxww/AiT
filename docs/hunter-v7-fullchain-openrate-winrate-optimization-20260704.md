@@ -15,6 +15,23 @@ Hunter v7 的问题不是发现不到标的，而是高波动山寨信号在数�
 
 ## 已实施
 
+### 0. REVIEWABLE 扩容：高质量 near-confirm 进入现场复核
+
+文件：
+
+- `kernel/engine.go`
+- `kernel/engine_prompt.go`
+- `trader/auto_trader_risk.go`
+
+最新实时验证显示分层正常但偏严格：`near_confirm` 候选只要缺少短周期收盘、taker flow 或 momentum 现场确认，就会被压到 WATCH，导致 prompt 没有可开仓复核对象。本轮新增 live-reviewable 通道：
+
+- 低风险、高流动性、入场区可达、硬字段完整。
+- 只缺现场可复核确认，例如 `directional_15m_close_long`、`5m_or_15m_close_through_breakout_level`、`taker_flow_confirms_long`、`momentum_not_exhausted`。
+- 满足 setup floor 的 trend breakout、whale flow、displacement、pullback、range retest/continuation 可以进入 REVIEWABLE。
+- late chase、do-not-market-chase、RR/entry zone/硬数据缺失、高危标签仍保持 WATCH/REJECT。
+
+交易引擎对这类 REVIEWABLE 开仓会先执行 REST + orderbook micro-refresh；只有刷新后写入 `fresh_rest_confirmed` 和 `fresh_micro_confirmed`，这些现场确认缺口才允许通过。刷新失败、盘口漂移、资金流反向或 1m 反向移动仍会阻断。
+
 ### 1. Taker buy ratio 修复
 
 文件：
@@ -176,6 +193,12 @@ go run ./cmd/hunter_v7_validate -top-detail 220 -max-output 30 -watch-output 5 -
 - 本轮单边 trend_up 市场只输出 LONG，不是执行阻断问题，但会降低机会多样性。
 - `rest_errors=212` 说明该轮 Binance REST 数据覆盖质量不足，后续应重点监控 REST 错误来源和 universe 缩小原因。
 
+针对该轮验证的调整：
+
+- ZECUSDT 这类 trend breakout 若只缺 `5m_or_15m_close_through_breakout_level`，会进入 REVIEWABLE，让 LLM 和后端 micro-refresh 有机会复核开仓。
+- MAGMAUSDT 这类 whale flow 若只缺方向性 15m 收盘，也可进入 REVIEWABLE。
+- TLMUSDT 这类带 `chase_high_protection`、风险分较高的 displacement 仍不直接放宽，避免为提高开仓率牺牲胜率。
+
 ## 验证
 
 已通过：
@@ -191,4 +214,3 @@ go test ./...
 2. 为 `final_rr`、signal age、TP0 touch、TP1 touch、MFE、MAE 建立独立统计查询或矩阵表。
 3. 追踪 REST errors 对 universe 覆盖率的影响，必要时增加重试、分批权重控制和错误分类。
 4. 按 setup/subtype/tag 聚合 24h/7d 胜率、TP0 realized rate、hard loss rate，用结果反向校准 REVIEWABLE/EXECUTABLE 阈值。
-

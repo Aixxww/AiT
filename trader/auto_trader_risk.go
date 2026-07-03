@@ -1600,7 +1600,7 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
 		return err
 	}
-	if containsStringValue(candidate.V7RiskTags, "stale_data_risk") && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
+	if hunterV7OpenNeedsGuardRefresh(candidate) {
 		side := "long"
 		if decision.Action == "open_short" {
 			side = "short"
@@ -1664,6 +1664,22 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	return nil
 }
 
+func hunterV7OpenNeedsGuardRefresh(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil {
+		return false
+	}
+	if containsStringValue(candidate.V7RiskTags, "stale_data_risk") && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
+		return true
+	}
+	if strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") &&
+		hunterV7HasOnlyLiveReviewableConfirmationGaps(candidate) &&
+		(!containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") ||
+			!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed")) {
+		return true
+	}
+	return false
+}
+
 func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
 	if candidate == nil || decision == nil || len(candidate.V7RequiredConfirms) == 0 {
 		return nil
@@ -1690,17 +1706,77 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 	}
 	for _, check := range summary.MissingReview {
 		if _, ok := required[check.Code]; ok {
+			if hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate, check.Code) {
+				continue
+			}
 			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmation %s failed (confirmation_missing)",
 				candidate.V7SetupType, decision.Symbol, check.Code)
 		}
 	}
 	for _, check := range summary.ContextChecks {
 		if _, ok := required[check.Code]; ok {
+			if hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate, check.Code) {
+				continue
+			}
 			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmation %s is context-only/unverified (confirmation_missing)",
 				candidate.V7SetupType, decision.Symbol, check.Code)
 		}
 	}
 	return nil
+}
+
+func hunterV7HasOnlyLiveReviewableConfirmationGaps(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil || candidate.V7ConfirmSummary == nil {
+		return false
+	}
+	if len(candidate.V7ConfirmSummary.MissingHard) > 0 {
+		return false
+	}
+	found := false
+	for _, check := range candidate.V7ConfirmSummary.MissingReview {
+		if !hunterV7ConfirmationCanBeSatisfiedByRefresh(check.Code) {
+			return false
+		}
+		found = true
+	}
+	for _, check := range candidate.V7ConfirmSummary.ContextChecks {
+		if !check.Passed {
+			if !hunterV7ConfirmationCanBeSatisfiedByRefresh(check.Code) {
+				return false
+			}
+			found = true
+		}
+	}
+	return found
+}
+
+func hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate *kernel.CandidateCoin, code string) bool {
+	if candidate == nil || !strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") {
+		return false
+	}
+	if !hunterV7ConfirmationCanBeSatisfiedByRefresh(code) {
+		return false
+	}
+	return containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") &&
+		containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed")
+}
+
+func hunterV7ConfirmationCanBeSatisfiedByRefresh(code string) bool {
+	switch code {
+	case "directional_15m_close_long",
+		"directional_15m_close_short",
+		"5m_or_15m_close_through_breakout_level",
+		"5m_or_15m_close_above_trigger",
+		"5m_or_15m_close_below_trigger",
+		"5m_price_holds_ema20_or_trailing_support",
+		"momentum_not_exhausted",
+		"taker_flow_confirms_long",
+		"taker_flow_confirms_short",
+		"taker_flow_not_flipping_against_direction":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateHunterV7DecisionSignalContract(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {

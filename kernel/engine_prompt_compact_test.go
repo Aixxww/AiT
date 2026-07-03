@@ -245,7 +245,8 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"choose the best open or provide one precise blocked_reason",
 		"weak upper-zone pullbacks",
 		"entry_zone_position is >45%",
-		"required_confirmations must be explicitly passed",
+		"For EXECUTABLE candidates, every required_confirmation must be explicitly passed",
+		"For REVIEWABLE candidates with only live-checkable gaps",
 		"context-only",
 		"Do not describe required_confirmations as left to LLM/context cross-checking",
 		"take_profit must be the nearest effective 5m-30m target",
@@ -2692,6 +2693,76 @@ func TestFormatHunterV7SignalJSONAllowsFundingFallbackReviewableWatchOnly(t *tes
 	}
 	if payload["do_not_open_until_confirmed"] != nil {
 		t.Fatalf("do_not_open_until_confirmed should be omitted for reviewable executable: %v", payload["do_not_open_until_confirmed"])
+	}
+}
+
+func TestHunterV7LiveConfirmableBreakoutPromotesReviewable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "ZECUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       64,
+		V7SetupScore:       70,
+		V7TimingScore:      55,
+		V7RiskScore:        0,
+		V7LiquidityScore:   100,
+		V7ReasonCodes:      []string{"approaching_breakout", "oi_stable_breakout", "volume_expansion", "clear_air_above"},
+		V7RequiredConfirms: []string{"5m_or_15m_close_through_breakout_level"},
+		V7EntryZone:        local.V7PriceZone{Lower: 450, Upper: 470},
+		V7PriceContext:     &local.V7PriceContext{Last: 465},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: false,
+			MissingReview: []local.V7ConfirmationCheck{{
+				Code:     "5m_or_15m_close_through_breakout_level",
+				Severity: local.V7ConfirmReviewWait,
+			}},
+			EntryZonePosition: 60,
+			RR:                3.2,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+	if tier != "REVIEWABLE" || reason != "live_reviewable_5m_or_15m_close_through_breakout_level" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE live_reviewable_5m_or_15m_close_through_breakout_level", tier, reason)
+	}
+}
+
+func TestHunterV7LiveConfirmableDoesNotPromoteChaseRisk(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "TLMUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "displacement_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       63,
+		V7SetupScore:       82,
+		V7TimingScore:      55,
+		V7RiskScore:        50,
+		V7LiquidityScore:   100,
+		V7ReasonCodes:      []string{"massive_vol_displacement", "oi_confirms_new_demand", "chase_high_protection"},
+		V7RequiredConfirms: []string{"taker_flow_confirms_long"},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.0029, Upper: 0.0031},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.00305},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.50},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: false,
+			MissingReview: []local.V7ConfirmationCheck{{
+				Code:     "taker_flow_confirms_long",
+				Severity: local.V7ConfirmReviewWait,
+			}},
+			EntryZonePosition: 80,
+			RR:                4,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+	if tier != "WATCH" || reason != "confirmation_missing_taker_flow_confirms_long" {
+		t.Fatalf("tier = %q (%s), want WATCH confirmation_missing_taker_flow_confirms_long", tier, reason)
 	}
 }
 

@@ -676,6 +676,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	}
 
 	if reason := hunterV7RequiredConfirmationWaitReason(coin); reason != "" {
+		if ok, reviewReason := hunterV7LiveConfirmableReviewableReason(coin, reason); ok {
+			return "REVIEWABLE", reviewReason
+		}
 		return "WATCH", reason
 	}
 	if reason := hunterV7ReadinessMissingExecutionWaitReason(coin); reason != "" {
@@ -787,6 +790,100 @@ func hunterV7RequiredConfirmationWaitReason(coin CandidateCoin) string {
 		}
 	}
 	return ""
+}
+
+func hunterV7LiveConfirmableReviewableReason(coin CandidateCoin, waitReason string) (bool, string) {
+	if waitReason == "" || !strings.HasPrefix(waitReason, "confirmation_missing_") {
+		return false, ""
+	}
+	if coin.V7RiskScore >= 55 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
+		return false, ""
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
+		return false, ""
+	}
+	if !hunterV7EntryZoneReachable(coin) || !hunterV7TakerBuyAligned(coin) {
+		return false, ""
+	}
+	if coin.V7ConfirmSummary == nil || !coin.V7ConfirmSummary.PassedHard || len(coin.V7ConfirmSummary.MissingHard) > 0 {
+		return false, ""
+	}
+	if coin.V7Readiness != nil && len(coin.V7Readiness.MissingHard) > 0 {
+		return false, ""
+	}
+	missing := strings.TrimPrefix(waitReason, "confirmation_missing_")
+	if !hunterV7ConfirmationCanBeLiveReviewed(missing) {
+		return false, ""
+	}
+	if !hunterV7OpenRateCandidateFloor(coin) {
+		return false, ""
+	}
+	if coin.V7ExecutionQuality == "chase_risk" || containsStringValue(coin.V7RiskTags, "do_not_market_chase") {
+		return false, ""
+	}
+	return true, "live_reviewable_" + missing
+}
+
+func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
+	switch code {
+	case "directional_15m_close_long",
+		"directional_15m_close_short",
+		"5m_or_15m_close_through_breakout_level",
+		"5m_or_15m_close_above_trigger",
+		"5m_or_15m_close_below_trigger",
+		"5m_price_holds_ema20_or_trailing_support",
+		"momentum_not_exhausted",
+		"taker_flow_confirms_long",
+		"taker_flow_confirms_short",
+		"taker_flow_not_flipping_against_direction":
+		return true
+	default:
+		return false
+	}
+}
+
+func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
+	switch coin.V7SetupType {
+	case "trend_breakout_long", "accumulation_breakout_long":
+		return coin.V7AIPriority >= 55 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 45 &&
+			coin.V7RiskScore < 45 &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "oi_increasing", "oi_stable_breakout", "clear_air_above"})
+	case "whale_flow_reversal":
+		return coin.V7AIPriority >= 48 &&
+			coin.V7SetupScore >= 48 &&
+			coin.V7TimingScore >= 50 &&
+			coin.V7RiskScore < 45 &&
+			containsStringValue(coin.V7ReasonCodes, "whale_flow_detected") &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_1h_confirming_accumulation", "stealth_accumulation_breakout", "funding_not_crowded"})
+	case "displacement_momentum_long":
+		return coin.V7AIPriority >= 60 &&
+			coin.V7SetupScore >= 70 &&
+			coin.V7TimingScore >= 50 &&
+			coin.V7RiskScore < 45 &&
+			!containsStringValue(coin.V7ReasonCodes, "chase_high_protection") &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_confirms_new_demand", "taker_buy_aggressive", "taker_buy_aligned"})
+	case "pullback_reversal_long":
+		return coin.V7AIPriority >= 48 &&
+			coin.V7SetupScore >= 60 &&
+			coin.V7TimingScore >= 50 &&
+			coin.V7RiskScore < 45 &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"healthy_pullback", "near_4h_support", "strong_reclaim"})
+	case "range_expansion_event":
+		return coin.V7AIPriority >= 58 &&
+			coin.V7SetupScore >= 58 &&
+			coin.V7TimingScore >= 50 &&
+			coin.V7RiskScore < 40 &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"range_expansion_continuation", "range_expansion_retest", "retest_confirmed"}) &&
+			!containsAnyStringValue(coin.V7ReasonCodes, []string{"range_expansion_late_chase", "range_expansion_exhaustion"})
+	default:
+		return coin.V7AIPriority >= 60 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 55 &&
+			coin.V7RiskScore < 40
+	}
 }
 
 // ClassifyHunterV7CandidateTierForRuntime exposes the same prompt tiering rules
