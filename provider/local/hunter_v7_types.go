@@ -123,8 +123,9 @@ const (
 // V7SymbolContext holds all derived data for a single symbol, pre-computed once
 // by UniverseBuilder and reused across all signal modules.
 type V7SymbolContext struct {
-	Symbol   string
-	Snapshot *SymbolSnapshotData // Lightweight snapshot data
+	Symbol        string
+	Snapshot      *SymbolSnapshotData // Lightweight snapshot data
+	DataFreshness V7DataFreshness
 
 	// Derived price data
 	CurrentPrice float64
@@ -218,6 +219,13 @@ type SymbolSnapshotData struct {
 	LSRPrev     float64 // Previous LSR
 	LSROldest   float64 // Oldest LSR (for reversal detection)
 	TakerBuy    float64 // Latest 1h Taker Buy Ratio
+}
+
+type V7DataFreshness struct {
+	SnapshotAgeMs int64 `json:"snapshot_age_ms,omitempty"`
+	PriceAgeMs    int64 `json:"price_age_ms,omitempty"`
+	Kline1mAgeMs  int64 `json:"kline_1m_age_ms,omitempty"`
+	Kline5mAgeMs  int64 `json:"kline_5m_age_ms,omitempty"`
 }
 
 // V7PriceZone defines an entry price range.
@@ -325,6 +333,7 @@ type V7ExecutionReadiness struct {
 // This is the primary output of the Hunter v7 engine — it contains everything
 // the AI trading engine needs to make a decision.
 type V7SignalOutput struct {
+	SignalID  string         `json:"signal_id,omitempty"`
 	Symbol    string         `json:"symbol"`
 	Direction V7Direction    `json:"direction"`
 	SetupType V7SetupType    `json:"setup_type"`
@@ -355,6 +364,7 @@ type V7SignalOutput struct {
 	// Raw data snapshot for AI prompt enrichment
 	PriceCtx       *V7PriceContext       `json:"price_context,omitempty"`
 	DerivativesCtx *V7DerivativesContext `json:"derivatives_context,omitempty"`
+	DataFreshness  V7DataFreshness       `json:"data_freshness,omitempty"`
 
 	ExecutionReadiness *V7ExecutionReadiness `json:"execution_readiness,omitempty"`
 	ExecutionContext   *V7ExecutionContext   `json:"execution_context,omitempty"`

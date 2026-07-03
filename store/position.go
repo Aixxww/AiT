@@ -717,6 +717,11 @@ func (s *PositionStore) CreateOpenPosition(pos *TraderPosition) error {
 // ClosePositionWithAccurateData closes a position with accurate data from exchange
 // exitTimeMs is Unix milliseconds UTC
 func (s *PositionStore) ClosePositionWithAccurateData(id int64, exitPrice float64, exitOrderID string, exitTimeMs int64, realizedPnL float64, fee float64, closeReason string) error {
+	var pos TraderPosition
+	if err := s.db.First(&pos, id).Error; err != nil {
+		return fmt.Errorf("failed to get position: %w", err)
+	}
+	closeReason, closeSource := preserveSyncCloseIntent(pos, closeReason)
 	return s.db.Model(&TraderPosition{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"exit_price":    exitPrice,
 		"exit_order_id": exitOrderID,
@@ -725,6 +730,7 @@ func (s *PositionStore) ClosePositionWithAccurateData(id int64, exitPrice float6
 		"fee":           fee,
 		"status":        "CLOSED",
 		"close_reason":  closeReason,
+		"source":        closeSource,
 		"updated_at":    time.Now().UTC().UnixMilli(),
 	}).Error
 }

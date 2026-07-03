@@ -192,6 +192,8 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
 		sb.WriteString("- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.\n")
 		sb.WriteString("- `no_reviewable_candidate` is valid ONLY when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
+		sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
+		sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
 	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
@@ -768,6 +770,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("7. EXECUTABLE 且 confirmation_summary.passed_review=true、confirmation_summary.rr/effective_rr 已达标时，优先给出保守仓位 open；不得用未列明计算过程的 `rr_insufficient` 覆盖后端已验证 RR。\n")
 			sb.WriteString("8. whale_flow_reversal LONG 若 entry_zone_position >45%，该候选会被后端保护拦截；必须 wait 或继续评估下一个候选。\n")
 			sb.WriteString("9. range_expansion_event SHORT 若 15m close 极端低于 EMA20、entry_zone_position >80%、实时价已反弹，或把 above VWAP/EMA20 当作 SHORT 确认，必须 wait；这是后端硬保护。\n")
+			sb.WriteString("10. open_long/open_short 必须从候选的 hunter_v7_signal_json.signal_id 复制到 `selected_hunter_v7_signal_id`；后端会按 signal_id/symbol/direction/setup/tier 做结构化匹配。\n")
 			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
 		} else {
 			sb.WriteString("Decision policy (strict tier funnel):\n")
@@ -780,6 +783,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("7. When an EXECUTABLE candidate has confirmation_summary.passed_review=true and confirmation_summary.rr/effective_rr already passes, prefer a conservative open; do not override backend-validated RR with `rr_insufficient` unless your explicit recomputation shows it fails.\n")
 			sb.WriteString("8. A whale_flow_reversal LONG with entry_zone_position >45% will be rejected by the backend guard; wait or continue to the next candidate.\n")
 			sb.WriteString("9. A range_expansion_event SHORT must wait if 15m close is extremely below EMA20, entry_zone_position is >80%, live price has rebounded, or the reasoning treats above VWAP/EMA20 as SHORT confirmation; this is backend-enforced.\n")
+			sb.WriteString("10. For open_long/open_short, copy hunter_v7_signal_json.signal_id into `selected_hunter_v7_signal_id`; the backend will match signal_id/symbol/direction/setup/tier structurally.\n")
 			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
 		}
 	} else {
@@ -1163,6 +1167,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 	}
 
 	type v7SignalForAI struct {
+		SignalID              string                        `json:"signal_id,omitempty"`
 		Symbol                string                        `json:"symbol"`
 		Direction             string                        `json:"direction"`
 		SetupType             string                        `json:"setup_type"`
@@ -1205,11 +1210,13 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		TakeProfitPlan        *local.V7TakeProfitPlan       `json:"take_profit_plan,omitempty"`
 		PriceContext          *local.V7PriceContext         `json:"price_context,omitempty"`
 		DerivativesContext    *local.V7DerivativesContext   `json:"derivatives_context,omitempty"`
+		DataFreshness         local.V7DataFreshness         `json:"data_freshness,omitempty"`
 		ExecutionReadiness    *local.V7ExecutionReadiness   `json:"execution_readiness,omitempty"`
 		ExecutionContext      *local.V7ExecutionContext     `json:"execution_context,omitempty"`
 	}
 
 	payload := v7SignalForAI{
+		SignalID:              coin.V7SignalID,
 		Symbol:                coin.Symbol,
 		Direction:             coin.Direction,
 		SetupType:             coin.V7SetupType,
@@ -1252,6 +1259,7 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		TakeProfitPlan:        coin.V7TPPlan,
 		PriceContext:          coin.V7PriceContext,
 		DerivativesContext:    coin.V7DerivativesCtx,
+		DataFreshness:         coin.V7DataFreshness,
 		ExecutionReadiness:    coin.V7Readiness,
 		ExecutionContext:      coin.V7ExecutionContext,
 	}

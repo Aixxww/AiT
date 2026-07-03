@@ -119,8 +119,79 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 	sig.RequiredConfirms = rangeExpansionRequiredConfirms(dir)
 	sig.PriceCtx = buildPriceCtx(ctx)
 	sig.DerivativesCtx = buildDerivCtx(ctx)
+	rangeExpansionApplySubtypeTags(ctx, sig)
 	rangeExpansionApplyQualityDowngrade(ctx, sig)
 	return sig
+}
+
+func rangeExpansionApplySubtypeTags(ctx *V7SymbolContext, sig *V7SignalOutput) {
+	if ctx == nil || sig == nil {
+		return
+	}
+	impulse := ctx.Change1h
+	velocity15m := ctx.Velocity15m
+	velocity5m := ctx.Velocity5m
+	if sig.Direction == V7DirShort {
+		impulse = -impulse
+		velocity15m = -velocity15m
+		velocity5m = -velocity5m
+	}
+	flowAligned := rangeExpansionFlowAligned(ctx, sig.Direction)
+	decelerating := velocity15m >= 0.8 && velocity5m <= -0.15
+	lateChase := sig.ExecutionQuality == V7ExecChaseRisk ||
+		math.Abs(ctx.Velocity5m) > 5 ||
+		(ctx.Amplitude24h >= 45 && impulse >= 6 && velocity5m < velocity15m*0.25)
+	retest := rangeExpansionRetestConfirmed(ctx, sig.Direction) && flowAligned && !lateChase
+	exhaustion := ctx.Amplitude24h >= 45 && (decelerating || !flowAligned)
+	continuation := impulse >= 2 && velocity15m >= 1.2 && flowAligned && !lateChase && !exhaustion
+
+	switch {
+	case lateChase:
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "late_event_chase")
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "do_not_market_chase")
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "range_expansion_late_chase")
+		sig.ExecutionQuality = V7ExecChaseRisk
+		sig.Confidence = "C"
+	case retest:
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "range_expansion_retest")
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "retest_confirmed")
+	case exhaustion:
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "range_expansion_exhaustion")
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "velocity_decelerating")
+		sig.RequiredConfirms = appendV7Unique(sig.RequiredConfirms, "fresh_micro_confirmed")
+		if sig.ExecutionQuality == "" || sig.ExecutionQuality == V7ExecReady {
+			sig.ExecutionQuality = V7ExecNearConfirm
+		}
+	case continuation:
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "range_expansion_continuation")
+	default:
+		sig.ReasonCodes = appendV7Unique(sig.ReasonCodes, "range_expansion_needs_retest")
+		if sig.ExecutionQuality == "" || sig.ExecutionQuality == V7ExecReady {
+			sig.ExecutionQuality = V7ExecNearConfirm
+		}
+	}
+	if decelerating {
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "velocity_decelerating")
+		sig.RiskTags = appendV7Unique(sig.RiskTags, "micro_reversal_against_signal")
+	}
+}
+
+func rangeExpansionRetestConfirmed(ctx *V7SymbolContext, dir V7Direction) bool {
+	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.VWAP15m <= 0 {
+		return false
+	}
+	distPct := math.Abs(ctx.CurrentPrice-ctx.VWAP15m) / ctx.CurrentPrice * 100
+	atrPct := 0.8
+	if ctx.ATR15m > 0 {
+		atrPct = math.Max(0.45, math.Min(1.2, ctx.ATR15m/ctx.CurrentPrice*100*0.75))
+	}
+	if distPct > atrPct {
+		return false
+	}
+	if dir == V7DirLong {
+		return ctx.CurrentPrice >= ctx.VWAP15m*0.998
+	}
+	return ctx.CurrentPrice <= ctx.VWAP15m*1.002
 }
 
 func rangeExpansionApplyQualityDowngrade(ctx *V7SymbolContext, sig *V7SignalOutput) {

@@ -1,6 +1,7 @@
 package local
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -50,6 +51,8 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 	signals := route.OutputSignals
 	rawSignals := route.RawSignals
 	potentialPool := route.PotentialPool
+	signals = ensureV7SignalIDs(signals, cfg.CycleNumber)
+	rawSignals = ensureV7SignalIDs(rawSignals, cfg.CycleNumber)
 
 	// Step 4: Cross-cycle watch state upgrade (if state manager is configured)
 	if cfg.WatchStateManager != nil {
@@ -57,6 +60,8 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 		if len(upgraded) > 0 {
 			signals = mergeV7SignalUpgrades(signals, upgraded)
 			rawSignals = mergeV7SignalUpgrades(rawSignals, upgraded)
+			signals = ensureV7SignalIDs(signals, cfg.CycleNumber)
+			rawSignals = ensureV7SignalIDs(rawSignals, cfg.CycleNumber)
 			log.Printf("🔼 Hunter v7: %d watch signals upgraded by state manager", len(upgraded))
 		}
 	}
@@ -88,6 +93,19 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 		result.Attribution.QualityCounts,
 		result.Attribution.OutputCounts)
 	return result
+}
+
+func ensureV7SignalIDs(signals []V7SignalOutput, cycleNumber int) []V7SignalOutput {
+	for i := range signals {
+		if signals[i].SignalID == "" {
+			signals[i].SignalID = buildV7SignalID(cycleNumber, signals[i])
+		}
+	}
+	return signals
+}
+
+func buildV7SignalID(cycleNumber int, sig V7SignalOutput) string {
+	return fmt.Sprintf("%d|%s|%s|%s", cycleNumber, sig.Symbol, sig.Direction, sig.SetupType)
 }
 
 func buildV7AttributionSummary(universe []V7SymbolContext, rawSignals, outputSignals []V7SignalOutput) V7AttributionSummary {

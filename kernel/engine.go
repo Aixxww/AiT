@@ -77,6 +77,7 @@ type CandidateCoin struct {
 	CapitalTier  string `json:"-"` // "Tier-S PRIME SIGNAL" / "Tier-A" / "Tier-B LOW CONFIDENCE" / "Untiered"
 
 	// Hunter v7 structured signal context (set when source_type == "hunter_v7")
+	V7SignalID         string                       `json:"-"`
 	V7SetupType        string                       `json:"-"`
 	V7Status           string                       `json:"-"`
 	V7AIPriority       float64                      `json:"-"`
@@ -99,6 +100,7 @@ type CandidateCoin struct {
 	V7ConfirmSummary   *local.V7ConfirmationSummary `json:"-"`
 	V7PriceContext     *local.V7PriceContext        `json:"-"`
 	V7DerivativesCtx   *local.V7DerivativesContext  `json:"-"`
+	V7DataFreshness    local.V7DataFreshness        `json:"-"`
 	V7Readiness        *local.V7ExecutionReadiness  `json:"-"`
 	V7ExecutionContext *local.V7ExecutionContext    `json:"-"`
 	V7TP0Price         float64                      `json:"-"`
@@ -204,10 +206,16 @@ type Decision struct {
 	OrderID    string  `json:"order_id,omitempty"`    // Order ID (for cancel)
 
 	// Common parameters
-	Confidence        int     `json:"confidence,omitempty"` // Confidence level (0-100)
-	RiskUSD           float64 `json:"risk_usd,omitempty"`   // Maximum USD risk
-	Reasoning         string  `json:"reasoning"`
-	BlockedReasonCode string  `json:"blocked_reason_code,omitempty"` // Structured wait reason enum (hunter_v7)
+	Confidence               int     `json:"confidence,omitempty"` // Confidence level (0-100)
+	RiskUSD                  float64 `json:"risk_usd,omitempty"`   // Maximum USD risk
+	Reasoning                string  `json:"reasoning"`
+	BlockedReasonCode        string  `json:"blocked_reason_code,omitempty"`          // Structured wait reason enum (hunter_v7)
+	SelectedHunterV7SignalID string  `json:"selected_hunter_v7_signal_id,omitempty"` // Exact Hunter v7 signal selected for open.
+	SelectedHunterV7Tier     string  `json:"selected_hunter_v7_tier,omitempty"`
+	SelectedHunterV7Setup    string  `json:"selected_hunter_v7_setup,omitempty"`
+	BlockedSignalSymbol      string  `json:"blocked_signal_symbol,omitempty"`
+	EffectiveRRAfterCap      float64 `json:"effective_rr_after_cap,omitempty"`
+	SignalAgeMs              int64   `json:"signal_age_ms,omitempty"`
 }
 
 // FullDecision AI's complete decision (including chain of thought)
@@ -540,6 +548,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			LongTags:   nil,
 			ShortTags:  nil,
 
+			V7SignalID:         sig.SignalID,
 			V7SetupType:        string(sig.SetupType),
 			V7Status:           string(sig.Status),
 			V7AIPriority:       sig.AIPriority,
@@ -562,6 +571,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7ConfirmSummary:   sig.ConfirmSummary,
 			V7PriceContext:     sig.PriceCtx,
 			V7DerivativesCtx:   sig.DerivativesCtx,
+			V7DataFreshness:    sig.DataFreshness,
 			V7Readiness:        sig.ExecutionReadiness,
 			V7ExecutionContext: sig.ExecutionContext,
 			V7TP0Price:         sig.TP0Price,

@@ -3,6 +3,7 @@ package local
 import (
 	"math"
 	"sort"
+	"time"
 
 	"github.com/Aixxww/AiT/datafetch"
 )
@@ -268,9 +269,10 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 // buildSymbolContext derives all technical indicators for a single symbol.
 func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetch.Snapshot) *V7SymbolContext {
 	ctx := &V7SymbolContext{
-		Symbol:       sym,
-		CurrentPrice: ss.Price,
-		Change24h:    ss.PriceChange24h,
+		Symbol:        sym,
+		CurrentPrice:  ss.Price,
+		Change24h:     ss.PriceChange24h,
+		DataFreshness: buildV7DataFreshness(ss, snap),
 	}
 
 	// Build lightweight snapshot data
@@ -425,6 +427,37 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 	ctx.PoolType = classifyPool(ctx)
 
 	return ctx
+}
+
+func buildV7DataFreshness(ss *datafetch.SymbolSnapshot, snap *datafetch.Snapshot) V7DataFreshness {
+	now := time.Now()
+	fresh := V7DataFreshness{}
+	if snap != nil && !snap.CreatedAt.IsZero() {
+		fresh.SnapshotAgeMs = now.Sub(snap.CreatedAt).Milliseconds()
+	}
+	if ss != nil && !ss.Timestamp.IsZero() {
+		fresh.PriceAgeMs = now.Sub(ss.Timestamp).Milliseconds()
+	}
+	if ss != nil && ss.Klines != nil {
+		fresh.Kline1mAgeMs = latestKlineAgeMs(now, ss.Klines["1m"])
+		fresh.Kline5mAgeMs = latestKlineAgeMs(now, ss.Klines["5m"])
+	}
+	return fresh
+}
+
+func latestKlineAgeMs(now time.Time, klines []datafetch.Kline) int64 {
+	if len(klines) == 0 {
+		return 0
+	}
+	closeTime := klines[len(klines)-1].CloseTime
+	if closeTime <= 0 {
+		return 0
+	}
+	age := now.Sub(time.UnixMilli(closeTime))
+	if age < 0 {
+		return 0
+	}
+	return age.Milliseconds()
 }
 
 func symbolVelocityScore(ss *datafetch.SymbolSnapshot) float64 {

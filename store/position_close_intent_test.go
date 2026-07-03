@@ -136,3 +136,87 @@ func TestPositionBuilderIgnoresExpiredPendingProtectedCloseIntent(t *testing.T) 
 		t.Fatalf("source = %q, want sync", closed.Source)
 	}
 }
+
+func TestPositionBuilderUsesExchangeCloseReasonWhenProvided(t *testing.T) {
+	st, err := New(filepath.Join(t.TempDir(), "exchange-close-reason.db"))
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Fatalf("close store: %v", err)
+		}
+	})
+
+	nowMs := time.Now().UTC().UnixMilli()
+	builder := NewPositionBuilder(st.Position())
+	if err := builder.ProcessTradeWithLeverageAndCloseReason("trader-1", "exchange-1", "bybit", "SOLUSDT", "LONG", "open_long", 2, 100, 0.01, 0, nowMs, "open-1", 5, "sync"); err != nil {
+		t.Fatalf("process open: %v", err)
+	}
+	if err := builder.ProcessTradeWithLeverageAndCloseReason("trader-1", "exchange-1", "bybit", "SOLUSDT", "LONG", "close_long", 2, 112, 0.01, 24, nowMs+60_000, "close-1", 5, "exchange_take_profit"); err != nil {
+		t.Fatalf("process close: %v", err)
+	}
+
+	closed, err := st.Position().GetLatestPositionBySymbol("trader-1", "SOLUSDT", "LONG")
+	if err != nil || closed == nil {
+		t.Fatalf("get closed position: pos=%v err=%v", closed, err)
+	}
+	if closed.CloseReason != "exchange_take_profit" {
+		t.Fatalf("close reason = %q, want exchange_take_profit", closed.CloseReason)
+	}
+	if closed.Source != "sync" {
+		t.Fatalf("source = %q, want sync", closed.Source)
+	}
+}
+
+func TestClosePositionWithAccurateDataPreservesProtectedCloseIntent(t *testing.T) {
+	st, err := New(filepath.Join(t.TempDir(), "accurate-close-intent.db"))
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Fatalf("close store: %v", err)
+		}
+	})
+
+	nowMs := time.Now().UTC().UnixMilli()
+	if err := st.Position().CreateOpenPosition(&TraderPosition{
+		TraderID:     "trader-1",
+		ExchangeID:   "exchange-1",
+		ExchangeType: "binance",
+		Symbol:       "TACUSDT",
+		Side:         "SHORT",
+		Quantity:     100,
+		EntryPrice:   0.0342,
+		EntryTime:    nowMs,
+		Leverage:     20,
+		Status:       "OPEN",
+		Source:       "sync",
+		CreatedAt:    nowMs,
+		UpdatedAt:    nowMs,
+	}); err != nil {
+		t.Fatalf("create open position: %v", err)
+	}
+	pos, err := st.Position().GetOpenPositionBySymbol("trader-1", "TACUSDT", "SHORT")
+	if err != nil || pos == nil {
+		t.Fatalf("get open position: pos=%v err=%v", pos, err)
+	}
+	if err := st.Position().MarkPositionCloseIntent(pos.ID, "hard_loss_close", "system_protector"); err != nil {
+		t.Fatalf("mark close intent: %v", err)
+	}
+	if err := st.Position().ClosePositionWithAccurateData(pos.ID, 0.03499, "close-1", nowMs+5000, -0.16, 0.01, "sync"); err != nil {
+		t.Fatalf("accurate close: %v", err)
+	}
+
+	closed, err := st.Position().GetLatestPositionBySymbol("trader-1", "TACUSDT", "SHORT")
+	if err != nil || closed == nil {
+		t.Fatalf("get closed position: pos=%v err=%v", closed, err)
+	}
+	if closed.CloseReason != "hard_loss_close" {
+		t.Fatalf("close reason = %q, want hard_loss_close", closed.CloseReason)
+	}
+	if closed.Source != "system_protector" {
+		t.Fatalf("source = %q, want system_protector", closed.Source)
+	}
+}

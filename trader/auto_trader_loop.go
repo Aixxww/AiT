@@ -366,7 +366,11 @@ func effectiveOpenContractLog(action store.DecisionAction) string {
 	if action.EffectivePositionSizeUSD <= 0 && action.EffectiveStopLoss <= 0 && action.EffectiveTakeProfit <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("effective_contract %s %s notional=%.2f qty=%.8f entry=%.8f sl=%.8f tp=%.8f tp_capped=%t position_reduced=%t risk_at_sl=%.2f rr=%.2f",
+	finalRR := action.FinalRR
+	if finalRR <= 0 {
+		finalRR = action.RRAfterBackendRepair
+	}
+	return fmt.Sprintf("effective_contract %s %s notional=%.2f qty=%.8f entry=%.8f sl=%.8f tp=%.8f tp_capped=%t position_reduced=%t risk_at_sl=%.2f final_rr=%.2f",
 		action.Symbol,
 		action.Action,
 		action.EffectivePositionSizeUSD,
@@ -377,7 +381,7 @@ func effectiveOpenContractLog(action store.DecisionAction) string {
 		action.TPWasCapped,
 		action.PositionWasReduced,
 		action.RiskAtStopUSD,
-		action.RRAfterBackendRepair,
+		finalRR,
 	)
 }
 

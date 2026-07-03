@@ -102,6 +102,9 @@ type DecisionAction struct {
 	PositionWasReduced       bool      `json:"position_was_reduced,omitempty"`
 	RiskAtStopUSD            float64   `json:"risk_at_stop_usd,omitempty"`
 	RRAfterBackendRepair     float64   `json:"rr_after_backend_repair,omitempty"`
+	FinalRR                  float64   `json:"final_rr,omitempty"`
+	FinalEffectiveTakeProfit float64   `json:"final_effective_take_profit,omitempty"`
+	FinalStopLoss            float64   `json:"final_stop_loss,omitempty"`
 	OrderID                  int64     `json:"order_id"`
 	Timestamp                time.Time `json:"timestamp"`
 	Success                  bool      `json:"success"`

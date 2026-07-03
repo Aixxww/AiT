@@ -101,7 +101,7 @@ AI 模型分析 (思维链 + 多维数据 → JSON决策)
 - **币种来源** — `ai500`（动量排名）、`oi_top`/`oi_low`（持仓异动）、`square_heat`（社交热度）、`hyper_all`（Hyperliquid）、`mixed`（多源混合）
 - **技术指标** — EMA、MACD、RSI、ATR、Bollinger Bands，策略中独立开关控制
 - **AI 提示词** — `engine_prompt.go` 构建系统提示词 + 用户提示词，注入市场数据和指标分析
-- **Hunter v7 信号执行** — 多形态候选分层复核，`range_expansion_event`、资金费率反转、恐慌修复等信号通过结构化 JSON 传递给策略 LLM
+- **Hunter v7 信号执行** — 多形态候选分层复核，`signal_id`、数据时效、range expansion 子形态、TP0 计划和 tag semantics 通过结构化 JSON 传递给策略 LLM
 - **风控** — 手数上限、杠杆限制、排除币种列表、最小持仓金额
 
 ### 交易所适配 (`trader/`)
@@ -111,8 +111,8 @@ AI 模型分析 (思维链 + 多维数据 → JSON决策)
 - 持仓查询、止盈止损
 - 余额同步、费率查询
 - 强制平仓
-- Hunter v7 下单前实时执行价复核、TP/SL/RR 修复、事件追空反弹拦截
-- 本地保护平仓归因保真，快速平仓可记录 `hard_loss_close`、`giveback_close`、`tp0` 等来源
+- Hunter v7 下单前 orderbook/REST micro-refresh、TP/SL/RR 修复、final RR 审计、事件追空反弹拦截
+- 本地保护平仓归因保真，快速平仓可记录 `hard_loss_close`、`giveback_close`、`tp0`，并支持交易所 TP/SL/reduce-only 归因入口
 
 ### AI 模型层 (`mcp/`)
 

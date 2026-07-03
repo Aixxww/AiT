@@ -102,3 +102,76 @@ func TestRangeExpansionEventDowngradesWeakOIAndVolumeFollowthrough(t *testing.T)
 		t.Fatalf("missing OI confirmation: %+v", sig.RequiredConfirms)
 	}
 }
+
+func TestRangeExpansionEventLabelsRetestContinuationAndLateChase(t *testing.T) {
+	mod := &rangeExpansionEventModule{}
+	retestCtx := &V7SymbolContext{
+		Symbol:           "RETESTUSDT",
+		CurrentPrice:     100,
+		Change1h:         2.5,
+		Amplitude24h:     30,
+		RangeExpansion1h: 2.4,
+		Velocity15m:      1.4,
+		Velocity5m:       0.4,
+		VolumeBurst15m:   2.0,
+		TakerBuy15m:      0.56,
+		ATR15m:           1.0,
+		VWAP15m:          99.7,
+		Snapshot:         &SymbolSnapshotData{Price: 100, QuoteVolume24h: 20_000_000},
+	}
+	retestSig := mod.Score(retestCtx, V7RegimeMixed)
+	if retestSig == nil || !containsV7String(retestSig.ReasonCodes, "range_expansion_retest") || !containsV7String(retestSig.ReasonCodes, "retest_confirmed") {
+		t.Fatalf("missing retest labels: %+v", retestSig)
+	}
+
+	continuationCtx := *retestCtx
+	continuationCtx.Symbol = "CONTUSDT"
+	continuationCtx.CurrentPrice = 105
+	continuationCtx.VWAP15m = 100
+	continuationCtx.Change1h = 5
+	continuationCtx.Velocity15m = 2.2
+	continuationCtx.Velocity5m = 1.1
+	continuationSig := mod.Score(&continuationCtx, V7RegimeTrendUp)
+	if continuationSig == nil || !containsV7String(continuationSig.ReasonCodes, "range_expansion_continuation") {
+		t.Fatalf("missing continuation label: %+v", continuationSig)
+	}
+
+	lateCtx := continuationCtx
+	lateCtx.Symbol = "LATEUSDT"
+	lateCtx.Amplitude24h = 60
+	lateCtx.Velocity5m = 6
+	lateSig := mod.Score(&lateCtx, V7RegimeManiaPump)
+	if lateSig == nil || !containsV7String(lateSig.RiskTags, "late_event_chase") || lateSig.ExecutionQuality != V7ExecChaseRisk {
+		t.Fatalf("missing late chase downgrade: %+v", lateSig)
+	}
+}
+
+func TestRangeExpansionEventLabelsExhaustionAndMicroReversal(t *testing.T) {
+	mod := &rangeExpansionEventModule{}
+	ctx := &V7SymbolContext{
+		Symbol:           "EXHAUSTUSDT",
+		CurrentPrice:     100,
+		Change1h:         5,
+		Amplitude24h:     50,
+		RangeExpansion1h: 2.7,
+		Velocity15m:      2.0,
+		Velocity5m:       -0.4,
+		VolumeBurst15m:   2.0,
+		TakerBuy15m:      0.50,
+		ATR15m:           1.2,
+		VWAP15m:          97,
+		Snapshot:         &SymbolSnapshotData{Price: 100, QuoteVolume24h: 20_000_000},
+	}
+	sig := mod.Score(ctx, V7RegimeMixed)
+	if sig == nil {
+		t.Fatal("expected range expansion signal")
+	}
+	for _, want := range []string{"range_expansion_exhaustion", "velocity_decelerating", "micro_reversal_against_signal"} {
+		if !containsV7String(sig.RiskTags, want) {
+			t.Fatalf("missing risk tag %q: %+v", want, sig.RiskTags)
+		}
+	}
+	if !containsV7String(sig.RequiredConfirms, "fresh_micro_confirmed") {
+		t.Fatalf("missing fresh confirmation: %+v", sig.RequiredConfirms)
+	}
+}

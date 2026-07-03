@@ -1,6 +1,14 @@
 package datafetch
 
-import "testing"
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+)
 
 func TestMergeCarriedKlinesKeepsSlowIntervals(t *testing.T) {
 	current := &Snapshot{Symbols: map[string]*SymbolSnapshot{
@@ -86,6 +94,67 @@ func TestMergeCarriedSlowDerivatives(t *testing.T) {
 	}
 	if len(got.OISpikeData) != 2 || got.OISpikeData[0] != 1.2 || got.OISpikeData[1] != -0.4 {
 		t.Fatalf("OI spike data was not carried: %+v", got.OISpikeData)
+	}
+}
+
+func TestDataCollectorRefreshSymbolPatchesSingleSnapshot(t *testing.T) {
+	nowMs := time.Now().UnixMilli()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/fapi/v1/ticker/24hr", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"symbol":"BTCUSDT","lastPrice":"101","priceChangePercent":"2.5","volume":"10","quoteVolume":"1010","highPrice":"105","lowPrice":"95","count":123}`)
+	})
+	mux.HandleFunc("/fapi/v1/premiumIndex", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"symbol":"BTCUSDT","markPrice":"101.2","indexPrice":"101","lastFundingRate":"0.0002","nextFundingTime":123456789}`)
+	})
+	mux.HandleFunc("/fapi/v1/openInterest", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"openInterest":"456"}`)
+	})
+	mux.HandleFunc("/fapi/v1/klines", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `[[%d,"100","102","99","101","100",%d,"0","0","0","60","0"]]`, nowMs-30_000, nowMs+30_000)
+	})
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("local listener unavailable in sandbox: %v", err)
+	}
+	server := httptest.NewUnstartedServer(mux)
+	server.Listener = ln
+	server.Start()
+	defer server.Close()
+
+	store := NewStore()
+	store.Swap(&Snapshot{
+		CreatedAt: time.Now().Add(-time.Minute),
+		Meta:      SnapshotMeta{SymbolCount: 2},
+		Symbols: map[string]*SymbolSnapshot{
+			"BTCUSDT": {
+				Symbol:         "BTCUSDT",
+				Price:          99,
+				OIDelta1h:      1.2,
+				OIDelta4h:      3.4,
+				LongShortRatio: 1.1,
+				Klines:         map[string][]Kline{"4h": {{Open: 90, Close: 100}}},
+			},
+			"ETHUSDT": {Symbol: "ETHUSDT", Price: 2000},
+		},
+	})
+	dc := NewDataCollector(CollectorConfig{BinanceURL: server.URL}, store)
+
+	refreshed, err := dc.RefreshSymbol(context.Background(), "BTCUSDT", []KlineInterval{{Interval: "1m", Limit: 1}}, false)
+	if err != nil {
+		t.Fatalf("RefreshSymbol: %v", err)
+	}
+	if refreshed.Price != 101 || refreshed.FundingRate != 0.0002 || refreshed.OI != 456 {
+		t.Fatalf("refreshed fields = %+v", refreshed)
+	}
+	if refreshed.OIDelta1h != 1.2 || refreshed.OIDelta4h != 3.4 || refreshed.LongShortRatio != 1.1 {
+		t.Fatalf("slow derivatives should be carried from base snapshot: %+v", refreshed)
+	}
+	current := store.Current()
+	if current.Symbols["ETHUSDT"].Price != 2000 {
+		t.Fatalf("other symbols should remain patched into snapshot: %+v", current.Symbols["ETHUSDT"])
+	}
+	if len(current.Symbols["BTCUSDT"].Klines["1m"]) != 1 {
+		t.Fatalf("1m kline not refreshed: %+v", current.Symbols["BTCUSDT"].Klines)
 	}
 }
 

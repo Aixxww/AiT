@@ -19,19 +19,20 @@ import (
 
 // BybitTrade represents a trade record from Bybit execution list
 type BybitTrade struct {
-	Symbol      string
-	OrderID     string
-	ExecID      string
-	Side        string // Buy or Sell
-	ExecPrice   float64
-	ExecQty     float64
-	ExecFee     float64
-	ExecTime    time.Time
-	IsMaker     bool
-	OrderType   string
-	ClosedSize  float64 // For close orders
-	ClosedPnL   float64
-	OrderAction string // open_long, open_short, close_long, close_short
+	Symbol        string
+	OrderID       string
+	ExecID        string
+	Side          string // Buy or Sell
+	ExecPrice     float64
+	ExecQty       float64
+	ExecFee       float64
+	ExecTime      time.Time
+	IsMaker       bool
+	OrderType     string
+	StopOrderType string
+	ClosedSize    float64 // For close orders
+	ClosedPnL     float64
+	OrderAction   string // open_long, open_short, close_long, close_short
 }
 
 // GetTrades retrieves trade/execution records from Bybit
@@ -112,6 +113,7 @@ func (t *BybitTrader) parseTradesResult(list []map[string]interface{}) ([]BybitT
 		execID, _ := item["execId"].(string)
 		side, _ := item["side"].(string)
 		orderType, _ := item["orderType"].(string)
+		stopOrderType, _ := item["stopOrderType"].(string)
 		isMaker, _ := item["isMaker"].(bool)
 
 		execPriceStr, _ := item["execPrice"].(string)
@@ -150,19 +152,20 @@ func (t *BybitTrader) parseTradesResult(list []map[string]interface{}) ([]BybitT
 		}
 
 		trade := BybitTrade{
-			Symbol:      symbol,
-			OrderID:     orderID,
-			ExecID:      execID,
-			Side:        side,
-			ExecPrice:   execPrice,
-			ExecQty:     execQty,
-			ExecFee:     execFee,
-			ExecTime:    execTime,
-			IsMaker:     isMaker,
-			OrderType:   orderType,
-			ClosedSize:  closedSize,
-			ClosedPnL:   closedPnl,
-			OrderAction: orderAction,
+			Symbol:        symbol,
+			OrderID:       orderID,
+			ExecID:        execID,
+			Side:          side,
+			ExecPrice:     execPrice,
+			ExecQty:       execQty,
+			ExecFee:       execFee,
+			ExecTime:      execTime,
+			IsMaker:       isMaker,
+			OrderType:     orderType,
+			StopOrderType: stopOrderType,
+			ClosedSize:    closedSize,
+			ClosedPnL:     closedPnl,
+			OrderAction:   orderAction,
 		}
 
 		trades = append(trades, trade)
@@ -277,11 +280,13 @@ func (t *BybitTrader) SyncOrdersFromBybit(traderID string, exchangeID string, ex
 		}
 
 		// Create/update position record using PositionBuilder
-		if err := posBuilder.ProcessTrade(
+		if err := posBuilder.ProcessTradeWithLeverageAndCloseReason(
 			traderID, exchangeID, exchangeType,
 			symbol, positionSide, trade.OrderAction,
 			trade.ExecQty, trade.ExecPrice, trade.ExecFee, trade.ClosedPnL,
 			execTimeMs, trade.ExecID,
+			1,
+			deriveBybitSyncedCloseReason(trade),
 		); err != nil {
 			logger.Infof("  ⚠️ Failed to sync position for trade %s: %v", trade.ExecID, err)
 		} else {
@@ -295,6 +300,25 @@ func (t *BybitTrader) SyncOrdersFromBybit(traderID string, exchangeID string, ex
 
 	logger.Infof("✅ Bybit order sync completed: %d new trades synced", syncedCount)
 	return nil
+}
+
+func deriveBybitSyncedCloseReason(trade BybitTrade) string {
+	if !strings.HasPrefix(trade.OrderAction, "close_") {
+		return "sync"
+	}
+	orderCtx := strings.ToLower(strings.TrimSpace(trade.OrderType + " " + trade.StopOrderType))
+	switch {
+	case strings.Contains(orderCtx, "takeprofit") || strings.Contains(orderCtx, "take_profit"):
+		return "exchange_take_profit"
+	case strings.Contains(orderCtx, "stoploss") || strings.Contains(orderCtx, "stop_loss"):
+		return "exchange_stop_loss"
+	case strings.Contains(orderCtx, "liquidation"):
+		return "exchange_liquidation"
+	case strings.Contains(orderCtx, "market") || strings.Contains(orderCtx, "limit"):
+		return "exchange_reduce_only"
+	default:
+		return "sync"
+	}
 }
 
 // StartOrderSync starts background order sync task for Bybit

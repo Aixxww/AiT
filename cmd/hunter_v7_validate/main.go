@@ -273,6 +273,7 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			Sources:            []string{"hunter_v7"},
 			Direction:          string(sig.Direction),
 			SignalTags:         tags,
+			V7SignalID:         sig.SignalID,
 			V7SetupType:        string(sig.SetupType),
 			V7Status:           string(sig.Status),
 			V7AIPriority:       sig.AIPriority,
@@ -297,6 +298,7 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7DerivativesCtx:   sig.DerivativesCtx,
 			V7Readiness:        sig.ExecutionReadiness,
 			V7ExecutionContext: sig.ExecutionContext,
+			V7DataFreshness:    sig.DataFreshness,
 			V7TP0Price:         sig.TP0Price,
 			V7TP0RR:            sig.TP0RR,
 			V7TP0TimeWindow:    sig.TP0TimeWindow,
@@ -566,7 +568,7 @@ func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 		}
 		c.ByMarketRegime[string(sig.MarketRegime)]++
 		switch sig.SetupType {
-		case local.V7SetupLeaderMomentumLong, local.V7SetupTrendBreakoutLong:
+		case local.V7SetupLeaderMomentumLong, local.V7SetupTrendBreakoutLong, local.V7SetupDisplacementLong, local.V7SetupIntradayScalp:
 			c.HasMomentum = true
 		case local.V7SetupPullbackLong, local.V7SetupPanicReversalLong:
 			c.HasReversal = true
@@ -575,6 +577,9 @@ func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 		case local.V7SetupRangeReversion:
 			c.HasRange = true
 			c.HasReversal = true
+		case local.V7SetupRangeExpansion:
+			c.HasRange = true
+			c.HasMomentum = true
 		case local.V7SetupFundingReversal:
 			c.HasFunding = true
 		case local.V7SetupAccumulationLong:
@@ -589,14 +594,17 @@ func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 
 func promptIssues(c aiRecognitionCheck) []issue {
 	var issues []issue
-	if !c.PromptContainsV7JSON {
-		issues = append(issues, issue{Severity: "critical", Code: "prompt_missing_v7_json", Detail: "AIT prompt does not contain hunter_v7_signal_json"})
-	}
-	if !c.PromptContainsSetupType || !c.PromptContainsEntryMode || !c.PromptContainsRiskLevel {
-		issues = append(issues, issue{Severity: "high", Code: "prompt_missing_core_v7_tags", Detail: "AIT prompt lacks one or more core v7 fields"})
-	}
-	if !c.PromptContainsConfirms || !c.PromptContainsInvalid {
-		issues = append(issues, issue{Severity: "high", Code: "prompt_missing_execution_fields", Detail: "AIT prompt lacks confirmations or invalidation fields"})
+	openReviewCount := c.PromptTierCounts["EXECUTABLE"] + c.PromptTierCounts["REVIEWABLE"]
+	if openReviewCount > 0 {
+		if !c.PromptContainsV7JSON {
+			issues = append(issues, issue{Severity: "critical", Code: "prompt_missing_v7_json", Detail: "AIT prompt does not contain hunter_v7_signal_json for open-review candidates"})
+		}
+		if !c.PromptContainsSetupType || !c.PromptContainsEntryMode || !c.PromptContainsRiskLevel {
+			issues = append(issues, issue{Severity: "high", Code: "prompt_missing_core_v7_tags", Detail: "AIT prompt lacks one or more core v7 fields for open-review candidates"})
+		}
+		if !c.PromptContainsConfirms || !c.PromptContainsInvalid {
+			issues = append(issues, issue{Severity: "high", Code: "prompt_missing_execution_fields", Detail: "AIT prompt lacks confirmations or invalidation fields for open-review candidates"})
+		}
 	}
 	if !c.PromptContainsTierSummary {
 		issues = append(issues, issue{Severity: "medium", Code: "prompt_missing_tier_summary", Detail: "AIT prompt lacks final execution tier summary; validator cannot compare prompt-final tier distribution"})
@@ -636,8 +644,12 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("> Prompt 预览：`%s`\n\n", r.PromptPreviewPath))
 
 	sb.WriteString("## 1. 结论\n\n")
-	if r.FormatCheck.JSONMarshalOK && r.FormatCheck.JSONUnmarshalOK && r.FormatCheck.MissingFieldCount == 0 && r.AIRecognition.PromptContainsV7JSON {
-		sb.WriteString("- JSON 结构可序列化/反序列化，核心字段完整，AIT prompt 已包含 `hunter_v7_signal_json`，AI 可以直接识别 v7 标签。\n")
+	if r.FormatCheck.JSONMarshalOK && r.FormatCheck.JSONUnmarshalOK && r.FormatCheck.MissingFieldCount == 0 && !hasCriticalOrHighIssues(r.Issues) {
+		if r.AIRecognition.PromptTierCounts["EXECUTABLE"]+r.AIRecognition.PromptTierCounts["REVIEWABLE"] > 0 {
+			sb.WriteString("- JSON 结构可序列化/反序列化，核心字段完整，AIT prompt 已包含 open-review 候选的 `hunter_v7_signal_json`。\n")
+		} else {
+			sb.WriteString("- JSON 结构可序列化/反序列化，核心字段完整；本轮无 EXECUTABLE/REVIEWABLE，因此 prompt 不展开 `hunter_v7_signal_json` 属于正常 wait 链路。\n")
+		}
 	} else {
 		sb.WriteString("- JSON 或 prompt 识别链路存在问题，需优先修复 critical/high 问题。\n")
 	}
@@ -708,6 +720,15 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		}
 	}
 	return sb.String()
+}
+
+func hasCriticalOrHighIssues(issues []issue) bool {
+	for _, is := range issues {
+		if is.Severity == "critical" || is.Severity == "high" {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedMap(m map[string]int) string {

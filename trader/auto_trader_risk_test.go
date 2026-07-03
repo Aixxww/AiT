@@ -1,15 +1,36 @@
 package trader
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 )
+
+type microRefreshTestTrader struct {
+	Trader
+	bids [][]float64
+	asks [][]float64
+	err  error
+}
+
+func (t *microRefreshTestTrader) PlaceLimitOrder(req *LimitOrderRequest) (*LimitOrderResult, error) {
+	return nil, nil
+}
+
+func (t *microRefreshTestTrader) CancelOrder(symbol, orderID string) error {
+	return nil
+}
+
+func (t *microRefreshTestTrader) GetOrderBook(symbol string, depth int) ([][]float64, [][]float64, error) {
+	return t.bids, t.asks, t.err
+}
 
 func testRiskAutoTrader() *AutoTrader {
 	return &AutoTrader{
@@ -692,6 +713,194 @@ func TestHunterV7ExecutionGuardReducesModerateLiquidityHighVolatilitySize(t *tes
 	}
 }
 
+func TestHunterV7ExecutionGuardAppliesRiskTagSizingAndLeverageCaps(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:          "RISKUSDT",
+				Direction:       "LONG",
+				V7SetupType:     "range_expansion_event",
+				V7ExecutionTier: "REVIEWABLE",
+				V7Confidence:    "B",
+				V7RiskTags:      []string{"high_volatility", "range_expansion_exhaustion"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "RISKUSDT", Action: "open_long", Price: 1, PositionSizeUSD: 100, Leverage: 20}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err != nil {
+		t.Fatalf("unexpected risk sizing rejection: %v", err)
+	}
+	if decision.PositionSizeUSD != 50 {
+		t.Fatalf("position size = %v, want 50", decision.PositionSizeUSD)
+	}
+	if decision.Leverage != 10 {
+		t.Fatalf("leverage = %d, want 10", decision.Leverage)
+	}
+}
+
+func TestHunterV7ExecutionGuardRejectsStaleRiskWithoutFreshMicroConfirmation(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:       "STALEUSDT",
+				Direction:    "SHORT",
+				V7SetupType:  "range_expansion_event",
+				V7Confidence: "B",
+				V7RiskTags:   []string{"stale_data_risk"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "STALEUSDT", Action: "open_short", Price: 1, PositionSizeUSD: 50, Leverage: 10}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "fresh_micro_confirmed_missing") {
+		t.Fatalf("expected missing fresh micro confirmation rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardCanFreshConfirmStaleRiskWithOrderBook(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	at.trader = &microRefreshTestTrader{
+		bids: [][]float64{{99.98, 10}},
+		asks: [][]float64{{100.02, 10}},
+	}
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:       "STALEUSDT",
+				Direction:    "LONG",
+				V7SetupType:  "trend_breakout_long",
+				V7Confidence: "B",
+				V7RiskTags:   []string{"stale_data_risk"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "STALEUSDT", Action: "open_long", Price: 100, PositionSizeUSD: 50, Leverage: 5}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err != nil {
+		t.Fatalf("unexpected stale risk rejection after orderbook refresh: %v", err)
+	}
+	if !containsStringValue(ctx.CandidateCoins[0].V7ReasonCodes, "fresh_micro_confirmed") {
+		t.Fatalf("fresh_micro_confirmed not recorded: %+v", ctx.CandidateCoins[0].V7ReasonCodes)
+	}
+}
+
+func TestHunterV7ExecutionGuardRequiresSelectedSignalIDWhenCandidateHasID(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:       "IDUSDT",
+				Direction:    "LONG",
+				V7SignalID:   "42|IDUSDT|LONG|trend_breakout_long",
+				V7SetupType:  "trend_breakout_long",
+				V7Confidence: "B",
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "IDUSDT", Action: "open_long", Price: 1, PositionSizeUSD: 50, Leverage: 5}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil || !strings.Contains(err.Error(), "signal_contract_missing") {
+		t.Fatalf("expected missing signal id rejection, got: %v", err)
+	}
+
+	decision.SelectedHunterV7SignalID = "42|IDUSDT|LONG|trend_breakout_long"
+	if err := at.validateHunterV7ExecutionGuard(ctx, decision); err != nil {
+		t.Fatalf("expected selected signal id to pass contract guard: %v", err)
+	}
+}
+
+func TestHunterV7RESTSnapshotValidationRejectsFlowFlip(t *testing.T) {
+	nowMs := time.Now().UnixMilli()
+	candidate := &kernel.CandidateCoin{Symbol: "FLOWUSDT", V7SetupType: "range_expansion_event"}
+	decision := &kernel.Decision{Symbol: "FLOWUSDT", Action: "open_long"}
+	ss := &datafetch.SymbolSnapshot{
+		Symbol: "FLOWUSDT",
+		Price:  100,
+		Klines: map[string][]datafetch.Kline{
+			"1m": {
+				{OpenTime: nowMs - 60_000, CloseTime: nowMs - 30_000, Open: 100, Close: 99.4, Volume: 100, TakerBuy: 20},
+				{OpenTime: nowMs - 30_000, CloseTime: nowMs + 30_000, Open: 99.4, Close: 99.0, Volume: 100, TakerBuy: 20},
+			},
+		},
+	}
+
+	err := hunterV7ValidateRESTSnapshot(candidate, decision, "long", 100, ss)
+	if err == nil || !strings.Contains(err.Error(), "flow_flip") {
+		t.Fatalf("expected flow flip rejection, got: %v", err)
+	}
+}
+
+func TestHunterV7RESTSnapshotValidationAcceptsFreshAlignedFlow(t *testing.T) {
+	nowMs := time.Now().UnixMilli()
+	candidate := &kernel.CandidateCoin{Symbol: "FLOWUSDT", V7SetupType: "range_expansion_event"}
+	decision := &kernel.Decision{Symbol: "FLOWUSDT", Action: "open_short"}
+	ss := &datafetch.SymbolSnapshot{
+		Symbol: "FLOWUSDT",
+		Price:  100,
+		Klines: map[string][]datafetch.Kline{
+			"1m": {
+				{OpenTime: nowMs - 60_000, CloseTime: nowMs - 30_000, Open: 100, Close: 99.8, Volume: 100, TakerBuy: 40},
+				{OpenTime: nowMs - 30_000, CloseTime: nowMs + 30_000, Open: 99.8, Close: 99.6, Volume: 100, TakerBuy: 38},
+			},
+		},
+	}
+
+	if err := hunterV7ValidateRESTSnapshot(candidate, decision, "short", 100, ss); err != nil {
+		t.Fatalf("expected fresh aligned REST snapshot to pass: %v", err)
+	}
+}
+
+func TestHunterV7MicroRefreshRejectsWideSpreadAndDrift(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:          "WIDEUSDT",
+				Direction:       "LONG",
+				V7SetupType:     "range_expansion_event",
+				V7ExecutionTier: "REVIEWABLE",
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "WIDEUSDT", Action: "open_long", Price: 100}
+
+	at.trader = &microRefreshTestTrader{
+		bids: [][]float64{{99.0, 10}},
+		asks: [][]float64{{101.0, 10}},
+	}
+	err := at.validateHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
+	if err == nil || !strings.Contains(err.Error(), "spread") {
+		t.Fatalf("expected spread rejection, got: %v", err)
+	}
+
+	at.trader = &microRefreshTestTrader{
+		bids: [][]float64{{100.9, 10}},
+		asks: [][]float64{{101.0, 10}},
+	}
+	err = at.validateHunterV7MicroRefresh(ctx, decision, "long", 101, 100)
+	if err == nil || !strings.Contains(err.Error(), "drift") {
+		t.Fatalf("expected drift rejection, got: %v", err)
+	}
+
+	at.trader = &microRefreshTestTrader{err: fmt.Errorf("book unavailable")}
+	err = at.validateHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
+	if err == nil || !strings.Contains(err.Error(), "unavailable") {
+		t.Fatalf("expected unavailable orderbook rejection, got: %v", err)
+	}
+}
+
 func TestHunterV7ExecutionGuardRejectsWhaleFlowLongAboveZoneLimit(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
@@ -849,6 +1058,44 @@ func TestChoosePositionProtectionActionTP0ForHighROE(t *testing.T) {
 	action, _ := choosePositionProtectionAction(state, 12, 0.6)
 	if action != protectionTP0 {
 		t.Fatalf("action = %q, want TP0 for high ROE even before raw TP1 move", action)
+	}
+}
+
+func TestShouldTriggerPlannedTP0Price(t *testing.T) {
+	longState := &positionProtectionState{PlannedTakeProfit: 101}
+	if !shouldTriggerPlannedTP0Price("long", 101.2, 2.0, longState) {
+		t.Fatal("expected long planned TP0 price trigger")
+	}
+	if shouldTriggerPlannedTP0Price("long", 101.2, -0.1, longState) {
+		t.Fatal("expected no planned TP0 trigger when current PnL is not positive")
+	}
+	longState.TP0Done = true
+	if shouldTriggerPlannedTP0Price("long", 101.2, 2.0, longState) {
+		t.Fatal("expected no duplicate planned TP0 trigger")
+	}
+
+	shortState := &positionProtectionState{PlannedTakeProfit: 99}
+	if !shouldTriggerPlannedTP0Price("short", 98.8, 2.0, shortState) {
+		t.Fatal("expected short planned TP0 price trigger")
+	}
+	if shouldTriggerPlannedTP0Price("short", 99.2, 2.0, shortState) {
+		t.Fatal("expected no short trigger before planned TP")
+	}
+}
+
+func TestProtectionStateRememberPlannedTakeProfitKeepsNearestTarget(t *testing.T) {
+	state := &positionProtectionState{}
+	state.rememberPlannedTakeProfit("long", 105)
+	state.rememberPlannedTakeProfit("long", 103)
+	if state.PlannedTakeProfit != 103 {
+		t.Fatalf("long planned TP = %v, want nearest 103", state.PlannedTakeProfit)
+	}
+
+	state = &positionProtectionState{}
+	state.rememberPlannedTakeProfit("short", 95)
+	state.rememberPlannedTakeProfit("short", 97)
+	if state.PlannedTakeProfit != 97 {
+		t.Fatalf("short planned TP = %v, want nearest 97", state.PlannedTakeProfit)
 	}
 }
 

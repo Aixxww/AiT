@@ -105,6 +105,9 @@ func (at *AutoTrader) recordEffectiveOpenContract(actionRecord *store.DecisionAc
 		decision.TakeProfit,
 		actionRecord.EffectivePositionSizeUSD,
 	)
+	actionRecord.FinalRR = actionRecord.RRAfterBackendRepair
+	actionRecord.FinalEffectiveTakeProfit = decision.TakeProfit
+	actionRecord.FinalStopLoss = decision.StopLoss
 }
 
 func effectiveOpenRiskMetrics(side string, entryPrice, stopLoss, takeProfit, positionSizeUSD float64) (float64, float64) {

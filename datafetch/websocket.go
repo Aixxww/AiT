@@ -26,6 +26,9 @@ type WSManager struct {
 	stopCh     chan struct{}
 	backoff    time.Duration
 	maxBackoff time.Duration
+
+	takerMu      sync.Mutex
+	takerWindows map[string]*takerTradeWindow
 }
 
 // NewWSManager creates a new WebSocket manager.
@@ -34,12 +37,13 @@ func NewWSManager(baseURL string, store *Store, topN int) *WSManager {
 		topN = 30
 	}
 	return &WSManager{
-		baseURL:    baseURL,
-		store:      store,
-		topN:       topN,
-		stopCh:     make(chan struct{}),
-		backoff:    5 * time.Second,
-		maxBackoff: 60 * time.Second,
+		baseURL:      baseURL,
+		store:        store,
+		topN:         topN,
+		stopCh:       make(chan struct{}),
+		backoff:      5 * time.Second,
+		maxBackoff:   60 * time.Second,
+		takerWindows: make(map[string]*takerTradeWindow),
 	}
 }
 
@@ -339,13 +343,13 @@ func (wm *WSManager) handleKline(snap *Snapshot, data json.RawMessage) {
 	ss.Timestamp = time.Now()
 }
 
-// handleAggTrade updates real-time taker buy ratio via TakerAccumulator.
+// handleAggTrade updates real-time taker buy ratio from rolling taker volume.
 func (wm *WSManager) handleAggTrade(snap *Snapshot, data json.RawMessage) {
 	var msg struct {
 		Symbol string `json:"s"`
 		Price  string `json:"p"`
 		Qty    string `json:"q"`
-		IsBuy  bool   `json:"m"` // true = buyer is maker (seller is taker)
+		IsBuy  bool   `json:"m"` // Binance m=true means buyer is maker, so seller is taker.
 		Time   int64  `json:"T"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
@@ -359,15 +363,102 @@ func (wm *WSManager) handleAggTrade(snap *Snapshot, data json.RawMessage) {
 	}
 
 	qty := parseFloat(msg.Qty)
-	// If buyer is maker (msg.m=true), then seller is taker — NOT a taker buy
-	// If buyer is taker (msg.m=false), it IS a taker buy
-	if !msg.IsBuy {
-		// Update running taker buy ratio (simple EMA-like approach)
-		// This is approximate — the real ratio comes from klines
-		if ss.TakerBuyRatio == 0 {
-			ss.TakerBuyRatio = 0.5 // seed
-		}
-		ss.TakerBuyRatio = ss.TakerBuyRatio*0.99 + 1.0*0.01*(qty)
+	if qty <= 0 {
+		return
+	}
+	ts := time.Now()
+	if msg.Time > 0 {
+		ts = time.UnixMilli(msg.Time)
+	}
+
+	ratio := wm.updateTakerWindow(msg.Symbol, ts, qty, !msg.IsBuy)
+	ss.TakerBuyRatio = ratio
+	if price := parseFloat(msg.Price); price > 0 {
+		ss.Price = price
+	}
+	ss.Timestamp = time.Now()
+}
+
+func (wm *WSManager) updateTakerWindow(symbol string, ts time.Time, qty float64, takerBuy bool) float64 {
+	wm.takerMu.Lock()
+	defer wm.takerMu.Unlock()
+
+	window := wm.takerWindows[symbol]
+	if window == nil {
+		window = newTakerTradeWindow(5 * time.Minute)
+		wm.takerWindows[symbol] = window
+	}
+	window.Add(ts, qty, takerBuy)
+	return window.Ratio()
+}
+
+type takerTradeBucket struct {
+	sec     int64
+	buyVol  float64
+	sellVol float64
+}
+
+type takerTradeWindow struct {
+	window  time.Duration
+	buckets []takerTradeBucket
+}
+
+func newTakerTradeWindow(window time.Duration) *takerTradeWindow {
+	if window <= 0 {
+		window = 5 * time.Minute
+	}
+	return &takerTradeWindow{window: window}
+}
+
+func (w *takerTradeWindow) Add(ts time.Time, qty float64, takerBuy bool) {
+	if w == nil || qty <= 0 {
+		return
+	}
+	sec := ts.Unix()
+	if len(w.buckets) == 0 || w.buckets[len(w.buckets)-1].sec != sec {
+		w.buckets = append(w.buckets, takerTradeBucket{sec: sec})
+	}
+	b := &w.buckets[len(w.buckets)-1]
+	if takerBuy {
+		b.buyVol += qty
+	} else {
+		b.sellVol += qty
+	}
+	w.prune(ts)
+}
+
+func (w *takerTradeWindow) Ratio() float64 {
+	if w == nil {
+		return 0.5
+	}
+	var buyVol, sellVol float64
+	for _, b := range w.buckets {
+		buyVol += b.buyVol
+		sellVol += b.sellVol
+	}
+	total := buyVol + sellVol
+	if total <= 0 {
+		return 0.5
+	}
+	ratio := buyVol / total
+	if ratio < 0 {
+		return 0
+	}
+	if ratio > 1 {
+		return 1
+	}
+	return ratio
+}
+
+func (w *takerTradeWindow) prune(now time.Time) {
+	cutoff := now.Add(-w.window).Unix()
+	first := 0
+	for first < len(w.buckets) && w.buckets[first].sec < cutoff {
+		first++
+	}
+	if first > 0 {
+		copy(w.buckets, w.buckets[first:])
+		w.buckets = w.buckets[:len(w.buckets)-first]
 	}
 }
 

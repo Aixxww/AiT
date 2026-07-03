@@ -46,10 +46,25 @@ func (pb *PositionBuilder) ProcessTradeWithLeverage(
 	orderID string,
 	leverage int,
 ) error {
+	return pb.ProcessTradeWithLeverageAndCloseReason(
+		traderID, exchangeID, exchangeType, symbol, side, action,
+		quantity, price, fee, realizedPnL,
+		tradeTimeMs, orderID, leverage, "sync",
+	)
+}
+
+func (pb *PositionBuilder) ProcessTradeWithLeverageAndCloseReason(
+	traderID, exchangeID, exchangeType, symbol, side, action string,
+	quantity, price, fee, realizedPnL float64,
+	tradeTimeMs int64,
+	orderID string,
+	leverage int,
+	closeReason string,
+) error {
 	if strings.HasPrefix(action, "open_") {
 		return pb.handleOpen(traderID, exchangeID, exchangeType, symbol, side, quantity, price, fee, tradeTimeMs, orderID, leverage)
 	} else if strings.HasPrefix(action, "close_") {
-		return pb.handleClose(traderID, exchangeID, exchangeType, symbol, side, quantity, price, fee, realizedPnL, tradeTimeMs, orderID)
+		return pb.handleClose(traderID, exchangeID, exchangeType, symbol, side, quantity, price, fee, realizedPnL, tradeTimeMs, orderID, closeReason)
 	}
 	return nil
 }
@@ -117,6 +132,7 @@ func (pb *PositionBuilder) handleClose(
 	quantity, price, fee, realizedPnL float64,
 	tradeTimeMs int64,
 	orderID string,
+	closeReason string,
 ) error {
 	// Get OPEN position
 	position, err := pb.positionStore.GetOpenPositionBySymbol(traderID, symbol, side)
@@ -191,9 +207,17 @@ func (pb *PositionBuilder) handleClose(
 			tradeTimeMs,
 			totalPnL,
 			totalFee,
-			"sync",
+			normalizeCloseReason(closeReason),
 		)
 	}
+}
+
+func normalizeCloseReason(closeReason string) string {
+	closeReason = strings.TrimSpace(closeReason)
+	if closeReason == "" {
+		return "sync"
+	}
+	return closeReason
 }
 
 // quantitiesMatch checks if two quantities are close enough (within tolerance)

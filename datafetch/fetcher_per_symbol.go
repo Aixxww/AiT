@@ -189,6 +189,102 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	return ss, nil
 }
 
+// RefreshSymbol fetches fresh single-symbol execution data without running a
+// full market snapshot cycle. It refreshes ticker, mark/funding, current OI,
+// configured klines, and optionally slow derivative context.
+func (f *DataFetcher) RefreshSymbol(ctx context.Context, symbol string, base *SymbolSnapshot, klineIntervals []KlineInterval, refreshSlowDerivatives bool) (*SymbolSnapshot, error) {
+	if f == nil {
+		return nil, fmt.Errorf("nil data fetcher")
+	}
+	if symbol == "" {
+		return nil, fmt.Errorf("empty symbol")
+	}
+	if len(klineIntervals) == 0 {
+		klineIntervals = FastKlineIntervals
+	}
+
+	ss := cloneSymbolSnapshot(base)
+	if ss == nil {
+		ss = &SymbolSnapshot{
+			Symbol: symbol,
+			Klines: make(map[string][]Kline),
+		}
+	}
+	ss.Symbol = symbol
+
+	var errs int
+	ticker, err := f.fetchTicker(ctx, symbol)
+	if err != nil {
+		errs++
+	} else {
+		applyTickerToSnapshot(ss, ticker)
+	}
+	premium, err := f.fetchPremiumIndex(ctx, symbol)
+	if err != nil {
+		errs++
+	} else {
+		applyPremiumToSnapshot(ss, premium)
+	}
+
+	ss.Timestamp = now()
+	refreshed, err := f.fetchOneSymbol(ctx, symbol, ss, klineIntervals, refreshSlowDerivatives)
+	if err != nil {
+		errs++
+	}
+	if errs > 0 {
+		return refreshed, fmt.Errorf("%s: %d single-symbol refresh phases failed", symbol, errs)
+	}
+	return refreshed, nil
+}
+
+func applyTickerToSnapshot(ss *SymbolSnapshot, t *ticker24hrRaw) {
+	if ss == nil || t == nil {
+		return
+	}
+	ss.Price = parseFloat(t.LastPrice)
+	ss.PriceChange24h = parseFloat(t.PriceChangePercent)
+	ss.Volume24h = parseFloat(t.Volume)
+	ss.QuoteVolume24h = parseFloat(t.QuoteVolume)
+	ss.HighPrice24h = parseFloat(t.HighPrice)
+	ss.LowPrice24h = parseFloat(t.LowPrice)
+	ss.TradeCount24h = t.Count
+}
+
+func applyPremiumToSnapshot(ss *SymbolSnapshot, p *premiumIndexRaw) {
+	if ss == nil || p == nil {
+		return
+	}
+	ss.MarkPrice = parseFloat(p.MarkPrice)
+	ss.IndexPrice = parseFloat(p.IndexPrice)
+	ss.FundingRate = parseFloat(p.LastFundingRate)
+	ss.NextFundingTime = p.NextFundingTime
+	if ss.IndexPrice > 0 {
+		ss.Spread = (ss.MarkPrice - ss.IndexPrice) / ss.IndexPrice * 100
+	}
+}
+
+func cloneSymbolSnapshot(src *SymbolSnapshot) *SymbolSnapshot {
+	if src == nil {
+		return nil
+	}
+	cp := *src
+	if src.Klines != nil {
+		cp.Klines = make(map[string][]Kline, len(src.Klines))
+		for interval, klines := range src.Klines {
+			copied := make([]Kline, len(klines))
+			copy(copied, klines)
+			cp.Klines[interval] = copied
+		}
+	} else {
+		cp.Klines = make(map[string][]Kline)
+	}
+	if src.OISpikeData != nil {
+		cp.OISpikeData = make([]float64, len(src.OISpikeData))
+		copy(cp.OISpikeData, src.OISpikeData)
+	}
+	return &cp
+}
+
 // fetchOI fetches current open interest for a symbol (USDT value).
 func (f *DataFetcher) fetchOI(ctx context.Context, symbol string) (float64, error) {
 	path := fmt.Sprintf("/fapi/v1/openInterest?symbol=%s", symbol)

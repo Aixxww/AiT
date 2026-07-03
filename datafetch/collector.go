@@ -159,6 +159,47 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 	}
 }
 
+// RefreshSymbol refreshes one symbol through REST and patches the current
+// atomic snapshot. It is intended for execution preflight checks where waiting
+// for the next 30s REST cycle would make high-velocity signals stale.
+func (dc *DataCollector) RefreshSymbol(ctx context.Context, symbol string, klineIntervals []KlineInterval, refreshSlowDerivatives bool) (*SymbolSnapshot, error) {
+	if dc == nil || dc.fetcher == nil {
+		return nil, nil
+	}
+	current := dc.store.Current()
+	var base *SymbolSnapshot
+	if current != nil && current.Symbols != nil {
+		base = current.Symbols[symbol]
+	}
+	refreshed, err := dc.fetcher.RefreshSymbol(ctx, symbol, base, klineIntervals, refreshSlowDerivatives)
+	if refreshed == nil {
+		return nil, err
+	}
+
+	var next *Snapshot
+	if current != nil {
+		next = copySnapshot(current)
+	} else {
+		next = &Snapshot{
+			Symbols:   make(map[string]*SymbolSnapshot),
+			CreatedAt: now(),
+			Meta:      SnapshotMeta{SymbolCount: 1},
+		}
+	}
+	if next.Symbols == nil {
+		next.Symbols = make(map[string]*SymbolSnapshot)
+	}
+	next.Symbols[symbol] = refreshed
+	if next.Meta.SymbolCount <= 0 {
+		next.Meta.SymbolCount = len(next.Symbols)
+	}
+	if err != nil {
+		next.Meta.RestErrors++
+	}
+	dc.store.Swap(next)
+	return refreshed, err
+}
+
 func refreshSlowDerivativeData(cycle int) bool {
 	return cycle > 0 && cycle%10 == 0
 }

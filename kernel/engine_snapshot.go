@@ -261,6 +261,15 @@ func (se *SnapshotEngine) GetSnapshot() *datafetch.Snapshot {
 	return se.dataStore.Current()
 }
 
+// RefreshSymbolSnapshot refreshes one symbol through the shared DataCollector
+// and patches the latest SnapshotStore entry for execution preflight checks.
+func (se *SnapshotEngine) RefreshSymbolSnapshot(ctx context.Context, symbol string, klineIntervals []datafetch.KlineInterval, refreshSlowDerivatives bool) (*datafetch.SymbolSnapshot, error) {
+	if se == nil || se.source == nil || se.source.collector == nil {
+		return nil, fmt.Errorf("snapshot data source unavailable")
+	}
+	return se.source.collector.RefreshSymbol(ctx, symbol, klineIntervals, refreshSlowDerivatives)
+}
+
 // MaxSnapshotAge returns the freshness guard for REST-backed snapshots.
 func (se *SnapshotEngine) MaxSnapshotAge() time.Duration {
 	if se == nil || se.source == nil || se.source.maxAge <= 0 {

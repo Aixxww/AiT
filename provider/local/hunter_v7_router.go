@@ -82,6 +82,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 				continue
 			}
 			sig.ExecutionContext = ctx.ExecutionContext
+			sig.DataFreshness = ctx.DataFreshness
 			// Propagate quote volume for adaptive OI threshold in prompt-data filter
 			if ctx.Snapshot != nil {
 				sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
@@ -139,6 +140,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 			// This must run after TP/timing/fast-track/resonance adjustments so
 			// readiness tiers and blocked gates reflect the final signal.
 			finalizeV7SignalForExecution(sig, ctx, cfg)
+			applyV7FreshnessRisk(sig, ctx)
 
 			// Compute AI Priority (composite ranking score)
 			sig.AIPriority = CalcAIPriority(sig, cfg)
@@ -184,6 +186,29 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 		WatchSignals:     watches,
 		OutputSignals:    out,
 		PotentialPool:    potentialPool,
+	}
+}
+
+func applyV7FreshnessRisk(sig *V7SignalOutput, ctx *V7SymbolContext) {
+	if sig == nil || ctx == nil {
+		return
+	}
+	fresh := ctx.DataFreshness
+	isStale := fresh.PriceAgeMs > 45_000 || fresh.SnapshotAgeMs > 60_000
+	if !isStale {
+		return
+	}
+	sig.RiskTags = appendIfMissing(sig.RiskTags, "stale_data_risk")
+	if containsV7String(sig.RiskTags, "high_volatility") || sig.SetupType == V7SetupRangeExpansion {
+		sig.ExecutionQuality = V7ExecWatchOnly
+		sig.Status = V7StatusWaitConfirm
+		if sig.ExecutionReadiness != nil && sig.ExecutionReadiness.Tier == V7ReadinessExecutable {
+			sig.ExecutionReadiness.Tier = V7ReadinessReviewable
+			sig.ExecutionReadiness.BlockedGate = "stale_data_risk"
+			sig.ExecutionReadiness.Reason = "stale high-volatility signal requires fresh micro confirmation"
+			sig.ExecutionReadiness.NextConfirm = appendIfMissing(sig.ExecutionReadiness.NextConfirm, "fresh_micro_confirmed")
+		}
+		sig.RequiredConfirms = appendIfMissing(sig.RequiredConfirms, "fresh_micro_confirmed")
 	}
 }
 

@@ -1,7 +1,9 @@
 package trader
 
 import (
+	"context"
 	"fmt"
+	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/provider/local"
@@ -50,19 +52,25 @@ const (
 	protectorHardLossExitPnLPct           = -12.0
 	protectorBreakevenBufferPct           = 0.001
 	protectorDefaultMinCloseNotional      = 12.0
+	hunterV7MicroRefreshMaxSpreadPct      = 0.35
+	hunterV7MicroRefreshMaxDriftPct       = 0.45
+	hunterV7RESTRefreshTimeout            = 3500 * time.Millisecond
+	hunterV7RESTRefreshMaxAgeMs           = int64(120_000)
+	hunterV7RESTRefreshFlowFlipPct        = 0.50
 )
 
 type positionProtectionState struct {
-	InitialQuantity  float64
-	TP0Done          bool
-	TP1Done          bool
-	TP2Done          bool
-	PeakPnLPct       float64
-	ActiveStopLoss   float64
-	DynamicStop      float64
-	OpenedAt         time.Time
-	LastActionAt     time.Time
-	LastStopUpdateAt time.Time
+	InitialQuantity   float64
+	TP0Done           bool
+	TP1Done           bool
+	TP2Done           bool
+	PeakPnLPct        float64
+	ActiveStopLoss    float64
+	DynamicStop       float64
+	PlannedTakeProfit float64
+	OpenedAt          time.Time
+	LastActionAt      time.Time
+	LastStopUpdateAt  time.Time
 }
 
 type protectionAction string
@@ -144,13 +152,18 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
-		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 {
+		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 || plannedRisk.takeProfit > 0 {
 			state.rememberActiveStopLoss(side, plannedRisk.stopLoss)
+			state.rememberPlannedTakeProfit(side, plannedRisk.takeProfit)
 		}
 		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
 			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
 		}
 		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct, currentPriceMovePct)
+		if action == protectionNone && shouldTriggerPlannedTP0Price(side, markPrice, currentPnLPct, state) {
+			action = protectionTP0
+			drawdownPct = protectionDrawdownPct(state, currentPnLPct)
+		}
 		if shouldUseFastProtectionInterval(state, currentPnLPct) {
 			nextInterval = positionProtectorFastInterval
 		}
@@ -239,6 +252,22 @@ func (state *positionProtectionState) rememberActiveStopLoss(side string, stop f
 		return
 	}
 	state.ActiveStopLoss = mostProtectiveStop(side, state.ActiveStopLoss, stop)
+}
+
+func (state *positionProtectionState) rememberPlannedTakeProfit(side string, takeProfit float64) {
+	if state == nil || takeProfit <= 0 {
+		return
+	}
+	if state.PlannedTakeProfit <= 0 {
+		state.PlannedTakeProfit = takeProfit
+		return
+	}
+	if side == "long" && takeProfit < state.PlannedTakeProfit {
+		state.PlannedTakeProfit = takeProfit
+	}
+	if side == "short" && takeProfit > state.PlannedTakeProfit {
+		state.PlannedTakeProfit = takeProfit
+	}
 }
 
 func mostProtectiveStop(side string, a, b float64) float64 {
@@ -332,6 +361,26 @@ func shouldUseFastProtectionInterval(state *positionProtectionState, currentPnLP
 	}
 	nearTP1PeakPnLPct := protectorTP1PnLPct * protectorNearTP1PeakRatio
 	return state.TP1Done || state.PeakPnLPct >= nearTP1PeakPnLPct || currentPnLPct >= nearTP1PeakPnLPct
+}
+
+func shouldTriggerPlannedTP0Price(side string, markPrice, currentPnLPct float64, state *positionProtectionState) bool {
+	if state == nil || state.TP0Done || state.PlannedTakeProfit <= 0 || markPrice <= 0 || currentPnLPct <= 0 {
+		return false
+	}
+	if side == "long" {
+		return markPrice >= state.PlannedTakeProfit
+	}
+	if side == "short" {
+		return markPrice <= state.PlannedTakeProfit
+	}
+	return false
+}
+
+func protectionDrawdownPct(state *positionProtectionState, currentPnLPct float64) float64 {
+	if state == nil || state.PeakPnLPct <= 0 || currentPnLPct >= state.PeakPnLPct {
+		return 0
+	}
+	return (state.PeakPnLPct - currentPnLPct) / state.PeakPnLPct * 100
 }
 
 func calculateLeveragedPnLPct(side string, entryPrice, markPrice float64, leverage int) float64 {
@@ -1181,6 +1230,12 @@ func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision
 	if finalPrice <= 0 {
 		finalPrice = currentPrice
 	}
+	if err := at.validateHunterV7RESTMicroRefresh(ctx, decision, side, finalPrice); err != nil {
+		return finalPrice, false, err
+	}
+	if err := at.validateHunterV7MicroRefresh(ctx, decision, side, finalPrice, decisionPriceBeforeRepair); err != nil {
+		return finalPrice, false, err
+	}
 
 	tpWasCapped := at.capTakeProfitToTP1(decision, finalPrice, side)
 	at.repairHunterV7OpenDecision(decision, finalPrice, side)
@@ -1191,6 +1246,262 @@ func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision
 		return finalPrice, tpWasCapped, err
 	}
 	return finalPrice, tpWasCapped, nil
+}
+
+func (at *AutoTrader) validateHunterV7MicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) error {
+	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
+		return nil
+	}
+	candidate := hunterV7CandidateForDecision(ctx, decision)
+	if candidate == nil || candidate.V7SetupType == "" {
+		return nil
+	}
+	needsFreshBook := hunterV7NeedsFreshMicroRefresh(candidate)
+	book, ok := at.hunterV7OrderBookMicroSnapshot(decision.Symbol, side)
+	if !ok {
+		if needsFreshBook {
+			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: fresh orderbook micro-refresh unavailable for high-risk signal (fresh_micro_confirmed_missing)",
+				candidate.V7SetupType, decision.Symbol)
+		}
+		return nil
+	}
+	if book.SpreadPct > hunterV7MicroRefreshMaxSpreadPct {
+		return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook spread %.3f%% exceeds %.3f%% (slippage_risk)",
+			candidate.V7SetupType, decision.Symbol, book.SpreadPct, hunterV7MicroRefreshMaxSpreadPct)
+	}
+	referencePrice := decisionPriceBeforeRepair
+	if referencePrice <= 0 {
+		referencePrice = decision.Price
+	}
+	if referencePrice > 0 {
+		driftPct := math.Abs(book.ExecutablePrice-referencePrice) / referencePrice * 100
+		maxDrift := hunterV7MicroRefreshMaxDriftPct
+		if cfgDrift := at.maxEntryPriceDeviationPct(); cfgDrift > 0 && cfgDrift < maxDrift {
+			maxDrift = cfgDrift
+		}
+		if needsFreshBook && driftPct > maxDrift {
+			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: executable price drift %.3f%% exceeds %.3f%% after micro-refresh (entry_drift)",
+				candidate.V7SetupType, decision.Symbol, driftPct, maxDrift)
+		}
+	}
+	if livePrice > 0 {
+		bookDriftPct := math.Abs(book.ExecutablePrice-livePrice) / livePrice * 100
+		if bookDriftPct > hunterV7MicroRefreshMaxDriftPct {
+			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook executable %.8f diverges from live price %.8f by %.3f%% (micro_price_mismatch)",
+				candidate.V7SetupType, decision.Symbol, book.ExecutablePrice, livePrice, bookDriftPct)
+		}
+	}
+	candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_micro_confirmed")
+	return nil
+}
+
+func (at *AutoTrader) validateHunterV7RESTMicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice float64) error {
+	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
+		return nil
+	}
+	candidate := hunterV7CandidateForDecision(ctx, decision)
+	if candidate == nil || candidate.V7SetupType == "" || !hunterV7NeedsFreshRESTRefresh(candidate) {
+		return nil
+	}
+	se := at.snapshotEngine
+	if se == nil && at.strategyEngine != nil {
+		se = at.strategyEngine.GetSnapshotEngine()
+	}
+	if se == nil {
+		return nil
+	}
+
+	refreshCtx, cancel := context.WithTimeout(context.Background(), hunterV7RESTRefreshTimeout)
+	defer cancel()
+	refreshed, err := se.RefreshSymbolSnapshot(refreshCtx, decision.Symbol, datafetch.FastKlineIntervals, false)
+	if err != nil {
+		return fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: symbol REST micro-refresh failed before open: %v",
+			candidate.V7SetupType, decision.Symbol, err)
+	}
+	if err := hunterV7ValidateRESTSnapshot(candidate, decision, side, livePrice, refreshed); err != nil {
+		return err
+	}
+	candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_rest_confirmed")
+	candidate.V7DataFreshness.PriceAgeMs = 0
+	return nil
+}
+
+func hunterV7NeedsFreshRESTRefresh(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil {
+		return false
+	}
+	return hunterV7NeedsFreshMicroRefresh(candidate) ||
+		containsStringValue(candidate.V7RiskTags, "event_flow_confirmation_needed") ||
+		containsStringValue(candidate.V7RiskTags, "range_expansion_low_volume_followthrough") ||
+		containsStringValue(candidate.V7RiskTags, "short_covering_not_new_long_build")
+}
+
+func hunterV7ValidateRESTSnapshot(candidate *kernel.CandidateCoin, decision *kernel.Decision, side string, livePrice float64, ss *datafetch.SymbolSnapshot) error {
+	if candidate == nil || decision == nil || ss == nil {
+		return fmt.Errorf("❌ [HUNTER V7 REST] %s blocked: missing refreshed symbol snapshot (fresh_rest_missing)", decision.Symbol)
+	}
+	if ageMs, ok := latestKlineAgeMs(ss, "1m"); !ok || ageMs > hunterV7RESTRefreshMaxAgeMs {
+		return fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: refreshed 1m kline age %dms exceeds %dms (fresh_rest_stale)",
+			candidate.V7SetupType, decision.Symbol, ageMs, hunterV7RESTRefreshMaxAgeMs)
+	}
+	restPrice := ss.Price
+	if restPrice <= 0 {
+		restPrice = ss.MarkPrice
+	}
+	if restPrice > 0 && livePrice > 0 {
+		driftPct := math.Abs(restPrice-livePrice) / livePrice * 100
+		if driftPct > hunterV7MicroRefreshMaxDriftPct {
+			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: REST price %.8f diverges from executable/live price %.8f by %.3f%% (rest_price_mismatch)",
+				candidate.V7SetupType, decision.Symbol, restPrice, livePrice, driftPct)
+		}
+	}
+	if ratio, ok := takerBuyRatioFromRecentKlines(ss, "1m", 5); ok {
+		if side == "long" && ratio <= 0.38 {
+			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s LONG blocked: latest 1m taker_buy_ratio %.3f shows aggressive sell-flow flip (flow_flip)",
+				candidate.V7SetupType, decision.Symbol, ratio)
+		}
+		if side == "short" && ratio >= 0.62 {
+			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s SHORT blocked: latest 1m taker_buy_ratio %.3f shows aggressive buy-flow flip (flow_flip)",
+				candidate.V7SetupType, decision.Symbol, ratio)
+		}
+	}
+	if movePct, ok := latestKlineMovePct(ss, "1m"); ok {
+		if side == "long" && movePct <= -hunterV7RESTRefreshFlowFlipPct {
+			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s LONG blocked: latest 1m move %.3f%% reversed against signal (micro_reversal)",
+				candidate.V7SetupType, decision.Symbol, movePct)
+		}
+		if side == "short" && movePct >= hunterV7RESTRefreshFlowFlipPct {
+			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s SHORT blocked: latest 1m move %.3f%% reversed against signal (micro_reversal)",
+				candidate.V7SetupType, decision.Symbol, movePct)
+		}
+	}
+	return nil
+}
+
+func latestKlineAgeMs(ss *datafetch.SymbolSnapshot, interval string) (int64, bool) {
+	if ss == nil || ss.Klines == nil {
+		return 0, false
+	}
+	klines := ss.Klines[interval]
+	if len(klines) == 0 {
+		return 0, false
+	}
+	latest := klines[len(klines)-1]
+	refMs := latest.OpenTime
+	if latest.CloseTime > 0 && latest.CloseTime < time.Now().UnixMilli() {
+		refMs = latest.CloseTime
+	}
+	if refMs <= 0 {
+		return 0, false
+	}
+	ageMs := time.Now().UnixMilli() - refMs
+	if ageMs < 0 {
+		ageMs = 0
+	}
+	return ageMs, true
+}
+
+func takerBuyRatioFromRecentKlines(ss *datafetch.SymbolSnapshot, interval string, limit int) (float64, bool) {
+	if ss == nil || ss.Klines == nil || limit <= 0 {
+		return 0, false
+	}
+	klines := ss.Klines[interval]
+	if len(klines) == 0 {
+		return 0, false
+	}
+	start := len(klines) - limit
+	if start < 0 {
+		start = 0
+	}
+	var totalVol, takerBuy float64
+	for _, k := range klines[start:] {
+		totalVol += k.Volume
+		takerBuy += k.TakerBuy
+	}
+	if totalVol <= 0 {
+		return 0, false
+	}
+	return takerBuy / totalVol, true
+}
+
+func latestKlineMovePct(ss *datafetch.SymbolSnapshot, interval string) (float64, bool) {
+	if ss == nil || ss.Klines == nil {
+		return 0, false
+	}
+	klines := ss.Klines[interval]
+	if len(klines) == 0 {
+		return 0, false
+	}
+	latest := klines[len(klines)-1]
+	if latest.Open <= 0 || latest.Close <= 0 {
+		return 0, false
+	}
+	return (latest.Close - latest.Open) / latest.Open * 100, true
+}
+
+type hunterV7OrderBookMicro struct {
+	Bid             float64
+	Ask             float64
+	ExecutablePrice float64
+	SpreadPct       float64
+}
+
+func (at *AutoTrader) hunterV7OrderBookMicroSnapshot(symbol, side string) (hunterV7OrderBookMicro, bool) {
+	gridTrader, ok := at.trader.(GridTrader)
+	if !ok || gridTrader == nil {
+		return hunterV7OrderBookMicro{}, false
+	}
+	bids, asks, err := gridTrader.GetOrderBook(symbol, 5)
+	if err != nil || len(bids) == 0 || len(asks) == 0 || len(bids[0]) == 0 || len(asks[0]) == 0 {
+		if err != nil {
+			logger.Infof("  ⚠️ [HUNTER V7 MICRO] Failed to get %s orderbook: %v", symbol, err)
+		}
+		return hunterV7OrderBookMicro{}, false
+	}
+	bid := bids[0][0]
+	ask := asks[0][0]
+	if bid <= 0 || ask <= 0 || ask < bid {
+		return hunterV7OrderBookMicro{}, false
+	}
+	mid := (bid + ask) / 2
+	if mid <= 0 {
+		return hunterV7OrderBookMicro{}, false
+	}
+	executable := ask
+	if side == "short" {
+		executable = bid
+	}
+	return hunterV7OrderBookMicro{
+		Bid:             bid,
+		Ask:             ask,
+		ExecutablePrice: executable,
+		SpreadPct:       (ask - bid) / mid * 100,
+	}, true
+}
+
+func hunterV7NeedsFreshMicroRefresh(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil {
+		return false
+	}
+	return strings.EqualFold(candidate.V7SetupType, "range_expansion_event") ||
+		strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") ||
+		containsStringValue(candidate.V7RiskTags, "high_volatility") ||
+		containsStringValue(candidate.V7RiskTags, "stale_data_risk") ||
+		containsStringValue(candidate.V7RiskTags, "range_expansion_exhaustion") ||
+		containsStringValue(candidate.V7RiskTags, "velocity_decelerating") ||
+		containsStringValue(candidate.V7RiskTags, "micro_reversal_against_signal")
+}
+
+func appendIfMissingString(values []string, value string) []string {
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func (at *AutoTrader) validateHunterV7LiveOpenGuard(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) error {
@@ -1275,10 +1586,36 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	}
 
 	candidate := hunterV7CandidateForDecision(ctx, decision)
-	if candidate == nil || candidate.V7SetupType == "" {
+	if candidate == nil {
+		if strings.TrimSpace(decision.SelectedHunterV7SignalID) != "" {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q does not match any current candidate (signal_contract_mismatch)",
+				decision.Symbol, decision.SelectedHunterV7SignalID)
+		}
+		return nil
+	}
+	if candidate.V7SetupType == "" {
 		return nil
 	}
 
+	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
+		return err
+	}
+	if containsStringValue(candidate.V7RiskTags, "stale_data_risk") && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
+		side := "long"
+		if decision.Action == "open_short" {
+			side = "short"
+		}
+		price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
+		if err := at.validateHunterV7RESTMicroRefresh(ctx, decision, side, price); err != nil {
+			return err
+		}
+		if err := at.validateHunterV7MicroRefresh(ctx, decision, side, price, decision.Price); err != nil {
+			return err
+		}
+	}
+	if err := validateHunterV7SignalFreshness(candidate, decision); err != nil {
+		return err
+	}
 	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
 		return err
 	}
@@ -1366,6 +1703,65 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 	return nil
 }
 
+func validateHunterV7DecisionSignalContract(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if candidate == nil || decision == nil {
+		return nil
+	}
+	selectedID := strings.TrimSpace(decision.SelectedHunterV7SignalID)
+	if candidate.V7SignalID != "" && selectedID == "" {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id is required for Hunter v7 candidate %q (signal_contract_missing)",
+			decision.Symbol, candidate.V7SignalID)
+	}
+	if selectedID != "" && candidate.V7SignalID != "" && selectedID != candidate.V7SignalID {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q does not match backend candidate %q (signal_contract_mismatch)",
+			decision.Symbol, selectedID, candidate.V7SignalID)
+	}
+	wantDirection := ""
+	if decision.Action == "open_long" {
+		wantDirection = "LONG"
+	} else if decision.Action == "open_short" {
+		wantDirection = "SHORT"
+	}
+	if wantDirection != "" && candidate.Direction != "" && !strings.EqualFold(candidate.Direction, wantDirection) {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: decision direction %s conflicts with Hunter v7 signal direction %s (signal_contract_mismatch)",
+			decision.Symbol, wantDirection, candidate.Direction)
+	}
+	if selectedSetup := strings.TrimSpace(decision.SelectedHunterV7Setup); selectedSetup != "" && candidate.V7SetupType != "" && !strings.EqualFold(selectedSetup, candidate.V7SetupType) {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected setup %q conflicts with Hunter v7 setup %q (signal_contract_mismatch)",
+			decision.Symbol, selectedSetup, candidate.V7SetupType)
+	}
+	if selectedTier := strings.TrimSpace(decision.SelectedHunterV7Tier); selectedTier != "" && candidate.V7ExecutionTier != "" && !strings.EqualFold(selectedTier, candidate.V7ExecutionTier) {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected tier %q conflicts with Hunter v7 tier %q (signal_contract_mismatch)",
+			decision.Symbol, selectedTier, candidate.V7ExecutionTier)
+	}
+	return nil
+}
+
+func validateHunterV7SignalFreshness(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if candidate == nil || decision == nil {
+		return nil
+	}
+	ageMs := decision.SignalAgeMs
+	if ageMs <= 0 {
+		if candidate.V7DataFreshness.PriceAgeMs > 0 {
+			ageMs = candidate.V7DataFreshness.PriceAgeMs
+		} else {
+			ageMs = candidate.V7DataFreshness.SnapshotAgeMs
+		}
+	}
+	if ageMs <= 0 {
+		return nil
+	}
+	highVelocity := containsStringValue(candidate.V7RiskTags, "high_volatility") ||
+		containsStringValue(candidate.V7RiskTags, "stale_data_risk") ||
+		strings.EqualFold(candidate.V7SetupType, "range_expansion_event")
+	if highVelocity && ageMs > 45_000 && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: high-volatility signal age %dms exceeds 45000ms without fresh_micro_confirmed (stale_data_risk)",
+			candidate.V7SetupType, decision.Symbol, ageMs)
+	}
+	return nil
+}
+
 func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
 	if candidate == nil || decision == nil {
 		return nil
@@ -1379,13 +1775,63 @@ func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *ke
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: high_volatility + confidence=C requires wait-only confirmation (wait_only_risk_combo)",
 			candidate.V7SetupType, decision.Symbol)
 	}
-	if containsStringValue(tags, "moderate_liquidity") && containsStringValue(tags, "high_volatility") && decision.PositionSizeUSD > 0 {
-		oldSize := decision.PositionSizeUSD
-		decision.PositionSizeUSD = oldSize / 3
-		logger.Infof("  ⚠️ [HUNTER V7 GUARD] %s %s high_volatility + moderate_liquidity: reducing position size %.2f → %.2f",
-			candidate.V7SetupType, decision.Symbol, oldSize, decision.PositionSizeUSD)
+	if containsStringValue(tags, "stale_data_risk") && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: stale_data_risk requires fresh_micro_confirmed before open (stale_data_risk)",
+			candidate.V7SetupType, decision.Symbol)
 	}
+	applyHunterV7RiskSizingPolicy(candidate, decision)
 	return nil
+}
+
+func applyHunterV7RiskSizingPolicy(candidate *kernel.CandidateCoin, decision *kernel.Decision) {
+	if candidate == nil || decision == nil {
+		return
+	}
+	tags := candidate.V7RiskTags
+	sizeMultiplier := 1.0
+	leverageCap := 0
+	reasons := make([]string, 0, 3)
+
+	apply := func(multiplier float64, cap int, reason string) {
+		if multiplier > 0 && multiplier < sizeMultiplier {
+			sizeMultiplier = multiplier
+		}
+		if cap > 0 && (leverageCap == 0 || cap < leverageCap) {
+			leverageCap = cap
+		}
+		if reason != "" {
+			reasons = append(reasons, reason)
+		}
+	}
+
+	if containsStringValue(tags, "high_volatility") {
+		apply(0.60, 15, "high_volatility")
+	}
+	if containsStringValue(tags, "moderate_liquidity") && containsStringValue(tags, "high_volatility") {
+		apply(1.0/3.0, 10, "high_volatility+moderate_liquidity")
+	}
+	if containsStringValue(tags, "execution_stop_tightened") {
+		apply(0.50, 10, "execution_stop_tightened")
+	}
+	if containsStringValue(tags, "range_expansion_exhaustion") || containsStringValue(tags, "velocity_decelerating") {
+		apply(0.50, 10, "event_exhaustion_or_deceleration")
+	}
+	if strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") {
+		apply(0.50, 10, "reviewable_tier")
+	}
+
+	if sizeMultiplier < 1 && decision.PositionSizeUSD > 0 {
+		oldSize := decision.PositionSizeUSD
+		decision.PositionSizeUSD = oldSize * sizeMultiplier
+		logger.Infof("  ⚠️ [HUNTER V7 GUARD] %s %s risk sizing %.2fx (%s): %.2f → %.2f",
+			candidate.V7SetupType, decision.Symbol, sizeMultiplier, strings.Join(reasons, ","), oldSize, decision.PositionSizeUSD)
+	}
+	if leverageCap > 0 && decision.Leverage > leverageCap {
+		oldLev := decision.Leverage
+		decision.Leverage = leverageCap
+		logger.Infof("  ⚠️ [HUNTER V7 GUARD] %s %s leverage capped %dx → %dx (%s)",
+			candidate.V7SetupType, decision.Symbol, oldLev, decision.Leverage, strings.Join(reasons, ","))
+	}
 }
 
 func validateHunterV7WhaleFlowGuard(candidate *kernel.CandidateCoin, decision *kernel.Decision, price float64) error {
@@ -1485,6 +1931,15 @@ func hunterV7CandidateForDecision(ctx *kernel.Context, decision *kernel.Decision
 		wantDirection = "SHORT"
 	} else if decision.Action == "open_long" {
 		wantDirection = "LONG"
+	}
+	if selectedID := strings.TrimSpace(decision.SelectedHunterV7SignalID); selectedID != "" {
+		for i := range ctx.CandidateCoins {
+			candidate := &ctx.CandidateCoins[i]
+			if candidate.V7SignalID == selectedID {
+				return candidate
+			}
+		}
+		return nil
 	}
 	for i := range ctx.CandidateCoins {
 		candidate := &ctx.CandidateCoins[i]
