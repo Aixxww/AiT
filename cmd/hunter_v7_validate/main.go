@@ -247,6 +247,7 @@ func runValidation(opts validationOptions, round int) error {
 	}
 	report.Issues = append(report.Issues, promptIssues(report.AIRecognition)...)
 	report.Issues = append(report.Issues, coverageIssues(report.OpportunityCover)...)
+	report.Issues = append(report.Issues, snapshotIssues(report.Snapshot)...)
 
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -629,6 +630,36 @@ func coverageIssues(c opportunityCoverCheck) []issue {
 	return issues
 }
 
+func snapshotIssues(s snapshotSummary) []issue {
+	var issues []issue
+	if s.SymbolCount <= 0 {
+		return []issue{{Severity: "critical", Code: "snapshot_empty", Detail: "Binance snapshot returned no symbols"}}
+	}
+	restRate := float64(s.RestErrors) / float64(s.SymbolCount)
+	if s.RestErrors > 0 {
+		severity := "medium"
+		if s.RestErrors >= 50 || restRate >= 0.20 {
+			severity = "high"
+		}
+		issues = append(issues, issue{
+			Severity: severity,
+			Code:     "binance_rest_partial_coverage",
+			Detail: fmt.Sprintf("REST errors=%d across %d symbols (%.1f%%); some OI/LSR/kline detail may be missing and universe coverage can shrink",
+				s.RestErrors, s.SymbolCount, restRate*100),
+		})
+	}
+	coverage := float64(s.UniverseCount) / float64(s.SymbolCount)
+	if s.UniverseCount > 0 && coverage < 0.30 {
+		issues = append(issues, issue{
+			Severity: "medium",
+			Code:     "universe_coverage_low",
+			Detail: fmt.Sprintf("Hunter v7 universe=%d/%d (%.1f%%); validate REST stability and top-detail breadth before judging no-opportunity cycles",
+				s.UniverseCount, s.SymbolCount, coverage*100),
+		})
+	}
+	return issues
+}
+
 func priceChange24h(snap *datafetch.Snapshot, symbol string) float64 {
 	if snap == nil || snap.Symbols == nil || snap.Symbols[symbol] == nil {
 		return 0
@@ -663,7 +694,22 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
 		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON, r.AIRecognition.PromptBytes))
 
-	sb.WriteString("## 3. 实时信号\n\n")
+	restRate := 0.0
+	universeCoverage := 0.0
+	if r.Snapshot.SymbolCount > 0 {
+		restRate = float64(r.Snapshot.RestErrors) / float64(r.Snapshot.SymbolCount) * 100
+		universeCoverage = float64(r.Snapshot.UniverseCount) / float64(r.Snapshot.SymbolCount) * 100
+	}
+	sb.WriteString("## 3. 实时数据覆盖质量\n\n")
+	sb.WriteString("| 项目 | 结果 |\n|---|---:|\n")
+	sb.WriteString(fmt.Sprintf("| Binance symbols | %d |\n", r.Snapshot.SymbolCount))
+	sb.WriteString(fmt.Sprintf("| Hunter v7 universe | %d |\n", r.Snapshot.UniverseCount))
+	sb.WriteString(fmt.Sprintf("| Universe coverage | %.1f%% |\n", universeCoverage))
+	sb.WriteString(fmt.Sprintf("| REST errors | %d |\n", r.Snapshot.RestErrors))
+	sb.WriteString(fmt.Sprintf("| REST error rate | %.1f%% |\n", restRate))
+	sb.WriteString(fmt.Sprintf("| Fetch ms | %d |\n\n", r.Snapshot.FetchMs))
+
+	sb.WriteString("## 4. 实时信号\n\n")
 	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")
 	sb.WriteString("|---:|---|---|---|---|---:|---:|---:|---|---|\n")
 	for i, sig := range r.Signals {
@@ -676,7 +722,7 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("## 4. 机会覆盖\n\n")
+	sb.WriteString("## 5. 机会覆盖\n\n")
 	sb.WriteString(fmt.Sprintf("- setup 分布：%s\n", sortedMap(r.OpportunityCover.BySetupType)))
 	sb.WriteString(fmt.Sprintf("- status 分布：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
 	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
@@ -687,7 +733,7 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
 
-	sb.WriteString("## 5. 潜力池强制跟踪\n\n")
+	sb.WriteString("## 6. 潜力池强制跟踪\n\n")
 	if len(r.PotentialPool) == 0 {
 		sb.WriteString("- 本轮未生成潜力池候选。\n\n")
 	} else {
@@ -710,7 +756,7 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		sb.WriteString("- 跟踪口径：潜力池用于 30m/60m MFE、MAE、后续模块命中审计；未命中模块的高分标的不计入真实开仓胜率。\n\n")
 	}
 
-	sb.WriteString("## 6. 问题清单\n\n")
+	sb.WriteString("## 7. 问题清单\n\n")
 	if len(r.Issues) == 0 {
 		sb.WriteString("- 未发现格式或识别阻断问题。\n")
 	} else {

@@ -2329,6 +2329,109 @@ func TestClassifyHunterV7CandidateTierRejectsExtremeVolatilityRangeExpansion(t *
 	}
 }
 
+func TestClassifyHunterV7CandidateTierAllowsRangeExpansionShortLiveReviewableSummaryGap(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "GUAUSDT",
+		Direction:          "SHORT",
+		V7SetupType:        "range_expansion_event",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       61.7,
+		V7SetupScore:       83.6,
+		V7TimingScore:      67,
+		V7RiskScore:        15,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"range_expansion_event",
+			"amplitude_24h_extreme",
+			"moderate_range_expansion_event",
+			"event_directional_followthrough",
+			"taker_sell_aligned",
+			"range_expansion_continuation",
+		},
+		V7RiskTags: []string{
+			"range_expansion_low_volume_followthrough",
+			"regime_against_direction",
+			"execution_stop_tightened",
+			"stale_data_risk",
+		},
+		V7RequiredConfirms: []string{
+			"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+			"taker_buy_15m_lt_0_48",
+			"no_new_high_after_rejection",
+			"fresh_micro_confirmed",
+		},
+		V7EntryZone:      local.V7PriceZone{Lower: 0.9700, Upper: 1.0300},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.9950},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.44},
+		V7Readiness: &local.V7ExecutionReadiness{
+			Tier:         local.V7ReadinessReviewable,
+			Reason:       "readiness_reviewable",
+			ReadyScore:   84.2,
+			WindowHealth: 100,
+			EntryZonePos: 27.8,
+			DataQuality:  "complete_for_execution",
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "range_expansion_live_reviewable_short_summary" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE range_expansion_live_reviewable_short_summary", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierBlocksRangeExpansionShortExhaustionLiveReviewable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "TLMUSDT",
+		Direction:          "SHORT",
+		V7SetupType:        "range_expansion_event",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       65.5,
+		V7SetupScore:       96.8,
+		V7TimingScore:      67,
+		V7RiskScore:        30,
+		V7LiquidityScore:   100,
+		V7ReasonCodes: []string{
+			"range_expansion_event",
+			"strong_range_expansion_event",
+			"event_breakdown_short",
+			"taker_sell_aligned",
+			"velocity_decelerating",
+		},
+		V7RiskTags: []string{
+			"range_expansion_exhaustion",
+			"micro_reversal_against_signal",
+			"high_volatility",
+			"regime_against_direction",
+			"stale_data_risk",
+		},
+		V7RequiredConfirms: []string{
+			"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+			"taker_buy_15m_lt_0_48",
+			"no_new_high_after_rejection",
+			"fresh_micro_confirmed",
+		},
+		V7EntryZone:      local.V7PriceZone{Lower: 0.9700, Upper: 1.0300},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.9950},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.44},
+		V7Readiness: &local.V7ExecutionReadiness{
+			Tier:         local.V7ReadinessReviewable,
+			ReadyScore:   83.3,
+			WindowHealth: 95,
+			EntryZonePos: 27.8,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "confirmation_missing_summary" {
+		t.Fatalf("tier = %q (%s), want WATCH confirmation_missing_summary", tier, reason)
+	}
+}
+
 func TestClassifyHunterV7CandidateTierAllowsFundingShortFallbackReview(t *testing.T) {
 	coin := CandidateCoin{
 		Symbol:             "FUNDUSDT",

@@ -877,6 +877,37 @@ func TestHunterV7OpenNeedsGuardRefreshForReviewableLiveGap(t *testing.T) {
 	}
 }
 
+func TestHunterV7ReviewableSummaryGapRequiresAndAcceptsFreshRefresh(t *testing.T) {
+	candidate := &kernel.CandidateCoin{
+		Symbol:          "GUAUSDT",
+		Direction:       "SHORT",
+		V7SetupType:     "range_expansion_event",
+		V7ExecutionTier: "REVIEWABLE",
+		V7RequiredConfirms: []string{
+			"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+			"taker_buy_15m_lt_0_48",
+			"no_new_high_after_rejection",
+			"fresh_micro_confirmed",
+		},
+	}
+	decision := &kernel.Decision{Action: "open_short", Symbol: "GUAUSDT"}
+
+	if !hunterV7OpenNeedsGuardRefresh(candidate) {
+		t.Fatal("reviewable summary gap should require guard refresh before open")
+	}
+	if err := validateHunterV7RequiredConfirmations(candidate, decision); err == nil || !strings.Contains(err.Error(), "confirmation_missing") {
+		t.Fatalf("summary gap without fresh refresh should block, got %v", err)
+	}
+
+	candidate.V7ReasonCodes = []string{"fresh_rest_confirmed", "fresh_micro_confirmed"}
+	if hunterV7OpenNeedsGuardRefresh(candidate) {
+		t.Fatal("freshly confirmed summary gap should not require another guard refresh")
+	}
+	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
+		t.Fatalf("freshly confirmed summary gap should pass, got %v", err)
+	}
+}
+
 func TestHunterV7RESTSnapshotValidationRejectsFlowFlip(t *testing.T) {
 	nowMs := time.Now().UnixMilli()
 	candidate := &kernel.CandidateCoin{Symbol: "FLOWUSDT", V7SetupType: "range_expansion_event"}

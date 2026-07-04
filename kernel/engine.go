@@ -805,13 +805,16 @@ func hunterV7LiveConfirmableReviewableReason(coin CandidateCoin, waitReason stri
 	if !hunterV7EntryZoneReachable(coin) || !hunterV7TakerBuyAligned(coin) {
 		return false, ""
 	}
+	missing := strings.TrimPrefix(waitReason, "confirmation_missing_")
+	if ok, reason := hunterV7RangeExpansionLiveReviewableReason(coin, missing); ok {
+		return true, reason
+	}
 	if coin.V7ConfirmSummary == nil || !coin.V7ConfirmSummary.PassedHard || len(coin.V7ConfirmSummary.MissingHard) > 0 {
 		return false, ""
 	}
 	if coin.V7Readiness != nil && len(coin.V7Readiness.MissingHard) > 0 {
 		return false, ""
 	}
-	missing := strings.TrimPrefix(waitReason, "confirmation_missing_")
 	if !hunterV7ConfirmationCanBeLiveReviewed(missing) {
 		return false, ""
 	}
@@ -822,6 +825,77 @@ func hunterV7LiveConfirmableReviewableReason(coin CandidateCoin, waitReason stri
 		return false, ""
 	}
 	return true, "live_reviewable_" + missing
+}
+
+func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing string) (bool, string) {
+	if coin.V7SetupType != "range_expansion_event" {
+		return false, ""
+	}
+	switch missing {
+	case "summary",
+		"fresh_micro_confirmed",
+		"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+		"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+		"taker_buy_15m_gt_0_52",
+		"taker_buy_15m_lt_0_48",
+		"no_new_low_after_reclaim",
+		"no_new_high_after_rejection":
+	default:
+		return false, ""
+	}
+	if coin.V7AIPriority < 58 ||
+		coin.V7SetupScore < 70 ||
+		coin.V7TimingScore < 55 ||
+		coin.V7RiskScore >= 35 {
+		return false, ""
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 70 {
+		return false, ""
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{
+		"funding_extreme",
+		"high_volatility",
+		"range_expansion_exhaustion",
+		"micro_reversal_against_signal",
+		"late_short_after_deep_drop",
+		"short_after_fast_drop_without_flush",
+	}) {
+		return false, ""
+	}
+	if coin.V7Readiness != nil {
+		if len(coin.V7Readiness.MissingHard) > 0 || len(coin.V7Readiness.MissingExecution) > 0 {
+			return false, ""
+		}
+		if coin.V7Readiness.ReadyScore > 0 && coin.V7Readiness.ReadyScore < 75 {
+			return false, ""
+		}
+		if coin.V7Readiness.WindowHealth > 0 && coin.V7Readiness.WindowHealth < 80 {
+			return false, ""
+		}
+		if coin.V7Readiness.EntryZonePos > 0 && coin.V7Readiness.EntryZonePos > 70 {
+			return false, ""
+		}
+	}
+	if coin.V7ConfirmSummary != nil && (!coin.V7ConfirmSummary.PassedHard || len(coin.V7ConfirmSummary.MissingHard) > 0) {
+		return false, ""
+	}
+	if !hunterV7EntryZoneReachable(coin) {
+		return false, ""
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		if !containsAnyStringValue(coin.V7ReasonCodes, []string{"event_breakdown_short", "event_directional_followthrough", "range_expansion_continuation"}) ||
+			!containsStringValue(coin.V7ReasonCodes, "taker_sell_aligned") ||
+			!hunterV7TakerBuyAtMost(coin, 0.48) {
+			return false, ""
+		}
+		return true, "range_expansion_live_reviewable_short_" + missing
+	}
+	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"event_continuation_long", "event_directional_followthrough", "range_expansion_continuation"}) ||
+		!containsAnyStringValue(coin.V7ReasonCodes, []string{"taker_buy_aligned", "taker_buy_strong", "taker_aggressive_buy"}) ||
+		!hunterV7TakerBuyAtLeast(coin, 0.52) {
+		return false, ""
+	}
+	return true, "range_expansion_live_reviewable_long_" + missing
 }
 
 func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
@@ -835,7 +909,8 @@ func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
 		"momentum_not_exhausted",
 		"taker_flow_confirms_long",
 		"taker_flow_confirms_short",
-		"taker_flow_not_flipping_against_direction":
+		"taker_flow_not_flipping_against_direction",
+		"fresh_micro_confirmed":
 		return true
 	default:
 		return false

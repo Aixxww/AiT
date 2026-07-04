@@ -1677,6 +1677,13 @@ func hunterV7OpenNeedsGuardRefresh(candidate *kernel.CandidateCoin) bool {
 			!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed")) {
 		return true
 	}
+	if strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") &&
+		candidate.V7ConfirmSummary == nil &&
+		hunterV7RequiredConfirmationsCanBeSatisfiedByRefresh(candidate) &&
+		(!containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") ||
+			!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed")) {
+		return true
+	}
 	return false
 }
 
@@ -1686,6 +1693,9 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 	}
 	summary := candidate.V7ConfirmSummary
 	if summary == nil {
+		if hunterV7RequiredConfirmationsSatisfiedByRefresh(candidate) {
+			return nil
+		}
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: required confirmations cannot be machine-verified (confirmation_missing)",
 			candidate.V7SetupType, decision.Symbol)
 	}
@@ -1723,6 +1733,32 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 		}
 	}
 	return nil
+}
+
+func hunterV7RequiredConfirmationsSatisfiedByRefresh(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil || !strings.EqualFold(candidate.V7ExecutionTier, "REVIEWABLE") || len(candidate.V7RequiredConfirms) == 0 {
+		return false
+	}
+	if !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") ||
+		!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed") {
+		return false
+	}
+	return hunterV7RequiredConfirmationsCanBeSatisfiedByRefresh(candidate)
+}
+
+func hunterV7RequiredConfirmationsCanBeSatisfiedByRefresh(candidate *kernel.CandidateCoin) bool {
+	if candidate == nil || len(candidate.V7RequiredConfirms) == 0 {
+		return false
+	}
+	for _, code := range candidate.V7RequiredConfirms {
+		if code == "" {
+			continue
+		}
+		if !hunterV7ConfirmationCanBeSatisfiedByRefresh(code) {
+			return false
+		}
+	}
+	return true
 }
 
 func hunterV7HasOnlyLiveReviewableConfirmationGaps(candidate *kernel.CandidateCoin) bool {
@@ -1772,7 +1808,14 @@ func hunterV7ConfirmationCanBeSatisfiedByRefresh(code string) bool {
 		"momentum_not_exhausted",
 		"taker_flow_confirms_long",
 		"taker_flow_confirms_short",
-		"taker_flow_not_flipping_against_direction":
+		"taker_flow_not_flipping_against_direction",
+		"fresh_micro_confirmed",
+		"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
+		"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+		"taker_buy_15m_gt_0_52",
+		"taker_buy_15m_lt_0_48",
+		"no_new_low_after_reclaim",
+		"no_new_high_after_rejection":
 		return true
 	default:
 		return false
