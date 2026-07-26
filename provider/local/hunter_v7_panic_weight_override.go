@@ -16,7 +16,7 @@ type regimeSetupKey struct {
 
 // OverrideEntry describes how to adjust scoring for a regime+setup pair.
 type OverrideEntry struct {
-	TimingWeightBoost float64 `json:"timing_weight_boost"` // e.g. +0.10
+	TimingWeightBoost float64 `json:"timing_weight_boost"`  // e.g. +0.10
 	MinTimingForReady float64 `json:"min_timing_for_ready"` // lowered from default 60
 	Reason            string  `json:"reason"`
 }

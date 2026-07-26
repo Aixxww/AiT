@@ -20,11 +20,11 @@ type TimingBoosterConfig struct {
 
 // TimingBoostResult captures the output of a timing enhancement pass.
 type TimingBoostResult struct {
-	OriginalTiming float64             `json:"original_timing"`
-	AdjustedTiming float64             `json:"adjusted_timing"`
-	Delta          float64             `json:"delta"`
-	Adjustments    []TimingAdjustment  `json:"adjustments"`
-	DowngradeTier  *V7ReadinessTier    `json:"downgrade_tier,omitempty"`
+	OriginalTiming float64            `json:"original_timing"`
+	AdjustedTiming float64            `json:"adjusted_timing"`
+	Delta          float64            `json:"delta"`
+	Adjustments    []TimingAdjustment `json:"adjustments"`
+	DowngradeTier  *V7ReadinessTier   `json:"downgrade_tier,omitempty"`
 }
 
 // TimingAdjustment describes a single score adjustment applied.
