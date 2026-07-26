@@ -103,7 +103,25 @@ var hunterV7MMSLongTierSpec = hunterV7SetupTierSpec{
 	},
 }
 
+// hunterV7WatchStateTierSpec covers the four pre-signal watch setups (U3.3h):
+// generic default ready floor, upgrade-predicate reviewable.
+var hunterV7WatchStateTierSpec = hunterV7SetupTierSpec{
+	Ready: []hunterV7TierRule{
+		{MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55, Reason: "execution_quality_ready"},
+	},
+	Reviewable: []hunterV7TierRule{
+		{
+			Guards: []func(CandidateCoin) bool{hunterV7WatchUpgradedReviewable},
+			Reason: "watch_state_upgraded_reviewable",
+		},
+	},
+}
+
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"pre_breakout_watch":     hunterV7WatchStateTierSpec,
+	"pre_squeeze_watch":      hunterV7WatchStateTierSpec,
+	"pre_distribution_watch": hunterV7WatchStateTierSpec,
+	"accumulation_watch":     hunterV7WatchStateTierSpec,
 	"alt_ladder_momentum_long": {
 		Ready: []hunterV7TierRule{
 			// The ladder-stage/oi/volume resonance lives in one composite
