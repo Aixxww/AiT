@@ -206,6 +206,15 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 		cfg.WatchStateManager.RecordModuleConversions(regime, allSignals)
 	}
 
+	// Two append idioms coexist in the modules (raw append vs appendIfMissing),
+	// so a signal can accumulate duplicate tags. Normalize here — one place —
+	// so every consumer (prompt JSON, store, validate) sees each tag once.
+	for i := range allSignals {
+		allSignals[i].ReasonCodes = dedupeV7Tags(allSignals[i].ReasonCodes)
+		allSignals[i].RiskTags = dedupeV7Tags(allSignals[i].RiskTags)
+		allSignals[i].RequiredConfirms = dedupeV7Tags(allSignals[i].RequiredConfirms)
+	}
+
 	// Resolve conflicts (same symbol, opposite directions)
 	allSignals = ResolveV7Conflicts(allSignals)
 
@@ -825,4 +834,21 @@ func defaultV7Confirmations(sig *V7SignalOutput) []string {
 		}
 		return []string{"directional_15m_close_long", "taker_flow_confirms_long", "risk_level_not_extreme"}
 	}
+}
+
+// dedupeV7Tags removes duplicate tags while preserving first-seen order.
+func dedupeV7Tags(tags []string) []string {
+	if len(tags) < 2 {
+		return tags
+	}
+	seen := make(map[string]bool, len(tags))
+	out := tags[:0]
+	for _, tag := range tags {
+		if tag == "" || seen[tag] {
+			continue
+		}
+		seen[tag] = true
+		out = append(out, tag)
+	}
+	return out
 }
