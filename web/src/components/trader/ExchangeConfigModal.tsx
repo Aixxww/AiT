@@ -103,7 +103,7 @@ function StepIndicator({
               style={{
                 color:
                   index === currentStep
-                    ? 'var(--foreground)'
+                    ? 'var(--color-foreground)'
                     : 'var(--color-muted-fg)',
               }}
             >
@@ -148,7 +148,7 @@ function ExchangeCard({
       style={{
         background: selected
           ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)'
-          : 'var(--background)',
+          : 'var(--color-background)',
         border: selected
           ? '2px solid var(--color-primary)'
           : '2px solid var(--color-border)',
@@ -706,7 +706,7 @@ export function ExchangeConfigModal({
               <div
                 className="p-4 rounded-xl flex items-center gap-4"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--color-background)',
                   border: '1px solid var(--color-border)',
                 }}
               >
@@ -783,9 +783,9 @@ export function ExchangeConfigModal({
                   )}
                   className="w-full px-4 py-3 rounded-xl text-base"
                   style={{
-                    background: 'var(--background)',
+                    background: 'var(--color-background)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                   required
                 />
@@ -887,9 +887,9 @@ export function ExchangeConfigModal({
                       }
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -914,9 +914,9 @@ export function ExchangeConfigModal({
                       }
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -944,9 +944,9 @@ export function ExchangeConfigModal({
                         }
                         className="w-full px-4 py-3 rounded-xl"
                         style={{
-                          background: 'var(--background)',
+                          background: 'var(--color-background)',
                           border: '1px solid var(--color-border)',
-                          color: 'var(--foreground)',
+                          color: 'var(--color-foreground)',
                         }}
                         required
                       />
@@ -1048,9 +1048,9 @@ export function ExchangeConfigModal({
                       placeholder={t('enterAsterUser', language)}
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1072,9 +1072,9 @@ export function ExchangeConfigModal({
                       placeholder={t('enterAsterSigner', language)}
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1096,9 +1096,9 @@ export function ExchangeConfigModal({
                       placeholder={t('enterAsterPrivateKey', language)}
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1146,9 +1146,9 @@ export function ExchangeConfigModal({
                         )}
                         className="flex-1 px-4 py-3 rounded-xl"
                         style={{
-                          background: 'var(--background)',
+                          background: 'var(--color-background)',
                           border: '1px solid var(--color-border)',
-                          color: 'var(--foreground)',
+                          color: 'var(--color-foreground)',
                         }}
                       />
                       <button
@@ -1177,9 +1177,9 @@ export function ExchangeConfigModal({
                       )}
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1223,9 +1223,9 @@ export function ExchangeConfigModal({
                       placeholder={t('enterLighterWalletAddress', language)}
                       className="w-full px-4 py-3 rounded-xl"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1251,9 +1251,9 @@ export function ExchangeConfigModal({
                       placeholder={t('enterLighterApiKeyPrivateKey', language)}
                       className="w-full px-4 py-3 rounded-xl font-mono"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       required
                     />
@@ -1313,9 +1313,9 @@ export function ExchangeConfigModal({
                   }
                   className="w-full px-4 py-3 rounded-xl"
                   style={{
-                    background: 'var(--background)',
+                    background: 'var(--color-background)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 />
                 <p className="text-xs text-muted-foreground">

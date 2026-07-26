@@ -338,7 +338,7 @@ export function BacktestPage() {
 
   // Render
   return (
-    <DeepVoidBackground className="py-8" disableAnimation>
+    <DeepVoidBackground className="py-8">
       <div className="w-full px-4 md:px-8 space-y-6">
         {/* Toast */}
         <AnimatePresence>
@@ -388,7 +388,7 @@ export function BacktestPage() {
             className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all hover:opacity-90"
             style={{
               background: 'var(--color-primary)',
-              color: 'var(--background)',
+              color: 'var(--color-background)',
             }}
           >
             <Play className="w-4 h-4" />

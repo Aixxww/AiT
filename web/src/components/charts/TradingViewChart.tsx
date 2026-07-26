@@ -169,7 +169,9 @@ function TradingViewChartComponent({
       className={`${embedded ? '' : 'binance-card'} overflow-hidden ${embedded ? '' : 'animate-fade-in'} ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none flex flex-col' : ''
       }`}
-      style={isFullscreen ? { background: 'var(--background)' } : undefined}
+      style={
+        isFullscreen ? { background: 'var(--color-background)' } : undefined
+      }
     >
       {/* Header */}
       <div
@@ -205,7 +207,7 @@ function TradingViewChartComponent({
               style={{
                 background: 'var(--color-panel)',
                 border: '1px solid var(--color-border)',
-                color: 'var(--foreground)',
+                color: 'var(--color-foreground)',
               }}
             >
               {EXCHANGES.find((e) => e.id === exchange)?.name || exchange}
@@ -232,7 +234,7 @@ function TradingViewChartComponent({
                       color:
                         exchange === ex.id
                           ? 'var(--color-primary)'
-                          : 'var(--foreground)',
+                          : 'var(--color-foreground)',
                       background:
                         exchange === ex.id
                           ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
@@ -292,9 +294,9 @@ function TradingViewChartComponent({
                       placeholder={t('enterSymbol', language)}
                       className="flex-1 px-3 py-1.5 rounded text-sm"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                     />
                     <button
@@ -328,7 +330,7 @@ function TradingViewChartComponent({
                           color:
                             symbol === sym
                               ? 'var(--color-primary)'
-                              : 'var(--foreground)',
+                              : 'var(--color-foreground)',
                           background:
                             symbol === sym
                               ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
@@ -348,7 +350,7 @@ function TradingViewChartComponent({
           <div
             className="flex gap-0.5 p-0.5 rounded"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid var(--color-border)',
             }}
           >
@@ -412,7 +414,7 @@ function TradingViewChartComponent({
         ref={containerRef}
         style={{
           height: isFullscreen ? 'calc(100vh - 65px)' : height,
-          background: 'var(--background)',
+          background: 'var(--color-background)',
           overflow: 'hidden',
         }}
       />

@@ -58,7 +58,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
   }
 
   return (
-    <DeepVoidBackground className="py-6 pt-24" disableAnimation>
+    <DeepVoidBackground className="py-6 pt-24">
       <div className="w-full px-4 md:px-8">
         {/* Page Header */}
         <div className="text-center mb-12">
@@ -119,7 +119,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
                   style={{
                     background:
                       'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)',
-                    color: 'var(--background)',
+                    color: 'var(--color-background)',
                   }}
                 >
                   {language === 'zh' ? '清除搜索' : 'Clear Search'}
@@ -153,7 +153,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
               className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"
               style={{
                 background: 'var(--color-panel)',
-                color: 'var(--foreground)',
+                color: 'var(--color-foreground)',
                 border: '1px solid var(--color-border)',
               }}
             >
@@ -167,7 +167,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
               style={{
                 background:
                   'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)',
-                color: 'var(--background)',
+                color: 'var(--color-background)',
               }}
             >
               {t('community', language)}

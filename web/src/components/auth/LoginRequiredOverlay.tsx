@@ -38,7 +38,6 @@ export function LoginRequiredOverlay({
         >
           <DeepVoidBackground
             className="w-full h-full bg-ait-bg/95 backdrop-blur-md flex items-center justify-center p-4 text-ait-text"
-            disableAnimation
             onClick={onClose}
           >
             <motion.div
@@ -46,7 +45,7 @@ export function LoginRequiredOverlay({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-              className="relative max-w-md w-full overflow-hidden bg-ait-bg border border-ait-gold/30 shadow-neon rounded-sm group font-mono"
+              className="relative max-w-md w-full overflow-hidden bg-ait-bg border border-ait-gold/30 rounded-sm group font-mono"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Terminal Window Header */}
@@ -118,7 +117,7 @@ export function LoginRequiredOverlay({
                   <div className="space-y-3">
                     <Link
                       to="/login"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-neon hover:shadow-[0_0_25px_rgba(240,185,11,0.4)] group"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all group"
                     >
                       <LogIn size={14} />
                       <span>{tr('loginButton')}</span>

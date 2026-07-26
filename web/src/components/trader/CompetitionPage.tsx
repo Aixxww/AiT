@@ -45,7 +45,7 @@ export function CompetitionPage() {
 
   if (!competition) {
     return (
-      <DeepVoidBackground className="py-8" disableAnimation>
+      <DeepVoidBackground className="py-8">
         <div className="container mx-auto max-w-7xl px-4 md:px-8">
           <div className="space-y-6">
             <div className="animate-pulse bg-black/40 border border-white/10 rounded-xl p-8 backdrop-blur-md">
@@ -73,7 +73,7 @@ export function CompetitionPage() {
   // 如果有数据返回但没有交易员，显示空状态
   if (!competition.traders || competition.traders.length === 0) {
     return (
-      <DeepVoidBackground className="py-8" disableAnimation>
+      <DeepVoidBackground className="py-8">
         <div className="container mx-auto max-w-7xl px-4 md:px-8 space-y-8 animate-fade-in">
           {/* Competition Header - 精简版 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
@@ -119,7 +119,7 @@ export function CompetitionPage() {
   const leader = sortedTraders[0]
 
   return (
-    <DeepVoidBackground className="py-8" disableAnimation>
+    <DeepVoidBackground className="py-8">
       <div className="w-full px-4 md:px-8 space-y-8 animate-fade-in">
         {/* Competition Header - 精简版 */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
@@ -207,8 +207,8 @@ export function CompetitionPage() {
                     className="rounded p-3 transition-all duration-300 hover:translate-y-[-1px] cursor-pointer hover:shadow-lg"
                     style={{
                       background: isLeader
-                        ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, var(--background) 100%)'
-                        : 'var(--background)',
+                        ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, var(--color-background) 100%)'
+                        : 'var(--color-background)',
                       border: `1px solid ${isLeader ? 'color-mix(in srgb, var(--color-primary) 40%, transparent)' : 'var(--color-border)'}`,
                       boxShadow: isLeader
                         ? '0 3px 15px color-mix(in srgb, var(--color-primary) 12%, transparent), 0 0 0 1px color-mix(in srgb, var(--color-primary) 15%, transparent)'
@@ -379,7 +379,7 @@ export function CompetitionPage() {
                               '0 3px 15px color-mix(in srgb, var(--color-profit) 12%, transparent)',
                           }
                         : {
-                            background: 'var(--background)',
+                            background: 'var(--color-background)',
                             border: '1px solid var(--color-border)',
                             boxShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
                           }

@@ -35,7 +35,7 @@ export function StatCard({
   value,
   suffix,
   trend,
-  color = 'var(--foreground)',
+  color = 'var(--color-foreground)',
   metricKey,
   language = 'en',
 }: StatCardProps) {

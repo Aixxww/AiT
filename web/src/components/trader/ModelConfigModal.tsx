@@ -697,7 +697,7 @@ function Claw402ConfigForm({
                 style={{
                   background: isSelected
                     ? 'rgba(37, 99, 235, 0.2)'
-                    : 'var(--background)',
+                    : 'var(--color-background)',
                   border: isSelected
                     ? '1.5px solid #2563EB'
                     : '1px solid var(--color-border)',
@@ -709,7 +709,9 @@ function Claw402ConfigForm({
                     <div
                       className="text-xs font-semibold truncate"
                       style={{
-                        color: isSelected ? '#60A5FA' : 'var(--foreground)',
+                        color: isSelected
+                          ? '#60A5FA'
+                          : 'var(--color-foreground)',
                       }}
                     >
                       {m.name}
@@ -851,13 +853,13 @@ function Claw402ConfigForm({
               }
               className="flex-1 px-4 py-3 rounded-xl font-mono text-sm"
               style={{
-                background: 'var(--background)',
+                background: 'var(--color-background)',
                 border: keyError
                   ? '1px solid var(--color-loss)'
                   : walletAddress
                     ? '1px solid var(--color-profit)'
                     : '1px solid var(--color-border)',
-                color: 'var(--foreground)',
+                color: 'var(--color-foreground)',
               }}
               required={!hasExistingWallet}
             />
@@ -918,7 +920,10 @@ function Claw402ConfigForm({
               <div className="flex items-center gap-2 mb-2">
                 <code
                   className="text-[10px] font-mono break-all select-all flex-1 p-2 rounded"
-                  style={{ background: 'var(--background)', color: '#F87171' }}
+                  style={{
+                    background: 'var(--color-background)',
+                    color: '#F87171',
+                  }}
                 >
                   {newWalletKey}
                 </code>
@@ -1330,7 +1335,7 @@ function StandardProviderConfigForm({
       <div
         className="p-4 rounded-xl flex items-center gap-4"
         style={{
-          background: 'var(--background)',
+          background: 'var(--color-background)',
           border: '1px solid var(--color-border)',
         }}
       >
@@ -1447,9 +1452,9 @@ function StandardProviderConfigForm({
           }
           className="w-full px-4 py-3 rounded-xl"
           style={{
-            background: 'var(--background)',
+            background: 'var(--color-background)',
             border: '1px solid var(--color-border)',
-            color: 'var(--foreground)',
+            color: 'var(--color-foreground)',
           }}
           required
         />
@@ -1482,9 +1487,9 @@ function StandardProviderConfigForm({
             placeholder={t('customBaseURLPlaceholder', language)}
             className="w-full px-4 py-3 rounded-xl"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid var(--color-border)',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
             }}
           />
           <div className="text-xs text-muted-foreground">
@@ -1520,9 +1525,9 @@ function StandardProviderConfigForm({
             placeholder={t('customModelNamePlaceholder', language)}
             className="w-full px-4 py-3 rounded-xl"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid var(--color-border)',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
             }}
           />
           <div className="text-xs text-muted-foreground">

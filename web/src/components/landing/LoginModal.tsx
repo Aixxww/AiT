@@ -33,7 +33,7 @@ export default function LoginModal({ onClose, language }: LoginModalProps) {
         <motion.button
           onClick={onClose}
           className="absolute top-4 right-4"
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: 'var(--color-muted-fg)' }}
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
         >
@@ -45,7 +45,7 @@ export default function LoginModal({ onClose, language }: LoginModalProps) {
         >
           {t('accessAiTPlatform', language)}
         </h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm mb-6" style={{ color: 'var(--color-muted-fg)' }}>
           {t('loginRegisterPrompt', language)}
         </p>
         <div className="space-y-3">

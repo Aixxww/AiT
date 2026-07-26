@@ -890,7 +890,7 @@ export function StrategyStudioPage() {
                   }}
                   className={`group px-2 py-2 rounded-lg cursor-pointer transition-all ${
                     selectedStrategy?.id === strategy.id
-                      ? 'ring-1 ring-ait-gold/50 bg-primary-dim shadow-neon'
+                      ? 'ring-1 ring-ait-gold/50 bg-primary-dim'
                       : 'hover:bg-ait-bg-lighter/60 ring-1 ring-white/10 hover:ring-ait-gold/20 bg-transparent'
                   }`}
                 >
@@ -1314,7 +1314,7 @@ export function StrategyStudioPage() {
                       disabled={
                         isRunningAiTest || !editingConfig || !selectedModelId
                       }
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 text-foreground shadow-lg shadow-neon bg-gradient-to-br from-profit to-profit/80"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 text-foreground shadow-lg bg-gradient-to-br from-profit to-profit/80"
                     >
                       {isRunningAiTest ? (
                         <>

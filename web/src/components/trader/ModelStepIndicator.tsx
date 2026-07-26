@@ -37,7 +37,7 @@ export function ModelStepIndicator({
               style={{
                 color:
                   index === currentStep
-                    ? 'var(--foreground)'
+                    ? 'var(--color-foreground)'
                     : 'var(--color-muted-fg)',
               }}
             >

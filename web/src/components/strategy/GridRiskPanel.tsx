@@ -110,7 +110,7 @@ export function GridRiskPanel({
   }
 
   const cardStyle = {
-    background: 'var(--background)',
+    background: 'var(--color-background)',
     border: '1px solid #2B3139',
   }
 

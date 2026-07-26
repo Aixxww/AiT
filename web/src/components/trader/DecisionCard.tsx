@@ -489,9 +489,9 @@ export function DecisionCard({
               <div
                 className="mt-2 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--color-background)',
                   border: '1px solid var(--color-border)',
-                  color: 'var(--foreground)',
+                  color: 'var(--color-foreground)',
                 }}
               >
                 {decision.system_prompt}
@@ -564,9 +564,9 @@ export function DecisionCard({
               <div
                 className="mt-2 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--color-background)',
                   border: '1px solid var(--color-border)',
-                  color: 'var(--foreground)',
+                  color: 'var(--color-foreground)',
                 }}
               >
                 {decision.input_prompt}
@@ -645,9 +645,9 @@ export function DecisionCard({
               <div
                 className="mt-2 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--color-background)',
                   border: '1px solid var(--color-border)',
-                  color: 'var(--foreground)',
+                  color: 'var(--color-foreground)',
                 }}
               >
                 {decision.cot_trace}
@@ -662,7 +662,7 @@ export function DecisionCard({
         <div
           className="rounded-lg p-3 mt-4 text-xs font-mono space-y-1"
           style={{
-            background: 'var(--background)',
+            background: 'var(--color-background)',
             border: '1px solid var(--color-border)',
           }}
         >

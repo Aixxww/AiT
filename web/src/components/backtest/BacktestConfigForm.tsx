@@ -152,7 +152,7 @@ export function BacktestConfigForm({
                     : 'var(--color-border)',
                 color:
                   wizardStep >= step
-                    ? 'var(--background)'
+                    ? 'var(--color-background)'
                     : 'var(--color-muted-fg)',
               }}
             >
@@ -198,9 +198,9 @@ export function BacktestConfigForm({
                 <select
                   className="w-full p-3 rounded-lg text-sm"
                   style={{
-                    background: 'var(--background)',
+                    background: 'var(--color-background)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                   value={formState.aiModelId}
                   onChange={(e) => onFormChange('aiModelId', e.target.value)}
@@ -241,9 +241,9 @@ export function BacktestConfigForm({
                 <select
                   className="w-full p-3 rounded-lg text-sm"
                   style={{
-                    background: 'var(--background)',
+                    background: 'var(--color-background)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                   value={formState.strategyId}
                   onChange={(e) => onFormChange('strategyId', e.target.value)}
@@ -342,9 +342,9 @@ export function BacktestConfigForm({
                   <textarea
                     className="w-full p-2 rounded-lg text-xs font-mono"
                     style={{
-                      background: 'var(--background)',
+                      background: 'var(--color-background)',
                       border: '1px solid var(--color-border)',
-                      color: 'var(--foreground)',
+                      color: 'var(--color-foreground)',
                     }}
                     value={formState.symbols}
                     onChange={(e) => onFormChange('symbols', e.target.value)}
@@ -365,7 +365,7 @@ export function BacktestConfigForm({
                       className="absolute top-2 right-2 px-2 py-1 rounded text-xs"
                       style={{
                         background: 'var(--color-primary)',
-                        color: 'var(--background)',
+                        color: 'var(--color-background)',
                       }}
                     >
                       {globalT('backtestConfigForm.clearToUseStrategy', lang)}
@@ -381,7 +381,7 @@ export function BacktestConfigForm({
                 className="w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 style={{
                   background: 'var(--color-primary)',
-                  color: 'var(--background)',
+                  color: 'var(--color-background)',
                 }}
               >
                 {globalT('backtestConfigForm.next', lang)}
@@ -413,7 +413,7 @@ export function BacktestConfigForm({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                     >
                       {r.label}
@@ -425,9 +425,9 @@ export function BacktestConfigForm({
                     type="datetime-local"
                     className="p-2 rounded-lg text-xs"
                     style={{
-                      background: 'var(--background)',
+                      background: 'var(--color-background)',
                       border: '1px solid var(--color-border)',
-                      color: 'var(--foreground)',
+                      color: 'var(--color-foreground)',
                     }}
                     value={formState.start}
                     onChange={(e) => onFormChange('start', e.target.value)}
@@ -436,9 +436,9 @@ export function BacktestConfigForm({
                     type="datetime-local"
                     className="p-2 rounded-lg text-xs"
                     style={{
-                      background: 'var(--background)',
+                      background: 'var(--color-background)',
                       border: '1px solid var(--color-border)',
-                      color: 'var(--foreground)',
+                      color: 'var(--color-foreground)',
                     }}
                     value={formState.end}
                     onChange={(e) => onFormChange('end', e.target.value)}
@@ -511,9 +511,9 @@ export function BacktestConfigForm({
                   <select
                     className="w-full p-2 rounded-lg text-xs"
                     style={{
-                      background: 'var(--background)',
+                      background: 'var(--color-background)',
                       border: '1px solid var(--color-border)',
-                      color: 'var(--foreground)',
+                      color: 'var(--color-foreground)',
                     }}
                     value={formState.decisionTf}
                     onChange={(e) => onFormChange('decisionTf', e.target.value)}
@@ -535,7 +535,7 @@ export function BacktestConfigForm({
                   style={{
                     background: 'var(--color-panel)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -547,7 +547,7 @@ export function BacktestConfigForm({
                   className="flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
                   style={{
                     background: 'var(--color-primary)',
-                    color: 'var(--background)',
+                    color: 'var(--color-background)',
                   }}
                 >
                   {globalT('backtestConfigForm.next', lang)}
@@ -739,7 +739,7 @@ export function BacktestConfigForm({
                   style={{
                     background: 'var(--color-panel)',
                     border: '1px solid var(--color-border)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -751,7 +751,7 @@ export function BacktestConfigForm({
                   className="flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                   style={{
                     background: 'var(--color-primary)',
-                    color: 'var(--background)',
+                    color: 'var(--color-background)',
                   }}
                 >
                   {isStarting ? (

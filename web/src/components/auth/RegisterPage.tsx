@@ -115,10 +115,7 @@ export function RegisterPage() {
   }
 
   return (
-    <DeepVoidBackground
-      className="min-h-screen flex items-center justify-center py-12 font-mono"
-      disableAnimation
-    >
+    <DeepVoidBackground className="min-h-screen flex items-center justify-center py-12 font-mono">
       <div className="w-full max-w-lg relative z-10 px-6">
         <div className="flex justify-between items-center mb-8">
           <button

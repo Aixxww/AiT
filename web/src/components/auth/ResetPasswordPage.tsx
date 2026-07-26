@@ -145,7 +145,7 @@ export function ResetPasswordPage() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-2 w-8 h-10 flex items-center justify-center btn-icon"
-                      style={{ color: 'var(--text-secondary)' }}
+                      style={{ color: 'var(--color-muted-fg)' }}
                     >
                       {showPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -176,7 +176,7 @@ export function ResetPasswordPage() {
                         setShowConfirmPassword(!showConfirmPassword)
                       }
                       className="absolute inset-y-0 right-2 w-8 h-10 flex items-center justify-center btn-icon"
-                      style={{ color: 'var(--text-secondary)' }}
+                      style={{ color: 'var(--color-muted-fg)' }}
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -190,7 +190,7 @@ export function ResetPasswordPage() {
                 {/* 密码强度检查（必须通过才允许提交） */}
                 <div
                   className="mt-1 text-xs"
-                  style={{ color: 'var(--text-secondary)' }}
+                  style={{ color: 'var(--color-muted-fg)' }}
                 >
                   <div
                     className="mb-1"

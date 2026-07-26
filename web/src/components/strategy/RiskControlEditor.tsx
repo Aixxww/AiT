@@ -39,7 +39,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -81,7 +81,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -115,7 +115,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -160,7 +160,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #0ECB81',
             }}
           >
@@ -198,7 +198,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #0ECB81',
             }}
           >
@@ -248,7 +248,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -289,7 +289,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -327,7 +327,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #0ECB81',
             }}
           >
@@ -376,7 +376,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >
@@ -416,7 +416,7 @@ export function RiskControlEditor({
           <div
             className="p-4 rounded-lg"
             style={{
-              background: 'var(--background)',
+              background: 'var(--color-background)',
               border: '1px solid #2B3139',
             }}
           >

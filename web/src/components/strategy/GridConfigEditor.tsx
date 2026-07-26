@@ -32,7 +32,7 @@ export function GridConfigEditor({
   }
 
   const sectionStyle = {
-    background: 'var(--background)',
+    background: 'var(--color-background)',
     border: '1px solid #2B3139',
   }
 

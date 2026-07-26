@@ -22,7 +22,9 @@ export function ModelCard({
       onClick={onClick}
       className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-105"
       style={{
-        background: selected ? 'rgba(139, 92, 246, 0.15)' : 'var(--background)',
+        background: selected
+          ? 'rgba(139, 92, 246, 0.15)'
+          : 'var(--color-background)',
         border: selected
           ? '2px solid #8B5CF6'
           : '2px solid var(--color-border)',

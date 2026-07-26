@@ -596,7 +596,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
                 activeDot={{
                   r: 6,
                   fill: traderColor(trader.trader_id),
-                  stroke: 'var(--background)',
+                  stroke: 'var(--color-background)',
                   strokeWidth: 2,
                   filter: 'url(#glow)',
                 }}
@@ -653,7 +653,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
                           />
                           <span
                             style={{
-                              color: 'var(--foreground)',
+                              color: 'var(--color-foreground)',
                               fontSize: '12px',
                               fontWeight: 500,
                             }}

@@ -309,7 +309,7 @@ export function MetricTooltip({
             style={{
               fontWeight: 'bold',
               fontSize: '14px',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
             }}
           >
             {name}
@@ -341,7 +341,7 @@ export function MetricTooltip({
               justifyContent: 'center',
               alignItems: 'center',
               padding: '8px 4px',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
               overflowX: 'auto',
               overflowY: 'hidden',
               maxWidth: '100%',

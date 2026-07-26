@@ -31,7 +31,7 @@ export function PageNotFound() {
 
           <a
             href="/"
-            className="flex items-center gap-2 px-6 py-3 bg-ait-gold text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-yellow-400 transition-all shadow-neon hover:shadow-[0_0_20px_rgba(240,185,11,0.4)] group mt-4"
+            className="flex items-center gap-2 px-6 py-3 bg-ait-gold text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-yellow-400 transition-all group mt-4"
           >
             <Home size={16} />
             <span>RETURN_BASE</span>

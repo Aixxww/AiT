@@ -90,7 +90,7 @@ function StatCard({
       <div className="flex items-baseline gap-1">
         <span
           className="text-xl font-bold font-mono"
-          style={{ color: color || 'var(--foreground)' }}
+          style={{ color: color || 'var(--color-foreground)' }}
         >
           {value}
         </span>
@@ -750,7 +750,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               style={{
                 background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
-                color: 'var(--foreground)',
+                color: 'var(--color-foreground)',
               }}
             />
           </div>
@@ -775,7 +775,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                         : 'transparent',
                     color:
                       filterSide === side
-                        ? 'var(--foreground)'
+                        ? 'var(--color-foreground)'
                         : 'var(--color-muted-fg)',
                   }}
                 >
@@ -821,7 +821,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               style={{
                 background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
-                color: 'var(--foreground)',
+                color: 'var(--color-foreground)',
               }}
             />
           </div>
@@ -935,7 +935,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 style={{
                   background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
-                  color: 'var(--foreground)',
+                  color: 'var(--color-foreground)',
                 }}
               />
             </div>
@@ -952,7 +952,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                       currentPage === 1
                         ? 'transparent'
                         : 'var(--color-surface-alt)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   «
@@ -966,7 +966,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                       currentPage === 1
                         ? 'transparent'
                         : 'var(--color-surface-alt)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   ‹
@@ -985,7 +985,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                       currentPage === totalPages
                         ? 'transparent'
                         : 'var(--color-surface-alt)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   ›
@@ -999,7 +999,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                       currentPage === totalPages
                         ? 'transparent'
                         : 'var(--color-surface-alt)',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   »

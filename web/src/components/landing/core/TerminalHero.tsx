@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import '../landing.css'
 import {
   ArrowRight,
   Shield,

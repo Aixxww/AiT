@@ -115,7 +115,7 @@ export function EquityChart({ equity, trades }: EquityChartProps) {
               background: 'var(--color-panel)',
               border: '1px solid var(--color-border)',
               borderRadius: 8,
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
             }}
             labelStyle={{ color: 'var(--color-muted-fg)' }}
             formatter={(value: number) => [`$${value.toFixed(2)}`, 'Equity']}
@@ -193,7 +193,7 @@ export function CandlestickChartComponent({
 
     const chart = createChart(container, {
       layout: {
-        background: { type: ColorType.Solid, color: 'var(--background)' },
+        background: { type: ColorType.Solid, color: 'var(--color-background)' },
         textColor: 'var(--color-muted-fg)',
       },
       grid: {
@@ -347,7 +347,7 @@ export function CandlestickChartComponent({
             style={{
               background: 'var(--color-panel)',
               border: '1px solid var(--color-border)',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
             }}
           >
             {symbols.map((sym) => (
@@ -379,7 +379,7 @@ export function CandlestickChartComponent({
                       : 'var(--color-panel)',
                   color:
                     selectedTimeframe === tf
-                      ? 'var(--background)'
+                      ? 'var(--color-background)'
                       : 'var(--color-muted-fg)',
                 }}
               >
@@ -397,7 +397,7 @@ export function CandlestickChartComponent({
       <div
         ref={chartContainerRef}
         className="w-full rounded-lg overflow-hidden"
-        style={{ background: 'var(--background)', minHeight: 400 }}
+        style={{ background: 'var(--color-background)', minHeight: 400 }}
       >
         {isLoading && (
           <div className="flex items-center justify-center h-[400px] text-muted-foreground">

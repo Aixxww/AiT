@@ -48,7 +48,7 @@ function StepIndicator({
               style={{
                 color:
                   index === currentStep
-                    ? 'var(--foreground)'
+                    ? 'var(--color-foreground)'
                     : 'var(--color-muted-fg)',
               }}
             >
@@ -170,7 +170,7 @@ export function TelegramConfigModal({
         <div
           className="px-4 py-3 rounded-xl text-xs"
           style={{
-            background: 'var(--background)',
+            background: 'var(--color-background)',
             border: '1px solid var(--color-border)',
             color: 'var(--color-muted-fg)',
           }}
@@ -190,10 +190,10 @@ export function TelegramConfigModal({
           ]}
           className="w-full px-4 py-3 rounded-xl text-sm"
           style={{
-            background: 'var(--background)',
+            background: 'var(--color-background)',
             border: '1px solid var(--color-border)',
             color: selectedModelId
-              ? 'var(--foreground)'
+              ? 'var(--color-foreground)'
               : 'var(--color-muted-fg)',
           }}
         />
@@ -317,9 +317,9 @@ export function TelegramConfigModal({
                       placeholder="123456789:ABCdefGHIjklmNOPQRstuvwxYZ"
                       className="w-full px-4 py-3 rounded-xl font-mono text-sm"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                     />
                     <div className="text-xs text-muted-foreground">
@@ -387,7 +387,7 @@ export function TelegramConfigModal({
                     <div
                       className="p-3 rounded-xl flex items-center gap-3"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
                       }}
                     >
@@ -490,7 +490,7 @@ export function TelegramConfigModal({
                     <div
                       className="p-3 rounded-xl flex items-center gap-3"
                       style={{
-                        background: 'var(--background)',
+                        background: 'var(--color-background)',
                         border: '1px solid var(--color-border)',
                       }}
                     >
@@ -522,7 +522,7 @@ export function TelegramConfigModal({
                   <div
                     className="p-4 rounded-xl space-y-2"
                     style={{
-                      background: 'var(--background)',
+                      background: 'var(--color-background)',
                       border: '1px solid var(--color-border)',
                     }}
                   >
@@ -659,9 +659,11 @@ function BoundModelSelector({
           ]}
           className="flex-1 px-3 py-2.5 rounded-xl text-sm"
           style={{
-            background: 'var(--background)',
+            background: 'var(--color-background)',
             border: '1px solid var(--color-border)',
-            color: modelId ? 'var(--foreground)' : 'var(--color-muted-fg)',
+            color: modelId
+              ? 'var(--color-foreground)'
+              : 'var(--color-muted-fg)',
           }}
         />
         <button

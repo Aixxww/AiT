@@ -250,8 +250,8 @@ export function ChartWithOrders({
         width: chartContainerRef.current.clientWidth,
         height: height,
         layout: {
-          background: { color: 'var(--background)' },
-          textColor: 'var(--foreground)',
+          background: { color: 'var(--color-background)' },
+          textColor: 'var(--color-foreground)',
         },
         grid: {
           vertLines: { color: 'var(--chart-grid)' },
@@ -532,7 +532,7 @@ export function ChartWithOrders({
     <div
       className="relative"
       style={{
-        background: 'var(--background)',
+        background: 'var(--color-background)',
         borderRadius: '8px',
         overflow: 'hidden',
       }}
@@ -572,7 +572,7 @@ export function ChartWithOrders({
               border:
                 '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
               borderRadius: '6px',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
               fontSize: '12px',
               fontFamily: 'monospace',
               pointerEvents: 'none',
@@ -608,7 +608,9 @@ export function ChartWithOrders({
               }}
             >
               <span className="text-muted-foreground">O:</span>
-              <span style={{ color: 'var(--foreground)', fontWeight: '500' }}>
+              <span
+                style={{ color: 'var(--color-foreground)', fontWeight: '500' }}
+              >
                 {tooltipData.open?.toFixed(2)}
               </span>
 

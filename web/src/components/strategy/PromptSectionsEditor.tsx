@@ -133,7 +133,7 @@ export function PromptSectionsEditor({
               key={key}
               className="rounded-lg overflow-hidden"
               style={{
-                background: 'var(--background)',
+                background: 'var(--color-background)',
                 border: '1px solid #2B3139',
               }}
             >

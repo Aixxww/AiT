@@ -641,7 +641,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
   }
 
   return (
-    <DeepVoidBackground className="py-8" disableAnimation>
+    <DeepVoidBackground className="py-8">
       <div className="w-full px-4 md:px-8 space-y-8 animate-fade-in">
         {/* Header - Terminal Style */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-6">

@@ -376,7 +376,7 @@ export function TraderDashboardPage({
   }
 
   return (
-    <DeepVoidBackground className="min-h-screen pb-12" disableAnimation>
+    <DeepVoidBackground className="min-h-screen pb-12">
       <div className="w-full px-4 md:px-8 relative z-10 pt-6">
         {/* Trader Header */}
         <div

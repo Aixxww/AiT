@@ -26,7 +26,7 @@ export function PublishSettingsEditor({
         style={{
           background: isPublic
             ? 'linear-gradient(135deg, rgba(14, 203, 129, 0.15) 0%, rgba(14, 203, 129, 0.05) 100%)'
-            : 'linear-gradient(135deg, #1E2329 0%, var(--background) 100%)',
+            : 'linear-gradient(135deg, #1E2329 0%, var(--color-background) 100%)',
           border: isPublic
             ? '1px solid rgba(14, 203, 129, 0.4)'
             : '1px solid #2B3139',
@@ -52,7 +52,7 @@ export function PublishSettingsEditor({
               style={{
                 background: isPublic
                   ? 'rgba(14, 203, 129, 0.2)'
-                  : 'var(--background)',
+                  : 'var(--color-background)',
                 border: isPublic
                   ? '1px solid rgba(14, 203, 129, 0.3)'
                   : '1px solid #2B3139',
@@ -98,7 +98,7 @@ export function PublishSettingsEditor({
               <div
                 className="absolute top-1 w-4 h-4 rounded-full transition-all duration-300"
                 style={{
-                  background: 'var(--foreground)',
+                  background: 'var(--color-foreground)',
                   left: isPublic ? '28px' : '4px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                 }}
@@ -115,7 +115,7 @@ export function PublishSettingsEditor({
           style={{
             background: configVisible
               ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)'
-              : 'linear-gradient(135deg, #1E2329 0%, var(--background) 100%)',
+              : 'linear-gradient(135deg, #1E2329 0%, var(--color-background) 100%)',
             border: configVisible
               ? '1px solid rgba(168, 85, 247, 0.4)'
               : '1px solid #2B3139',
@@ -143,7 +143,7 @@ export function PublishSettingsEditor({
                 style={{
                   background: configVisible
                     ? 'rgba(168, 85, 247, 0.2)'
-                    : 'var(--background)',
+                    : 'var(--color-background)',
                   border: configVisible
                     ? '1px solid rgba(168, 85, 247, 0.3)'
                     : '1px solid #2B3139',
@@ -191,7 +191,7 @@ export function PublishSettingsEditor({
                 <div
                   className="absolute top-1 w-4 h-4 rounded-full transition-all duration-300"
                   style={{
-                    background: 'var(--foreground)',
+                    background: 'var(--color-foreground)',
                     left: configVisible ? '28px' : '4px',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                   }}

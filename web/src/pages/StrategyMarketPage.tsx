@@ -54,8 +54,8 @@ const strategyStyles: Record<
   scalper: {
     color: 'text-primary',
     border: 'border-primary/30',
-    glow: 'shadow-neon',
-    shadow: 'hover:shadow-neon',
+    glow: 'shadow-md',
+    shadow: 'hover:shadow-md',
     bg: 'bg-primary-dim',
     icon: Zap,
   },

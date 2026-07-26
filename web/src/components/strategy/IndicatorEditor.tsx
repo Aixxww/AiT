@@ -396,7 +396,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[
                         { value: '1h', label: '1h' },
@@ -415,7 +415,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[5, 10, 15, 20].map((n) => ({
                         value: n,
@@ -508,7 +508,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[
                         { value: '1h', label: '1h' },
@@ -530,7 +530,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[5, 10, 15, 20].map((n) => ({
                         value: n,
@@ -622,7 +622,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[
                         { value: '1h', label: '1h' },
@@ -648,7 +648,7 @@ export function IndicatorEditor({
                       style={{
                         background: 'var(--color-panel)',
                         border: '1px solid #2B3139',
-                        color: 'var(--foreground)',
+                        color: 'var(--color-foreground)',
                       }}
                       options={[5, 10, 15, 20].map((n) => ({
                         value: n,
@@ -668,7 +668,10 @@ export function IndicatorEditor({
       {/* ============================================ */}
       <div
         className="rounded-lg overflow-hidden"
-        style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
+        style={{
+          background: 'var(--color-background)',
+          border: '1px solid #2B3139',
+        }}
       >
         <div
           className="px-3 py-2 flex items-center gap-2"
@@ -867,7 +870,10 @@ export function IndicatorEditor({
       {/* ============================================ */}
       <div
         className="rounded-lg overflow-hidden"
-        style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
+        style={{
+          background: 'var(--color-background)',
+          border: '1px solid #2B3139',
+        }}
       >
         <div
           className="px-3 py-2 flex items-center gap-2"
@@ -1009,7 +1015,7 @@ export function IndicatorEditor({
                     style={{
                       background: 'var(--color-panel)',
                       border: '1px solid #2B3139',
-                      color: 'var(--foreground)',
+                      color: 'var(--color-foreground)',
                     }}
                   />
                 )}
@@ -1024,7 +1030,10 @@ export function IndicatorEditor({
       {/* ============================================ */}
       <div
         className="rounded-lg overflow-hidden"
-        style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
+        style={{
+          background: 'var(--color-background)',
+          border: '1px solid #2B3139',
+        }}
       >
         <div
           className="px-3 py-2 flex items-center gap-2"

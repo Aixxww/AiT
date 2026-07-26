@@ -199,7 +199,7 @@ export function ChartTabs({
             onClick={() => setActiveTab('equity')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${
               activeTab === 'equity'
-                ? 'bg-primary-dim text-primary border border-ait-gold/20 shadow-neon'
+                ? 'bg-primary-dim text-primary border border-ait-gold/20'
                 : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
             }`}
           >
@@ -214,7 +214,7 @@ export function ChartTabs({
             onClick={() => setActiveTab('kline')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${
               activeTab === 'kline'
-                ? 'bg-primary-dim text-primary border border-ait-gold/20 shadow-neon'
+                ? 'bg-primary-dim text-primary border border-ait-gold/20'
                 : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
             }`}
           >

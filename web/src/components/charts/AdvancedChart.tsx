@@ -1346,7 +1346,7 @@ export function AdvancedChart({
               background: 'var(--color-panel)',
               border: '1px solid var(--color-primary-glow)',
               borderRadius: '6px',
-              color: 'var(--foreground)',
+              color: 'var(--color-foreground)',
               fontSize: '12px',
               fontFamily: 'monospace',
               pointerEvents: 'none',
@@ -1382,7 +1382,9 @@ export function AdvancedChart({
               }}
             >
               <span className="text-muted-foreground">O:</span>
-              <span style={{ color: 'var(--foreground)', fontWeight: '500' }}>
+              <span
+                style={{ color: 'var(--color-foreground)', fontWeight: '500' }}
+              >
                 {tooltipData.open?.toFixed(2)}
               </span>
 
