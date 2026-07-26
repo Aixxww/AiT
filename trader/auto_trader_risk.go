@@ -1230,12 +1230,11 @@ func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision
 	if finalPrice <= 0 {
 		finalPrice = currentPrice
 	}
-	if err := at.validateHunterV7RESTMicroRefresh(ctx, decision, side, finalPrice); err != nil {
+	evidence, err := at.collectHunterV7RefreshEvidence(ctx, decision, side, finalPrice, decisionPriceBeforeRepair)
+	if err != nil {
 		return finalPrice, false, err
 	}
-	if err := at.validateHunterV7MicroRefresh(ctx, decision, side, finalPrice, decisionPriceBeforeRepair); err != nil {
-		return finalPrice, false, err
-	}
+	evidence.applyTo(hunterV7CandidateForDecision(ctx, decision))
 
 	tpWasCapped := at.capTakeProfitToTP1(decision, finalPrice, side)
 	at.repairHunterV7OpenDecision(decision, finalPrice, side)
@@ -1248,25 +1247,64 @@ func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision
 	return finalPrice, tpWasCapped, nil
 }
 
-func (at *AutoTrader) validateHunterV7MicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) error {
+// hunterV7RefreshEvidence is the Stage B output of the guard chain: what the
+// live REST/orderbook refresh proved about the candidate. Collecting evidence
+// never mutates anything; applyTo is the single Stage C entry that mints the
+// fresh_* confirmation codes the later pure checks consume (U5.2).
+type hunterV7RefreshEvidence struct {
+	RestConfirmed  bool
+	MicroConfirmed bool
+}
+
+func (ev hunterV7RefreshEvidence) applyTo(candidate *kernel.CandidateCoin) {
+	if candidate == nil {
+		return
+	}
+	if ev.RestConfirmed {
+		candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_rest_confirmed")
+		candidate.V7DataFreshness.PriceAgeMs = 0
+	}
+	if ev.MicroConfirmed {
+		candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_micro_confirmed")
+	}
+}
+
+// collectHunterV7RefreshEvidence runs the REST and orderbook micro-refresh
+// verifications in their historical order and reports what they confirmed.
+func (at *AutoTrader) collectHunterV7RefreshEvidence(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) (hunterV7RefreshEvidence, error) {
+	var evidence hunterV7RefreshEvidence
+	restConfirmed, err := at.verifyHunterV7RESTMicroRefresh(ctx, decision, side, livePrice)
+	if err != nil {
+		return evidence, err
+	}
+	evidence.RestConfirmed = restConfirmed
+	microConfirmed, err := at.verifyHunterV7MicroRefresh(ctx, decision, side, livePrice, decisionPriceBeforeRepair)
+	if err != nil {
+		return evidence, err
+	}
+	evidence.MicroConfirmed = microConfirmed
+	return evidence, nil
+}
+
+func (at *AutoTrader) verifyHunterV7MicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice, decisionPriceBeforeRepair float64) (bool, error) {
 	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
-		return nil
+		return false, nil
 	}
 	candidate := hunterV7CandidateForDecision(ctx, decision)
 	if candidate == nil || candidate.V7SetupType == "" {
-		return nil
+		return false, nil
 	}
 	needsFreshBook := hunterV7NeedsFreshMicroRefresh(candidate)
 	book, ok := at.hunterV7OrderBookMicroSnapshot(decision.Symbol, side)
 	if !ok {
 		if needsFreshBook {
-			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: fresh orderbook micro-refresh unavailable for high-risk signal (fresh_micro_confirmed_missing)",
+			return false, fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: fresh orderbook micro-refresh unavailable for high-risk signal (fresh_micro_confirmed_missing)",
 				candidate.V7SetupType, decision.Symbol)
 		}
-		return nil
+		return false, nil
 	}
 	if book.SpreadPct > hunterV7MicroRefreshMaxSpreadPct {
-		return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook spread %.3f%% exceeds %.3f%% (slippage_risk)",
+		return false, fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook spread %.3f%% exceeds %.3f%% (slippage_risk)",
 			candidate.V7SetupType, decision.Symbol, book.SpreadPct, hunterV7MicroRefreshMaxSpreadPct)
 	}
 	referencePrice := decisionPriceBeforeRepair
@@ -1280,50 +1318,47 @@ func (at *AutoTrader) validateHunterV7MicroRefresh(ctx *kernel.Context, decision
 			maxDrift = cfgDrift
 		}
 		if needsFreshBook && driftPct > maxDrift {
-			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: executable price drift %.3f%% exceeds %.3f%% after micro-refresh (entry_drift)",
+			return false, fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: executable price drift %.3f%% exceeds %.3f%% after micro-refresh (entry_drift)",
 				candidate.V7SetupType, decision.Symbol, driftPct, maxDrift)
 		}
 	}
 	if livePrice > 0 {
 		bookDriftPct := math.Abs(book.ExecutablePrice-livePrice) / livePrice * 100
 		if bookDriftPct > hunterV7MicroRefreshMaxDriftPct {
-			return fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook executable %.8f diverges from live price %.8f by %.3f%% (micro_price_mismatch)",
+			return false, fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook executable %.8f diverges from live price %.8f by %.3f%% (micro_price_mismatch)",
 				candidate.V7SetupType, decision.Symbol, book.ExecutablePrice, livePrice, bookDriftPct)
 		}
 	}
-	candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_micro_confirmed")
-	return nil
+	return true, nil
 }
 
-func (at *AutoTrader) validateHunterV7RESTMicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice float64) error {
+func (at *AutoTrader) verifyHunterV7RESTMicroRefresh(ctx *kernel.Context, decision *kernel.Decision, side string, livePrice float64) (bool, error) {
 	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
-		return nil
+		return false, nil
 	}
 	candidate := hunterV7CandidateForDecision(ctx, decision)
 	if candidate == nil || candidate.V7SetupType == "" || !hunterV7NeedsFreshRESTRefresh(candidate) {
-		return nil
+		return false, nil
 	}
 	se := at.snapshotEngine
 	if se == nil && at.strategyEngine != nil {
 		se = at.strategyEngine.GetSnapshotEngine()
 	}
 	if se == nil {
-		return nil
+		return false, nil
 	}
 
 	refreshCtx, cancel := context.WithTimeout(context.Background(), hunterV7RESTRefreshTimeout)
 	defer cancel()
 	refreshed, err := se.RefreshSymbolSnapshot(refreshCtx, decision.Symbol, datafetch.FastKlineIntervals, false)
 	if err != nil {
-		return fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: symbol REST micro-refresh failed before open: %v",
+		return false, fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: symbol REST micro-refresh failed before open: %v",
 			candidate.V7SetupType, decision.Symbol, err)
 	}
 	if err := hunterV7ValidateRESTSnapshot(candidate, decision, side, livePrice, refreshed); err != nil {
-		return err
+		return false, err
 	}
-	candidate.V7ReasonCodes = appendIfMissingString(candidate.V7ReasonCodes, "fresh_rest_confirmed")
-	candidate.V7DataFreshness.PriceAgeMs = 0
-	return nil
+	return true, nil
 }
 
 func hunterV7NeedsFreshRESTRefresh(candidate *kernel.CandidateCoin) bool {
@@ -1601,6 +1636,7 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		return nil
 	}
 
+	// Stage A (pure eligibility): tier gate, tag action gate, signal contract.
 	if strings.EqualFold(candidate.V7ExecutionTier, "WATCH") || strings.EqualFold(candidate.V7ExecutionTier, "REJECTED") {
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: execution_tier=%s (%s)",
 			candidate.V7SetupType, decision.Symbol, candidate.V7ExecutionTier, candidate.V7TierReason)
@@ -1619,19 +1655,23 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
 		return err
 	}
+	// Stage B (live evidence, no mutation) + Stage C (explicit apply): the
+	// fresh_* codes minted here are what the pure freshness/confirmation
+	// checks below consume.
 	if hunterV7OpenNeedsGuardRefresh(candidate) {
 		side := "long"
 		if decision.Action == "open_short" {
 			side = "short"
 		}
 		price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
-		if err := at.validateHunterV7RESTMicroRefresh(ctx, decision, side, price); err != nil {
+		evidence, err := at.collectHunterV7RefreshEvidence(ctx, decision, side, price, decision.Price)
+		if err != nil {
 			return err
 		}
-		if err := at.validateHunterV7MicroRefresh(ctx, decision, side, price, decision.Price); err != nil {
-			return err
-		}
+		evidence.applyTo(candidate)
 	}
+	// Stage A again (pure, evidence-aware): freshness, required confirmations
+	// and tag combos re-evaluated against the applied evidence.
 	if err := validateHunterV7SignalFreshness(candidate, decision); err != nil {
 		return err
 	}
@@ -1642,6 +1682,7 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		return err
 	}
 
+	// Stage C (explicit position mutation).
 	at.capHunterV7LowLiquidityPosition(decision, candidate)
 
 	// Look up per-setup guard thresholds from strategy config

@@ -969,7 +969,7 @@ func TestHunterV7MicroRefreshRejectsWideSpreadAndDrift(t *testing.T) {
 		bids: [][]float64{{99.0, 10}},
 		asks: [][]float64{{101.0, 10}},
 	}
-	err := at.validateHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
+	_, err := at.verifyHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
 	if err == nil || !strings.Contains(err.Error(), "spread") {
 		t.Fatalf("expected spread rejection, got: %v", err)
 	}
@@ -978,13 +978,13 @@ func TestHunterV7MicroRefreshRejectsWideSpreadAndDrift(t *testing.T) {
 		bids: [][]float64{{100.9, 10}},
 		asks: [][]float64{{101.0, 10}},
 	}
-	err = at.validateHunterV7MicroRefresh(ctx, decision, "long", 101, 100)
+	_, err = at.verifyHunterV7MicroRefresh(ctx, decision, "long", 101, 100)
 	if err == nil || !strings.Contains(err.Error(), "drift") {
 		t.Fatalf("expected drift rejection, got: %v", err)
 	}
 
 	at.trader = &microRefreshTestTrader{err: fmt.Errorf("book unavailable")}
-	err = at.validateHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
+	_, err = at.verifyHunterV7MicroRefresh(ctx, decision, "long", 100, 100)
 	if err == nil || !strings.Contains(err.Error(), "unavailable") {
 		t.Fatalf("expected unavailable orderbook rejection, got: %v", err)
 	}
