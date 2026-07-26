@@ -165,10 +165,7 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"volume_burst_5m":                          tagDef("volume_burst_5m", "reason_code", "flow", "mixed", V7TagActionEvidence, "5m volume burst supports short-term event timing."),
 	"taker_sell_aligned":                       tagDef("taker_sell_aligned", "reason_code", "flow", "bearish", V7TagActionEvidence, "Sell-side taker flow aligns with a short setup."),
 	"momentum_upper_zone_chase":                tagDef("momentum_upper_zone_chase", "risk_tag", "risk", "bullish", V7TagActionWaitOnly, "Leader momentum is in the upper entry zone without a reset; wait for pullback, fresh breakout, or renewed OI/volume confirmation."),
-	"mms_liquidity_too_low":                    tagDef("mms_liquidity_too_low", "risk_tag", "risk", "neutral", V7TagActionRejectOnly, "MMS small-cap proxy liquidity is below executable bounds; do not open."),
 	"mms_breakout_not_confirmed":               tagDef("mms_breakout_not_confirmed", "risk_tag", "confirmation", "neutral", V7TagActionReviewableOnly, "MMS bottom-wake accumulation is visible, but breakout/reclaim confirmation is required before opening."),
-	"mms_ema_retest_not_held":                  tagDef("mms_ema_retest_not_held", "risk_tag", "price", "bullish", V7TagActionWaitOnly, "MMS trend-ride EMA support has not held; wait."),
-	"mms_trend_ride_chase_risk":                tagDef("mms_trend_ride_chase_risk", "risk_tag", "risk", "bullish", V7TagActionWaitOnly, "MMS trend ride is too extended from the EMA retest zone; do not chase."),
 	"mms_do_not_short_squeeze":                 tagDef("mms_do_not_short_squeeze", "risk_tag", "risk", "bullish", V7TagActionWaitOnly, "MMS squeeze engine is active; opening shorts on this symbol is blocked until the squeeze-release threshold is met."),
 	"mms_squeeze_late_chase":                   tagDef("mms_squeeze_late_chase", "risk_tag", "risk", "bullish", V7TagActionReduceOrWait, "MMS squeeze is late/overheated; reduce size or wait for re-entry."),
 	"alt_ladder_late_chase_risk":               tagDef("alt_ladder_late_chase_risk", "risk_tag", "risk", "bullish", V7TagActionReduceOrWait, "Alt-ladder long is in a late-stage move; open only with live entry-zone, flow, stop/RR confirmation and conservative size, otherwise wait for pullback."),
@@ -256,7 +253,6 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"taker_buy_15m_lt_0_45":                             tagDef("taker_buy_15m_lt_0_45", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short reversal needs stronger sell flow: 15m taker buy ratio below 0.45."),
 	"no_new_low_after_reclaim":                          tagDef("no_new_low_after_reclaim", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long reclaim remains valid only if price does not make a new low after reclaim."),
 	"no_new_high_after_rejection":                       tagDef("no_new_high_after_rejection", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short rejection remains valid only if price does not make a new high after rejection."),
-	"price_holds_trailing_support":                      tagDef("price_holds_trailing_support", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Momentum long must hold trailing support instead of breaking structure."),
 	"momentum_not_exhausted":                            tagDef("momentum_not_exhausted", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Momentum setup must not show exhaustion before entry."),
 	"taker_flow_not_flipping_against_direction":         tagDef("taker_flow_not_flipping_against_direction", "required_confirmation", "confirmation", "mixed", V7TagActionRequiredConfirm, "Taker flow must not flip against the signal direction."),
 	"price_holds_vwap_or_trailing_support":              tagDef("price_holds_vwap_or_trailing_support", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Displacement long must hold VWAP or trailing support."),
@@ -295,6 +291,10 @@ func DescribeHunterV7Tags(reasonCodes, riskTags, requiredConfirmations []string)
 			if def.Source == "" {
 				def.Source = source
 			}
+			out = append(out, def)
+			return
+		}
+		if def, ok := describeHunterV7PrefixTag(tag, source); ok {
 			out = append(out, def)
 			return
 		}
