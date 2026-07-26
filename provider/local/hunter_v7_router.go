@@ -68,12 +68,38 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 
 	var allSignals []V7SignalOutput
 
+	// Regime-aware breaker: decide once per module per cycle which
+	// regime-disfavoured modules sit this cycle out (see hunter_v7_module_breaker.go).
+	skippedModules := make(map[V7SetupType]bool)
+	if cfg.WatchStateManager != nil {
+		for _, mod := range r.modules {
+			setup := mod.SetupType()
+			if regimeModuleWeight(regime, setup) >= v7BreakerDisfavourWeight {
+				continue
+			}
+			if cfg.WatchStateManager.ShouldSkipModule(regime, setup) {
+				skippedModules[setup] = true
+			}
+		}
+		if len(skippedModules) > 0 {
+			names := make([]string, 0, len(skippedModules))
+			for setup := range skippedModules {
+				names = append(names, string(setup))
+			}
+			sort.Strings(names)
+			log.Printf("⛔ Hunter v7 breaker: skipping dry disfavoured modules this cycle: %s", strings.Join(names, ","))
+		}
+	}
+
 	for i := range universe {
 		ctx := &universe[i]
 		for _, mod := range r.modules {
 			// Regime weight gate: skip modules with very low weight
 			weight := regimeModuleWeight(regime, mod.SetupType())
 			if weight < 0.2 {
+				continue
+			}
+			if skippedModules[mod.SetupType()] {
 				continue
 			}
 
@@ -172,6 +198,12 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 
 			allSignals = append(allSignals, *sig)
 		}
+	}
+
+	// Feed the breaker with this cycle's raw module output before any
+	// filtering, so dry-spell counts reflect what modules actually produced.
+	if cfg.WatchStateManager != nil {
+		cfg.WatchStateManager.RecordModuleConversions(regime, allSignals)
 	}
 
 	// Resolve conflicts (same symbol, opposite directions)

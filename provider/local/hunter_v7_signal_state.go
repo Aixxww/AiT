@@ -55,6 +55,10 @@ type V7SignalStateManager struct {
 	triggerEntries map[string]*v7TriggerMemoryEntry
 	lastCycle      int
 	expireGap      int // cycles without sighting before expiry (default 3)
+
+	// Regime-aware module circuit breaker (hunter_v7_module_breaker.go).
+	moduleBreaker map[V7SetupType]*v7ModuleBreakerEntry
+	breakerRegime V7MarketRegime
 }
 
 // NewV7SignalStateManager creates a new state manager.
