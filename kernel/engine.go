@@ -931,13 +931,6 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 		return matched
 	}
 	switch coin.V7SetupType {
-	case "trend_breakout_long", "accumulation_breakout_long":
-		return coin.V7AIPriority >= 55 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 45 &&
-			coin.V7RiskScore < 45 &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "oi_increasing", "oi_stable_breakout", "clear_air_above"})
 	default:
 		return coin.V7AIPriority >= 60 &&
 			coin.V7SetupScore >= 55 &&
@@ -1074,14 +1067,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
 			return true, "momentum_ready_strong_flow"
 		}
-	case "trend_breakout_long", "accumulation_breakout_long":
-		if coin.V7AIPriority >= 60 &&
-			coin.V7SetupScore >= 60 &&
-			coin.V7TimingScore >= 60 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "long_setup_ready_confirmed"
-		}
 	default:
 		if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
 			return true, "execution_quality_ready"
@@ -1200,39 +1185,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		}
 		if ok, reason := hunterV7LeaderMomentumFlexibleReviewableReason(coin); ok {
 			return true, reason
-		}
-	case "trend_breakout_long", "accumulation_breakout_long":
-		if coin.V7AIPriority >= 55 &&
-			coin.V7SetupScore >= 58 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 50 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "long_setup_reviewable_needs_realtime_confirm"
-		}
-		if coin.V7ExecutionQuality == "near_confirm" &&
-			coin.V7AIPriority >= 45 &&
-			coin.V7SetupScore >= 50 &&
-			coin.V7TimingScore >= 45 &&
-			coin.V7RiskScore < 35 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			containsStringValue(coin.V7ReasonCodes, "confirmed_breakout") &&
-			containsStringValue(coin.V7ReasonCodes, "taker_aggressive_buy") {
-			return true, "breakout_reviewable_confirmed_low_risk_floor"
-		}
-		if coin.V7ExecutionQuality == "near_confirm" &&
-			coin.V7AIPriority >= 45 &&
-			coin.V7SetupScore >= 38 &&
-			coin.V7TimingScore >= 45 &&
-			coin.V7RiskScore < 35 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 60) &&
-			hunterV7TakerBuyAtLeast(coin, 0.52) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_adequate", "oi_increasing", "oi_stable_breakout"}) &&
-			containsStringValue(coin.V7ReasonCodes, "clear_air_above") {
-			return true, "breakout_reviewable_low_risk_pressure_floor"
-		}
-		if hunterV7TrendBreakoutStrongFlowReviewable(coin) {
-			return true, "breakout_watch_strong_flow_reviewable"
 		}
 	}
 	return false, ""

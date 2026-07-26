@@ -125,7 +125,60 @@ var hunterV7DefaultOnlyTierSpec = hunterV7SetupTierSpec{
 	},
 }
 
+// hunterV7BreakoutLongTierSpec covers trend_breakout_long and
+// accumulation_breakout_long (U3.3o). The cross-setup trigger-memory /
+// trigger-near escalations stay in the shared pre-switch section of
+// hunterV7ReviewableCandidateReason — they run before table dispatch.
+var hunterV7BreakoutLongTierSpec = hunterV7SetupTierSpec{
+	Ready: []hunterV7TierRule{
+		{
+			MinAIPriority: 60, MinSetupScore: 60, MinTimingScore: 60, RiskBelow: 55,
+			Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+			Reason: "long_setup_ready_confirmed",
+		},
+	},
+	Reviewable: []hunterV7TierRule{
+		{
+			MinAIPriority: 55, MinSetupScore: 58, MinTimingScore: 50, RiskBelow: 50,
+			Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+			Reason: "long_setup_reviewable_needs_realtime_confirm",
+		},
+		{
+			Quality:       "near_confirm",
+			MinAIPriority: 45, MinSetupScore: 50, MinTimingScore: 45, RiskBelow: 35, MinLiquidity: 50,
+			RequireAll: []string{"confirmed_breakout", "taker_aggressive_buy"},
+			Reason:     "breakout_reviewable_confirmed_low_risk_floor",
+		},
+		{
+			Quality:       "near_confirm",
+			MinAIPriority: 45, MinSetupScore: 38, MinTimingScore: 45, RiskBelow: 35, MinLiquidity: 60,
+			Taker:      hunterV7TakerGate{Kind: "at_least", Threshold: 0.52},
+			RequireAll: []string{"clear_air_above"},
+			RequireAny: [][]string{
+				{"approaching_breakout", "breakout_attempt", "confirmed_breakout"},
+				{"volume_adequate", "oi_increasing", "oi_stable_breakout"},
+			},
+			Reason: "breakout_reviewable_low_risk_pressure_floor",
+		},
+		{
+			Guards: []func(CandidateCoin) bool{hunterV7TrendBreakoutStrongFlowReviewable},
+			Reason: "breakout_watch_strong_flow_reviewable",
+		},
+	},
+	OpenRateFloor: []hunterV7TierRule{
+		{
+			MinAIPriority: 55, MinSetupScore: 55, MinTimingScore: 45, RiskBelow: 45,
+			RequireAny: [][]string{
+				{"approaching_breakout", "breakout_attempt", "confirmed_breakout"},
+				{"volume_expansion", "volume_adequate", "oi_increasing", "oi_stable_breakout", "clear_air_above"},
+			},
+		},
+	},
+}
+
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"trend_breakout_long":        hunterV7BreakoutLongTierSpec,
+	"accumulation_breakout_long": hunterV7BreakoutLongTierSpec,
 	"volatility_squeeze_breakout": hunterV7DefaultOnlyTierSpec,
 	"intraday_scalp_long":         hunterV7DefaultOnlyTierSpec,
 	"pre_breakout_watch":     hunterV7WatchStateTierSpec,
