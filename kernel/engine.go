@@ -1104,7 +1104,7 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
 			return true, "momentum_ready_strong_flow"
 		}
-	case "trend_breakout_long", "accumulation_breakout_long", "short_squeeze_long":
+	case "trend_breakout_long", "accumulation_breakout_long":
 		if coin.V7AIPriority >= 60 &&
 			coin.V7SetupScore >= 60 &&
 			coin.V7TimingScore >= 60 &&

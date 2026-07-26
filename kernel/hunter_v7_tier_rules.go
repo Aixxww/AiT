@@ -186,6 +186,17 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"short_squeeze_long": {
+		// Shared long-setup ready floor; the setup never had a reviewable
+		// branch of its own.
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 60, MinSetupScore: 60, MinTimingScore: 60, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				Reason: "long_setup_ready_confirmed",
+			},
+		},
+	},
 	"pullback_reversal_long": {
 		Ready: []hunterV7TierRule{
 			{
