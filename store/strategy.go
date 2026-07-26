@@ -1021,23 +1021,17 @@ func (c *StrategyConfig) EstimateTokensWithCalibration(calibration float64) Toke
 	}
 }
 
+// PromptCompactEnabled collapses the historical PromptCompactMode strings to
+// their boolean meaning (U4.3): "off" disables compaction, every other stored
+// value — including the legacy "current_source"/"hunter_v7_only"/
+// "all_candidates"/"auto" modes — enables it. The field stays a string in
+// storage so existing configs keep round-tripping.
+func (c *StrategyConfig) PromptCompactEnabled() bool {
+	return !strings.EqualFold(strings.TrimSpace(c.PromptCompactMode), "off")
+}
+
 func (c *StrategyConfig) usesCompactPromptEstimate(numCoins, numTimeframes, klineCount int) bool {
-	mode := c.PromptCompactMode
-	if mode == "" {
-		mode = "current_source"
-	}
-	switch mode {
-	case "off":
-		return false
-	case "current_source", "hunter_v7_only":
-		return true
-	case "all_candidates":
-		return true
-	case "auto":
-		return c.CoinSource.SourceType == "hunter_v7" || numCoins*numTimeframes*klineCount >= 600
-	default:
-		return true
-	}
+	return c.PromptCompactEnabled()
 }
 
 // getEffectiveCoinCount returns the estimated number of coins that will be analyzed

@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -1181,166 +1180,15 @@ func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, ite
 }
 
 func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) string {
-	// Tier is classified once at candidate construction (and refreshed after
-	// live confirmations in the tiered prompt path); serializers only read the
-	// cached verdict so no formatting path can re-classify with drifted inputs.
-	type compactSignal struct {
-		Symbol             string                      `json:"symbol"`
-		Direction          string                      `json:"direction"`
-		SetupType          string                      `json:"setup_type"`
-		ExecutionTier      string                      `json:"execution_tier"`
-		TierReason         string                      `json:"tier_reason"`
-		AIPriority         float64                     `json:"ai_priority"`
-		ExecutionQuality   string                      `json:"execution_quality,omitempty"`
-		RiskScore          float64                     `json:"risk_score"`
-		EntryZone          local.V7PriceZone           `json:"entry_zone"`
-		Invalidation       local.V7InvalidationRule    `json:"invalidation"`
-		Targets            []local.V7Target            `json:"targets"`
-		PriceContext       *local.V7PriceContext       `json:"price_context,omitempty"`
-		ExecutionReadiness *local.V7ExecutionReadiness `json:"execution_readiness,omitempty"`
-		ExecutionContext   *local.V7ExecutionContext   `json:"execution_context,omitempty"`
-	}
-	payload := compactSignal{
-		Symbol:             coin.Symbol,
-		Direction:          coin.Direction,
-		SetupType:          coin.V7SetupType,
-		ExecutionTier:      coin.V7ExecutionTier,
-		TierReason:         coin.V7TierReason,
-		AIPriority:         coin.V7AIPriority,
-		ExecutionQuality:   coin.V7ExecutionQuality,
-		RiskScore:          coin.V7RiskScore,
-		EntryZone:          coin.V7EntryZone,
-		Invalidation:       coin.V7Invalidation,
-		Targets:            coin.V7Targets,
-		PriceContext:       coin.V7PriceContext,
-		ExecutionReadiness: coin.V7Readiness,
-		ExecutionContext:   coin.V7ExecutionContext,
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return ""
-	}
-	return string(data)
+	// Compact JSON is a mask over the full prompt payload (U4.2): same
+	// source struct, subset view, so the two encodings cannot drift.
+	return marshalHunterV7JSON(buildHunterV7PromptPayload(coin).compactView())
 }
 
 func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
-	// Reads the cached tier verdict; see formatHunterV7CompactSignalJSON.
-	type v7SignalForAI struct {
-		SignalID              string                        `json:"signal_id,omitempty"`
-		Symbol                string                        `json:"symbol"`
-		Direction             string                        `json:"direction"`
-		SetupType             string                        `json:"setup_type"`
-		ExecutionTier         string                        `json:"execution_tier,omitempty"`
-		TierReason            string                        `json:"tier_reason,omitempty"`
-		Status                string                        `json:"status"`
-		MarketRegime          string                        `json:"market_regime"`
-		EntryMode             string                        `json:"entry_mode"`
-		MarketShape           string                        `json:"market_shape,omitempty"`
-		EntrySignal           string                        `json:"entry_signal,omitempty"`
-		ExecutionQuality      string                        `json:"execution_quality,omitempty"`
-		ExecutionPolicy       string                        `json:"execution_policy,omitempty"`
-		DoNotOpenUntilConfirm bool                          `json:"do_not_open_until_confirmed,omitempty"`
-		Confidence            string                        `json:"confidence"`
-		RiskLevel             string                        `json:"risk_level"`
-		AIPriority            float64                       `json:"ai_priority"`
-		SetupScore            float64                       `json:"setup_score"`
-		TimingScore           float64                       `json:"timing_score"`
-		RegimeFitScore        float64                       `json:"regime_fit_score"`
-		LiquidityScore        float64                       `json:"liquidity_score"`
-		RiskScore             float64                       `json:"risk_score"`
-		ReasonCodes           []string                      `json:"reason_codes"`
-		RiskTags              []string                      `json:"risk_tags"`
-		RequiredConfirmations []string                      `json:"required_confirmations"`
-		ConfirmationSummary   *local.V7ConfirmationSummary  `json:"confirmation_summary,omitempty"`
-		ExecutionGeometry     *hunterV7ExecutionGeometry    `json:"execution_geometry,omitempty"`
-		TP0DistancePct        float64                       `json:"tp0_distance_pct,omitempty"`
-		MoveStopToBreakeven   bool                          `json:"move_stop_to_breakeven,omitempty"`
-		PositionSizeHint      string                        `json:"position_size_hint,omitempty"`
-		SuggestedTrigger      *DecisionTrigger              `json:"suggested_trigger,omitempty"`
-		TagSemantics          []local.HunterV7TagDefinition `json:"tag_semantics,omitempty"`
-		EntryZone             local.V7PriceZone             `json:"entry_zone"`
-		Invalidation          local.V7InvalidationRule      `json:"invalidation"`
-		Targets               []local.V7Target              `json:"targets"`
-		TP0Price              float64                       `json:"tp0_price,omitempty"`
-		TP0RR                 float64                       `json:"tp0_rr,omitempty"`
-		TP0TimeWindow         string                        `json:"tp0_time_window,omitempty"`
-		TP0Method             string                        `json:"tp0_method,omitempty"`
-		TP1Price              float64                       `json:"tp1_price,omitempty"`
-		TP1RR                 float64                       `json:"tp1_rr,omitempty"`
-		TP1TimeWindow         string                        `json:"tp1_time_window,omitempty"`
-		TP1Method             string                        `json:"tp1_method,omitempty"`
-		TP2Price              float64                       `json:"tp2_price,omitempty"`
-		TP2RR                 float64                       `json:"tp2_rr,omitempty"`
-		TP2TimeWindow         string                        `json:"tp2_time_window,omitempty"`
-		TP2Method             string                        `json:"tp2_method,omitempty"`
-		TakeProfitPlan        *local.V7TakeProfitPlan       `json:"take_profit_plan,omitempty"`
-		PriceContext          *local.V7PriceContext         `json:"price_context,omitempty"`
-		DerivativesContext    *local.V7DerivativesContext   `json:"derivatives_context,omitempty"`
-		DataFreshness         local.V7DataFreshness         `json:"data_freshness,omitempty"`
-		ExecutionReadiness    *local.V7ExecutionReadiness   `json:"execution_readiness,omitempty"`
-		ExecutionContext      *local.V7ExecutionContext     `json:"execution_context,omitempty"`
-	}
-
-	payload := v7SignalForAI{
-		SignalID:              coin.V7SignalID,
-		Symbol:                coin.Symbol,
-		Direction:             coin.Direction,
-		SetupType:             coin.V7SetupType,
-		ExecutionTier:         coin.V7ExecutionTier,
-		TierReason:            coin.V7TierReason,
-		Status:                coin.V7Status,
-		MarketRegime:          coin.V7MarketRegime,
-		EntryMode:             coin.V7EntryMode,
-		MarketShape:           coin.V7MarketShape,
-		EntrySignal:           coin.V7EntrySignal,
-		ExecutionQuality:      coin.V7ExecutionQuality,
-		ExecutionPolicy:       hunterV7ExecutionPolicy(coin),
-		DoNotOpenUntilConfirm: hunterV7DoNotOpenUntilConfirmed(coin),
-		Confidence:            coin.V7Confidence,
-		RiskLevel:             coin.V7RiskLevel,
-		AIPriority:            coin.V7AIPriority,
-		SetupScore:            coin.V7SetupScore,
-		TimingScore:           coin.V7TimingScore,
-		RegimeFitScore:        coin.V7RegimeFitScore,
-		LiquidityScore:        coin.V7LiquidityScore,
-		RiskScore:             coin.V7RiskScore,
-		ReasonCodes:           coin.V7ReasonCodes,
-		RiskTags:              coin.V7RiskTags,
-		RequiredConfirmations: coin.V7RequiredConfirms,
-		ConfirmationSummary:   coin.V7ConfirmSummary,
-		ExecutionGeometry:     buildHunterV7ExecutionGeometry(coin),
-		TP0DistancePct:        hunterV7EffectiveTP0DistancePct(coin),
-		MoveStopToBreakeven:   hunterV7EffectiveMoveStopToBreakeven(coin),
-		PositionSizeHint:      hunterV7PositionSizeHint(coin),
-		SuggestedTrigger:      buildHunterV7SuggestedTrigger(coin),
-		TagSemantics:          local.DescribeHunterV7Tags(coin.V7ReasonCodes, coin.V7RiskTags, coin.V7RequiredConfirms),
-		EntryZone:             coin.V7EntryZone,
-		Invalidation:          coin.V7Invalidation,
-		Targets:               coin.V7Targets,
-		TP0Price:              hunterV7EffectiveTP0Price(coin),
-		TP0RR:                 coin.V7TP0RR,
-		TP0TimeWindow:         coin.V7TP0TimeWindow,
-		TP0Method:             coin.V7TP0Method,
-		TP1Price:              coin.V7TP1Price,
-		TP1RR:                 coin.V7TP1RR,
-		TP1TimeWindow:         coin.V7TP1TimeWindow,
-		TP1Method:             coin.V7TP1Method,
-		TP2Price:              coin.V7TP2Price,
-		TP2RR:                 coin.V7TP2RR,
-		TP2TimeWindow:         coin.V7TP2TimeWindow,
-		TP2Method:             coin.V7TP2Method,
-		TakeProfitPlan:        coin.V7TPPlan,
-		PriceContext:          coin.V7PriceContext,
-		DerivativesContext:    coin.V7DerivativesCtx,
-		DataFreshness:         coin.V7DataFreshness,
-		ExecutionReadiness:    coin.V7Readiness,
-		ExecutionContext:      coin.V7ExecutionContext,
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return ""
-	}
-	return string(data)
+	// Reads the cached tier verdict; the payload struct owns field order and
+	// tags (U4.1).
+	return marshalHunterV7JSON(buildHunterV7PromptPayload(coin))
 }
 
 // hunterV7ShapeEntrySignalSuffix renders market shape and entry signal only when
@@ -1760,37 +1608,7 @@ func (e *StrategyEngine) formatCoinSourceTag(sources []string) string {
 }
 
 func (e *StrategyEngine) shouldCompactCandidatePrompt(coin CandidateCoin, ctx *Context) bool {
-	mode := e.config.PromptCompactMode
-	if mode == "" {
-		mode = "current_source"
-	}
-
-	switch mode {
-	case "off":
-		return false
-	case "current_source", "hunter_v7_only":
-		return true
-	case "all_candidates":
-		return true
-	case "auto":
-		if coin.V7SetupType != "" {
-			return true
-		}
-		klineCount := e.config.Indicators.Klines.PrimaryCount
-		if klineCount <= 0 {
-			klineCount = 30
-		}
-		timeframeCount := len(ctx.Timeframes)
-		if timeframeCount == 0 {
-			timeframeCount = len(e.config.Indicators.Klines.SelectedTimeframes)
-		}
-		if timeframeCount == 0 {
-			timeframeCount = 1
-		}
-		return len(ctx.CandidateCoins)*timeframeCount*klineCount >= 600
-	default:
-		return true
-	}
+	return e.config.PromptCompactEnabled()
 }
 
 // ============================================================================
@@ -1959,26 +1777,30 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 	if price <= 0 {
 		return ""
 	}
+	// Same source as the JSON encodings (U4.2). TP0 stays on the raw signal
+	// fields deliberately: the compact line only reports a router-supplied
+	// TP0, while the payload's TP0Price falls back to the derived micro-TP0.
+	p := buildHunterV7PromptPayload(*coin)
 
 	sb.WriteString("Hunter v7 execution compact: ")
 	parts := []string{
-		fmt.Sprintf("setup=%s", coin.V7SetupType),
-		fmt.Sprintf("entry_mode=%s", coin.V7EntryMode),
-		fmt.Sprintf("execution_quality=%s", coin.V7ExecutionQuality),
-		fmt.Sprintf("confidence=%s", coin.V7Confidence),
-		fmt.Sprintf("timing=%.0f", coin.V7TimingScore),
-		fmt.Sprintf("risk=%.0f", coin.V7RiskScore),
+		fmt.Sprintf("setup=%s", p.SetupType),
+		fmt.Sprintf("entry_mode=%s", p.EntryMode),
+		fmt.Sprintf("execution_quality=%s", p.ExecutionQuality),
+		fmt.Sprintf("confidence=%s", p.Confidence),
+		fmt.Sprintf("timing=%.0f", p.TimingScore),
+		fmt.Sprintf("risk=%.0f", p.RiskScore),
 	}
-	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok {
+	if pos, ok := local.V7ZonePositionPct(p.EntryZone, price); ok {
 		parts = append(parts,
 			fmt.Sprintf("entry_zone_pos=%.1f%%", pos),
-			fmt.Sprintf("dist_zone_upper=%+.2f%%", pctMove(price, coin.V7EntryZone.Upper)),
-			fmt.Sprintf("dist_zone_lower=%+.2f%%", pctMove(price, coin.V7EntryZone.Lower)),
+			fmt.Sprintf("dist_zone_upper=%+.2f%%", pctMove(price, p.EntryZone.Upper)),
+			fmt.Sprintf("dist_zone_lower=%+.2f%%", pctMove(price, p.EntryZone.Lower)),
 			fmt.Sprintf("zone_location=%s", entryZoneLocation(pos)),
 		)
 	}
-	if coin.V7Invalidation.Price > 0 {
-		parts = append(parts, fmt.Sprintf("invalidation_dist=%+.2f%%", pctMove(price, coin.V7Invalidation.Price)))
+	if p.Invalidation.Price > 0 {
+		parts = append(parts, fmt.Sprintf("invalidation_dist=%+.2f%%", pctMove(price, p.Invalidation.Price)))
 	}
 	if coin.V7TP0Price > 0 {
 		parts = append(parts, fmt.Sprintf("tp0_dist=%+.2f%%", pctMove(price, coin.V7TP0Price)))
@@ -1986,30 +1808,30 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 			parts = append(parts, fmt.Sprintf("tp0_rr=%.2f", coin.V7TP0RR))
 		}
 	}
-	if coin.V7TP1Price > 0 {
-		parts = append(parts, fmt.Sprintf("tp1_dist=%+.2f%%", pctMove(price, coin.V7TP1Price)))
+	if p.TP1Price > 0 {
+		parts = append(parts, fmt.Sprintf("tp1_dist=%+.2f%%", pctMove(price, p.TP1Price)))
 	}
-	if coin.V7TP2Price > 0 {
-		parts = append(parts, fmt.Sprintf("tp2_dist=%+.2f%%", pctMove(price, coin.V7TP2Price)))
+	if p.TP2Price > 0 {
+		parts = append(parts, fmt.Sprintf("tp2_dist=%+.2f%%", pctMove(price, p.TP2Price)))
 	}
-	if coin.V7TPPlan != nil {
+	if p.TakeProfitPlan != nil {
 		parts = append(parts,
-			fmt.Sprintf("tp0_reduce=%.0f-%.0f%%", coin.V7TPPlan.TP0ReducePctMin, coin.V7TPPlan.TP0ReducePctMax),
-			fmt.Sprintf("tp0_breakeven=%t", coin.V7TPPlan.MoveStopToBreakeven),
-			fmt.Sprintf("trailing_stop=%s", hunterV7CompactTrailingPlan(coin.V7TPPlan)),
+			fmt.Sprintf("tp0_reduce=%.0f-%.0f%%", p.TakeProfitPlan.TP0ReducePctMin, p.TakeProfitPlan.TP0ReducePctMax),
+			fmt.Sprintf("tp0_breakeven=%t", p.TakeProfitPlan.MoveStopToBreakeven),
+			fmt.Sprintf("trailing_stop=%s", hunterV7CompactTrailingPlan(p.TakeProfitPlan)),
 		)
 	}
-	if len(coin.V7Targets) > 0 && coin.V7Targets[0].Price > 0 {
-		parts = append(parts, fmt.Sprintf("target1_dist=%+.2f%%", pctMove(price, coin.V7Targets[0].Price)))
+	if len(p.Targets) > 0 && p.Targets[0].Price > 0 {
+		parts = append(parts, fmt.Sprintf("target1_dist=%+.2f%%", pctMove(price, p.Targets[0].Price)))
 	}
-	if coin.V7DerivativesCtx != nil {
+	if p.DerivativesContext != nil {
 		parts = append(parts,
-			fmt.Sprintf("oi_1h=%+.2f%%", coin.V7DerivativesCtx.OIChange1h),
-			fmt.Sprintf("oi_4h=%+.2f%%", coin.V7DerivativesCtx.OIChange4h),
-			fmt.Sprintf("taker15m=%.3f", coin.V7DerivativesCtx.TakerBuy15m),
+			fmt.Sprintf("oi_1h=%+.2f%%", p.DerivativesContext.OIChange1h),
+			fmt.Sprintf("oi_4h=%+.2f%%", p.DerivativesContext.OIChange4h),
+			fmt.Sprintf("taker15m=%.3f", p.DerivativesContext.TakerBuy15m),
 		)
-		if coin.V7SetupType == "funding_reversal" {
-			parts = append(parts, fmt.Sprintf("oi_state=%s", fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h)))
+		if p.SetupType == "funding_reversal" {
+			parts = append(parts, fmt.Sprintf("oi_state=%s", fundingReversalOIState(p.DerivativesContext.OIChange1h, p.DerivativesContext.OIChange4h)))
 		}
 	}
 	vwap15m := hunterV7CompactVWAP15m(data, coin)
@@ -2057,7 +1879,7 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 		}
 	} else {
 		dataQuality := "complete"
-		if coin.V7ExecutionContext != nil && coin.V7ExecutionContext.DataQuality == "complete_for_execution" {
+		if p.ExecutionContext != nil && p.ExecutionContext.DataQuality == "complete_for_execution" {
 			dataQuality = "complete_for_execution"
 		}
 		parts = append(parts, "compact_data_quality="+dataQuality)
