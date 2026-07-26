@@ -836,16 +836,17 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 	}
 
 	openReviewLimit := hunterV7OpenReviewExpansionLimit(execCount+reviewableCount, len(ctx.Positions), e.config.RiskControl.MaxPositions)
+	expanded := hunterV7SelectExpandedOpenReview(items, openReviewLimit)
 	sb.WriteString(fmt.Sprintf("### Open-review candidates (full context, max %d)\n\n", openReviewLimit))
 	displayedOpenReview := 0
 	if positionLimitReached {
 		sb.WriteString("- None (position limit reached; open-review candidates are summary-only below)\n\n")
 	} else {
-		for _, item := range items {
+		for idx, item := range items {
 			if item.Tier != "EXECUTABLE" && item.Tier != "REVIEWABLE" {
 				continue
 			}
-			if displayedOpenReview >= openReviewLimit {
+			if !expanded[idx] {
 				compact := e.formatHunterV7CompactSignalJSON(item.Coin)
 				if compact != "" {
 					sb.WriteString(fmt.Sprintf("- %s %s tier=%s compact_execution_json=%s\n",
@@ -1010,12 +1011,53 @@ func hunterV7TierRank(tier string) int {
 	}
 }
 
+// hunterV7OpenReviewExpansionLimit sizes the full-context window. A wide
+// open-review pool is the main reason good candidates never reach the LLM, so
+// the window grows once the pool gets large.
 func hunterV7OpenReviewExpansionLimit(openReviewCount, positionCount, maxPositions int) int {
 	limit := 8
 	if positionCount > 0 && (maxPositions <= 0 || positionCount < maxPositions) {
 		limit = 6
 	}
+	if openReviewCount > 20 {
+		limit += 4
+	}
 	return limit
+}
+
+// hunterV7SelectExpandedOpenReview picks which open-review candidates get full
+// JSON. EXECUTABLE claims slots first, remaining slots go to REVIEWABLE by
+// priority order, and a final pass guarantees each distinct setup keeps at
+// least one full sample so a dominant route cannot crowd out every other route.
+func hunterV7SelectExpandedOpenReview(items []hunterV7PromptCandidate, limit int) map[int]bool {
+	selected := make(map[int]bool, limit)
+	routes := make(map[string]bool)
+
+	claim := func(tier string) {
+		for idx, item := range items {
+			if len(selected) >= limit {
+				return
+			}
+			if selected[idx] || item.Tier != tier {
+				continue
+			}
+			selected[idx] = true
+			routes[item.Coin.V7SetupType] = true
+		}
+	}
+	claim("EXECUTABLE")
+	claim("REVIEWABLE")
+	for idx, item := range items {
+		if item.Tier != "EXECUTABLE" && item.Tier != "REVIEWABLE" {
+			continue
+		}
+		if selected[idx] || routes[item.Coin.V7SetupType] {
+			continue
+		}
+		selected[idx] = true
+		routes[item.Coin.V7SetupType] = true
+	}
+	return selected
 }
 
 func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tier, reason string) local.V7ExecutionReadiness {

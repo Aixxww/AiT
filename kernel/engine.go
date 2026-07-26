@@ -3312,6 +3312,11 @@ func hunterV7AltLadderLateLongNeedsFreshFlow(coin CandidateCoin) bool {
 }
 
 func hunterV7AltLadderLongExecutable(coin CandidateCoin) bool {
+	// Same-direction OI participation is missing on both 1h and 4h; taker flow
+	// alone is not enough to make this executable.
+	if containsStringValue(coin.V7RiskTags, "fresh_oi_absent") {
+		return false
+	}
 	if coin.V7AIPriority < 58 ||
 		coin.V7SetupScore < 58 ||
 		coin.V7TimingScore < 60 ||
@@ -3438,6 +3443,9 @@ func hunterV7LeaderMomentumUpperChaseWait(coin CandidateCoin) bool {
 func hunterV7MMSLongExecutableChaseBlock(coin CandidateCoin) bool {
 	if coin.V7SetupType != "mms_trend_ride_long" && coin.V7SetupType != "mms_squeeze_engine_long" {
 		return false
+	}
+	if containsStringValue(coin.V7RiskTags, "mms_weak_continuation_review_only") {
+		return true
 	}
 	if !strings.EqualFold(coin.Direction, "LONG") || coin.V7PriceContext == nil {
 		return false

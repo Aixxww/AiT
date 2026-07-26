@@ -171,6 +171,12 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 		score += 8
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "taker_buy_strong")
 	}
+	// Trend-ride longs whose 1h/4h price context is flat and whose OI does not
+	// back the continuation drift instead of running (WIF/MORPHO/ETC
+	// 2026-07-26). Mark them review-only so they are never read as a direct open.
+	if !(ctx.Change1h > 0 && ctx.Change4h > 0) || ctx.Snapshot.OIDelta1h < 0 {
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "mms_weak_continuation_review_only")
+	}
 	sig.SetupScore = clampFloat(score, 0, 100)
 	sig.TimingScore = 68
 	sig.PriceCtx = buildPriceCtx(ctx)

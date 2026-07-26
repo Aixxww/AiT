@@ -3668,3 +3668,89 @@ func TestFormatHunterV7SignalJSONIncludesTP0AndPositionHint(t *testing.T) {
 		t.Fatalf("position_size_hint = %v", payload["position_size_hint"])
 	}
 }
+
+func TestClassifyHunterV7AltLadderFreshOIAbsentBlocksExecutable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "AKEUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "alt_ladder_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       72,
+		V7SetupScore:       70,
+		V7TimingScore:      66,
+		V7RiskScore:        30,
+		V7LiquidityScore:   70,
+		V7RiskLevel:        "MEDIUM",
+		V7EntryZone:        local.V7PriceZone{Lower: 0.00310, Upper: 0.00320},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.00316},
+		V7ReasonCodes:      []string{"alt_ladder_taker_buy", "alt_ladder_volume_expansion"},
+		V7RiskTags:         []string{"fresh_oi_absent"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.57, OIChange1h: -4.37, OIChange4h: -6.02},
+	}
+
+	if hunterV7AltLadderLongExecutable(coin) {
+		t.Fatal("alt-ladder long with fresh_oi_absent must not be executable")
+	}
+	if tier, _ := classifyHunterV7CandidateTier(coin); tier == "EXECUTABLE" {
+		t.Fatalf("tier = %q, want non-EXECUTABLE for fresh_oi_absent", tier)
+	}
+}
+
+func TestClassifyHunterV7MMSWeakContinuationBlocksExecutable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "WIFUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       70,
+		V7SetupScore:       68,
+		V7TimingScore:      68,
+		V7RiskScore:        28,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "MEDIUM",
+		V7RiskTags:         []string{"mms_weak_continuation_review_only"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.55},
+	}
+
+	if !hunterV7MMSLongExecutableChaseBlock(coin) {
+		t.Fatal("weak MMS continuation must block the executable path")
+	}
+	if tier, _ := classifyHunterV7CandidateTier(coin); tier == "EXECUTABLE" {
+		t.Fatalf("tier = %q, want non-EXECUTABLE for mms_weak_continuation_review_only", tier)
+	}
+}
+
+func TestHunterV7OpenReviewExpansionLimitGrowsWithPool(t *testing.T) {
+	if got := hunterV7OpenReviewExpansionLimit(10, 0, 5); got != 8 {
+		t.Fatalf("small pool limit = %d, want 8", got)
+	}
+	if got := hunterV7OpenReviewExpansionLimit(24, 0, 5); got != 12 {
+		t.Fatalf("large pool limit = %d, want 12", got)
+	}
+	if got := hunterV7OpenReviewExpansionLimit(24, 2, 5); got != 10 {
+		t.Fatalf("large pool with positions = %d, want 10", got)
+	}
+}
+
+func TestHunterV7SelectExpandedOpenReviewKeepsRouteDiversity(t *testing.T) {
+	items := []hunterV7PromptCandidate{
+		{Tier: "REVIEWABLE", Coin: CandidateCoin{Symbol: "A", V7SetupType: "trend_breakout_long"}},
+		{Tier: "REVIEWABLE", Coin: CandidateCoin{Symbol: "B", V7SetupType: "trend_breakout_long"}},
+		{Tier: "EXECUTABLE", Coin: CandidateCoin{Symbol: "C", V7SetupType: "alt_ladder_momentum_long"}},
+		{Tier: "REVIEWABLE", Coin: CandidateCoin{Symbol: "D", V7SetupType: "mms_trend_ride_long"}},
+	}
+
+	selected := hunterV7SelectExpandedOpenReview(items, 2)
+
+	if !selected[2] {
+		t.Fatal("EXECUTABLE candidate must always be expanded")
+	}
+	if !selected[3] {
+		t.Fatalf("route-diversity pass must keep mms_trend_ride_long, selected=%v", selected)
+	}
+	if selected[1] {
+		t.Fatalf("duplicate route should not consume a diversity slot, selected=%v", selected)
+	}
+}

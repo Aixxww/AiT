@@ -75,6 +75,13 @@ func (m *altLadderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Marke
 	if ctx.VolumeBurst15m >= 1.1 || ctx.VolumeBurst1h >= 1.2 {
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_volume_expansion")
 	}
+	// Price and taker flow can look strong while open interest is actually
+	// leaving the move. Those longs (AKEUSDT 2026-07-26) reverse straight into
+	// the stop, so flag the missing same-direction OI participation instead of
+	// letting taker_buy carry the signal alone.
+	if ctx.Snapshot.OIDelta1h <= -1 && ctx.Snapshot.OIDelta4h <= -3 {
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "fresh_oi_absent")
+	}
 	if stage == "alt_ladder_stage_late" || ctx.Change1h > 7 {
 		sig.RiskTags = appendIfMissing(sig.RiskTags, "alt_ladder_late_chase_risk")
 	}
