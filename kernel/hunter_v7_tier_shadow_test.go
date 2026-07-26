@@ -670,17 +670,28 @@ func TestHunterV7TierRuleShadowDiff(t *testing.T) {
 // divergences. If this fails after corpus changes, the grid lost its
 // threshold-straddling coverage and the shadow diff is no longer trustworthy.
 func TestHunterV7TierShadowSensitivity(t *testing.T) {
-	const setup = "distribution_short"
+	const setup = "alt_ladder_breakdown_short"
 	if _, exists := hunterV7SetupTierSpecs[setup]; exists {
 		t.Fatalf("sensitivity probe needs an unregistered setup; %s is already migrated — switch the probe to another setup", setup)
 	}
 	hunterV7SetupTierSpecs[setup] = hunterV7SetupTierSpec{
 		Ready: []hunterV7TierRule{
-			// Legacy floor is 55; 56 must diverge on the AI-priority axis sweep.
-			{MinAIPriority: 56, MinTimingScore: 55, RiskBelow: 55, Reason: "short_or_reversion_ready_confirmed"},
+			// Legacy floor is AIPriority >= 60; 61 must diverge on the
+			// AI-priority axis sweep.
+			{
+				MinAIPriority: 61, MinTimingScore: 65, RiskBelow: 35,
+				Taker:      hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
+				RequireAll: []string{"alt_ladder_taker_sell"},
+				RequireAny: [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
+				Reason:     "alt_ladder_short_ready_strong_confirmed",
+			},
 		},
 		Reviewable: []hunterV7TierRule{
-			{MinAIPriority: 50, MinTimingScore: 50, RiskBelow: 55, Reason: "short_or_reversion_reviewable"},
+			{
+				MinAIPriority: 52, MinTimingScore: 58, RiskAtMost: 45,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
+				Reason: "alt_ladder_short_reviewable_confirmed",
+			},
 		},
 	}
 	defer delete(hunterV7SetupTierSpecs, setup)

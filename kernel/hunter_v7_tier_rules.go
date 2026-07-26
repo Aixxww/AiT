@@ -67,7 +67,24 @@ type hunterV7SetupTierSpec struct {
 
 // hunterV7SetupTierSpecs is the per-setup rule registry. Populated setup by
 // setup in U3.3; each entry replaces every legacy switch branch for that setup.
-var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{}
+// hunterV7ShortOrReversionTierSpec covers the four setups that shared the
+// "short_or_reversion" legacy branches (U3.3a). OpenRateFloor stays nil: these
+// setups always used the shared default floor.
+var hunterV7ShortOrReversionTierSpec = hunterV7SetupTierSpec{
+	Ready: []hunterV7TierRule{
+		{MinAIPriority: 55, MinTimingScore: 55, RiskBelow: 55, Reason: "short_or_reversion_ready_confirmed"},
+	},
+	Reviewable: []hunterV7TierRule{
+		{MinAIPriority: 50, MinTimingScore: 50, RiskBelow: 55, Reason: "short_or_reversion_reviewable"},
+	},
+}
+
+var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"distribution_short":       hunterV7ShortOrReversionTierSpec,
+	"long_squeeze_short":       hunterV7ShortOrReversionTierSpec,
+	"breakdown_momentum_short": hunterV7ShortOrReversionTierSpec,
+	"range_reversion":          hunterV7ShortOrReversionTierSpec,
+}
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
 	for i := range rules {
