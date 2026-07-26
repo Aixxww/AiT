@@ -2152,7 +2152,7 @@ func hunterV7StopDistancePct(coin CandidateCoin) float64 {
 }
 
 const (
-	hunterV7BackendMinRR            = 1.5
+	hunterV7BackendMinRR            = local.V7MinExecutableRR
 	hunterV7BackendMinStopPct       = 2.0
 	hunterV7BackendStopRepairBuffer = 0.10
 )

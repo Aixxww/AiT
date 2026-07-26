@@ -11,6 +11,19 @@ package local
 // the resolution is one implementation with the variant made explicit at the
 // call site, not a forced single semantic.
 
+// Risk/reward floors. These were two independent literals — the provider's
+// quality gate and the kernel's hunterV7BackendMinRR — kept in sync by hand.
+// One constant pair now feeds both.
+const (
+	// V7MinAbsoluteRR is the hard floor: geometry below it is invalid_rr and
+	// can never execute.
+	V7MinAbsoluteRR = 1.2
+	// V7MinExecutableRR is the executable floor: geometry between the two
+	// floors is thin_rr_wait_confirm — reviewable only if live repricing
+	// restores it.
+	V7MinExecutableRR = 1.5
+)
+
 // V7ZonePositionPct returns price's raw position inside the zone as a
 // percentage of the zone span: 0 = lower bound, 100 = upper bound, negative =
 // below the zone, >100 = above it. Inverted bounds are repaired by swapping.

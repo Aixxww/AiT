@@ -17,11 +17,11 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 
 	quality := V7ExecNearConfirm
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)
-	if !rrOK || rr < 1.2 {
+	if !rrOK || rr < V7MinAbsoluteRR {
 		quality = V7ExecInvalidRR
 		sig.Status = V7StatusWaitConfirm
 		sig.RiskTags = appendIfMissing(sig.RiskTags, "invalid_rr_context_only")
-	} else if rr < 1.5 {
+	} else if rr < V7MinExecutableRR {
 		sig.Status = V7StatusWaitConfirm
 		sig.RiskTags = appendIfMissing(sig.RiskTags, "thin_rr_wait_confirm")
 	}
@@ -51,7 +51,7 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 
 	switch sig.SetupType {
 	case V7SetupPanicReversalLong:
-		if sig.TimingScore >= 45 && sig.RiskScore < 55 && rrOK && rr >= 1.5 {
+		if sig.TimingScore >= 45 && sig.RiskScore < 55 && rrOK && rr >= V7MinExecutableRR {
 			quality = betterV7ExecutionQuality(quality, V7ExecReady)
 		}
 	case V7SetupIntradayScalp:
@@ -104,7 +104,7 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 		}
 	}
 
-	if quality == V7ExecNearConfirm && sig.Status == V7StatusCandidate && sig.TimingScore >= 60 && rrOK && rr >= 1.5 {
+	if quality == V7ExecNearConfirm && sig.Status == V7StatusCandidate && sig.TimingScore >= 60 && rrOK && rr >= V7MinExecutableRR {
 		quality = V7ExecReady
 	}
 	sig.ExecutionQuality = quality
@@ -461,7 +461,7 @@ func v7BreakoutConfirmedForOpen(sig *V7SignalOutput, ctx *V7SymbolContext, rr fl
 	if sig.RiskScore >= 45 || (sig.LiquidityScore > 0 && sig.LiquidityScore < 70) {
 		return false
 	}
-	if !rrOK || rr < 1.5 {
+	if !rrOK || rr < V7MinExecutableRR {
 		return false
 	}
 	if ctx.CurrentPrice < sig.EntryZone.Upper {
@@ -525,7 +525,7 @@ func v7BreakoutTriggerNear(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
 		return false
 	}
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)
-	return rrOK && rr >= 1.5
+	return rrOK && rr >= V7MinExecutableRR
 }
 
 func repairV7DisplacementRRTagForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool) {
@@ -535,7 +535,7 @@ func repairV7DisplacementRRTagForExecution(sig *V7SignalOutput, ctx *V7SymbolCon
 	if !containsV7String(sig.RiskTags, "displacement_rr_insufficient") {
 		return
 	}
-	if !rrOK || rr < 1.5 {
+	if !rrOK || rr < V7MinExecutableRR {
 		return
 	}
 	if sig.RiskScore >= 55 || (sig.LiquidityScore > 0 && sig.LiquidityScore < 70) {
