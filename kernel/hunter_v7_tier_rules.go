@@ -461,10 +461,17 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 	},
 	"whale_flow_reversal": {
 		PromptWait: hunterV7WhaleFlowDataPromptWait,
-		// Default ready floor; no reviewable path existed for this setup —
-		// its open-review escalation runs through the open-rate floor below.
+		// Ready mirrors the trader's whale-flow LONG gates (zone position
+		// <=45%, taker_buy_15m >= 0.56): the 2026-07-27 six-round live trial
+		// showed every whale EXECUTABLE sat at zone 56-67%, where the trader
+		// guard vetoes the open — the generic floor was spending EXECUTABLE
+		// slots on candidates the backend could never accept.
 		Ready: []hunterV7TierRule{
-			{MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55, Reason: "execution_quality_ready"},
+			{
+				MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55,
+				Guards: []func(CandidateCoin) bool{hunterV7WhaleFlowLongEntryGatesOK},
+				Reason: "whale_flow_ready_zone_and_flow_ok",
+			},
 		},
 		OpenRateFloor: []hunterV7TierRule{
 			{
@@ -532,6 +539,29 @@ func hunterV7WhaleFlowDataPromptWait(_ CandidateCoin, readiness local.V7Executio
 		return "whale_flow_execution_data_wait"
 	}
 	return ""
+}
+
+// hunterV7WhaleFlowLongEntryGatesOK mirrors the trader-side whale-flow LONG
+// protections at classification time so EXECUTABLE is only granted to
+// candidates the execution guard could actually accept: entry-zone position
+// at or below 45% and taker_buy_15m at or above 0.56. Missing zone or taker
+// data passes — the trader gates re-check with live data at decision time.
+// SHORT-direction whale signals are unaffected, mirroring the guard.
+func hunterV7WhaleFlowLongEntryGatesOK(coin CandidateCoin) bool {
+	if !strings.EqualFold(coin.Direction, "LONG") {
+		return true
+	}
+	price := 0.0
+	if coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
+	}
+	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok && pos > 45 {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0 && coin.V7DerivativesCtx.TakerBuy15m < 0.56 {
+		return false
+	}
+	return true
 }
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
