@@ -938,13 +938,6 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 			coin.V7RiskScore < 45 &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "oi_increasing", "oi_stable_breakout", "clear_air_above"})
-	case "whale_flow_reversal":
-		return coin.V7AIPriority >= 48 &&
-			coin.V7SetupScore >= 48 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 45 &&
-			containsStringValue(coin.V7ReasonCodes, "whale_flow_detected") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_1h_confirming_accumulation", "stealth_accumulation_breakout", "funding_not_crowded"})
 	case "range_expansion_event":
 		return coin.V7AIPriority >= 58 &&
 			coin.V7SetupScore >= 58 &&

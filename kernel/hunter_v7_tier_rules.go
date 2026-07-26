@@ -198,6 +198,20 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"whale_flow_reversal": {
+		// Default ready floor; no reviewable path existed for this setup —
+		// its open-review escalation runs through the open-rate floor below.
+		Ready: []hunterV7TierRule{
+			{MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55, Reason: "execution_quality_ready"},
+		},
+		OpenRateFloor: []hunterV7TierRule{
+			{
+				MinAIPriority: 48, MinSetupScore: 48, MinTimingScore: 50, RiskBelow: 45,
+				RequireAll: []string{"whale_flow_detected"},
+				RequireAny: [][]string{{"oi_1h_confirming_accumulation", "stealth_accumulation_breakout", "funding_not_crowded"}},
+			},
+		},
+	},
 	"mms_trend_ride_long":      hunterV7MMSLongTierSpec,
 	"mms_squeeze_engine_long":  hunterV7MMSLongTierSpec,
 	"distribution_short":       hunterV7ShortOrReversionTierSpec,
