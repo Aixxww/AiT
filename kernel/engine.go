@@ -1162,15 +1162,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 35 {
 			return true, "range_expansion_ready_confirmed_continuation"
 		}
-	case "alt_ladder_breakdown_short":
-		if coin.V7AIPriority >= 60 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 35 &&
-			hunterV7TakerBuyAtMost(coin, 0.46) &&
-			containsStringValue(coin.V7ReasonCodes, "alt_ladder_taker_sell") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}) {
-			return true, "alt_ladder_short_ready_strong_confirmed"
-		}
 	default:
 		if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
 			return true, "execution_quality_ready"
@@ -1444,13 +1435,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			coin.V7TimingScore >= 50 &&
 			coin.V7RiskScore < 45 {
 			return true, "range_expansion_reviewable_confirmed_continuation"
-		}
-	case "alt_ladder_breakdown_short":
-		if coin.V7AIPriority >= 52 &&
-			coin.V7TimingScore >= 58 &&
-			coin.V7RiskScore <= 45 &&
-			hunterV7TakerBuyAtMost(coin, 0.48) {
-			return true, "alt_ladder_short_reviewable_confirmed"
 		}
 	}
 	return false, ""

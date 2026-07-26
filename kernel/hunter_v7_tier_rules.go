@@ -84,6 +84,24 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 	"long_squeeze_short":       hunterV7ShortOrReversionTierSpec,
 	"breakdown_momentum_short": hunterV7ShortOrReversionTierSpec,
 	"range_reversion":          hunterV7ShortOrReversionTierSpec,
+	"alt_ladder_breakdown_short": {
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 60, MinTimingScore: 65, RiskBelow: 35,
+				Taker:      hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
+				RequireAll: []string{"alt_ladder_taker_sell"},
+				RequireAny: [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
+				Reason:     "alt_ladder_short_ready_strong_confirmed",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 52, MinTimingScore: 58, RiskAtMost: 45,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
+				Reason: "alt_ladder_short_reviewable_confirmed",
+			},
+		},
+	},
 }
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
