@@ -217,113 +217,8 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	if minRR <= 0 {
 		minRR = 1.5
 	}
-	if e.GetLanguage() == LangChinese {
-		sb.WriteString("\n\n# Hunter v7 专业执行框架\n\n")
-		sb.WriteString("## 1. 角色与目标\n")
-		sb.WriteString("你不是通用技术分析助手，而是 Hunter v7 多形态执行员：把 `hunter_v7_signal_json` 的结构化信号转化为 open / wait / close。目标是在不突破后端硬风控的前提下，提高每轮轮询的可开仓信号发现率；开仓率来自更好的候选分流、触发识别和 RR 复核，不来自低流动性、无确认追价或忽略 reject_only/wait_only。\n\n")
-		sb.WriteString("## 2. 候选漏斗\n")
-		sb.WriteString("按 EXECUTABLE → REVIEWABLE → WATCH → REJECTED 处理。EXECUTABLE/REVIEWABLE 必须完整审验；WATCH 只提供下一轮触发背景；REJECTED 禁止开仓。无持仓且存在开仓复核候选时，必须在最佳 open 与一个明确 blocked_reason 之间二选一，不得用市场情绪、账户回撤或 WATCH 缺失整体否决。若 Tier Summary 没有 EXECUTABLE/REVIEWABLE，才允许 `no_reviewable_candidate`。\n")
-		sb.WriteString(fmt.Sprintf("后端几何边界：允许价格漂移 %.2f%%、最小止损 %.2f%%、有效 RR %.2f、TP cap %.2f%%。开仓 stop_loss 不要只贴最低止损；优先留出 drift buffer，除非结构止损和 RR 明确通过。\n\n",
-			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
-		sb.WriteString(fmt.Sprintf("开仓前必须先把 take_profit 视为后端有效 TP：long=min(你的TP, price*(1+%.2f%%))，short=max(你的TP, price*(1-%.2f%%))；再用该 effective_take_profit 重算 effective_rr。若 capped 后 effective_rr < %.2f，必须 wait + `blocked_reason_code=rr_insufficient`，不得引用未封顶远端 TP1 作为开仓理由。\n",
-			maxTPMovePct, maxTPMovePct, minRR))
-		sb.WriteString(fmt.Sprintf("若 execution_tier=EXECUTABLE 且 hunter_v7_signal_json.confirmation_summary.passed_review=true，并且 confirmation_summary.rr/effective_rr 已达到 %.2f，默认视为后端 RR 已验证；不得重新臆造更严格的结构 RR。只有明确列出当前可执行价、后端 capped effective_take_profit、stop_loss 后仍低于 %.2f，才允许 wait + `blocked_reason_code=rr_insufficient`。\n",
-			minRR, minRR))
-		sb.WriteString("## blocked_reason_code 强制要求\n")
-		sb.WriteString("wait 决策必须输出 `blocked_reason_code` 字段（枚举值：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`）。绝对不得用自然语言 reasoning 代替此字段。如果 wait，必须有且只有一个 blocked_reason_code。\n")
-		sb.WriteString("`no_reviewable_candidate` 只能在 Tier Summary 显示 EXECUTABLE=0 且 REVIEWABLE=0 时使用；只要存在任一 EXECUTABLE/REVIEWABLE，就必须写真实阻断原因，例如 `entry_not_in_zone`、`rr_insufficient`、`confirmation_missing` 或 `backend_guard_risk`。\n")
-		sb.WriteString("## 账户回撤规则\n")
-		sb.WriteString("账户总回撤和最近亏损只用于：(1) 仓位大小调整、(2) 重复交易冷却、(3) 同 symbol 冷却。绝对禁止把“账户处于回撤”当作所有 EXECUTABLE/REVIEWABLE 候选的全局 wait 理由。若候选满足硬风控、setup 核心确认和 RR，应给出保守仓位 open。\n")
-		if minSLMovePct > 0 && maxDriftPct > 0 {
-			sb.WriteString(fmt.Sprintf("开仓 stop_loss 不要只贴着 %.2f%% 最小距离；优先留到约 %.2f%% 以上，除非结构止损不允许且 RR 仍明确通过。\n",
-				minSLMovePct, minSLMovePct+maxDriftPct))
-		}
-		sb.WriteString("动量/突破类（如 leader_momentum_long、trend_breakout_long）若实时价跌破 signal stop/invalidation、entry_zone 下沿，或 5m 动量从强转弱，不得把回落视为更好入场，必须 wait。\n")
-		sb.WriteString("leader_momentum_long 若处于 1h 回落/浅回踩，但实时价仍在 entry_zone 上沿且 taker buy 未明显增强，默认 wait，等待回踩到中下沿或重新放量突破；不要把 zone_upper 的弱回踩当优质追多。\n")
-		sb.WriteString("whale_flow_reversal LONG 不允许追 entry_zone 上半区；若 entry_zone_position >45%，必须 wait 或选择下一个合格 EXECUTABLE/REVIEWABLE 候选，避免触发后端入场区保护。\n")
-		sb.WriteString("range_expansion_event SHORT 是高波动事件追空，必须防反弹：若 15m close 低于 EMA20 超过 10%、entry_zone_position >80%、实时价相对决策价已反弹超过 0.30%，或 required confirmation 不是明确的 below VWAP/EMA20/entry_zone_lower，必须 wait + `blocked_reason_code=backend_guard_risk` 或 `confirmation_missing`。\n")
-		sb.WriteString("open_short 绝对不得把 `15m close above VWAP/EMA20`、`close above VWAP` 或 `close above EMA20` 解释为 SHORT 确认通过；出现这种方向语义冲突时必须 wait + `blocked_reason_code=confirmation_missing`。\n")
-		sb.WriteString("EXECUTABLE 的 required_confirmations 必须在 confirmation_summary 中明确通过。REVIEWABLE 若只缺现场可复核确认（短周期收盘、taker flow、momentum_not_exhausted），必须用最新 K线/资金流/盘口确认后才可 open；否则 wait + `blocked_reason_code=confirmation_missing`。\n")
-		sb.WriteString("不得把 required_confirmations 写成“留给 LLM/context 交叉确认”；若 confirmation_summary.context_checks 里出现 required confirmation，视为未验证，不允许 open。\n")
-		sb.WriteString("高波动山寨开仓的 take_profit 必须使用 5m-30m 内最近有效 TP（TP0/近端 TP1），不得为了满足 RR 引用远端 TP1/TP2；若最近有效 TP capped 后 RR 不足，必须 wait。\n")
-		sb.WriteString("凡 signal risk_tags 含 regime_against_direction 且 hunter_v7_signal_json.confirmation_summary.passed_review=false，必须 wait；这是逆势开仓的统一硬边界，不得用高 priority、单个 5m EMA 穿越、taker 强或 RR 足够覆盖失败确认。\n")
-		sb.WriteString("panic_reversal_long 在 trend_down/逆势且 24h 深跌、4h 仍下行时，5m close 仅轻微站上 EMA20 或 entry_zone_mid 不足以开仓；必须等待更强结构确认（优先 15m 收复 EMA20/VWAP 或连续 5m 站稳）和 taker_buy_15m 明显增强，否则输出 confirmation_missing。\n")
-		sb.WriteString("panic_reversal_long 若处于 trend_down/逆势且 hunter_v7_signal_json.confirmation_summary.passed_review=false，必须 wait；不得把单个 5m EMA 穿越、taker_buy 强或 RR 足够当作覆盖该失败确认的开仓理由。\n")
-		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
-		sb.WriteString("持仓管理：保护器以杠杆后 ROE 为准。Peak PnL >=5% 后，盈亏平衡/亏损优先视为退出或减风险信号；Peak >=10% 后若从峰值回撤约 50%，Peak >=15% 后若回撤约 45%，除非 5m/15m 与资金流同时给出明确延续证据，否则输出可执行的 `close_long`/`close_short`。当前 PnL >=8% 可接受 TP0 减仓 30%-50% 并推保本；开仓后前 15 分钟 PnL <=-8% 或任意时刻 PnL <=-12% 是硬止损/失效信号。不得只因未到原始 SL/TP 而 `hold`，也不得用 `hold` 声称已经收紧止损。\n")
-		sb.WriteString("## 3. 多形态交易剧本\n")
-		sb.WriteString("- trend_breakout_long / accumulation_breakout_long：只做 confirmed breakout、trigger_memory_confirmed 或 clean pullback continuation。`entry_trigger_near` 只是接近触发，不是开仓；未出现 5m/15m close through trigger 时 wait + `blocked_reason_code=confirmation_missing` + `trigger`。\n")
-		sb.WriteString("- displacement_momentum_long：只做位移初段或回踩延续，不追末端。`displacement_rr_insufficient` 与 `displacement_rr_repaired_needs_review` 只能 REVIEWABLE；必须重算 backend-capped effective_rr>=1.5、VWAP/尾随支撑守住、taker_buy_15m>0.52、OI 或成交量扩张。若 `displacement_chase_risk_overextended` 存在，优先等回踩，不得市场价追高。\n")
-		sb.WriteString("- leader_momentum_long / short_squeeze_long：只做 clean momentum。需要强 4h/24h 相对强势、taker_sustained_buy 或 taker_buy_aggressive、OI healthy growth，或中下沿浅回踩守住。weak upper-zone pullbacks 不是优质入场；no_pullback_still_running + upper-zone + OI/量能/VWAP/RSI 任两项弱化时，视为顶部追单风险，必须 wait。\n")
-		sb.WriteString("- alt_ladder_momentum_long / alt_ladder_breakdown_short：专门处理非核心高振幅山寨从 5%→15%→30% 的阶梯行情。Stage early/mid 可复核顺势；Stage late 或 `alt_ladder_late_*_risk` 只有在 1h OI 新增、成交量放大且 live 仍在 entry zone 时才可复核，否则必须 wait；`alt_ladder_stage_extreme` / `alt_ladder_extreme_continuation_watch` 只跟踪 EMA25/VWAP 回踩或重新放量，不得现价追多。必须有结构位 + taker + OI/volume 至少两项同向，不能只因涨跌幅大而 open。\n")
-		sb.WriteString("- breakdown_momentum_short：捕捉下跌动量/破位延续机会，不要求 funding/LSR 极端。需要 1h 或 15m 下跌动量、价格跌破 VWAP/EMA/15m 中轨、taker_buy_15m<=0.50、OI 或成交量至少一项确认，并且不能贴近日内/日线支撑末端追空。\n")
-		sb.WriteString("- mms_bottom_wake_long：暗涌底吸/横盘吸筹，只做小盘代理通过、72h 压缩、1h 放量、4h OI 潜伏增持的 REVIEWABLE；未 5m/15m 突破确认时不得 open。\n")
-		sb.WriteString("- mms_trend_ride_long：主升生命线缩量回踩，只做 15m EMA7>EMA25>EMA99、低点触 EMA25 且收回、缩量回踩、taker 未反向的顺势多；必须在 entry zone 内且至少一项 1h/4h 动量未转弱，否则视为 wait 或 review，不得直接开仓；远离 EMA25 变 chase_risk。\n")
-		sb.WriteString("- mms_squeeze_engine_long：顺势轧空，不是摸顶信号。Top LSR 高、价格与 OI 同涨、买盘/量能确认时可复核追多；`mms_do_not_short_squeeze` 或 `mms_short_ban_active` 出现时，同 symbol 禁止开空。\n")
-		sb.WriteString("- panic_reversal_long：只做恐慌后的 reclaim 修复，不接下跌中的刀。需要 reclaim、selling exhaustion/deceleration、taker_buy_15m>=0.52、OI flush/declining、no_new_low 和 RR 通过；若 trend_down/逆势且 confirmation_summary.passed_review=false，必须 wait。\n")
-		sb.WriteString("- funding_reversal SHORT：只做多头拥挤后的近端反转，不追深跌。需要 funding/LSR 拥挤、taker_buy_15m<0.48、retest failure/no_new_high、OI flush/mixed 与 RR 通过。funding_reversal LONG 必须有强 reclaim 与 15m 收复，不能和 SHORT 对称放宽。\n\n")
-		sb.WriteString("## 4. 开仓审验顺序\n")
-		sb.WriteString("逐个候选按顺序检查：market_shape 是否匹配 setup_type；entry_signal 是否已触发；当前价是否在 entry_zone/触发容差/回踩确认区；required_confirmations 是否通过；OI/taker/volume 至少两项同向；stop_loss/take_profit/RR/price drift 能否通过后端；同 symbol 冷却和最近亏损是否允许。`entry_open_now` 只表示进入审验，不等于必须开；`entry_rr_repairable` 必须重算当前 RR；`entry_chase_risk` 默认 wait，只有回踩支撑和 flow 未反转时才可小仓。\n\n")
-		sb.WriteString("短周期保护：若 `hunter_v7_signal_json.tp0_price` 存在，开仓时把它作为第一保护目标；到 TP0 后减仓 30%-50%，并把剩余仓位止损移动到 breakeven 或 5m EMA20/VWAP trailing。若 `position_size_hint=small_size_or_wait_pullback`，只能小仓或等回踩；若 `position_size_hint=wait_pullback_price_too_far_from_entry_zone`，不得现价开仓。\n\n")
-		sb.WriteString("几何修复纪律：若 EXECUTABLE 候选的唯一 blocker 是 stop_loss 距离小于最小值，且结构失效位未被击穿、confirmation_summary 已通过、TP cap 内仍能满足 RR，则不要直接 wait；把 stop_loss 调整到至少最小止损+0.10% 的合法方向，按 RR 重算 take_profit，并用较小 position_size_usd 开仓。若调整后 RR、TP cap、price drift 或确认任一不通过，才输出 `backend_guard_risk`。\n\n")
-		sb.WriteString("## 5. 输出纪律与持仓管理\n")
-		sb.WriteString("wait 必须输出 `blocked_reason_code`：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`。`trigger` 必须用于 `entry_trigger_near`、`entry_reclaim_wait`、`entry_pullback_wait`。`hold` 和 `wait` 不会修改 SL/TP；需要减风险时输出 `close_long`/`close_short`。\n")
-		sb.WriteString("持仓管理：若 Peak PnL reached protection near-TP1（保护 TP1 6%，near-TP1 为 Peak PnL >=5.7%，且 raw_move >=1.0%），随后 gives back >=45% from the peak 或当前 PnL 回到盈亏平衡/亏损，优先输出风险降低 close；不得只因未到 SL/TP 而 hold，也不得 do not use `hold` to claim stop tightening。若错过 near-TP1 后回到 TP1 的 90% 以上，是 second protection chance。若仍是 pre-TP1/micro-profit noise，close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal；crossing from a positive peak to negative PnL is >100% giveback，但微利状态不能只靠比例退出。\n")
-		return
-	}
-	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
-	sb.WriteString("## 1. Role And Objective\n")
-	sb.WriteString("You are the Hunter v7 execution operator, not a generic chart analyst. Convert structured `hunter_v7_signal_json` into open / wait / close. Improve per-poll openable-signal discovery through better funneling, trigger recognition, and RR revalidation, not by bypassing risk, trading low-liquidity names, or overriding reject_only/wait_only semantics.\n\n")
-	sb.WriteString("## 2. Candidate Funnel\n")
-	sb.WriteString("Evaluate EXECUTABLE → REVIEWABLE → WATCH → REJECTED. Fully judge every EXECUTABLE/REVIEWABLE candidate; WATCH is context only and REJECTED is forbidden. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Use `no_reviewable_candidate` only when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0.\n")
-	sb.WriteString(fmt.Sprintf("Backend geometry: allowed drift %.2f%%, minimum stop %.2f%%, effective RR %.2f, TP cap %.2f%%. Do not place stop_loss barely above the minimum; keep a drift buffer when structure and RR allow.\n\n",
-		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
-	sb.WriteString(fmt.Sprintf("Before opening, treat take_profit as the backend-effective TP: long=min(your TP, price*(1+%.2f%%)), short=max(your TP, price*(1-%.2f%%)); recalculate effective_rr from that capped TP and stop_loss. If capped effective_rr < %.2f, wait with `blocked_reason_code=rr_insufficient`; do not cite an uncapped far TP1 as the open rationale.\n",
-		maxTPMovePct, maxTPMovePct, minRR))
-	sb.WriteString(fmt.Sprintf("If execution_tier=EXECUTABLE, hunter_v7_signal_json.confirmation_summary.passed_review=true, and confirmation_summary.rr/effective_rr is already >= %.2f, treat backend RR as validated; do not invent a stricter structural RR. Use `rr_insufficient` only when you explicitly recompute from executable price, backend-capped effective_take_profit, and stop_loss and it is still below %.2f.\n",
-		minRR, minRR))
-	sb.WriteString("## blocked_reason_code Requirement\n")
-	sb.WriteString("Wait decisions MUST include a `blocked_reason_code` field (enum: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`). ABSOLUTELY do NOT substitute free-text reasoning for this field. If wait, there must be exactly one blocked_reason_code.\n")
-	sb.WriteString("Use `no_reviewable_candidate` ONLY when Tier Summary shows EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
-	sb.WriteString("## Account Drawdown Rule\n")
-	sb.WriteString("Account drawdown and recent losses are ONLY for: (1) position sizing, (2) repeat-trade cooldown, (3) same-symbol cooldown. It is FORBIDDEN to use 'account is in drawdown' as a global wait veto for every EXECUTABLE/REVIEWABLE candidate. If a candidate passes hard risk controls, setup confirmation, and RR, open with conservative size.\n")
-	if minSLMovePct > 0 && maxDriftPct > 0 {
-		sb.WriteString(fmt.Sprintf("Do not place stop_loss barely above the %.2f%% minimum; prefer roughly %.2f%%+ stop distance when structure and RR allow, because allowed %.2f%% entry drift can otherwise fail backend validation.\n",
-			minSLMovePct, minSLMovePct+maxDriftPct, maxDriftPct))
-	}
-	sb.WriteString("For momentum/breakout setups such as leader_momentum_long or trend_breakout_long, if live price breaks below signal stop/invalidation, below entry_zone.lower, or 5m momentum flips from strong to weak, do not treat the pullback as a better entry; wait.\n")
-	sb.WriteString("For leader_momentum_long, if it is a 1h pullback/shallow pullback but live price is still near entry_zone.upper and taker buy is not clearly strengthening, wait for a mid/lower-zone pullback or renewed high-volume breakout; do not treat weak upper-zone pullbacks as quality long entries.\n")
-	sb.WriteString("For whale_flow_reversal LONG, do not chase the upper half of entry_zone; if entry_zone_position is >45%, wait or select the next valid EXECUTABLE/REVIEWABLE candidate to avoid the backend entry-zone guard.\n")
-	sb.WriteString("range_expansion_event SHORT is a high-volatility chase-short setup. If 15m close is more than 10% below EMA20, entry_zone_position is >80%, live price has rebounded more than 0.30% above the decision price, or required confirmation is not explicitly below VWAP/EMA20/entry_zone_lower, wait with `blocked_reason_code=backend_guard_risk` or `confirmation_missing`.\n")
-	sb.WriteString("For open_short, NEVER treat `15m close above VWAP/EMA20`, `close above VWAP`, or `close above EMA20` as passed SHORT confirmation. That direction conflict must wait with `blocked_reason_code=confirmation_missing`.\n")
-	sb.WriteString("For EXECUTABLE candidates, every required_confirmation must be explicitly passed in confirmation_summary. For REVIEWABLE candidates with only live-checkable gaps (short-term candle close, taker flow, momentum_not_exhausted), open only after latest candle/flow/orderbook confirmation; otherwise wait with `blocked_reason_code=confirmation_missing`.\n")
-	sb.WriteString("Do not describe required_confirmations as left to LLM/context cross-checking; if confirmation_summary.context_checks contains a required confirmation, treat it as context-only/unverified and do not open unless it is a REVIEWABLE live-checkable gap confirmed by fresh data.\n")
-	sb.WriteString("For high-volatility altcoins, take_profit must be the nearest effective 5m-30m target (TP0/near TP1). Do not cite far TP1/TP2 only to satisfy RR. If the nearest effective capped TP does not pass RR, wait.\n")
-	sb.WriteString("For any signal with risk_tags containing regime_against_direction and hunter_v7_signal_json.confirmation_summary.passed_review=false, wait. This is the unified counter-trend open boundary; do not override the failed confirmation with high priority, one 5m EMA reclaim, strong taker flow, or acceptable RR.\n")
-	sb.WriteString("For panic_reversal_long in trend_down/counter-trend with a deep 24h dump and still-negative 4h structure, a small 5m close above EMA20 or entry_zone_mid is not enough to open; require stronger structure confirmation, preferably a 15m reclaim of EMA20/VWAP or consecutive 5m holds, plus clearly stronger taker_buy_15m. Otherwise output confirmation_missing.\n")
-	sb.WriteString("For panic_reversal_long in trend_down/counter-trend, if hunter_v7_signal_json.confirmation_summary.passed_review=false, wait; do not override that failed confirmation with a single 5m EMA reclaim, strong taker buy, or acceptable RR.\n")
-	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
-	sb.WriteString("Position management: the protector uses leveraged ROE. Once Peak PnL >=5%, breakeven/loss is first an exit or risk-reduction signal. Once Peak >=10%, about 50% giveback from peak is a protection close signal; once Peak >=15%, about 45% giveback is a protection close signal unless 5m/15m structure and flow both give explicit continuation evidence. Current PnL >=8% can justify TP0 partial close of 30%-50% and moving the stop to breakeven. In the first 15 minutes, PnL <=-8% is a hard invalidation signal; at any age, PnL <=-12% is hard stop territory. Do not `hold` only because original SL/TP has not been reached, and do not use `hold` to claim stop tightening.\n")
-	sb.WriteString("## 3. Multi-Setup Playbooks\n")
-	sb.WriteString("- trend_breakout_long / accumulation_breakout_long: trade only confirmed breakout, trigger_memory_confirmed, or clean pullback continuation. `entry_trigger_near` is not an entry; without a 5m/15m close through trigger, wait with `blocked_reason_code=confirmation_missing` and include `trigger`.\n")
-	sb.WriteString("- displacement_momentum_long: trade early displacement or supported pullback continuation, not late chase. `displacement_rr_insufficient` and `displacement_rr_repaired_needs_review` are REVIEWABLE only; require backend-capped effective_rr>=1.5, VWAP/trailing support hold, taker_buy_15m>0.52, and OI/volume expansion. If displacement_chase_risk_overextended is present, prefer pullback confirmation.\n")
-	sb.WriteString("- leader_momentum_long / short_squeeze_long: require clean momentum, strong 4h/24h relative strength, sustained/aggressive taker buy, healthy OI growth, or a mid/lower-zone shallow pullback. weak upper-zone pullbacks are not quality entries; no_pullback_still_running + upper-zone + any two weak OI/volume/VWAP/RSI conditions is top-chase risk and must wait.\n")
-	sb.WriteString("- alt_ladder_momentum_long / alt_ladder_breakdown_short: specialized high-amplitude non-core alt lifecycle routes from 5%→15%→30%. Stage early/mid can be reviewed with trend; Stage late or `alt_ladder_late_*_risk` requires reduced size or a pullback/retest, and only becomes executable again when 1h OI/volume shows fresh continuation; `alt_ladder_stage_extreme` / `alt_ladder_extreme_continuation_watch` tracks EMA25/VWAP pullback or renewed volume only and never permits current-price chasing. Require structure + taker + OI/volume alignment; never open from move size alone.\n")
-	sb.WriteString("- breakdown_momentum_short: capture downside momentum / breakdown continuation without requiring extreme funding or LSR. Require 1h or 15m downside impulse, price below VWAP/EMA/15m mid band, taker_buy_15m<=0.50, at least one OI or volume confirmation, and avoid chasing into daily support after an exhausted crash.\n")
-	sb.WriteString("- mms_bottom_wake_long: quiet small-cap accumulation. REVIEWABLE only until a 5m/15m breakout/reclaim confirms; require 72h compression, 1h volume wake, 4h OI stealth inflow, and no active sell pressure.\n")
-	sb.WriteString("- mms_trend_ride_long: trend-life-line retest. Require 15m EMA7>EMA25>EMA99, low touches EMA25 and close reclaims, low-volume retest, and taker flow not against long. If far above EMA25 or 1h/4h momentum both turn negative, treat as wait or review instead of open.\n")
-	sb.WriteString("- mms_squeeze_engine_long: squeeze-fuel continuation, not a top-short signal. Top LSR high, price and OI rising together, and buy/volume confirmation allow long review; `mms_do_not_short_squeeze` or `mms_short_ban_active` blocks same-symbol shorts.\n")
-	sb.WriteString("- panic_reversal_long: trade reclaim repair after capitulation, not falling knives. Require reclaim, selling exhaustion/deceleration, taker_buy_15m>=0.52, OI flush/decline, no_new_low, and RR. If counter-trend and confirmation_summary.passed_review=false, wait.\n")
-	sb.WriteString("- funding_reversal SHORT: trade crowded-long reversal near retest, not late deep drops. Require funding/LSR crowding, taker_buy_15m<0.48, retest failure/no_new_high, OI flush/mixed, and RR. funding_reversal LONG needs strong reclaim and 15m recovery; do not mirror SHORT loosely.\n\n")
-	sb.WriteString("## 4. Open Review Order\n")
-	sb.WriteString("For every EXECUTABLE/REVIEWABLE candidate, check in order: market_shape matches setup_type; entry_signal is triggered; current price is in entry_zone / trigger tolerance / pullback confirmation zone; required_confirmations pass; at least two of OI/taker/volume align; stop_loss/take_profit/RR/price drift pass backend guards; same-symbol cooldown and recent losses allow a new open. `entry_open_now` means review now, not must-open. `entry_rr_repairable` requires current RR recalculation. `entry_chase_risk` defaults to wait unless pullback support holds and flow has not reversed.\n\n")
-	sb.WriteString("Short-cycle protection: if `hunter_v7_signal_json.tp0_price` exists, use it as the first protection target; after TP0 reduce 30%-50% and move the remaining stop to breakeven or 5m EMA20/VWAP trailing. If `position_size_hint=small_size_or_wait_pullback`, use reduced size or wait; if `position_size_hint=wait_pullback_price_too_far_from_entry_zone`, do not open at market.\n\n")
-	sb.WriteString("Geometry repair discipline: when an EXECUTABLE candidate's only blocker is stop_loss distance below the minimum, and the structural invalidation is not already broken, confirmation_summary has passed, and RR still passes within the TP cap, do not immediately wait. Move stop_loss to at least minimum stop + 0.10% in the valid direction, recalculate take_profit from RR, and open with a smaller position_size_usd. Output `backend_guard_risk` only if the repaired geometry fails RR, TP cap, price drift, or confirmation checks.\n\n")
-	sb.WriteString("## 5. Output Discipline And Position Management\n")
-	sb.WriteString("Wait decisions MUST include one `blocked_reason_code`: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. `trigger` is required for `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`. `hold` and `wait` do not change SL/TP; output `close_long`/`close_short` when risk reduction is needed.\n")
-	sb.WriteString("Position management: if Peak PnL reached protection near-TP1 (protection TP1 is 6%; near-TP1 means Peak PnL >=5.7% AND raw_move >=1.0%) and then gives back >=45% from the peak or crosses to breakeven/loss, treat it first as an exit/risk-reduction signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. A later return above 90% of TP1 is a second protection chance only when raw_move >=1.0%. If Peak PnL is below 5.7% or raw_move <1.0%, it is pre-TP1/micro-profit noise: close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal. crossing from a positive peak to negative PnL is >100% giveback, but micro-profit state cannot exit from that ratio alone.\n")
+	sb.WriteString(hunterV7DoctrinePrompt(e.GetLanguage(), maxTPMovePct, minSLMovePct, maxDriftPct, minRR))
 }
-
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
 	if configured <= 0 {
 		return configured
@@ -803,32 +698,13 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			sb.WriteString("Decision policy: Current positions have reached Max Positions; candidates are summary-only context. Do not expand or decide each candidate, and do not open unless an existing position is explicitly closed first.\n\n")
 		}
 	} else if execCount+reviewableCount > 0 {
+		// Standing doctrine (funnel order, family playbooks, geometry, output
+		// contract) lives in the system prompt's five-segment framework; this
+		// per-cycle line only binds it to the current pool.
 		if e.GetLanguage() == LangChinese {
-			sb.WriteString("Decision policy (严格 tier 漏斗):\n")
-			sb.WriteString("1. EXECUTABLE 优先：必须首先评估所有 EXECUTABLE 候选。满足硬风控 + setup 核心确认 + RR 的，给出 open；否则给出精确 blocked_reason_code。\n")
-			sb.WriteString("2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。REVIEWABLE 允许存在短周期收盘/资金流/momentum 等现场确认缺口；只有最新 K线、资金流、盘口、入场区、近端止损和 RR 均确认后才允许 open，否则给出 blocked_reason_code。\n")
-			sb.WriteString("3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。\n")
-			sb.WriteString("4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。\n")
-			sb.WriteString("5. 动量/位移/放量突破/区间扩张/鲸鱼流反转开仓后必须执行 TP0 分批止盈语义：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。当前 JSON 只有单个 `take_profit` 字段时，必须输出“后端 cap 后仍满足 RR 的最近有效 TP”，不得输出会被 cap 后 RR 不足的远端 TP1；若近端有效 TP 不存在则 wait。\n")
-			sb.WriteString("6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。\n")
-			sb.WriteString("7. EXECUTABLE 且 confirmation_summary.passed_review=true、confirmation_summary.rr/effective_rr 已达标时，优先给出保守仓位 open；不得用未列明计算过程的 `rr_insufficient` 覆盖后端已验证 RR。\n")
-			sb.WriteString("8. whale_flow_reversal LONG 若 entry_zone_position >45%，该候选会被后端保护拦截；必须 wait 或继续评估下一个候选。\n")
-			sb.WriteString("9. range_expansion_event SHORT 若 15m close 极端低于 EMA20、entry_zone_position >80%、实时价已反弹，或把 above VWAP/EMA20 当作 SHORT 确认，必须 wait；这是后端硬保护。\n")
-			sb.WriteString("10. open_long/open_short 必须从候选的 hunter_v7_signal_json.signal_id 复制到 `selected_hunter_v7_signal_id`；后端会按 signal_id/symbol/direction/setup/tier 做结构化匹配。\n")
-			sb.WriteString("wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。\n\n")
+			sb.WriteString("Decision policy: 按系统提示的 Hunter v7 五段执行框架处理本轮候选——先逐个审 EXECUTABLE，再审 REVIEWABLE；空仓且存在上述候选时，必须给出最佳 open 或恰好一个 blocked_reason_code（附 blocked_signal_symbol）。\n")
 		} else {
-			sb.WriteString("Decision policy (strict tier funnel):\n")
-			sb.WriteString("1. EXECUTABLE first: evaluate ALL EXECUTABLE candidates first. If a candidate passes hard risk controls, setup core confirmation, and RR, output open; otherwise provide a precise `blocked_reason_code`.\n")
-			sb.WriteString("2. REVIEWABLE next: only after all EXECUTABLE candidates are blocked, evaluate REVIEWABLE. REVIEWABLE may have live-checkable gaps such as short-term candle close, taker flow, or momentum; open only when latest candles, flow, orderbook, entry zone, near structural stop, and RR confirm; otherwise provide `blocked_reason_code`.\n")
-			sb.WriteString("3. WATCH is context only: WATCH candidates do not participate in open decisions. Do not use the absence of WATCH candidates as a global wait veto on EXECUTABLE/REVIEWABLE.\n")
-			sb.WriteString("4. REJECTED is forbidden: REJECTED candidates must not influence any open decision.\n")
-			sb.WriteString("5. For momentum/displacement/range-expansion/breakout/whale-flow reversal opens, use TP0 partial-profit semantics: reduce 30%-50% at TP0, move stop to breakeven, then trail with 5m EMA20, 15m VWAP, or 0.8-1.2 ATR15m. TP0 is not targets[0]; targets[0] remains TP1. Because the current JSON schema has one `take_profit` field, output the nearest effective TP that still passes RR after backend cap; do not output a far TP1 that becomes RR-insufficient after capping. If no near effective TP passes, wait.\n")
-			sb.WriteString("6. If execution_tier=EXECUTABLE and data_quality=complete_for_execution, `regime_against_direction` alone must not downgrade to wait; reduce size when confirmation passed, but still wait when confirmation_summary.passed_review=false.\n")
-			sb.WriteString("7. When an EXECUTABLE candidate has confirmation_summary.passed_review=true and confirmation_summary.rr/effective_rr already passes, prefer a conservative open; do not override backend-validated RR with `rr_insufficient` unless your explicit recomputation shows it fails.\n")
-			sb.WriteString("8. A whale_flow_reversal LONG with entry_zone_position >45% will be rejected by the backend guard; wait or continue to the next candidate.\n")
-			sb.WriteString("9. A range_expansion_event SHORT must wait if 15m close is extremely below EMA20, entry_zone_position is >80%, live price has rebounded, or the reasoning treats above VWAP/EMA20 as SHORT confirmation; this is backend-enforced.\n")
-			sb.WriteString("10. For open_long/open_short, copy hunter_v7_signal_json.signal_id into `selected_hunter_v7_signal_id`; the backend will match signal_id/symbol/direction/setup/tier structurally.\n")
-			sb.WriteString("Wait decisions MUST include `blocked_reason_code` (enum field); free-text reasoning is not a substitute. Account drawdown affects sizing/cooldown only, not a global wait veto for all candidates.\n\n")
+			sb.WriteString("Decision policy: apply the Hunter v7 five-segment framework from the system prompt to this cycle's pool — audit every EXECUTABLE first, then REVIEWABLE; when flat with such candidates present, output the best open or exactly one blocked_reason_code (with blocked_signal_symbol).\n")
 		}
 	} else {
 		if e.GetLanguage() == LangChinese {

@@ -14,19 +14,7 @@ Tag semantics: reason_codes are evidence, risk_tags constrain or block execution
 Taker-flow ladder (unified vocabulary): flow_taker_buy_aggressive > flow_taker_buy_strong > flow_taker_buy_moderate/flow_taker_buy_aligned > flow_taker_buy_recovering > flow_taker_buy_neutral > flow_taker_buy_weak, and symmetrically flow_taker_sell_* for shorts. Ladder position is per-setup flow strength, not a standalone open permission. Audit rule: aggressive/strong (or sell_dominant/sell_strong for shorts) aligned with the signal direction plus a passed confirmation_summary supports opening at normal size; moderate/aligned/recovering requires the live taker_buy_15m reading to still confirm direction before opening; neutral/weak is never sufficient flow on its own — re-check live flow instead of issuing a blanket wait, and treat flow_taker_buy_weak on a LONG (or buy-side strength on a SHORT) as a size-reduction or wait signal.
 Generic-floor audit: a candidate whose tier_reason is execution_quality_ready passed only the generic score floor, not a setup-specific gate — before opening it, additionally verify entry_zone_position against the setup's entry doctrine and the live taker reading; when either check is unavailable, prefer conservative size or wait.
 
-Decision policy (严格 tier 漏斗):
-1. EXECUTABLE 优先：必须首先评估所有 EXECUTABLE 候选。满足硬风控 + setup 核心确认 + RR 的，给出 open；否则给出精确 blocked_reason_code。
-2. REVIEWABLE 可复核：EXECUTABLE 全部被 blocked 后才评估 REVIEWABLE。REVIEWABLE 允许存在短周期收盘/资金流/momentum 等现场确认缺口；只有最新 K线、资金流、盘口、入场区、近端止损和 RR 均确认后才允许 open，否则给出 blocked_reason_code。
-3. WATCH 只做背景：WATCH 候选不参与开仓决策，只提供市场背景。禁止把 WATCH 候选的整体缺失作为对所有 EXECUTABLE/REVIEWABLE 的全局 wait。
-4. REJECTED 禁止：REJECTED 候选不得参与任何开仓判断。
-5. 动量/位移/放量突破/区间扩张/鲸鱼流反转开仓后必须执行 TP0 分批止盈语义：TP0 减仓 30%-50%，止损推保本，并用 5m EMA20、15m VWAP 或 0.8-1.2 ATR15m 跟踪剩余仓位；TP0 不等同于 targets[0]，targets[0] 仍是 TP1。当前 JSON 只有单个 `take_profit` 字段时，必须输出“后端 cap 后仍满足 RR 的最近有效 TP”，不得输出会被 cap 后 RR 不足的远端 TP1；若近端有效 TP 不存在则 wait。
-6. 若 execution_tier=EXECUTABLE 且 data_quality=complete_for_execution，`regime_against_direction` 不能作为唯一 wait/降级理由；确认通过时仅降低仓位，确认失败仍按 confirmation_missing wait。
-7. EXECUTABLE 且 confirmation_summary.passed_review=true、confirmation_summary.rr/effective_rr 已达标时，优先给出保守仓位 open；不得用未列明计算过程的 `rr_insufficient` 覆盖后端已验证 RR。
-8. whale_flow_reversal LONG 若 entry_zone_position >45%，该候选会被后端保护拦截；必须 wait 或继续评估下一个候选。
-9. range_expansion_event SHORT 若 15m close 极端低于 EMA20、entry_zone_position >80%、实时价已反弹，或把 above VWAP/EMA20 当作 SHORT 确认，必须 wait；这是后端硬保护。
-10. open_long/open_short 必须从候选的 hunter_v7_signal_json.signal_id 复制到 `selected_hunter_v7_signal_id`；后端会按 signal_id/symbol/direction/setup/tier 做结构化匹配。
-wait 决策必须输出 `blocked_reason_code`（枚举值），不得用自然语言 reasoning 代替。账户回撤只影响仓位/冷却，不得作为所有候选的全局 wait 否决。
-
+Decision policy: 按系统提示的 Hunter v7 五段执行框架处理本轮候选——先逐个审 EXECUTABLE，再审 REVIEWABLE；空仓且存在上述候选时，必须给出最佳 open 或恰好一个 blocked_reason_code（附 blocked_signal_symbol）。
 ### Open-review candidates (full context, max 8)
 
 #### 1. OPUSDT [LONG]
