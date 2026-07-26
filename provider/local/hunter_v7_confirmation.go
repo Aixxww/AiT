@@ -289,6 +289,32 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.50, false), true
 		}
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.50, true), true
+	case "oi_stabilize":
+		// Pullback continuation wants open interest to stop bleeding, not
+		// necessarily to grow yet.
+		if ctx.Snapshot == nil {
+			break
+		}
+		return V7ConfirmationCheck{
+			Code:      code,
+			Passed:    ctx.Snapshot.OIDelta1h >= -0.5,
+			Actual:    ctx.Snapshot.OIDelta1h,
+			Threshold: -0.5,
+			Severity:  V7ConfirmReviewWait,
+			Reason:    "1h OI must stop declining",
+		}, true
+	case "lsr_turning_up":
+		if ctx.Snapshot == nil || ctx.Snapshot.LSR <= 0 || ctx.Snapshot.LSRPrev <= 0 {
+			break
+		}
+		return V7ConfirmationCheck{
+			Code:      code,
+			Passed:    ctx.Snapshot.LSR > ctx.Snapshot.LSRPrev,
+			Actual:    ctx.Snapshot.LSR,
+			Threshold: ctx.Snapshot.LSRPrev,
+			Severity:  V7ConfirmReviewWait,
+			Reason:    "long/short ratio must inflect upward",
+		}, true
 	}
 	return V7ConfirmationCheck{}, false
 }

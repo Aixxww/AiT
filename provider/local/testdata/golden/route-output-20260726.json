@@ -2117,7 +2117,7 @@
     }
    ],
    "required_confirmations": [
-    "taker_buy_gt_0_52",
+    "taker_buy_15m_gt_0_52",
     "oi_stabilize",
     "lsr_turning_up"
    ],
@@ -2132,26 +2132,14 @@
       "threshold": 50,
       "severity": "review_wait",
       "reason": "long price is above allowed entry-zone position"
-     }
-    ],
-    "context_checks": [
-     {
-      "code": "taker_buy_gt_0_52",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
      },
      {
-      "code": "oi_stabilize",
+      "code": "taker_buy_15m_gt_0_52",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "lsr_turning_up",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.45719191690528543,
+      "threshold": 0.52,
+      "severity": "review_wait",
+      "reason": "15m taker buy is below required long threshold"
      }
     ],
     "entry_zone_position": 62.49999999999808,
@@ -2188,7 +2176,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_taker_buy_gt_0_52",
+    "reason": "confirmation_missing_taker_buy_15m_gt_0_52",
     "ready_score": 60.22140900859028,
     "window_health": 90,
     "entry_zone_position": 62.49999999999808,
@@ -2196,9 +2184,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "taker_buy_gt_0_52",
-     "oi_stabilize",
-     "lsr_turning_up"
+     "taker_buy_15m_gt_0_52"
     ]
    },
    "execution_context": {
@@ -5686,7 +5672,7 @@
     }
    ],
    "required_confirmations": [
-    "taker_buy_gt_0_52",
+    "taker_buy_15m_gt_0_52",
     "oi_stabilize",
     "lsr_turning_up"
    ],
@@ -5701,26 +5687,14 @@
       "threshold": 50,
       "severity": "review_wait",
       "reason": "long price is above allowed entry-zone position"
-     }
-    ],
-    "context_checks": [
-     {
-      "code": "taker_buy_gt_0_52",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
      },
      {
-      "code": "oi_stabilize",
+      "code": "taker_buy_15m_gt_0_52",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "lsr_turning_up",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.45719191690528543,
+      "threshold": 0.52,
+      "severity": "review_wait",
+      "reason": "15m taker buy is below required long threshold"
      }
     ],
     "entry_zone_position": 62.49999999999808,
@@ -5757,7 +5731,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_taker_buy_gt_0_52",
+    "reason": "confirmation_missing_taker_buy_15m_gt_0_52",
     "ready_score": 60.22140900859028,
     "window_health": 90,
     "entry_zone_position": 62.49999999999808,
@@ -5765,9 +5739,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "taker_buy_gt_0_52",
-     "oi_stabilize",
-     "lsr_turning_up"
+     "taker_buy_15m_gt_0_52"
     ]
    },
    "execution_context": {

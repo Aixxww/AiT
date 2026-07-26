@@ -165,7 +165,11 @@ func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 	if hasSupport && !hasConfirm {
 		sig.SetupScore *= 0.70
 		sig.Status = V7StatusWaitConfirm
-		sig.RequiredConfirms = []string{"taker_buy_gt_0_52", "oi_stabilize", "lsr_turning_up"}
+		// Canonical, machine-evaluable codes. The old spelling
+		// taker_buy_gt_0_52 had no evaluator anywhere, so every pullback that
+		// entered this branch carried permanently unsatisfiable confirmations
+		// and could never leave WATCH.
+		sig.RequiredConfirms = []string{"taker_buy_15m_gt_0_52", "oi_stabilize", "lsr_turning_up"}
 	}
 
 	if sig.SetupScore < 30 {
