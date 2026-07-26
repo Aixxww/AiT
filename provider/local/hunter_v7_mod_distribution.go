@@ -78,157 +78,95 @@ func (m *distributionShortModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		return nil
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirShort,
-		SetupType:    V7SetupDistributionShort,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryWaitReject,
-		Confidence:   "B",
-		MarketRegime: regime,
-	}
+	s := newV7Signal(ctx, regime, V7SetupDistributionShort, V7DirShort, V7EntryWaitReject, "B")
 
-	var score float64
-
-	// 1. Distribution Signature (0-25): classic distribution pattern
-	// Big rally with stalling momentum
+	// 1. Distribution Signature (0-25): big rally with stalling momentum.
 	if ctx.Change24h > 30 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "extreme_rally")
+		s.add(15, "extreme_rally")
 	} else if ctx.Change24h > 25 {
-		score += 12
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_rally")
+		s.add(12, "strong_rally")
 	} else if ctx.Change24h > 20 {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "overextended_rally")
+		s.add(8, "overextended_rally")
 	}
-	// Price near 4h high (rejection zone)
 	if ctx.High4h > 0 && ctx.ATR4h > 0 {
 		distToHigh := (ctx.High4h - ctx.CurrentPrice) / ctx.ATR4h
 		if distToHigh < 0.5 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "at_4h_high")
+			s.add(10, "at_4h_high")
 		} else if distToHigh < 1.0 {
-			score += 6
-			sig.ReasonCodes = append(sig.ReasonCodes, "near_4h_high")
+			s.add(6, "near_4h_high")
 		}
 	}
 
-	// 2. Crowding Risk (0-25): overcrowded longs
+	// 2. Crowding Risk (0-25): overcrowded longs.
 	if snap != nil {
 		oiD4h := snap.OIDelta4h
 		if oiD4h > 30 {
-			score += 25
-			sig.ReasonCodes = append(sig.ReasonCodes, "extreme_oi_surge")
+			s.add(25, "extreme_oi_surge")
 		} else if oiD4h > 22 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "heavy_oi_surge")
+			s.add(20, "heavy_oi_surge")
 		} else if oiD4h > 15 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_surge")
+			s.add(15, "oi_surge")
 		}
-		// Funding rate positive (longs paying shorts — crowded long)
 		if snap.FundingRate > 0.0005 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "positive_funding_crowding")
+			s.add(5, "positive_funding_crowding")
 		}
 	}
 
-	// 3. Taker Divergence (0-20): sell pressure emerging
+	// 3. Taker Divergence (0-20): sell pressure emerging.
 	takerSellRatio := 1.0 - ctx.TakerBuy15m
 	if takerSellRatio > 0.60 {
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_dominant")
+		s.add(20, "taker_sell_dominant")
 	} else if takerSellRatio > 0.55 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_emerging")
+		s.add(15, "taker_sell_emerging")
 	} else if takerSellRatio > 0.50 {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_neutral")
+		s.add(8, "taker_sell_neutral")
 	}
-	// Price below VWAP is distribution signal
 	if ctx.VWAP15m > 0 && ctx.CurrentPrice < ctx.VWAP15m {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "below_vwap_distribution")
+		s.add(5, "below_vwap_distribution")
 	}
 
-	// 4. OI Structure (0-15): OI building while price shows exhaustion
+	// 4. OI Structure (0-15): OI building while price shows exhaustion.
 	if snap != nil {
-		// OI up 1h and 4h both — continuous crowding
 		if snap.OIDelta1h > 5 && snap.OIDelta4h > 15 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "continuous_oi_crowding")
+			s.add(10, "continuous_oi_crowding")
 		} else if snap.OIDelta1h > 3 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_expanding")
+			s.add(5, "oi_expanding")
 		}
-		// LSR extremely bullish = too many longs
 		if snap.LSR > 1.5 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "lsr_extreme_long")
+			s.add(5, "lsr_extreme_long")
 		} else if snap.LSR > 1.2 {
-			score += 3
-			sig.ReasonCodes = append(sig.ReasonCodes, "lsr_bullish_crowded")
+			s.add(3, "lsr_bullish_crowded")
 		}
 	}
 
-	// 5. Volume Pattern (0-15): distribution volume signature
-	// Far above EMA20 = mean reversion pressure
+	// 5. Volume Pattern (0-15): mean-reversion pressure and stalling momentum.
 	if ctx.EMA20_4h > 0 && ctx.ATR4h > 0 {
 		emaDist := (ctx.CurrentPrice - ctx.EMA20_4h) / ctx.ATR4h
 		if emaDist > 4.0 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "extreme_ema_extension")
+			s.add(10, "extreme_ema_extension")
 		} else if emaDist > 3.0 {
-			score += 7
-			sig.ReasonCodes = append(sig.ReasonCodes, "far_from_ema20")
+			s.add(7, "far_from_ema20")
 		}
 	}
-	// 1h price stalling while 24h is up (momentum divergence)
 	if ctx.Change24h > 20 && math.Abs(ctx.Change1h) < 2 {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "momentum_stalling")
+		s.add(5, "momentum_stalling")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
-
-	if sig.SetupScore < 30 {
-		return nil
-	}
-
-	// Build price and derivatives context
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-
-	// Entry zone: wait for rejection from high, enter on pullback
-	if ctx.ATR15m > 0 {
-		sig.EntryZone = V7PriceZone{
-			Lower: ctx.CurrentPrice - ctx.ATR15m*0.3,
-			Upper: ctx.CurrentPrice + ctx.ATR15m*0.5,
-		}
-	}
-
-	// Invalidation: above the 4h high + buffer
+	// Entry on rejection pullback; invalidate above the distribution high;
+	// targets are the mean-reversion magnets.
+	s.zoneATR(0.3, 0.5)
 	if ctx.High4h > 0 {
-		sig.Invalidation = V7InvalidationRule{
-			Price:  ctx.High4h + ctx.ATR4h*0.5,
-			Reason: "break_above_distribution_high",
-		}
+		s.invalidate(ctx.High4h+ctx.ATR4h*0.5, "break_above_distribution_high")
 	}
-
-	// Targets: mean reversion toward EMA20 and VWAP
 	if ctx.EMA20_4h > 0 && ctx.EMA20_4h < ctx.CurrentPrice {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.EMA20_4h, Reason: "ema20_mean_reversion"})
+		s.target(ctx.EMA20_4h, "ema20_mean_reversion")
 	}
 	if ctx.VWAP15m > 0 && ctx.VWAP15m < ctx.CurrentPrice {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.VWAP15m, Reason: "vwap_mean_reversion"})
+		s.target(ctx.VWAP15m, "vwap_mean_reversion")
 	}
 	if ctx.ATR4h > 0 {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.CurrentPrice - ctx.ATR4h*2, Reason: "atr_reversion_target"})
+		s.target(ctx.CurrentPrice-ctx.ATR4h*2, "atr_reversion_target")
 	}
 
-	// Timing score
-	sig.TimingScore = calcTimingScore(sig, ctx)
-
-	return sig
+	return s.finish(30)
 }
