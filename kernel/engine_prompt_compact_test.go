@@ -858,12 +858,14 @@ func TestFormatHunterV7SignalJSONDefinesP2Tags(t *testing.T) {
 		"whale_flow_detected":                local.V7TagActionEvidence,
 		"stealth_accumulation_breakout":      local.V7TagActionEvidence,
 		"accelerating_1h":                    local.V7TagActionEvidence,
-		"taker_neutral_buy":                  local.V7TagActionEvidence,
-		"no_pullback_still_running":          local.V7TagActionWaitOnly,
-		"chase_high_protection":              local.V7TagActionWaitOnly,
-		"low_timing_watch_only":              local.V7TagActionWaitOnly,
-		"leader_momentum_timing_watch_only":  local.V7TagActionWaitOnly,
-		"momentum_rsi_overheated_wait":       local.V7TagActionWaitOnly,
+		// The prompt renders the canonical taker vocabulary (U6.3): the coin
+		// carries taker_neutral_buy, the payload shows flow_taker_buy_neutral.
+		"flow_taker_buy_neutral":            local.V7TagActionEvidence,
+		"no_pullback_still_running":         local.V7TagActionWaitOnly,
+		"chase_high_protection":             local.V7TagActionWaitOnly,
+		"low_timing_watch_only":             local.V7TagActionWaitOnly,
+		"leader_momentum_timing_watch_only": local.V7TagActionWaitOnly,
+		"momentum_rsi_overheated_wait":      local.V7TagActionWaitOnly,
 	}
 	found := make(map[string]string)
 	for _, item := range semantics {

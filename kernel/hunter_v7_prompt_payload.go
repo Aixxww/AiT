@@ -69,7 +69,14 @@ type V7PromptPayload struct {
 
 // buildHunterV7PromptPayload assembles the payload from the candidate's
 // cached verdict and derived execution fields.
+//
+// Reason codes and risk tags are rendered in the canonical flow_ vocabulary
+// (U6.3 alias period): the candidate's internal state keeps the historical
+// spellings — tier rules and trader guards still match those — while the LLM
+// sees one unified taker ladder with tag_semantics explaining both names.
 func buildHunterV7PromptPayload(coin CandidateCoin) V7PromptPayload {
+	reasonCodes := local.V7CanonicalizeTags(coin.V7ReasonCodes)
+	riskTags := local.V7CanonicalizeTags(coin.V7RiskTags)
 	return V7PromptPayload{
 		SignalID:              coin.V7SignalID,
 		Symbol:                coin.Symbol,
@@ -93,8 +100,8 @@ func buildHunterV7PromptPayload(coin CandidateCoin) V7PromptPayload {
 		RegimeFitScore:        coin.V7RegimeFitScore,
 		LiquidityScore:        coin.V7LiquidityScore,
 		RiskScore:             coin.V7RiskScore,
-		ReasonCodes:           coin.V7ReasonCodes,
-		RiskTags:              coin.V7RiskTags,
+		ReasonCodes:           reasonCodes,
+		RiskTags:              riskTags,
 		RequiredConfirmations: coin.V7RequiredConfirms,
 		ConfirmationSummary:   coin.V7ConfirmSummary,
 		ExecutionGeometry:     buildHunterV7ExecutionGeometry(coin),
@@ -102,7 +109,7 @@ func buildHunterV7PromptPayload(coin CandidateCoin) V7PromptPayload {
 		MoveStopToBreakeven:   hunterV7EffectiveMoveStopToBreakeven(coin),
 		PositionSizeHint:      hunterV7PositionSizeHint(coin),
 		SuggestedTrigger:      buildHunterV7SuggestedTrigger(coin),
-		TagSemantics:          local.DescribeHunterV7Tags(coin.V7ReasonCodes, coin.V7RiskTags, coin.V7RequiredConfirms),
+		TagSemantics:          local.DescribeHunterV7Tags(reasonCodes, riskTags, coin.V7RequiredConfirms),
 		EntryZone:             coin.V7EntryZone,
 		Invalidation:          coin.V7Invalidation,
 		Targets:               coin.V7Targets,
