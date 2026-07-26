@@ -5,8 +5,20 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 function usage() {
-  console.error('Usage: node scripts/hunter_v7_live_analysis.mjs <report-dir>');
+  console.error('Usage: node scripts/hunter_v7_live_analysis.mjs <report-dir> [interval-label]');
+  console.error('  interval-label: round spacing shown in the report, e.g. "10m" (default) or "5m"');
   process.exit(1);
+}
+
+// parseGeneratedAt parses the validator's "2006-01-02 15:04:05 MST" stamp as
+// machine-local time. Node would misread the bare "CST" abbreviation as US
+// Central, so the zone token is dropped: the validator and this script run on
+// the same machine.
+function parseGeneratedAt(value) {
+  const m = String(value || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/);
+  if (!m) return 0;
+  const ms = new Date(`${m[1]}T${m[2]}`).getTime();
+  return Number.isFinite(ms) ? ms : 0;
 }
 
 function readJson(file) {
@@ -63,13 +75,33 @@ function parseOpenReviewCandidates(promptText) {
     if (jsonMatch) {
       try {
         const sig = JSON.parse(jsonMatch[1]);
-        out.push(sig);
+        out.push({ ...sig, prompt_form: 'full' });
       } catch (err) {
         throw new Error(`failed to parse open-review signal json: ${err.message}`);
       }
       continue;
     }
-    const summaryMatch = line.match(/^-\s+([A-Z0-9]+)\s+(LONG|SHORT)\s+setup=([^\s]+)\s+shape=.*?ai_priority=([0-9.]+)\s+reason=([^\s]+)\s+\(not expanded; lower priority\)$/);
+    // Overflow candidates now carry a compact execution JSON instead of a bare
+    // summary line. Parse it so PromptOR counts the full open-review surface.
+    const compactMatch = line.match(/^-\s+([A-Z0-9]+)\s+(LONG|SHORT)\s+tier=([A-Z_]+)\s+compact_execution_json:?=(\{.*\})\s*$/);
+    if (compactMatch) {
+      const [, symbol, direction, tier, json] = compactMatch;
+      let parsed = {};
+      try {
+        parsed = JSON.parse(json);
+      } catch {
+        parsed = {};
+      }
+      out.push({
+        ...parsed,
+        symbol,
+        direction,
+        execution_tier: tier,
+        prompt_form: 'compact',
+      });
+      continue;
+    }
+    const summaryMatch = line.match(/^-\s+([A-Z0-9]+)\s+(LONG|SHORT)\s+setup=([^\s]+)(?:\s+shape=\S*)?(?:\s+entry_signal=\S*)?\s+ai_priority=([0-9.]+)\s+reason=([^\s]+)\s+\((?:not expanded|compact only); lower priority\)$/);
     if (summaryMatch) {
       const [, symbol, direction, setupType, aiPriority, reason] = summaryMatch;
       out.push({
@@ -78,6 +110,7 @@ function parseOpenReviewCandidates(promptText) {
         setup_type: setupType,
         execution_tier: inferTierFromReason(reason),
         tier_reason: reason,
+        prompt_form: 'summary',
         ai_priority: Number(aiPriority),
       });
     }
@@ -245,6 +278,8 @@ function formatTable(rows, headers) {
 async function main() {
   const reportDir = process.argv[2];
   if (!reportDir) usage();
+  const intervalLabel = process.argv[3] || '10m';
+  const intervalText = intervalLabel.endsWith('m') ? `${intervalLabel.slice(0, -1)} 分钟` : intervalLabel;
 
   const absDir = path.resolve(reportDir);
   const rawFiles = fs.readdirSync(absDir).filter((f) => f.startsWith('hunter-v7-live-validation-raw-') && f.endsWith('.json')).sort();
@@ -261,13 +296,16 @@ async function main() {
     const openReview = parseOpenReviewCandidates(promptText);
     const stat = fs.statSync(rawPath);
     const promptStat = fs.statSync(promptPath);
+    // generated_at is authoritative for entry timing: file mtimes are destroyed
+    // by any cp/rsync/checkout, which silently zeroes the PnL tracking window.
+    const generatedMs = parseGeneratedAt(raw.generated_at);
     return {
       round: index + 1,
       rawPath,
       promptPath,
       raw,
-      rawMtimeMs: stat.mtimeMs,
-      promptMtimeMs: promptStat.mtimeMs,
+      rawMtimeMs: generatedMs || stat.mtimeMs,
+      promptMtimeMs: generatedMs || promptStat.mtimeMs,
       expanded,
       openReview,
     };
@@ -278,6 +316,7 @@ async function main() {
   const setupStats = {};
   const regimeStats = {};
   const outcomeStats = {};
+  const tierOutcomeStats = {};
   const tracked = [];
 
   for (const r of rounds) {
@@ -293,6 +332,12 @@ async function main() {
     const fullJson = r.expanded.length;
     const promptOpenReview = r.openReview.length;
     const fullJsonCoverage = openReview ? (fullJson / openReview) * 100 : 0;
+    const staleCount = signals.filter((sig) => (sig.risk_tags || []).includes('stale_data_risk')).length;
+    const priceAges = signals
+      .map((sig) => Number(sig.data_freshness?.price_age_ms || 0))
+      .filter((age) => age > 0)
+      .sort((a, b) => a - b);
+    const priceAgeP50 = priceAges.length ? priceAges[Math.floor(priceAges.length / 2)] / 1000 : 0;
 
     roundRows.push([
       r.round,
@@ -310,6 +355,8 @@ async function main() {
       fullJson,
       pct(fullJsonCoverage),
       promptOpenReview,
+      pct(signals.length ? (staleCount / signals.length) * 100 : 0),
+      `${priceAgeP50.toFixed(1)}s`,
       r.raw.snapshot?.rest_errors || 0,
     ]);
 
@@ -368,18 +415,25 @@ async function main() {
           raw_path: r.rawPath,
         };
         tracked.push(row);
-        const out = ensureStat(outcomeStats, sig.setup_type || 'unknown');
-        out.signals += 1;
-        out.sum_pnl += result.pnl;
-        out.sum_mfe += result.mfe;
-        out.sum_mae += result.mae;
-        if (result.outcome === 'TP0') out.tp0 += 1;
-        else if (result.outcome === 'TP') out.tp += 1;
-        else if (result.outcome === 'SL') out.sl += 1;
-        else if (result.outcome === 'BOTH_SAME_1M') out.both += 1;
-        else if (result.outcome === 'OPEN_PROFIT') out.open_profit += 1;
-        else if (result.outcome === 'OPEN_LOSS') out.open_loss += 1;
-        else if (result.outcome === 'OPEN_FLAT') out.open_flat += 1;
+        // Track by setup and, separately, by execution tier. Mixing EXECUTABLE
+        // with REVIEWABLE hides that the review pool is an observation set, not
+        // a tradable win rate.
+        for (const bucket of [
+          ensureStat(outcomeStats, sig.setup_type || 'unknown'),
+          ensureStat(tierOutcomeStats, String(sig.execution_tier || 'UNKNOWN')),
+        ]) {
+          bucket.signals += 1;
+          bucket.sum_pnl += result.pnl;
+          bucket.sum_mfe += result.mfe;
+          bucket.sum_mae += result.mae;
+          if (result.outcome === 'TP0') bucket.tp0 += 1;
+          else if (result.outcome === 'TP') bucket.tp += 1;
+          else if (result.outcome === 'SL') bucket.sl += 1;
+          else if (result.outcome === 'BOTH_SAME_1M') bucket.both += 1;
+          else if (result.outcome === 'OPEN_PROFIT') bucket.open_profit += 1;
+          else if (result.outcome === 'OPEN_LOSS') bucket.open_loss += 1;
+          else if (result.outcome === 'OPEN_FLAT') bucket.open_flat += 1;
+        }
       }
     }
   }
@@ -450,16 +504,31 @@ async function main() {
       ];
     });
 
+  const outcomeRowsFor = (stats) => Object.entries(stats)
+    .sort((a, b) => b[1].signals - a[1].signals)
+    .map(([key, s]) => {
+      const wins = s.tp0 + s.tp + s.open_profit;
+      return [
+        key, s.signals, s.tp0, s.tp, s.sl, s.both,
+        s.open_profit, s.open_loss, s.open_flat,
+        pct(s.signals ? (wins / s.signals) * 100 : 0),
+        fmtSignedPct(s.signals ? s.sum_pnl / s.signals : 0),
+        fmtSignedPct(s.signals ? s.sum_mfe / s.signals : 0),
+        fmtSignedPct(s.signals ? s.sum_mae / s.signals : 0),
+      ];
+    });
+  const tierOutcomeRows = outcomeRowsFor(tierOutcomeStats);
+
   const reportLines = [];
-  reportLines.push('# Hunter v7 三轮 10 分钟实时跟踪报告');
+  reportLines.push(`# Hunter v7 三轮 ${intervalText}实时跟踪报告`);
   reportLines.push('');
   reportLines.push(`生成时间：${new Date().toISOString()}`);
   reportLines.push(`数据目录：\`${absDir}\``);
-  reportLines.push('测试口径：每 10 分钟调取一轮 Binance USD-M 实时数据，共 3 轮；跟踪前 2 轮 prompt 展开的 EXECUTABLE/REVIEWABLE 候选，以第 3 轮时间为截止，用 Binance 1m K 线判断 TP0/TP/SL/浮盈浮亏。');
+  reportLines.push(`测试口径：每 ${intervalText}调取一轮 Binance USD-M 实时数据，共 3 轮；跟踪前 2 轮 prompt 展开的 EXECUTABLE/REVIEWABLE 候选，以第 3 轮时间为截止，用 Binance 1m K 线判断 TP0/TP/SL/浮盈浮亏。`);
   reportLines.push('');
   reportLines.push('## 1. 轮询概览');
   reportLines.push('');
-  reportLines.push(formatTable(roundRows, ['Round', 'Time', 'Regime', 'Universe', 'Signals', 'SignalRate', 'EXEC', 'REVIEW', 'WATCH', 'REJECT', 'OpenReview', 'OpenRate', 'FullJSON', 'FullCover', 'PromptOR', 'REST']));
+  reportLines.push(formatTable(roundRows, ['Round', 'Time', 'Regime', 'Universe', 'Signals', 'SignalRate', 'EXEC', 'REVIEW', 'WATCH', 'REJECT', 'OpenReview', 'OpenRate', 'FullJSON', 'FullCover', 'PromptOR', 'StalePct', 'AgeP50', 'REST']));
   reportLines.push('');
   reportLines.push(`- 三轮总信号 ${totalSignals}，Open-review 总计 ${totalOpenReview}。`);
   reportLines.push(`- 三轮 prompt open-review 列表候选 ${totalPromptOpenReview} 个，但完整 JSON 只展开 ${totalFullJSON} 个；前两轮用于盈亏跟踪的完整 JSON 候选为 ${trackedFullJSON} 个。`);
@@ -474,6 +543,12 @@ async function main() {
   reportLines.push('');
   if (outcomeRows.length) {
     reportLines.push(formatTable(outcomeRows, ['Setup', 'Samples', 'TP0', 'TP', 'SL', 'Both', 'OpenProfit', 'OpenLoss', 'OpenFlat', 'WinRate', 'AvgPnL', 'AvgMFE', 'AvgMAE']));
+    reportLines.push('');
+  }
+  if (tierOutcomeRows.length) {
+    reportLines.push('按执行分层拆分（EXECUTABLE 是可开仓面，REVIEWABLE 是待复核观察池，不能混算胜率）：');
+    reportLines.push('');
+    reportLines.push(formatTable(tierOutcomeRows, ['Tier', 'Samples', 'TP0', 'TP', 'SL', 'Both', 'OpenProfit', 'OpenLoss', 'OpenFlat', 'WinRate', 'AvgPnL', 'AvgMFE', 'AvgMAE']));
     reportLines.push('');
   }
   if (tracked.length) {
@@ -506,11 +581,22 @@ async function main() {
   if (trend.length) {
     reportLines.push(`- 当前主要 regime 是 ${trend[0]}，路由输出明显集中在这一类行情。`);
   }
-  reportLines.push('- `Open-review` 的总量并不低，但 prompt 里真正展开的完整候选只有 5 个/轮，这会压缩交易引擎的可开仓面。');
-  reportLines.push('- 需要把高优先级 REVIEWABLE 从“摘要”提升到“完整 JSON”，否则信号率和开仓率会被 prompt 截断。');
+  const avgFullCover = totalOpenReview ? (totalFullJSON / totalOpenReview) * 100 : 0;
+  const totalExec = rounds.reduce((a, r) => a + Number(r.raw.opportunity_cover?.by_execution_tier?.EXECUTABLE || 0), 0);
+  const execRate = totalSignals ? (totalExec / totalSignals) * 100 : 0;
+  reportLines.push(`- Prompt 完整 JSON 覆盖率 ${pct(avgFullCover)}（${totalFullJSON}/${totalOpenReview}）。`);
+  if (avgFullCover < 60) {
+    reportLines.push('- 完整候选覆盖率偏低，高优先级 REVIEWABLE 仍被压缩成摘要，开仓面会被 prompt 截断。');
+  } else {
+    reportLines.push('- 完整候选覆盖率已经足够，开仓面瓶颈不在 prompt 展开层。');
+  }
+  reportLines.push(`- EXECUTABLE 合计 ${totalExec}，ExecRate ${pct(execRate)}。`);
+  if (totalExec === 0) {
+    reportLines.push('- 本轮没有任何 EXECUTABLE：瓶颈在最后一层可执行判定，需要按 tier_reason / risk_tags 逐条复盘是哪一个门禁在拦截。');
+  }
 
-  const mdPath = path.join(absDir, 'hunter-v7-3round-10m-live-analysis.md');
-  const dataPath = path.join(absDir, 'hunter-v7-3round-10m-live-analysis-data.json');
+  const mdPath = path.join(absDir, `hunter-v7-3round-${intervalLabel}-live-analysis.md`);
+  const dataPath = path.join(absDir, `hunter-v7-3round-${intervalLabel}-live-analysis-data.json`);
   fs.writeFileSync(mdPath, reportLines.join('\n'));
   fs.writeFileSync(dataPath, JSON.stringify({
     generated_at: new Date().toISOString(),
