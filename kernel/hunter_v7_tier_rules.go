@@ -219,6 +219,50 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"panic_reversal_long": {
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 55, MinSetupScore: 45, MinTimingScore: 45, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.52},
+				Reason: "panic_reversal_ready_core_ok",
+			},
+		},
+		NearConfirm: []hunterV7TierRule{
+			{
+				MinAIPriority: 60, MinSetupScore: 55, MinTimingScore: 50, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.52},
+				Reason: "panic_reversal_near_confirm_core_ok",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 45, MinSetupScore: 65, MinTimingScore: 35, RiskBelow: 45, MinLiquidity: 50,
+				Taker:      hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
+				RequireAll: []string{"reviewable_floor_rescue"},
+				Reason:     "panic_reversal_reviewable_floor_live_confirm",
+			},
+			{
+				MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 30, RiskBelow: 55, MinLiquidity: 50,
+				Taker:  hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
+				Guards: []func(CandidateCoin) bool{hunterV7PanicReversalHasHighWinReclaim},
+				Reason: "panic_reversal_reviewable_high_win_reclaim",
+			},
+			{
+				MinAIPriority: 50, MinSetupScore: 38, MinTimingScore: 40, RiskBelow: 60,
+				Guards: []func(CandidateCoin) bool{hunterV7PanicReversalCoreFlowOK},
+				Reason: "panic_reversal_reviewable_core_present",
+			},
+			{
+				MinAIPriority: 45, MinSetupScore: 30, MinTimingScore: 45, RiskBelow: 35, MinLiquidity: 50,
+				RequireAll: []string{"strong_reclaim"},
+				RequireAny: [][]string{
+					{"taker_buy_strong", "taker_buy_aggressive"},
+					{"selling_decelerating", "selling_exhaustion"},
+				},
+				Reason: "panic_reversal_reviewable_capitulation_floor",
+			},
+		},
+	},
 	"range_expansion_event": {
 		Ready: []hunterV7TierRule{
 			{

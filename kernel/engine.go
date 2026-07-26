@@ -1062,14 +1062,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.Ready)
 	}
 	switch coin.V7SetupType {
-	case "panic_reversal_long":
-		if coin.V7AIPriority >= 55 &&
-			coin.V7SetupScore >= 45 &&
-			coin.V7TimingScore >= 45 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.52) {
-			return true, "panic_reversal_ready_core_ok"
-		}
 	case "funding_reversal":
 		if strings.EqualFold(coin.Direction, "SHORT") &&
 			coin.V7AIPriority >= 50 &&
@@ -1118,14 +1110,6 @@ func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.NearConfirm)
 	}
 	switch coin.V7SetupType {
-	case "panic_reversal_long":
-		if coin.V7AIPriority >= 60 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.52) {
-			return true, "panic_reversal_near_confirm_core_ok"
-		}
 	case "funding_reversal":
 		if strings.EqualFold(coin.Direction, "SHORT") &&
 			coin.V7AIPriority >= 55 &&
@@ -1179,42 +1163,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.Reviewable)
 	}
 	switch coin.V7SetupType {
-	case "panic_reversal_long":
-		if containsStringValue(coin.V7ReasonCodes, "reviewable_floor_rescue") &&
-			coin.V7AIPriority >= 45 &&
-			coin.V7SetupScore >= 65 &&
-			coin.V7TimingScore >= 35 &&
-			coin.V7RiskScore < 45 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) {
-			return true, "panic_reversal_reviewable_floor_live_confirm"
-		}
-		if coin.V7AIPriority >= 50 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 30 &&
-			coin.V7RiskScore < 55 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) &&
-			hunterV7PanicReversalHasHighWinReclaim(coin) {
-			return true, "panic_reversal_reviewable_high_win_reclaim"
-		}
-		if coin.V7AIPriority >= 50 &&
-			coin.V7SetupScore >= 38 &&
-			coin.V7TimingScore >= 40 &&
-			coin.V7RiskScore < 60 &&
-			hunterV7PanicReversalCoreFlowOK(coin) {
-			return true, "panic_reversal_reviewable_core_present"
-		}
-		if coin.V7AIPriority >= 45 &&
-			coin.V7SetupScore >= 30 &&
-			coin.V7TimingScore >= 45 &&
-			coin.V7RiskScore < 35 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			containsStringValue(coin.V7ReasonCodes, "strong_reclaim") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"taker_buy_strong", "taker_buy_aggressive"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"selling_decelerating", "selling_exhaustion"}) {
-			return true, "panic_reversal_reviewable_capitulation_floor"
-		}
 	case "funding_reversal":
 		if strings.EqualFold(coin.Direction, "SHORT") &&
 			coin.V7AIPriority >= 47 &&
