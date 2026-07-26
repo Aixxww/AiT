@@ -1093,10 +1093,10 @@ func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tie
 	if price <= 0 && coin.V7PriceContext != nil {
 		price = coin.V7PriceContext.Last
 	}
-	if price > 0 && coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
-		readiness.EntryZonePos = (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok {
+		readiness.EntryZonePos = pos
 		readiness.PriceDeviation = hunterV7EntryZoneDeviationPct(price, coin.V7EntryZone)
-		readiness.WindowHealth = hunterV7PromptWindowHealth(coin, readiness.EntryZonePos)
+		readiness.WindowHealth = hunterV7PromptWindowHealth(coin, pos)
 	}
 
 	missing := hunterV7CompactMissingFieldGroups(data, &coin)
