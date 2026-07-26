@@ -930,13 +930,11 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 		matched, _ := hunterV7EvalTierRules(coin, spec.OpenRateFloor)
 		return matched
 	}
-	switch coin.V7SetupType {
-	default:
-		return coin.V7AIPriority >= 60 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 55 &&
-			coin.V7RiskScore < 40
-	}
+	// Shared default floor for setups without a dedicated OpenRateFloor.
+	return coin.V7AIPriority >= 60 &&
+		coin.V7SetupScore >= 55 &&
+		coin.V7TimingScore >= 55 &&
+		coin.V7RiskScore < 40
 }
 
 // ClassifyHunterV7CandidateTierForRuntime exposes the same prompt tiering rules
@@ -1054,11 +1052,10 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
 		return hunterV7EvalTierRules(coin, spec.Ready)
 	}
-	switch coin.V7SetupType {
-	default:
-		if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
-			return true, "execution_quality_ready"
-		}
+	// Unregistered (future) setups fall back to the generic ready floor until
+	// their spec lands.
+	if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
+		return true, "execution_quality_ready"
 	}
 	return false, ""
 }
@@ -1066,8 +1063,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
 	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
 		return hunterV7EvalTierRules(coin, spec.NearConfirm)
-	}
-	switch coin.V7SetupType {
 	}
 	return false, ""
 }
