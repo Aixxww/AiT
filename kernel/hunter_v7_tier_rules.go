@@ -189,14 +189,14 @@ var hunterV7BreakoutLongTierSpec = hunterV7SetupTierSpec{
 }
 
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
-	"trend_breakout_long":        hunterV7BreakoutLongTierSpec,
-	"accumulation_breakout_long": hunterV7BreakoutLongTierSpec,
+	"trend_breakout_long":         hunterV7BreakoutLongTierSpec,
+	"accumulation_breakout_long":  hunterV7BreakoutLongTierSpec,
 	"volatility_squeeze_breakout": hunterV7DefaultOnlyTierSpec,
 	"intraday_scalp_long":         hunterV7DefaultOnlyTierSpec,
-	"pre_breakout_watch":     hunterV7WatchStateTierSpec,
-	"pre_squeeze_watch":      hunterV7WatchStateTierSpec,
-	"pre_distribution_watch": hunterV7WatchStateTierSpec,
-	"accumulation_watch":     hunterV7WatchStateTierSpec,
+	"pre_breakout_watch":          hunterV7WatchStateTierSpec,
+	"pre_squeeze_watch":           hunterV7WatchStateTierSpec,
+	"pre_distribution_watch":      hunterV7WatchStateTierSpec,
+	"accumulation_watch":          hunterV7WatchStateTierSpec,
 	"alt_ladder_momentum_long": {
 		Ready: []hunterV7TierRule{
 			// The ladder-stage/oi/volume resonance lives in one composite
