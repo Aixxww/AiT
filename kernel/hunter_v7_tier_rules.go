@@ -117,7 +117,17 @@ var hunterV7WatchStateTierSpec = hunterV7SetupTierSpec{
 	},
 }
 
+// hunterV7DefaultOnlyTierSpec covers setups whose gating was entirely the
+// generic default ready floor: no reviewable branch, shared open-rate floor.
+var hunterV7DefaultOnlyTierSpec = hunterV7SetupTierSpec{
+	Ready: []hunterV7TierRule{
+		{MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55, Reason: "execution_quality_ready"},
+	},
+}
+
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"volatility_squeeze_breakout": hunterV7DefaultOnlyTierSpec,
+	"intraday_scalp_long":         hunterV7DefaultOnlyTierSpec,
 	"pre_breakout_watch":     hunterV7WatchStateTierSpec,
 	"pre_squeeze_watch":      hunterV7WatchStateTierSpec,
 	"pre_distribution_watch": hunterV7WatchStateTierSpec,
