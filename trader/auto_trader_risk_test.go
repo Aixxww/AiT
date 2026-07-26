@@ -1715,3 +1715,35 @@ func TestHunterV7ExecutionGuardCapsLowLiquidityPosition(t *testing.T) {
 		t.Fatalf("position size = %.4f, want %.4f", decision.PositionSizeUSD, want)
 	}
 }
+
+func TestHunterV7ExecutionGuardReducesBorderlineTakerSize(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				// BANKUSDT 2026-07-26: taker 0.5588 vs the 0.56 cutoff. The
+				// borderline tag lets it open with reduced size instead of
+				// being discarded 0.0012 short of the flow requirement.
+				Symbol:          "BANKUSDT",
+				Direction:       "LONG",
+				V7SetupType:     "alt_ladder_momentum_long",
+				V7ExecutionTier: "EXECUTABLE",
+				V7Confidence:    "B",
+				V7RiskTags:      []string{"taker_buy_borderline"},
+			},
+		},
+	}
+	decision := &kernel.Decision{Symbol: "BANKUSDT", Action: "open_long", Price: 0.38, PositionSizeUSD: 100, Leverage: 20}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err != nil {
+		t.Fatalf("borderline taker must not block the open: %v", err)
+	}
+	if decision.PositionSizeUSD != 60 {
+		t.Fatalf("position size = %v, want 60 (0.6x borderline reduction)", decision.PositionSizeUSD)
+	}
+	if decision.Leverage != 20 {
+		t.Fatalf("leverage = %d, want 20 (borderline sets no leverage cap)", decision.Leverage)
+	}
+}

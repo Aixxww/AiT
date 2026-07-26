@@ -66,8 +66,16 @@ func (m *altLadderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Marke
 		Invalidation:     altLadderLongInvalidation(ctx),
 		Targets:          altLadderLongTargets(ctx),
 	}
+	// The 0.56 cutoff is a razor edge relative to taker-ratio sampling noise:
+	// BANKUSDT 2026-07-26 read 0.5588, lost the flow tag by 0.0012, was held
+	// out of the executable path — and hit TP0. Readings within 0.01 below the
+	// cutoff keep the flow tag but carry taker_buy_borderline so sizing is
+	// reduced instead of the signal being discarded outright.
 	if ctx.TakerBuy15m >= 0.56 {
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_taker_buy")
+	} else if ctx.TakerBuy15m >= 0.55 {
+		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_taker_buy")
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "taker_buy_borderline")
 	}
 	if ctx.Snapshot.OIDelta1h > 0.5 || ctx.Snapshot.OIDelta4h > 2 {
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_oi_inflow")

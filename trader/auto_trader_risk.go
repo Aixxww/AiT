@@ -1953,6 +1953,9 @@ func applyHunterV7RiskSizingPolicy(candidate *kernel.CandidateCoin, decision *ke
 	if containsStringValue(tags, "execution_stop_tightened") {
 		apply(0.50, 10, "execution_stop_tightened")
 	}
+	if containsStringValue(tags, "taker_buy_borderline") {
+		apply(0.60, 0, "taker_buy_borderline")
+	}
 	if containsStringValue(tags, "range_expansion_exhaustion") || containsStringValue(tags, "velocity_decelerating") {
 		apply(0.50, 10, "event_exhaustion_or_deceleration")
 	}
