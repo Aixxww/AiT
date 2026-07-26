@@ -219,6 +219,33 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"range_expansion_event": {
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 65, MinSetupScore: 65, MinTimingScore: 60, RiskBelow: 35,
+				Guards: []func(CandidateCoin) bool{
+					func(coin CandidateCoin) bool { return hunterV7ConfirmedRangeExpansionContinuation(coin, true) },
+				},
+				Reason: "range_expansion_ready_confirmed_continuation",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 60, MinSetupScore: 60, MinTimingScore: 50, RiskBelow: 45,
+				Guards: []func(CandidateCoin) bool{
+					func(coin CandidateCoin) bool { return hunterV7ConfirmedRangeExpansionContinuation(coin, false) },
+				},
+				Reason: "range_expansion_reviewable_confirmed_continuation",
+			},
+		},
+		OpenRateFloor: []hunterV7TierRule{
+			{
+				MinAIPriority: 58, MinSetupScore: 58, MinTimingScore: 50, RiskBelow: 40,
+				RequireAny: [][]string{{"range_expansion_continuation", "range_expansion_retest", "retest_confirmed"}},
+				ForbidAll:  []string{"range_expansion_late_chase", "range_expansion_exhaustion"},
+			},
+		},
+	},
 	"whale_flow_reversal": {
 		// Default ready floor; no reviewable path existed for this setup —
 		// its open-review escalation runs through the open-rate floor below.

@@ -938,13 +938,6 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 			coin.V7RiskScore < 45 &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "breakout_attempt", "confirmed_breakout"}) &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "oi_increasing", "oi_stable_breakout", "clear_air_above"})
-	case "range_expansion_event":
-		return coin.V7AIPriority >= 58 &&
-			coin.V7SetupScore >= 58 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 40 &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"range_expansion_continuation", "range_expansion_retest", "retest_confirmed"}) &&
-			!containsAnyStringValue(coin.V7ReasonCodes, []string{"range_expansion_late_chase", "range_expansion_exhaustion"})
 	default:
 		return coin.V7AIPriority >= 60 &&
 			coin.V7SetupScore >= 55 &&
@@ -1111,14 +1104,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 55 &&
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "long_setup_ready_confirmed"
-		}
-	case "range_expansion_event":
-		if hunterV7ConfirmedRangeExpansionContinuation(coin, true) &&
-			coin.V7AIPriority >= 65 &&
-			coin.V7SetupScore >= 65 &&
-			coin.V7TimingScore >= 60 &&
-			coin.V7RiskScore < 35 {
-			return true, "range_expansion_ready_confirmed_continuation"
 		}
 	default:
 		if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
@@ -1339,14 +1324,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		}
 		if hunterV7TrendBreakoutStrongFlowReviewable(coin) {
 			return true, "breakout_watch_strong_flow_reviewable"
-		}
-	case "range_expansion_event":
-		if hunterV7ConfirmedRangeExpansionContinuation(coin, false) &&
-			coin.V7AIPriority >= 60 &&
-			coin.V7SetupScore >= 60 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 45 {
-			return true, "range_expansion_reviewable_confirmed_continuation"
 		}
 	}
 	return false, ""
