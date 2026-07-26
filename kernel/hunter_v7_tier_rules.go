@@ -104,6 +104,23 @@ var hunterV7MMSLongTierSpec = hunterV7SetupTierSpec{
 }
 
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"alt_ladder_momentum_long": {
+		Ready: []hunterV7TierRule{
+			// The ladder-stage/oi/volume resonance lives in one composite
+			// predicate; the row is just its carrier.
+			{
+				Guards: []func(CandidateCoin) bool{hunterV7AltLadderLongExecutable},
+				Reason: "alt_ladder_long_ready_confirmed",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 52, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				Reason: "alt_ladder_long_reviewable_confirmed",
+			},
+		},
+	},
 	"mms_trend_ride_long":      hunterV7MMSLongTierSpec,
 	"mms_squeeze_engine_long":  hunterV7MMSLongTierSpec,
 	"distribution_short":       hunterV7ShortOrReversionTierSpec,

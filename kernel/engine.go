@@ -1132,10 +1132,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "long_setup_ready_confirmed"
 		}
-	case "alt_ladder_momentum_long":
-		if hunterV7AltLadderLongExecutable(coin) {
-			return true, "alt_ladder_long_ready_confirmed"
-		}
 	case "displacement_momentum_long":
 		if coin.V7AIPriority >= 55 &&
 			coin.V7SetupScore >= 55 &&
@@ -1388,14 +1384,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
 			hunterV7TakerBuyAtLeast(coin, 0.48) {
 			return true, "mms_bottom_wake_reviewable_breakout_required"
-		}
-	case "alt_ladder_momentum_long":
-		if coin.V7AIPriority >= 50 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 52 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "alt_ladder_long_reviewable_confirmed"
 		}
 	case "pre_breakout_watch", "pre_squeeze_watch", "pre_distribution_watch", "accumulation_watch":
 		if hunterV7WatchUpgradedReviewable(coin) {
