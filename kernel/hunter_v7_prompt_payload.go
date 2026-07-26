@@ -68,15 +68,12 @@ type V7PromptPayload struct {
 }
 
 // buildHunterV7PromptPayload assembles the payload from the candidate's
-// cached verdict and derived execution fields.
-//
-// Reason codes and risk tags are rendered in the canonical flow_ vocabulary
-// (U6.3 alias period): the candidate's internal state keeps the historical
-// spellings — tier rules and trader guards still match those — while the LLM
-// sees one unified taker ladder with tag_semantics explaining both names.
+// cached verdict and derived execution fields. Since the U6.3 emission flip,
+// modules emit the canonical flow_ taker vocabulary directly, so the payload
+// carries the candidate's tags verbatim.
 func buildHunterV7PromptPayload(coin CandidateCoin) V7PromptPayload {
-	reasonCodes := local.V7CanonicalizeTags(coin.V7ReasonCodes)
-	riskTags := local.V7CanonicalizeTags(coin.V7RiskTags)
+	reasonCodes := coin.V7ReasonCodes
+	riskTags := coin.V7RiskTags
 	return V7PromptPayload{
 		SignalID:              coin.V7SignalID,
 		Symbol:                coin.Symbol,
