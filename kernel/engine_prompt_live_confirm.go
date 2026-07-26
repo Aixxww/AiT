@@ -118,34 +118,31 @@ func hunterV7PassChecks(checks []local.V7ConfirmationCheck, clear func(string) b
 	return updated
 }
 
-// hunterV7VerifyLiveConfirmation checks one confirmation against live prompt
-// data. The second return reports whether this code is one we know how to
-// verify at all; unknown codes are never treated as satisfied.
-func hunterV7VerifyLiveConfirmation(coin CandidateCoin, data *market.Data, code string) (passed bool, known bool) {
-	isLong := strings.EqualFold(coin.Direction, "LONG")
-	price := data.CurrentPrice
-	if price <= 0 && coin.V7PriceContext != nil {
-		price = coin.V7PriceContext.Last
-	}
-
-	switch code {
-	case "live_price_in_entry_zone":
+// hunterV7LiveConfirmVerifiers maps each confirmation code the kernel can
+// settle pre-prompt to its verifier. Membership is data so a test can assert
+// every key is a registered confirmation code — the class of bug where a
+// verifier exists for a code no module produces (taker_buy_15m_gt_0_50 was one
+// such dead branch) or a producible code silently lacks a verifier.
+var hunterV7LiveConfirmVerifiers = map[string]func(coin CandidateCoin, data *market.Data, isLong bool, price float64) (passed, known bool){
+	"live_price_in_entry_zone": func(coin CandidateCoin, _ *market.Data, _ bool, price float64) (bool, bool) {
 		zone := coin.V7EntryZone
 		if price <= 0 || zone.Lower <= 0 || zone.Upper <= zone.Lower {
 			return false, false
 		}
 		return price >= zone.Lower && price <= zone.Upper, true
+	},
 
-	case "taker_buy_15m_gt_0_52":
+	"taker_buy_15m_gt_0_52": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7TakerAtLeast(coin, 0.52)
-	case "taker_buy_15m_gt_0_50":
-		return hunterV7TakerAtLeast(coin, 0.50)
-	case "taker_buy_15m_lt_0_48":
+	},
+	"taker_buy_15m_lt_0_48": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7TakerAtMostLive(coin, 0.48)
-	case "taker_buy_15m_lt_0_45":
+	},
+	"taker_buy_15m_lt_0_45": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7TakerAtMostLive(coin, 0.45)
+	},
 
-	case "taker_flow_not_flipping_against_direction":
+	"taker_flow_not_flipping_against_direction": func(coin CandidateCoin, _ *market.Data, isLong bool, _ float64) (bool, bool) {
 		taker, ok := hunterV7LiveTakerBuy(coin)
 		if !ok {
 			return false, false
@@ -154,28 +151,46 @@ func hunterV7VerifyLiveConfirmation(coin CandidateCoin, data *market.Data, code 
 			return taker >= 0.50, true
 		}
 		return taker <= 0.50, true
-
-	case "taker_flow_confirms_long":
+	},
+	"taker_flow_confirms_long": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7TakerAtLeast(coin, 0.52)
-	case "taker_flow_confirms_short":
+	},
+	"taker_flow_confirms_short": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7TakerAtMostLive(coin, 0.48)
+	},
 
-	case "5m_price_holds_ema20_or_trailing_support":
+	"5m_price_holds_ema20_or_trailing_support": func(_ CandidateCoin, data *market.Data, isLong bool, _ float64) (bool, bool) {
 		return hunterV7CloseHoldsEMA20(data, "5m", isLong)
-	case "directional_15m_close_long":
+	},
+	"directional_15m_close_long": func(_ CandidateCoin, data *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7CloseHoldsEMA20(data, "15m", true)
-	case "directional_15m_close_short":
+	},
+	"directional_15m_close_short": func(_ CandidateCoin, data *market.Data, _ bool, _ float64) (bool, bool) {
 		return hunterV7CloseHoldsEMA20(data, "15m", false)
+	},
 
-	case "oi_delta_1h_positive_or_quote_volume_expands":
+	"oi_delta_1h_positive_or_quote_volume_expands": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
 		if coin.V7DerivativesCtx == nil {
 			return false, false
 		}
 		return coin.V7DerivativesCtx.OIChange1h > 0, true
+	},
+}
 
-	default:
+// hunterV7VerifyLiveConfirmation checks one confirmation against live prompt
+// data. The second return reports whether this code is one we know how to
+// verify at all; unknown codes are never treated as satisfied.
+func hunterV7VerifyLiveConfirmation(coin CandidateCoin, data *market.Data, code string) (passed bool, known bool) {
+	verifier, ok := hunterV7LiveConfirmVerifiers[code]
+	if !ok {
 		return false, false
 	}
+	isLong := strings.EqualFold(coin.Direction, "LONG")
+	price := data.CurrentPrice
+	if price <= 0 && coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
+	}
+	return verifier(coin, data, isLong, price)
 }
 
 func hunterV7LiveTakerBuy(coin CandidateCoin) (float64, bool) {

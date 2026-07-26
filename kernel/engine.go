@@ -925,22 +925,7 @@ func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing stri
 }
 
 func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
-	switch code {
-	case "directional_15m_close_long",
-		"directional_15m_close_short",
-		"5m_or_15m_close_through_breakout_level",
-		"5m_or_15m_close_above_trigger",
-		"5m_or_15m_close_below_trigger",
-		"5m_price_holds_ema20_or_trailing_support",
-		"momentum_not_exhausted",
-		"taker_flow_confirms_long",
-		"taker_flow_confirms_short",
-		"taker_flow_not_flipping_against_direction",
-		"fresh_micro_confirmed":
-		return true
-	default:
-		return false
-	}
+	return local.V7ConfirmLiveReviewable(code)
 }
 
 func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {

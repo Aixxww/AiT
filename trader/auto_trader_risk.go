@@ -1819,28 +1819,7 @@ func hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate *kernel.Candidat
 }
 
 func hunterV7ConfirmationCanBeSatisfiedByRefresh(code string) bool {
-	switch code {
-	case "directional_15m_close_long",
-		"directional_15m_close_short",
-		"5m_or_15m_close_through_breakout_level",
-		"5m_or_15m_close_above_trigger",
-		"5m_or_15m_close_below_trigger",
-		"5m_price_holds_ema20_or_trailing_support",
-		"momentum_not_exhausted",
-		"taker_flow_confirms_long",
-		"taker_flow_confirms_short",
-		"taker_flow_not_flipping_against_direction",
-		"fresh_micro_confirmed",
-		"15m_close_above_vwap_or_ema20_or_entry_zone_upper",
-		"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
-		"taker_buy_15m_gt_0_52",
-		"taker_buy_15m_lt_0_48",
-		"no_new_low_after_reclaim",
-		"no_new_high_after_rejection":
-		return true
-	default:
-		return false
-	}
+	return local.V7ConfirmRefreshSatisfiable(code)
 }
 
 func validateHunterV7DecisionSignalContract(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
