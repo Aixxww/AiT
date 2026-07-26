@@ -171,10 +171,13 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 		score += 8
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "taker_buy_strong")
 	}
-	// Trend-ride longs whose 1h/4h price context is flat and whose OI does not
-	// back the continuation drift instead of running (WIF/MORPHO/ETC
-	// 2026-07-26). Mark them review-only so they are never read as a direct open.
-	if !(ctx.Change1h > 0 && ctx.Change4h > 0) || ctx.Snapshot.OIDelta1h < 0 {
+	// Trend-ride longs drift instead of running when the move is dead on both
+	// price frames, or when open interest is leaving on both frames. Either
+	// condition alone on a single frame is normal noise inside a live trend, so
+	// both checks require 1h AND 4h to agree before demoting to review-only.
+	priceContextWeak := ctx.Change1h <= 0 && ctx.Change4h <= 0
+	oiDoesNotSupport := ctx.Snapshot.OIDelta1h < 0 && ctx.Snapshot.OIDelta4h < 0
+	if priceContextWeak || oiDoesNotSupport {
 		sig.RiskTags = appendIfMissing(sig.RiskTags, "mms_weak_continuation_review_only")
 	}
 	sig.SetupScore = clampFloat(score, 0, 100)
