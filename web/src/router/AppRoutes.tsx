@@ -66,7 +66,9 @@ function lazyWithPreload<T extends ComponentType<any>>(
 }
 
 const loadSetupPage = () =>
-  import('../components/modals/SetupPage').then((m) => ({ default: m.SetupPage }))
+  import('../components/modals/SetupPage').then((m) => ({
+    default: m.SetupPage,
+  }))
 const loadCompetitionPage = () =>
   import('../components/trader/CompetitionPage').then((m) => ({
     default: m.CompetitionPage,
@@ -534,144 +536,148 @@ export function AppRoutes() {
       <LegacyHashRedirect />
       <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
-        <Route
-          path={ROUTES.home}
-          element={<Navigate to={ROUTES.login} replace />}
-        />
-        <Route path={ROUTES.login} element={<LoginPage />} />
-        <Route path={ROUTES.register} element={<RegisterPage />} />
-        <Route path={ROUTES.resetPassword} element={<ResetPasswordPage />} />
-        <Route
-          path={ROUTES.setup}
-          element={
-            user ? (
-              <Navigate to={ROUTES.welcome} replace />
-            ) : systemConfig?.initialized ? (
-              <Navigate to={ROUTES.login} replace />
-            ) : (
-              <SetupPage />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.faq}
-          element={
-            <AppChrome currentPage="faq" showFooter={false} wrapInMain={false}>
-              <FAQPage />
-            </AppChrome>
-          }
-        />
-        <Route
-          path={ROUTES.agent}
-          element={
-            <AppChrome currentPage="agent" showFooter={false}>
-              <AgentChatPage />
-            </AppChrome>
-          }
-        />
-        <Route
-          path={ROUTES.data}
-          element={
-            <AppChrome currentPage="data" showFooter={false}>
-              <DataPage />
-            </AppChrome>
-          }
-        />
-        <Route
-          path={ROUTES.settings}
-          element={
-            isAuthenticated ? (
-              <AppChrome showFooter={false}>
-                <SettingsPage />
-              </AppChrome>
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.welcome}
-          element={
-            isAuthenticated ? (
-              getUserMode() === 'beginner' ? (
-                <TradersRoute showBeginnerOnboarding />
+          <Route
+            path={ROUTES.home}
+            element={<Navigate to={ROUTES.login} replace />}
+          />
+          <Route path={ROUTES.login} element={<LoginPage />} />
+          <Route path={ROUTES.register} element={<RegisterPage />} />
+          <Route path={ROUTES.resetPassword} element={<ResetPasswordPage />} />
+          <Route
+            path={ROUTES.setup}
+            element={
+              user ? (
+                <Navigate to={ROUTES.welcome} replace />
+              ) : systemConfig?.initialized ? (
+                <Navigate to={ROUTES.login} replace />
               ) : (
-                <Navigate to={ROUTES.traders} replace />
+                <SetupPage />
               )
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.competition}
-          element={
-            isAuthenticated ? (
-              <AppChrome currentPage="competition" animateContent>
-                <CompetitionPage />
+            }
+          />
+          <Route
+            path={ROUTES.faq}
+            element={
+              <AppChrome
+                currentPage="faq"
+                showFooter={false}
+                wrapInMain={false}
+              >
+                <FAQPage />
               </AppChrome>
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.strategyMarket}
-          element={
-            isAuthenticated ? (
-              <AppChrome currentPage="strategy-market" animateContent>
-                <StrategyMarketPage />
+            }
+          />
+          <Route
+            path={ROUTES.agent}
+            element={
+              <AppChrome currentPage="agent" showFooter={false}>
+                <AgentChatPage />
               </AppChrome>
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.traders}
-          element={
-            isAuthenticated ? (
-              <TradersRoute />
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.dashboard}
-          element={
-            isAuthenticated ? (
-              <DashboardRoute />
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.strategy}
-          element={
-            isAuthenticated ? (
-              <AppChrome currentPage="strategy" animateContent>
-                <StrategyStudioPage />
+            }
+          />
+          <Route
+            path={ROUTES.data}
+            element={
+              <AppChrome currentPage="data" showFooter={false}>
+                <DataPage />
               </AppChrome>
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route
-          path={ROUTES.backtest}
-          element={
-            isAuthenticated ? (
-              <AppChrome currentPage="backtest" animateContent>
-                <BacktestPage />
-              </AppChrome>
-            ) : (
-              <Navigate to={ROUTES.login} replace />
-            )
-          }
-        />
-        <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
+            }
+          />
+          <Route
+            path={ROUTES.settings}
+            element={
+              isAuthenticated ? (
+                <AppChrome showFooter={false}>
+                  <SettingsPage />
+                </AppChrome>
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.welcome}
+            element={
+              isAuthenticated ? (
+                getUserMode() === 'beginner' ? (
+                  <TradersRoute showBeginnerOnboarding />
+                ) : (
+                  <Navigate to={ROUTES.traders} replace />
+                )
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.competition}
+            element={
+              isAuthenticated ? (
+                <AppChrome currentPage="competition" animateContent>
+                  <CompetitionPage />
+                </AppChrome>
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.strategyMarket}
+            element={
+              isAuthenticated ? (
+                <AppChrome currentPage="strategy-market" animateContent>
+                  <StrategyMarketPage />
+                </AppChrome>
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.traders}
+            element={
+              isAuthenticated ? (
+                <TradersRoute />
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.dashboard}
+            element={
+              isAuthenticated ? (
+                <DashboardRoute />
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.strategy}
+            element={
+              isAuthenticated ? (
+                <AppChrome currentPage="strategy" animateContent>
+                  <StrategyStudioPage />
+                </AppChrome>
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route
+            path={ROUTES.backtest}
+            element={
+              isAuthenticated ? (
+                <AppChrome currentPage="backtest" animateContent>
+                  <BacktestPage />
+                </AppChrome>
+              ) : (
+                <Navigate to={ROUTES.login} replace />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
         </Routes>
       </Suspense>
     </>

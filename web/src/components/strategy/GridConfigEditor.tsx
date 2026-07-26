@@ -87,7 +87,12 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="decimal"
               value={config.total_investment}
-              onChange={(e) => updateField('total_investment', parseFloat(e.target.value) || 1000)}
+              onChange={(e) =>
+                updateField(
+                  'total_investment',
+                  parseFloat(e.target.value) || 1000
+                )
+              }
               disabled={disabled}
               min={100}
               step={100}
@@ -110,7 +115,9 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="numeric"
               value={config.leverage}
-              onChange={(e) => updateField('leverage', parseInt(e.target.value) || 5)}
+              onChange={(e) =>
+                updateField('leverage', parseInt(e.target.value) || 5)
+              }
               disabled={disabled}
               min={1}
               max={5}
@@ -145,7 +152,9 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="numeric"
               value={config.grid_count}
-              onChange={(e) => updateField('grid_count', parseInt(e.target.value) || 10)}
+              onChange={(e) =>
+                updateField('grid_count', parseInt(e.target.value) || 10)
+              }
               disabled={disabled}
               min={5}
               max={50}
@@ -164,7 +173,12 @@ export function GridConfigEditor({
             </p>
             <AiTSelect
               value={config.distribution}
-              onChange={(val) => updateField('distribution', val as 'uniform' | 'gaussian' | 'pyramid')}
+              onChange={(val) =>
+                updateField(
+                  'distribution',
+                  val as 'uniform' | 'gaussian' | 'pyramid'
+                )
+              }
               disabled={disabled}
               className="w-full px-3 py-2 rounded"
               style={inputStyle}
@@ -202,7 +216,9 @@ export function GridConfigEditor({
               <input
                 type="checkbox"
                 checked={config.use_atr_bounds}
-                onChange={(e) => updateField('use_atr_bounds', e.target.checked)}
+                onChange={(e) =>
+                  updateField('use_atr_bounds', e.target.checked)
+                }
                 disabled={disabled}
                 className="sr-only peer"
               />
@@ -225,7 +241,9 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="decimal"
               value={config.atr_multiplier}
-              onChange={(e) => updateField('atr_multiplier', parseFloat(e.target.value) || 2.0)}
+              onChange={(e) =>
+                updateField('atr_multiplier', parseFloat(e.target.value) || 2.0)
+              }
               disabled={disabled}
               min={1}
               max={5}
@@ -249,7 +267,9 @@ export function GridConfigEditor({
                 autoComplete="off"
                 inputMode="decimal"
                 value={config.upper_price}
-                onChange={(e) => updateField('upper_price', parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  updateField('upper_price', parseFloat(e.target.value) || 0)
+                }
                 disabled={disabled}
                 min={0}
                 step={0.01}
@@ -270,7 +290,9 @@ export function GridConfigEditor({
                 autoComplete="off"
                 inputMode="decimal"
                 value={config.lower_price}
-                onChange={(e) => updateField('lower_price', parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  updateField('lower_price', parseFloat(e.target.value) || 0)
+                }
                 disabled={disabled}
                 min={0}
                 step={0.01}
@@ -305,7 +327,12 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="decimal"
               value={config.max_drawdown_pct}
-              onChange={(e) => updateField('max_drawdown_pct', parseFloat(e.target.value) || 15)}
+              onChange={(e) =>
+                updateField(
+                  'max_drawdown_pct',
+                  parseFloat(e.target.value) || 15
+                )
+              }
               disabled={disabled}
               min={5}
               max={50}
@@ -327,7 +354,9 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="decimal"
               value={config.stop_loss_pct}
-              onChange={(e) => updateField('stop_loss_pct', parseFloat(e.target.value) || 5)}
+              onChange={(e) =>
+                updateField('stop_loss_pct', parseFloat(e.target.value) || 5)
+              }
               disabled={disabled}
               min={1}
               max={20}
@@ -349,7 +378,12 @@ export function GridConfigEditor({
               autoComplete="off"
               inputMode="decimal"
               value={config.daily_loss_limit_pct}
-              onChange={(e) => updateField('daily_loss_limit_pct', parseFloat(e.target.value) || 10)}
+              onChange={(e) =>
+                updateField(
+                  'daily_loss_limit_pct',
+                  parseFloat(e.target.value) || 10
+                )
+              }
               disabled={disabled}
               min={1}
               max={30}
@@ -374,7 +408,9 @@ export function GridConfigEditor({
               <input
                 type="checkbox"
                 checked={config.use_maker_only}
-                onChange={(e) => updateField('use_maker_only', e.target.checked)}
+                onChange={(e) =>
+                  updateField('use_maker_only', e.target.checked)
+                }
                 disabled={disabled}
                 className="sr-only peer"
               />
@@ -408,7 +444,9 @@ export function GridConfigEditor({
               <input
                 type="checkbox"
                 checked={config.enable_direction_adjust ?? false}
-                onChange={(e) => updateField('enable_direction_adjust', e.target.checked)}
+                onChange={(e) =>
+                  updateField('enable_direction_adjust', e.target.checked)
+                }
                 disabled={disabled}
                 className="sr-only peer"
               />
@@ -420,16 +458,42 @@ export function GridConfigEditor({
         {config.enable_direction_adjust && (
           <>
             {/* Direction Modes Explanation */}
-            <div className="p-4 rounded-lg mb-4" style={{ background: '#1E2329', border: '1px solid #F0B90B33' }}>
-              <p className="text-xs font-medium mb-2" style={{ color: '#F0B90B' }}>
+            <div
+              className="p-4 rounded-lg mb-4"
+              style={{ background: '#1E2329', border: '1px solid #F0B90B33' }}
+            >
+              <p
+                className="text-xs font-medium mb-2"
+                style={{ color: '#F0B90B' }}
+              >
                 📊 {ts(gridConfig.directionModes, language)}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div>• {ts(gridConfig.modeNeutral, language)}</div>
-                <div>• <span style={{ color: '#0ECB81' }}>{ts(gridConfig.modeLongBias, language)}</span></div>
-                <div>• <span style={{ color: '#0ECB81' }}>{ts(gridConfig.modeLong, language)}</span></div>
-                <div>• <span style={{ color: '#F6465D' }}>{ts(gridConfig.modeShortBias, language)}</span></div>
-                <div>• <span style={{ color: '#F6465D' }}>{ts(gridConfig.modeShort, language)}</span></div>
+                <div>
+                  •{' '}
+                  <span style={{ color: '#0ECB81' }}>
+                    {ts(gridConfig.modeLongBias, language)}
+                  </span>
+                </div>
+                <div>
+                  •{' '}
+                  <span style={{ color: '#0ECB81' }}>
+                    {ts(gridConfig.modeLong, language)}
+                  </span>
+                </div>
+                <div>
+                  •{' '}
+                  <span style={{ color: '#F6465D' }}>
+                    {ts(gridConfig.modeShortBias, language)}
+                  </span>
+                </div>
+                <div>
+                  •{' '}
+                  <span style={{ color: '#F6465D' }}>
+                    {ts(gridConfig.modeShort, language)}
+                  </span>
+                </div>
               </div>
               <p className="text-xs mt-3 pt-2 border-t border-border text-muted-foreground">
                 💡 {ts(gridConfig.directionExplain, language)}
@@ -451,7 +515,12 @@ export function GridConfigEditor({
                 <input
                   type="range"
                   value={(config.direction_bias_ratio ?? 0.7) * 100}
-                  onChange={(e) => updateField('direction_bias_ratio', parseInt(e.target.value) / 100)}
+                  onChange={(e) =>
+                    updateField(
+                      'direction_bias_ratio',
+                      parseInt(e.target.value) / 100
+                    )
+                  }
                   disabled={disabled}
                   min={55}
                   max={90}
@@ -459,18 +528,47 @@ export function GridConfigEditor({
                   className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
                   style={{ background: '#2B3139' }}
                 />
-                <span className="text-sm font-mono w-20 text-right" style={{ color: '#F0B90B' }}>
+                <span
+                  className="text-sm font-mono w-20 text-right"
+                  style={{ color: '#F0B90B' }}
+                >
                   X = {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}%
                 </span>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2 rounded" style={{ background: '#0ECB8115', border: '1px solid #0ECB8130' }}>
+                <div
+                  className="p-2 rounded"
+                  style={{
+                    background: '#0ECB8115',
+                    border: '1px solid #0ECB8130',
+                  }}
+                >
                   <span style={{ color: '#0ECB81' }}>Long Bias: </span>
-                  <span className="text-foreground">{Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.sell, language)}</span>
+                  <span className="text-foreground">
+                    {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}%{' '}
+                    {ts(gridConfig.buy, language)} +{' '}
+                    {Math.round(
+                      (1 - (config.direction_bias_ratio ?? 0.7)) * 100
+                    )}
+                    % {ts(gridConfig.sell, language)}
+                  </span>
                 </div>
-                <div className="p-2 rounded" style={{ background: '#F6465D15', border: '1px solid #F6465D30' }}>
+                <div
+                  className="p-2 rounded"
+                  style={{
+                    background: '#F6465D15',
+                    border: '1px solid #F6465D30',
+                  }}
+                >
                   <span style={{ color: '#F6465D' }}>Short Bias: </span>
-                  <span className="text-foreground">{Math.round((1 - (config.direction_bias_ratio ?? 0.7)) * 100)}% {ts(gridConfig.buy, language)} + {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}% {ts(gridConfig.sell, language)}</span>
+                  <span className="text-foreground">
+                    {Math.round(
+                      (1 - (config.direction_bias_ratio ?? 0.7)) * 100
+                    )}
+                    % {ts(gridConfig.buy, language)} +{' '}
+                    {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}%{' '}
+                    {ts(gridConfig.sell, language)}
+                  </span>
                 </div>
               </div>
             </div>

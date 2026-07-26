@@ -11,7 +11,14 @@ interface TweetProps {
   delay: number
 }
 
-function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: TweetProps) {
+function TweetCard({
+  quote,
+  authorName,
+  handle,
+  avatarUrl,
+  tweetUrl,
+  delay,
+}: TweetProps) {
   return (
     <motion.a
       href={tweetUrl}
@@ -50,9 +57,7 @@ function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: Tw
           </div>
         </div>
         {/* X Logo */}
-        <div
-          className="w-6 h-6 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity text-foreground"
-        >
+        <div className="w-6 h-6 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity text-foreground">
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>
@@ -68,21 +73,36 @@ function TweetCard({ quote, authorName, handle, avatarUrl, tweetUrl, delay }: Tw
       </p>
 
       {/* Footer */}
-      <div className="flex items-center gap-6 pt-3" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
+      <div
+        className="flex items-center gap-6 pt-3"
+        style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}
+      >
+        <div
+          className="flex items-center gap-1.5 text-xs"
+          style={{ color: 'var(--color-muted-fg)' }}
+        >
           <MessageCircle className="w-3.5 h-3.5" />
           <span>Reply</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
+        <div
+          className="flex items-center gap-1.5 text-xs"
+          style={{ color: 'var(--color-muted-fg)' }}
+        >
           <Repeat2 className="w-3.5 h-3.5" />
           <span>Repost</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-muted-fg)' }}>
+        <div
+          className="flex items-center gap-1.5 text-xs"
+          style={{ color: 'var(--color-muted-fg)' }}
+        >
           <Heart className="w-3.5 h-3.5" />
           <span>Like</span>
         </div>
         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          <ExternalLink className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+          <ExternalLink
+            className="w-3.5 h-3.5"
+            style={{ color: 'var(--color-primary)' }}
+          />
         </div>
       </div>
     </motion.a>
@@ -101,7 +121,10 @@ export default function CommunitySection({ language }: CommunitySectionProps) {
       {/* Background Decoration */}
       <div
         className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20"
-        style={{ background: 'radial-gradient(circle, rgba(29, 161, 242, 0.1) 0%, transparent 70%)' }}
+        style={{
+          background:
+            'radial-gradient(circle, rgba(29, 161, 242, 0.1) 0%, transparent 70%)',
+        }}
       />
 
       <div className="max-w-6xl mx-auto px-4 relative z-10">
@@ -116,7 +139,9 @@ export default function CommunitySection({ language }: CommunitySectionProps) {
             {language === 'zh' ? '社区声音' : 'Community Voices'}
           </h2>
           <p className="text-lg text-muted-foreground">
-            {language === 'zh' ? '看看大家怎么说' : 'See what others are saying'}
+            {language === 'zh'
+              ? '看看大家怎么说'
+              : 'See what others are saying'}
           </p>
         </motion.div>
 

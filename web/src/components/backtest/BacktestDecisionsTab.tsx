@@ -9,7 +9,11 @@ interface BacktestDecisionsTabProps {
   tr: (key: string) => string
 }
 
-export function BacktestDecisionsTab({ decisions, language, tr }: BacktestDecisionsTabProps) {
+export function BacktestDecisionsTab({
+  decisions,
+  language,
+  tr,
+}: BacktestDecisionsTabProps) {
   return (
     <motion.div
       key="decisions"
@@ -27,7 +31,10 @@ export function BacktestDecisionsTab({ decisions, language, tr }: BacktestDecisi
           />
         ))
       ) : (
-        <div className="py-12 text-center" style={{ color: 'var(--color-muted-fg)' }}>
+        <div
+          className="py-12 text-center"
+          style={{ color: 'var(--color-muted-fg)' }}
+        >
           {tr('decisionTrail.emptyHint')}
         </div>
       )}

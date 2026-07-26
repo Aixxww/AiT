@@ -4,11 +4,15 @@
  */
 
 function getCSSVar(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim()
 }
 
 export function getChartTheme() {
-  const scheme = document.documentElement.getAttribute('data-theme') as 'dark' | 'light'
+  const scheme = document.documentElement.getAttribute('data-theme') as
+    | 'dark'
+    | 'light'
   const isDark = scheme === 'dark'
 
   return {
@@ -47,19 +51,19 @@ export function getChartTheme() {
       wickDownColor: getCSSVar('--color-loss'),
     },
     indicators: {
-      volume:   isDark ? '#3B82F6' : '#2563EB',
-      ma5:      '#FF6B6B',
-      ma10:     '#4ECDC4',
-      ma20:     isDark ? '#FFD93D' : '#D97706',
-      ma60:     '#95E1D3',
-      ema12:    '#A8E6CF',
-      ema26:    '#FFD3B6',
-      bb:       '#9B59B6',
+      volume: isDark ? '#3B82F6' : '#2563EB',
+      ma5: '#FF6B6B',
+      ma10: '#4ECDC4',
+      ma20: isDark ? '#FFD93D' : '#D97706',
+      ma60: '#95E1D3',
+      ema12: '#A8E6CF',
+      ema26: '#FFD3B6',
+      bb: '#9B59B6',
     },
     markers: {
-      longOpen:   getCSSVar('--color-profit'),
-      longClose:  isDark ? '#6EE7B7' : '#34D399',
-      shortOpen:  getCSSVar('--color-loss'),
+      longOpen: getCSSVar('--color-profit'),
+      longClose: isDark ? '#6EE7B7' : '#34D399',
+      shortOpen: getCSSVar('--color-loss'),
       shortClose: isDark ? '#FCA5A5' : '#F87171',
     },
   }

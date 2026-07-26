@@ -59,7 +59,9 @@ export function EquityChart({ equity, trades }: EquityChartProps) {
       .filter((t) => t.action.includes('open') || t.action.includes('close'))
       .map((trade) => {
         const closest = equity.reduce((prev, curr) =>
-          Math.abs(curr.ts - trade.ts) < Math.abs(prev.ts - trade.ts) ? curr : prev
+          Math.abs(curr.ts - trade.ts) < Math.abs(prev.ts - trade.ts)
+            ? curr
+            : prev
         )
         return {
           ts: closest.ts,
@@ -75,11 +77,22 @@ export function EquityChart({ equity, trades }: EquityChartProps) {
   return (
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <AreaChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
           <defs>
             <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.4} />
-              <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+              <stop
+                offset="5%"
+                stopColor="var(--color-primary)"
+                stopOpacity={0.4}
+              />
+              <stop
+                offset="95%"
+                stopColor="var(--color-primary)"
+                stopOpacity={0}
+              />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
@@ -123,7 +136,9 @@ export function EquityChart({ equity, trades }: EquityChartProps) {
               y={marker.equity}
               r={4}
               fill={marker.isOpen ? 'var(--color-profit)' : 'var(--color-loss)'}
-              stroke={marker.isOpen ? 'var(--color-profit)' : 'var(--color-loss)'}
+              stroke={
+                marker.isOpen ? 'var(--color-profit)' : 'var(--color-loss)'
+              }
             />
           ))}
         </AreaChart>
@@ -140,7 +155,11 @@ interface CandlestickChartProps {
   language: Language
 }
 
-export function CandlestickChartComponent({ runId, trades, language }: CandlestickChartProps) {
+export function CandlestickChartComponent({
+  runId,
+  trades,
+  language,
+}: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
@@ -214,23 +233,28 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
     api
       .getBacktestKlines(runId, selectedSymbol, selectedTimeframe)
       .then((data: BacktestKlinesResponse) => {
-        const klineData: CandlestickData<UTCTimestamp>[] = data.klines.map((k) => ({
-          time: k.time as UTCTimestamp,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-        }))
+        const klineData: CandlestickData<UTCTimestamp>[] = data.klines.map(
+          (k) => ({
+            time: k.time as UTCTimestamp,
+            open: k.open,
+            high: k.high,
+            low: k.low,
+            close: k.close,
+          })
+        )
         candleSeries.setData(klineData)
 
         const markers: SeriesMarker<UTCTimestamp>[] = symbolTrades
           .map((trade) => {
             const tradeTime = Math.floor(trade.ts / 1000)
             const closestKline = data.klines.reduce((prev, curr) =>
-              Math.abs(curr.time - tradeTime) < Math.abs(prev.time - tradeTime) ? curr : prev
+              Math.abs(curr.time - tradeTime) < Math.abs(prev.time - tradeTime)
+                ? curr
+                : prev
             )
             const isOpen = trade.action.includes('open')
-            const isLong = trade.side === 'long' || trade.action.includes('long')
+            const isLong =
+              trade.side === 'long' || trade.action.includes('long')
             const pnl = trade.realized_pnl
 
             let text = ''
@@ -245,7 +269,10 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
                 color = 'var(--color-loss)'
               }
             } else {
-              const pnlStr = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`
+              const pnlStr =
+                pnl >= 0
+                  ? `+$${pnl.toFixed(2)}`
+                  : `-$${Math.abs(pnl).toFixed(2)}`
               text = `✕ ${pnlStr}`
               color = pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
             }
@@ -253,8 +280,12 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
             return {
               time: closestKline.time as UTCTimestamp,
               position: isOpen
-                ? (isLong ? 'belowBar' as const : 'aboveBar' as const)
-                : (isLong ? 'aboveBar' as const : 'belowBar' as const),
+                ? isLong
+                  ? ('belowBar' as const)
+                  : ('aboveBar' as const)
+                : isLong
+                  ? ('aboveBar' as const)
+                  : ('belowBar' as const),
               color,
               shape: 'circle' as const,
               size: 2,
@@ -289,7 +320,10 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
 
   if (symbols.length === 0) {
     return (
-      <div className="py-12 text-center" style={{ color: 'var(--color-muted-fg)' }}>
+      <div
+        className="py-12 text-center"
+        style={{ color: 'var(--color-muted-fg)' }}
+      >
         {t('backtestChart.noTrades', language)}
       </div>
     )
@@ -299,7 +333,10 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
     <div className="space-y-3">
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <CandlestickIcon size={16} style={{ color: 'var(--color-primary)' }} />
+          <CandlestickIcon
+            size={16}
+            style={{ color: 'var(--color-primary)' }}
+          />
           <span className="text-sm text-muted-foreground">
             {t('backtestChart.symbol', language)}
           </span>
@@ -307,7 +344,11 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
             value={selectedSymbol}
             onChange={(e) => setSelectedSymbol(e.target.value)}
             className="px-3 py-1.5 rounded text-sm"
-            style={{ background: 'var(--color-panel)', border: '1px solid var(--color-border)', color: 'var(--foreground)' }}
+            style={{
+              background: 'var(--color-panel)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--foreground)',
+            }}
           >
             {symbols.map((sym) => (
               <option key={sym} value={sym}>
@@ -322,15 +363,24 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
           <span className="text-sm text-muted-foreground">
             {t('backtestChart.interval', language)}
           </span>
-          <div className="flex rounded overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+          <div
+            className="flex rounded overflow-hidden"
+            style={{ border: '1px solid var(--color-border)' }}
+          >
             {CHART_TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
                 onClick={() => setSelectedTimeframe(tf)}
                 className="px-2.5 py-1 text-xs font-medium transition-colors"
                 style={{
-                  background: selectedTimeframe === tf ? 'var(--color-primary)' : 'var(--color-panel)',
-                  color: selectedTimeframe === tf ? 'var(--background)' : 'var(--color-muted-fg)',
+                  background:
+                    selectedTimeframe === tf
+                      ? 'var(--color-primary)'
+                      : 'var(--color-panel)',
+                  color:
+                    selectedTimeframe === tf
+                      ? 'var(--background)'
+                      : 'var(--color-muted-fg)',
                 }}
               >
                 {tf}
@@ -356,7 +406,10 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
           </div>
         )}
         {error && (
-          <div className="flex items-center justify-center h-[400px]" style={{ color: 'var(--color-loss)' }}>
+          <div
+            className="flex items-center justify-center h-[400px]"
+            style={{ color: 'var(--color-loss)' }}
+          >
             <AlertTriangle className="mr-2" size={16} />
             {error}
           </div>
@@ -365,11 +418,17 @@ export function CandlestickChartComponent({ runId, trades, language }: Candlesti
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--color-profit)' }} />
+          <div
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: 'var(--color-profit)' }}
+          />
           <span>{t('backtestChart.openProfit', language)}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--color-loss)' }} />
+          <div
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: 'var(--color-loss)' }}
+          />
           <span>{t('backtestChart.lossClose', language)}</span>
         </div>
         <span style={{ color: 'var(--color-muted-fg)' }}>|</span>
@@ -411,7 +470,10 @@ export function BacktestChartTab({
         {equity && equity.length > 0 ? (
           <EquityChart equity={equity} trades={trades ?? []} />
         ) : (
-          <div className="py-12 text-center" style={{ color: 'var(--color-muted-fg)' }}>
+          <div
+            className="py-12 text-center"
+            style={{ color: 'var(--color-muted-fg)' }}
+          >
             {tr('charts.equityEmpty')}
           </div>
         )}

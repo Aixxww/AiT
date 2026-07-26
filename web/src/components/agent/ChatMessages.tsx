@@ -102,13 +102,25 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     border: '1px solid rgba(255,255,255,0.05)',
                   }}
                 >
-                  <AgentStepPanel steps={m.steps} visible={hasMeaningfulExecutionSteps(m.steps)} />
+                  <AgentStepPanel
+                    steps={m.steps}
+                    visible={hasMeaningfulExecutionSteps(m.steps)}
+                  />
                   {renderMessageContent(m.text)}
                   {m.streaming && m.text === '' && (
                     <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
-                      <span className="typing-dot" style={{ animationDelay: '0ms' }} />
-                      <span className="typing-dot" style={{ animationDelay: '150ms' }} />
-                      <span className="typing-dot" style={{ animationDelay: '300ms' }} />
+                      <span
+                        className="typing-dot"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className="typing-dot"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <span
+                        className="typing-dot"
+                        style={{ animationDelay: '300ms' }}
+                      />
                     </div>
                   )}
                   {m.streaming && m.text !== '' && (
@@ -138,7 +150,8 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     paddingRight: m.role === 'user' ? 4 : 0,
                   }}
                 >
-                  {m.role === 'bot' && 'AiTi · '}{m.time}
+                  {m.role === 'bot' && 'AiTi · '}
+                  {m.time}
                 </div>
               )}
             </div>

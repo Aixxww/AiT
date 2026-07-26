@@ -1,4 +1,11 @@
-import { useRef, useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react'
+import {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react'
 import { ArrowUp } from 'lucide-react'
 
 export interface ChatInputHandle {

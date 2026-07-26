@@ -202,8 +202,7 @@ export function StrategyMarketPage() {
               SYSTEM_STATUS:{' '}
               <span className="text-profit animate-pulse">ONLINE</span>
               <br />
-              MARKET_UPLINK:{' '}
-              <span className="text-profit">ESTABLISHED</span>
+              MARKET_UPLINK: <span className="text-profit">ESTABLISHED</span>
             </div>
 
             <div className="flex items-center gap-4 mb-4">

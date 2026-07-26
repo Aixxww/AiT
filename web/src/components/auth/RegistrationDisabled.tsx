@@ -11,9 +11,7 @@ export function RegistrationDisabled() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-background text-foreground"
-    >
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
       <div className="text-center max-w-md px-6">
         <img
           src="/icons/ait.svg"
@@ -28,7 +26,10 @@ export function RegistrationDisabled() {
         </p>
         <button
           className="mt-6 px-4 py-2 rounded text-sm font-semibold transition-colors hover:opacity-90"
-          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+          style={{
+            background: 'var(--color-primary)',
+            color: 'var(--color-primary-fg)',
+          }}
           onClick={handleBackToLogin}
         >
           {t('backToLogin', language)}

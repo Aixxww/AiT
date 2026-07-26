@@ -14,11 +14,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { ConfigStatusGrid } from './ConfigStatusGrid'
 import { TradersList } from './TradersList'
-import {
-  Bot,
-  Plus,
-  MessageCircle,
-} from 'lucide-react'
+import { Bot, Plus, MessageCircle } from 'lucide-react'
 import { confirmToast } from '../../lib/notify'
 import { toast } from 'sonner'
 
@@ -73,11 +69,7 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
       return
     }
 
-    const [
-      modelConfigs,
-      exchangeConfigs,
-      models,
-    ] = await Promise.all([
+    const [modelConfigs, exchangeConfigs, models] = await Promise.all([
       api.getModelConfigs(),
       api.getExchangeConfigs(),
       api.getSupportedModels(),
@@ -124,17 +116,19 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
     }
   }
 
-  const { data: traders, mutate: mutateTraders, isLoading: isTradersLoading } = useSWR<TraderInfo[]>(
-    user && token ? 'traders' : null,
-    api.getTraders,
-    { refreshInterval: 15000, revalidateOnFocus: false }
-  )
+  const {
+    data: traders,
+    mutate: mutateTraders,
+    isLoading: isTradersLoading,
+  } = useSWR<TraderInfo[]>(user && token ? 'traders' : null, api.getTraders, {
+    refreshInterval: 15000,
+    revalidateOnFocus: false,
+  })
 
   useEffect(() => {
-    loadConfigs()
-      .catch((error) => {
-        console.error('Failed to load configs:', error)
-      })
+    loadConfigs().catch((error) => {
+      console.error('Failed to load configs:', error)
+    })
   }, [user, token])
 
   useEffect(() => {
@@ -144,7 +138,8 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
       })
     }
     window.addEventListener('agent-config-refresh', handleRefresh)
-    return () => window.removeEventListener('agent-config-refresh', handleRefresh)
+    return () =>
+      window.removeEventListener('agent-config-refresh', handleRefresh)
   }, [user, token])
 
   const configuredModels =

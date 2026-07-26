@@ -58,14 +58,19 @@ describe('agentChatStorage', () => {
 
     migrateAgentMessages(storage, 'user-1')
 
-    expect(storage.getItem(chatStorageKey('user-1'))).toBe(JSON.stringify(guestMessages))
+    expect(storage.getItem(chatStorageKey('user-1'))).toBe(
+      JSON.stringify(guestMessages)
+    )
   })
 
   it('clears primary and fallback chat storage keys', () => {
     const storage = createStorage()
     storage.setItem(chatStorageKey('user-1'), JSON.stringify([{ id: '1' }]))
     storage.setItem(chatStorageKey('guest'), JSON.stringify([{ id: '2' }]))
-    storage.setItem(LEGACY_AGENT_CHAT_STORAGE_KEY, JSON.stringify([{ id: '3' }]))
+    storage.setItem(
+      LEGACY_AGENT_CHAT_STORAGE_KEY,
+      JSON.stringify([{ id: '3' }])
+    )
 
     clearAgentMessages(storage, 'user-1')
 
@@ -81,7 +86,13 @@ describe('agentChatStorage', () => {
     ]
 
     expect(prepareAgentMessagesForPersistence(messages)).toEqual([
-      { id: '1', text: 'hello', streaming: false, steps: [{ id: 's1' }], time: '' },
+      {
+        id: '1',
+        text: 'hello',
+        streaming: false,
+        steps: [{ id: 's1' }],
+        time: '',
+      },
       { id: '2', text: 'done', streaming: false },
     ])
   })

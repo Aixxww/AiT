@@ -17,19 +17,30 @@ export function DataPage() {
           {t('dataCenter', language)}
         </h2>
         <div className="flex items-center gap-2">
-          {([
-            { key: 'chart', icon: BarChart3, label: language === 'zh' ? '行情图表' : 'Chart' },
-            { key: 'heatmap', icon: TrendingUp, label: language === 'zh' ? '热力图' : 'Heatmap' },
-          ] as { key: MarketWidget; icon: any; label: string }[]).map((item) => {
+          {(
+            [
+              {
+                key: 'chart',
+                icon: BarChart3,
+                label: language === 'zh' ? '行情图表' : 'Chart',
+              },
+              {
+                key: 'heatmap',
+                icon: TrendingUp,
+                label: language === 'zh' ? '热力图' : 'Heatmap',
+              },
+            ] as { key: MarketWidget; icon: any; label: string }[]
+          ).map((item) => {
             const Icon = item.icon
             return (
               <button
                 key={item.key}
                 onClick={() => setActiveWidget(item.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${activeWidget === item.key
-                  ? 'bg-primary-dim text-primary border-ait-gold/20'
-                  : 'text-muted-foreground border-transparent hover:text-white hover:bg-white/5'
-                  }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  activeWidget === item.key
+                    ? 'bg-primary-dim text-primary border-ait-gold/20'
+                    : 'text-muted-foreground border-transparent hover:text-white hover:bg-white/5'
+                }`}
               >
                 <Icon className="w-3.5 h-3.5 inline mr-1.5" />
                 {item.label}
@@ -62,7 +73,9 @@ export function DataPage() {
       {/* Footer bar */}
       <div className="px-6 py-2 border-t border-white/5 flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground/50">
-          {language === 'zh' ? '数据来自 TradingView（免费嵌入）' : 'Data via TradingView (free embed)'}
+          {language === 'zh'
+            ? '数据来自 TradingView（免费嵌入）'
+            : 'Data via TradingView (free embed)'}
         </span>
         <a
           href="https://www.tradingview.com/"

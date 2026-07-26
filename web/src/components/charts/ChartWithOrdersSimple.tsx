@@ -21,7 +21,13 @@ export function ChartWithOrdersSimple({
 
   useEffect(() => {
     const loadData = async () => {
-      console.log('[ChartSimple] Loading data for', symbol, interval, 'trader:', traderID)
+      console.log(
+        '[ChartSimple] Loading data for',
+        symbol,
+        interval,
+        'trader:',
+        traderID
+      )
       setLoading(true)
       setError(null)
 
@@ -44,13 +50,22 @@ export function ChartWithOrdersSimple({
         if (traderID) {
           const tradesUrl = `/api/trades?trader_id=${traderID}&symbol=${symbol}&limit=100`
           console.log('[ChartSimple] Fetching trades from:', tradesUrl)
-          const tradesResult = await httpClient.request(tradesUrl, { silent: true })
+          const tradesResult = await httpClient.request(tradesUrl, {
+            silent: true,
+          })
 
           if (tradesResult.success && tradesResult.data) {
-            console.log('[ChartSimple] Received trades:', tradesResult.data.length)
+            console.log(
+              '[ChartSimple] Received trades:',
+              tradesResult.data.length
+            )
             setOrderCount(tradesResult.data.length)
           } else {
-            console.warn('[ChartSimple] Failed to fetch trades:', tradesResult.message || 'Unknown error', tradesResult)
+            console.warn(
+              '[ChartSimple] Failed to fetch trades:',
+              tradesResult.message || 'Unknown error',
+              tradesResult
+            )
           }
         }
 
@@ -66,7 +81,15 @@ export function ChartWithOrdersSimple({
   }, [symbol, interval, traderID])
 
   return (
-    <div className="relative" style={{ background: 'var(--color-background)', borderRadius: '8px', overflow: 'hidden', minHeight: height }}>
+    <div
+      className="relative"
+      style={{
+        background: 'var(--color-background)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        minHeight: height,
+      }}
+    >
       {/* 标题栏 */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
@@ -76,9 +99,7 @@ export function ChartWithOrdersSimple({
           </h3>
         </div>
         {loading && (
-          <div className="text-sm text-muted-foreground">
-            加载中...
-          </div>
+          <div className="text-sm text-muted-foreground">加载中...</div>
         )}
       </div>
 
@@ -92,7 +113,9 @@ export function ChartWithOrdersSimple({
         ) : (
           <>
             <div className="p-4 rounded bg-panel border border-border">
-              <div className="text-sm mb-2 text-muted-foreground">币安K线数据</div>
+              <div className="text-sm mb-2 text-muted-foreground">
+                币安K线数据
+              </div>
               <div className="text-2xl font-bold text-profit">
                 {klineCount} 根K线
               </div>
@@ -100,7 +123,9 @@ export function ChartWithOrdersSimple({
 
             {traderID && (
               <div className="p-4 rounded bg-panel border border-border">
-                <div className="text-sm mb-2 text-muted-foreground">历史订单数据</div>
+                <div className="text-sm mb-2 text-muted-foreground">
+                  历史订单数据
+                </div>
                 <div className="text-2xl font-bold text-primary">
                   {orderCount} 笔订单
                 </div>

@@ -133,9 +133,7 @@ export function WebCryptoEnvironmentCheck({
       </div>
     ),
     checking: () => (
-      <div
-        className="flex items-center gap-2 text-xs text-foreground"
-      >
+      <div className="flex items-center gap-2 text-xs text-foreground">
         <Loader2 className="w-4 h-4 animate-spin" />
         <span>{t('environmentCheck.checking', language)}</span>
       </div>

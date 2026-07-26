@@ -10,7 +10,12 @@ interface ModelCardProps {
   configured?: boolean
 }
 
-export function ModelCard({ model, selected, onClick, configured }: ModelCardProps) {
+export function ModelCard({
+  model,
+  selected,
+  onClick,
+  configured,
+}: ModelCardProps) {
   return (
     <button
       type="button"
@@ -18,13 +23,20 @@ export function ModelCard({ model, selected, onClick, configured }: ModelCardPro
       className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-105"
       style={{
         background: selected ? 'rgba(139, 92, 246, 0.15)' : 'var(--background)',
-        border: selected ? '2px solid #8B5CF6' : '2px solid var(--color-border)',
+        border: selected
+          ? '2px solid #8B5CF6'
+          : '2px solid var(--color-border)',
       }}
     >
       <div className="relative">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-black border border-white/10">
-          {getModelIcon(model.provider || model.id, { width: 32, height: 32 }) || (
-            <span className="text-lg font-bold" style={{ color: '#A78BFA' }}>{model.name[0]}</span>
+          {getModelIcon(model.provider || model.id, {
+            width: 32,
+            height: 32,
+          }) || (
+            <span className="text-lg font-bold" style={{ color: '#A78BFA' }}>
+              {model.name[0]}
+            </span>
           )}
         </div>
         {selected && (

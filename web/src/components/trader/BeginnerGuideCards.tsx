@@ -119,9 +119,9 @@ export function BeginnerGuideCards({
           ? isZh
             ? '已经可以创建'
             : 'Ready to create'
-        : isZh
-          ? '先完成前三步'
-          : 'Finish the first three steps first',
+          : isZh
+            ? '先完成前三步'
+            : 'Finish the first three steps first',
       ready: traderReady,
       actionLabel: traderReady
         ? isZh
@@ -188,7 +188,9 @@ export function BeginnerGuideCards({
               <p className="mt-2 min-h-[72px] text-sm leading-6 text-muted-foreground">
                 {card.desc}
               </p>
-              <div className="mt-3 text-xs text-muted-foreground">{card.meta}</div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                {card.meta}
+              </div>
 
               <button
                 type="button"

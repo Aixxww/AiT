@@ -32,7 +32,10 @@ export default function FooterSection({ language }: FooterSectionProps) {
   }
 
   return (
-    <footer className="bg-background" style={{ borderTop: '1px solid var(--color-border)' }}>
+    <footer
+      className="bg-background"
+      style={{ borderTop: '1px solid var(--color-border)' }}
+    >
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
         {/* Top Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 mb-8 md:mb-12">
@@ -40,11 +43,12 @@ export default function FooterSection({ language }: FooterSectionProps) {
           <div className="md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
               <img src="/icons/ait.svg" alt="AiT Logo" className="w-8 h-8" />
-              <span className="text-xl font-bold text-foreground">
-                AiT
-              </span>
+              <span className="text-xl font-bold text-foreground">AiT</span>
             </div>
-            <p className="text-sm mb-6" style={{ color: 'var(--color-muted-fg)' }}>
+            <p
+              className="text-sm mb-6"
+              style={{ color: 'var(--color-muted-fg)' }}
+            >
               {t('futureStandardAI', language)}
             </p>
             {/* Social Icons */}
@@ -112,13 +116,15 @@ export default function FooterSection({ language }: FooterSectionProps) {
               ))}
             </ul>
           </div>
-
         </div>
 
         {/* Bottom Section */}
         <div
           className="pt-6 text-center text-xs"
-          style={{ color: 'var(--color-muted-fg)', borderTop: '1px solid var(--color-border)' }}
+          style={{
+            color: 'var(--color-muted-fg)',
+            borderTop: '1px solid var(--color-border)',
+          }}
         >
           <p className="mb-2">{t('footerTitle', language)}</p>
           <p style={{ color: '#3C4249' }}>{t('footerWarning', language)}</p>

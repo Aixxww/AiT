@@ -10,13 +10,14 @@ interface AgentStepPanelProps {
   visible?: boolean
 }
 
-const statusStyles: Record<AgentStep['status'], { dot: string; text: string }> = {
-  planning: { dot: '#7c3aed', text: '#c4b5fd' },
-  pending: { dot: 'rgba(255,255,255,0.18)', text: '#818198' },
-  running: { dot: '#F0B90B', text: '#f6d67a' },
-  completed: { dot: '#00e5a0', text: '#9cf5d5' },
-  replanned: { dot: '#38bdf8', text: '#9bdcf7' },
-}
+const statusStyles: Record<AgentStep['status'], { dot: string; text: string }> =
+  {
+    planning: { dot: '#7c3aed', text: '#c4b5fd' },
+    pending: { dot: 'rgba(255,255,255,0.18)', text: '#818198' },
+    running: { dot: '#F0B90B', text: '#f6d67a' },
+    completed: { dot: '#00e5a0', text: '#9cf5d5' },
+    replanned: { dot: '#38bdf8', text: '#9bdcf7' },
+  }
 
 export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
   if (!visible || !steps || steps.length === 0) {
@@ -29,7 +30,8 @@ export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
         marginBottom: 12,
         padding: '10px 12px',
         borderRadius: 12,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))',
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))',
         border: '1px solid rgba(255,255,255,0.06)',
       }}
     >

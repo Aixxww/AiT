@@ -10,7 +10,10 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
 
   if (recentTrades.length === 0) {
     return (
-      <div className="py-12 text-center" style={{ color: 'var(--color-muted-fg)' }}>
+      <div
+        className="py-12 text-center"
+        style={{ color: 'var(--color-muted-fg)' }}
+      >
         No trades yet
       </div>
     )
@@ -21,10 +24,16 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
       {recentTrades.map((trade, idx) => {
         const isOpen = trade.action.includes('open')
         const isLong = trade.action.includes('long')
-        const bgColor = isOpen ? 'color-mix(in srgb, var(--color-profit) 10%, transparent)' : 'color-mix(in srgb, var(--color-loss) 10%, transparent)'
-        const borderColor = isOpen ? 'color-mix(in srgb, var(--color-profit) 30%, transparent)' : 'color-mix(in srgb, var(--color-loss) 30%, transparent)'
+        const bgColor = isOpen
+          ? 'color-mix(in srgb, var(--color-profit) 10%, transparent)'
+          : 'color-mix(in srgb, var(--color-loss) 10%, transparent)'
+        const borderColor = isOpen
+          ? 'color-mix(in srgb, var(--color-profit) 30%, transparent)'
+          : 'color-mix(in srgb, var(--color-loss) 30%, transparent)'
         const iconColor = isOpen ? 'var(--color-profit)' : 'var(--color-loss)'
-        const iconBg = isOpen ? 'color-mix(in srgb, var(--color-profit) 12.5%, transparent)' : 'color-mix(in srgb, var(--color-loss) 12.5%, transparent)'
+        const iconBg = isOpen
+          ? 'color-mix(in srgb, var(--color-profit) 12.5%, transparent)'
+          : 'color-mix(in srgb, var(--color-loss) 12.5%, transparent)'
 
         return (
           <motion.div
@@ -42,7 +51,10 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
               {isLong ? (
                 <TrendingUp className="w-4 h-4" style={{ color: iconColor }} />
               ) : (
-                <TrendingDown className="w-4 h-4" style={{ color: iconColor }} />
+                <TrendingDown
+                  className="w-4 h-4"
+                  style={{ color: iconColor }}
+                />
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -63,20 +75,24 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
                 )}
               </div>
               <div className="text-xs mt-1 text-muted-foreground">
-                {new Date(trade.ts).toLocaleString()} · Qty: {trade.qty.toFixed(4)} · ${trade.price.toFixed(2)}
+                {new Date(trade.ts).toLocaleString()} · Qty:{' '}
+                {trade.qty.toFixed(4)} · ${trade.price.toFixed(2)}
               </div>
             </div>
             <div className="text-right">
               <div
                 className="font-mono font-bold"
-                style={{ color: trade.realized_pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}
+                style={{
+                  color:
+                    trade.realized_pnl >= 0
+                      ? 'var(--color-profit)'
+                      : 'var(--color-loss)',
+                }}
               >
                 {trade.realized_pnl >= 0 ? '+' : ''}
                 {trade.realized_pnl.toFixed(2)}
               </div>
-              <div className="text-xs text-muted-foreground">
-                USDT
-              </div>
+              <div className="text-xs text-muted-foreground">USDT</div>
             </div>
           </motion.div>
         )

@@ -41,7 +41,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
   const { user, token } = useAuth()
   const [displayMode, setDisplayMode] = useState<'dollar' | 'percent'>('dollar')
 
-  const { data: history, error, isLoading } = useSWR<EquityPoint[]>(
+  const {
+    data: history,
+    error,
+    isLoading,
+  } = useSWR<EquityPoint[]>(
     user && token && traderId ? `equity-history-${traderId}` : null,
     () => api.getEquityHistory(traderId, true),
     {
@@ -92,9 +96,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             <div className="font-semibold text-loss">
               {t('loadingError', language)}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {error.message}
-            </div>
+            <div className="text-sm text-muted-foreground">{error.message}</div>
           </div>
         </div>
       </div>
@@ -187,9 +189,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
-        <div
-          className="rounded p-3 shadow-xl bg-panel border border-border"
-        >
+        <div className="rounded p-3 shadow-xl bg-panel border border-border">
           <div className="text-xs mb-1 text-muted-foreground">
             Cycle #{data.cycle != null ? data.cycle : '—'}
           </div>
@@ -198,7 +198,10 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
           <div
             className="text-sm mono font-bold"
-            style={{ color: data.raw_pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}
+            style={{
+              color:
+                data.raw_pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+            }}
           >
             {data.raw_pnl >= 0 ? '+' : ''}
             {data.raw_pnl.toFixed(2)} USDT ({data.raw_pnl_pct >= 0 ? '+' : ''}
@@ -211,25 +214,23 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
   }
 
   return (
-    <div className={embedded ? 'p-3 sm:p-5' : 'binance-card p-3 sm:p-5 animate-fade-in'}>
+    <div
+      className={
+        embedded ? 'p-3 sm:p-5' : 'binance-card p-3 sm:p-5 animate-fade-in'
+      }
+    >
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="flex-1">
           {!embedded && (
-            <h3
-              className="text-base sm:text-lg font-bold mb-2 text-foreground"
-            >
+            <h3 className="text-base sm:text-lg font-bold mb-2 text-foreground">
               {t('accountEquityCurve', language)}
             </h3>
           )}
           <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
-            <span
-              className="text-2xl sm:text-3xl font-bold mono text-foreground"
-            >
+            <span className="text-2xl sm:text-3xl font-bold mono text-foreground">
               {account?.total_equity.toFixed(2) || '0.00'}
-              <span
-                className="text-base sm:text-lg ml-1 text-muted-foreground"
-              >
+              <span className="text-base sm:text-lg ml-1 text-muted-foreground">
                 USDT
               </span>
             </span>
@@ -256,9 +257,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
                 {isProfit ? '+' : ''}
                 {currentValue.raw_pnl_pct}%
               </span>
-              <span
-                className="text-xs sm:text-sm mono text-muted-foreground"
-              >
+              <span className="text-xs sm:text-sm mono text-muted-foreground">
                 ({isProfit ? '+' : ''}
                 {currentValue.raw_pnl.toFixed(2)} USDT)
               </span>
@@ -267,9 +266,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
         </div>
 
         {/* Display Mode Toggle */}
-        <div
-          className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto bg-background border border-border"
-        >
+        <div className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto bg-background border border-border">
           <button
             onClick={() => setDisplayMode('dollar')}
             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
@@ -335,8 +332,16 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           >
             <defs>
               <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.2} />
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-primary)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-primary)"
+                  stopOpacity={0.2}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -378,7 +383,11 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
               dataKey="value"
               stroke="url(#colorGradient)"
               strokeWidth={3}
-              dot={chartData.length > 50 ? false : { fill: 'var(--color-primary)', r: 3 }}
+              dot={
+                chartData.length > 50
+                  ? false
+                  : { fill: 'var(--color-primary)', r: 3 }
+              }
               activeDot={{
                 r: 6,
                 fill: 'var(--color-primary)',
@@ -392,62 +401,36 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
       </div>
 
       {/* Footer Stats */}
-      <div
-        className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 border-t border-border"
-      >
-        <div
-          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
-        >
-          <div
-            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
-          >
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 border-t border-border">
+        <div className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim">
+          <div className="text-xs mb-1 uppercase tracking-wider text-muted-foreground">
             {t('initialBalance', language)}
           </div>
-          <div
-            className="text-xs sm:text-sm font-bold mono text-foreground"
-          >
+          <div className="text-xs sm:text-sm font-bold mono text-foreground">
             {initialBalance.toFixed(2)} USDT
           </div>
         </div>
-        <div
-          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
-        >
-          <div
-            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
-          >
+        <div className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim">
+          <div className="text-xs mb-1 uppercase tracking-wider text-muted-foreground">
             {t('currentEquity', language)}
           </div>
-          <div
-            className="text-xs sm:text-sm font-bold mono text-foreground"
-          >
+          <div className="text-xs sm:text-sm font-bold mono text-foreground">
             {currentValue.raw_equity.toFixed(2)} USDT
           </div>
         </div>
-        <div
-          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
-        >
-          <div
-            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
-          >
+        <div className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim">
+          <div className="text-xs mb-1 uppercase tracking-wider text-muted-foreground">
             {t('historicalCycles', language)}
           </div>
-          <div
-            className="text-xs sm:text-sm font-bold mono text-foreground"
-          >
+          <div className="text-xs sm:text-sm font-bold mono text-foreground">
             {validHistory.length} {t('cycles', language)}
           </div>
         </div>
-        <div
-          className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim"
-        >
-          <div
-            className="text-xs mb-1 uppercase tracking-wider text-muted-foreground"
-          >
+        <div className="p-2 rounded transition-all hover:bg-opacity-50 bg-primary-dim">
+          <div className="text-xs mb-1 uppercase tracking-wider text-muted-foreground">
             {t('displayRange', language)}
           </div>
-          <div
-            className="text-xs sm:text-sm font-bold mono text-foreground"
-          >
+          <div className="text-xs sm:text-sm font-bold mono text-foreground">
             {validHistory.length > MAX_DISPLAY_POINTS
               ? `${t('recent', language)} ${MAX_DISPLAY_POINTS}`
               : t('allData', language)}

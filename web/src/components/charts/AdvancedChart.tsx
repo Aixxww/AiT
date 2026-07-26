@@ -36,11 +36,11 @@ interface OrderMarker {
 interface OpenOrder {
   order_id: string
   symbol: string
-  side: string          // BUY/SELL
+  side: string // BUY/SELL
   position_side: string // LONG/SHORT
-  type: string          // LIMIT/STOP_MARKET/TAKE_PROFIT_MARKET
-  price: number         // Limit order price
-  stop_price: number    // Trigger price (SL/TP)
+  type: string // LIMIT/STOP_MARKET/TAKE_PROFIT_MARKET
+  price: number // Limit order price
+  stop_price: number // Trigger price (SL/TP)
   quantity: number
   status: string
 }
@@ -75,7 +75,11 @@ const getQuoteUnit = (exchange: string): string => {
 }
 
 // Get base volume unit
-const getBaseUnit = (exchange: string, symbol: string, language: string): string => {
+const getBaseUnit = (
+  exchange: string,
+  symbol: string,
+  language: string
+): string => {
   if (['alpaca'].includes(exchange)) {
     return t('advancedChart.shares', language as 'en' | 'zh' | 'id')
   }
@@ -114,7 +118,9 @@ export function AdvancedChart({
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<any>>>(new Map())
   const seriesMarkersRef = useRef<any>(null) // Markers primitive for v5
   const currentMarkersDataRef = useRef<any[]>([]) // Store current marker data
-  const klineDataRef = useRef<Map<number, { volume: number; quoteVolume: number }>>(new Map()) // Store kline extra data
+  const klineDataRef = useRef<
+    Map<number, { volume: number; quoteVolume: number }>
+  >(new Map()) // Store kline extra data
   const priceLinesRef = useRef<any[]>([]) // Store open order price lines
 
   const [loading, setLoading] = useState(true)
@@ -132,19 +138,55 @@ export function AdvancedChart({
     priceChangePercent: number
     high: number
     low: number
-    volume: number      // Quantity (BTC/shares)
+    volume: number // Quantity (BTC/shares)
     quoteVolume: number // Turnover (USDT/USD)
   } | null>(null)
 
   // Indicator configuration
   const [indicators, setIndicators] = useState<IndicatorConfig[]>([
     { id: 'volume', name: 'Volume', enabled: true, color: '#3B82F6' },
-    { id: 'ma5', name: 'MA5', enabled: false, color: '#FF6B6B', params: { period: 5 } },
-    { id: 'ma10', name: 'MA10', enabled: false, color: '#4ECDC4', params: { period: 10 } },
-    { id: 'ma20', name: 'MA20', enabled: false, color: '#FFD93D', params: { period: 20 } },
-    { id: 'ma60', name: 'MA60', enabled: false, color: '#95E1D3', params: { period: 60 } },
-    { id: 'ema12', name: 'EMA12', enabled: false, color: '#A8E6CF', params: { period: 12 } },
-    { id: 'ema26', name: 'EMA26', enabled: false, color: '#FFD3B6', params: { period: 26 } },
+    {
+      id: 'ma5',
+      name: 'MA5',
+      enabled: false,
+      color: '#FF6B6B',
+      params: { period: 5 },
+    },
+    {
+      id: 'ma10',
+      name: 'MA10',
+      enabled: false,
+      color: '#4ECDC4',
+      params: { period: 10 },
+    },
+    {
+      id: 'ma20',
+      name: 'MA20',
+      enabled: false,
+      color: '#FFD93D',
+      params: { period: 20 },
+    },
+    {
+      id: 'ma60',
+      name: 'MA60',
+      enabled: false,
+      color: '#95E1D3',
+      params: { period: 60 },
+    },
+    {
+      id: 'ema12',
+      name: 'EMA12',
+      enabled: false,
+      color: '#A8E6CF',
+      params: { period: 12 },
+    },
+    {
+      id: 'ema26',
+      name: 'EMA26',
+      enabled: false,
+      color: '#FFD3B6',
+      params: { period: 26 },
+    },
     { id: 'bb', name: 'Bollinger Bands', enabled: false, color: '#9B59B6' },
   ])
 
@@ -166,18 +208,23 @@ export function AdvancedChart({
         high: candle.high,
         low: candle.low,
         close: candle.close,
-        volume: candle.volume,           // Quantity (BTC/shares)
+        volume: candle.volume, // Quantity (BTC/shares)
         quoteVolume: candle.quoteVolume, // Turnover (USDT/USD)
       }))
 
       // Sort by time and deduplicate (lightweight-charts requires ascending, unique times)
       const sortedData = rawData.sort((a: any, b: any) => a.time - b.time)
-      const dedupedData = sortedData.filter((item: any, index: number, arr: any[]) =>
-        index === 0 || item.time !== arr[index - 1].time
+      const dedupedData = sortedData.filter(
+        (item: any, index: number, arr: any[]) =>
+          index === 0 || item.time !== arr[index - 1].time
       )
 
       if (rawData.length !== dedupedData.length) {
-        console.warn('[AdvancedChart] Removed', rawData.length - dedupedData.length, 'duplicate klines')
+        console.warn(
+          '[AdvancedChart] Removed',
+          rawData.length - dedupedData.length,
+          'duplicate klines'
+        )
       }
 
       return dedupedData
@@ -199,10 +246,24 @@ export function AdvancedChart({
       // Determine ms vs seconds: if > 10^12, treat as milliseconds
       if (time > 1000000000000) {
         const seconds = Math.floor(time / 1000)
-        console.log('[AdvancedChart] ✅ Unix timestamp (ms→s):', time, '→', seconds, '(', new Date(time).toISOString(), ')')
+        console.log(
+          '[AdvancedChart] ✅ Unix timestamp (ms→s):',
+          time,
+          '→',
+          seconds,
+          '(',
+          new Date(time).toISOString(),
+          ')'
+        )
         return seconds
       }
-      console.log('[AdvancedChart] ✅ Unix timestamp (s):', time, '(', new Date(time * 1000).toISOString(), ')')
+      console.log(
+        '[AdvancedChart] ✅ Unix timestamp (s):',
+        time,
+        '(',
+        new Date(time * 1000).toISOString(),
+        ')'
+      )
       return time
     }
 
@@ -213,7 +274,15 @@ export function AdvancedChart({
     const isoTime = new Date(timeStr).getTime()
     if (!isNaN(isoTime) && isoTime > 0) {
       const timestamp = Math.floor(isoTime / 1000)
-      console.log('[AdvancedChart] ✅ Parsed as ISO:', timeStr, '→', timestamp, '(', new Date(timestamp * 1000).toISOString(), ')')
+      console.log(
+        '[AdvancedChart] ✅ Parsed as ISO:',
+        timeStr,
+        '→',
+        timestamp,
+        '(',
+        new Date(timestamp * 1000).toISOString(),
+        ')'
+      )
       return timestamp
     }
 
@@ -222,15 +291,25 @@ export function AdvancedChart({
     if (match) {
       const currentYear = new Date().getFullYear()
       const [_, month, day, hour, minute] = match
-      const date = new Date(Date.UTC(
-        currentYear,
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute)
-      ))
+      const date = new Date(
+        Date.UTC(
+          currentYear,
+          parseInt(month) - 1,
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute)
+        )
+      )
       const timestamp = Math.floor(date.getTime() / 1000)
-      console.log('[AdvancedChart] ✅ Parsed as custom format:', timeStr, '→', timestamp, '(', new Date(timestamp * 1000).toISOString(), ')')
+      console.log(
+        '[AdvancedChart] ✅ Parsed as custom format:',
+        timeStr,
+        '→',
+        timestamp,
+        '(',
+        new Date(timestamp * 1000).toISOString(),
+        ')'
+      )
       return timestamp
     }
 
@@ -239,9 +318,17 @@ export function AdvancedChart({
   }
 
   // Fetch order data
-  const fetchOrders = async (traderID: string, symbol: string): Promise<OrderMarker[]> => {
+  const fetchOrders = async (
+    traderID: string,
+    symbol: string
+  ): Promise<OrderMarker[]> => {
     try {
-      console.log('[AdvancedChart] Fetching orders for trader:', traderID, 'symbol:', symbol)
+      console.log(
+        '[AdvancedChart] Fetching orders for trader:',
+        traderID,
+        'symbol:',
+        symbol
+      )
       // Fetch filled orders, up to 200 for more history
       const result = await httpClient.request(
         `/api/orders?trader_id=${traderID}&symbol=${symbol}&status=FILLED&limit=200`,
@@ -263,21 +350,35 @@ export function AdvancedChart({
         console.log('[AdvancedChart] Processing order:', order)
 
         // Handle field names: support PascalCase and snake_case
-        const filledAt = order.filled_at || order.FilledAt || order.created_at || order.CreatedAt
-        const avgPrice = order.avg_fill_price || order.AvgFillPrice || order.price || order.Price
+        const filledAt =
+          order.filled_at ||
+          order.FilledAt ||
+          order.created_at ||
+          order.CreatedAt
+        const avgPrice =
+          order.avg_fill_price ||
+          order.AvgFillPrice ||
+          order.price ||
+          order.Price
         const orderAction = order.order_action || order.OrderAction
         const side = (order.side || order.Side)?.toLowerCase() // BUY/SELL
         const symbol = order.symbol || order.Symbol
 
         // Skip orders without fill time or price
         if (!filledAt || !avgPrice || avgPrice === 0) {
-          console.warn('[AdvancedChart] Skipping order - missing data:', { filledAt, avgPrice })
+          console.warn('[AdvancedChart] Skipping order - missing data:', {
+            filledAt,
+            avgPrice,
+          })
           return
         }
 
         const timeSeconds = parseCustomTime(filledAt)
         if (timeSeconds === 0) {
-          console.warn('[AdvancedChart] Skipping order - invalid time:', filledAt)
+          console.warn(
+            '[AdvancedChart] Skipping order - invalid time:',
+            filledAt
+          )
           return
         }
 
@@ -304,7 +405,7 @@ export function AdvancedChart({
           side: positionSide,
           rawSide: side,
           action,
-          orderAction
+          orderAction,
         })
 
         markers.push({
@@ -326,9 +427,17 @@ export function AdvancedChart({
   }
 
   // Fetch exchange open orders (TP/SL)
-  const fetchOpenOrders = async (traderID: string, symbol: string): Promise<OpenOrder[]> => {
+  const fetchOpenOrders = async (
+    traderID: string,
+    symbol: string
+  ): Promise<OpenOrder[]> => {
     try {
-      console.log('[AdvancedChart] Fetching open orders for trader:', traderID, 'symbol:', symbol)
+      console.log(
+        '[AdvancedChart] Fetching open orders for trader:',
+        traderID,
+        'symbol:',
+        symbol
+      )
       const result = await httpClient.request(
         `/api/open-orders?trader_id=${traderID}&symbol=${symbol}`,
         { silent: true }
@@ -481,7 +590,10 @@ export function AdvancedChart({
       const candleData = data as any
 
       // Get volume and quoteVolume from stored data
-      const klineExtra = klineDataRef.current.get(param.time as number) || { volume: 0, quoteVolume: 0 }
+      const klineExtra = klineDataRef.current.get(param.time as number) || {
+        volume: 0,
+        quoteVolume: 0,
+      }
 
       setTooltipData({
         time: param.time,
@@ -502,7 +614,6 @@ export function AdvancedChart({
     }
   }, []) // Chart is created once, ResizeObserver handles dimension changes
 
-
   // Load data and indicators
   useEffect(() => {
     // Reset initial load flag when symbol/interval changes (for auto-fit)
@@ -522,7 +633,12 @@ export function AdvancedChart({
     const loadData = async (isRefresh = false) => {
       if (!candlestickSeriesRef.current) return
 
-      console.log('[AdvancedChart] Loading data for', symbol, interval, isRefresh ? '(refresh)' : '')
+      console.log(
+        '[AdvancedChart] Loading data for',
+        symbol,
+        interval,
+        isRefresh ? '(refresh)' : ''
+      )
       // Only show loading on first load, avoid flicker on refresh
       if (!isRefresh) {
         setLoading(true)
@@ -538,7 +654,10 @@ export function AdvancedChart({
         // Store volume/quoteVolume data for tooltip
         klineDataRef.current.clear()
         klineData.forEach((k: any) => {
-          klineDataRef.current.set(k.time, { volume: k.volume || 0, quoteVolume: k.quoteVolume || 0 })
+          klineDataRef.current.set(k.time, {
+            volume: k.volume || 0,
+            quoteVolume: k.quoteVolume || 0,
+          })
         })
 
         // 1.5 Calculate market stats
@@ -574,12 +693,17 @@ export function AdvancedChart({
 
         // 2. Display volume
         if (volumeSeriesRef.current) {
-          const volumeEnabled = indicators.find(i => i.id === 'volume')?.enabled
+          const volumeEnabled = indicators.find(
+            (i) => i.id === 'volume'
+          )?.enabled
           if (volumeEnabled) {
             const volumeData = klineData.map((k: Kline) => ({
               time: k.time,
               value: k.volume || 0,
-              color: k.close >= k.open ? 'var(--color-profit-border)' : 'var(--color-loss-border)',
+              color:
+                k.close >= k.open
+                  ? 'var(--color-profit-border)'
+                  : 'var(--color-loss-border)',
             }))
             volumeSeriesRef.current.setData(volumeData)
           } else {
@@ -598,13 +722,25 @@ export function AdvancedChart({
           console.log('[AdvancedChart] Received orders:', orders)
 
           if (orders.length > 0) {
-            console.log('[AdvancedChart] Creating markers from', orders.length, 'orders')
+            console.log(
+              '[AdvancedChart] Creating markers from',
+              orders.length,
+              'orders'
+            )
 
             // Extract sorted kline time array
             const klineTimes = klineData.map((k: any) => k.time as number)
             const klineMinTime = klineTimes[0] || 0
             const klineMaxTime = klineTimes[klineTimes.length - 1] || 0
-            console.log('[AdvancedChart] Kline time range:', klineMinTime, '-', klineMaxTime, '(', klineTimes.length, 'candles)')
+            console.log(
+              '[AdvancedChart] Kline time range:',
+              klineMinTime,
+              '-',
+              klineMaxTime,
+              '(',
+              klineTimes.length,
+              'candles)'
+            )
 
             // Binary search: find the kline candle for the order time
             // Return the largest kline time <= orderTime
@@ -629,19 +765,30 @@ export function AdvancedChart({
             }
 
             // Group orders by kline time
-            const ordersByCandle = new Map<number, { buys: number; sells: number }>()
+            const ordersByCandle = new Map<
+              number,
+              { buys: number; sells: number }
+            >()
 
-            orders.forEach(order => {
+            orders.forEach((order) => {
               // Use binary search to find matching kline candle time
               const candleTime = findCandleTime(order.time)
 
               if (candleTime === null) {
-                console.warn('[AdvancedChart] ⚠️ Skipping order outside kline range:',
-                  order.time, '(', new Date(order.time * 1000).toISOString(), ')')
+                console.warn(
+                  '[AdvancedChart] ⚠️ Skipping order outside kline range:',
+                  order.time,
+                  '(',
+                  new Date(order.time * 1000).toISOString(),
+                  ')'
+                )
                 return
               }
 
-              const existing = ordersByCandle.get(candleTime) || { buys: 0, sells: 0 }
+              const existing = ordersByCandle.get(candleTime) || {
+                buys: 0,
+                sells: 0,
+              }
               if (order.rawSide === 'buy') {
                 existing.buys++
               } else {
@@ -688,10 +835,22 @@ export function AdvancedChart({
             // Sort by time (lightweight-charts requires chronological order)
             markers.sort((a, b) => (a.time as number) - (b.time as number))
 
-            console.log('[AdvancedChart] Valid markers:', markers.length, 'out of', orders.length)
+            console.log(
+              '[AdvancedChart] Valid markers:',
+              markers.length,
+              'out of',
+              orders.length
+            )
 
-            console.log('[AdvancedChart] Setting', markers.length, 'markers on candlestick series')
-            console.log('[AdvancedChart] Markers data:', JSON.stringify(markers, null, 2))
+            console.log(
+              '[AdvancedChart] Setting',
+              markers.length,
+              'markers on candlestick series'
+            )
+            console.log(
+              '[AdvancedChart] Markers data:',
+              JSON.stringify(markers, null, 2)
+            )
 
             try {
               // Store marker data for later toggle use
@@ -705,9 +864,17 @@ export function AdvancedChart({
                 seriesMarkersRef.current.setMarkers(markersToShow)
               } else {
                 // First time creating markers
-                seriesMarkersRef.current = createSeriesMarkers(candlestickSeriesRef.current, markersToShow)
+                seriesMarkersRef.current = createSeriesMarkers(
+                  candlestickSeriesRef.current,
+                  markersToShow
+                )
               }
-              console.log('[AdvancedChart] ✅ Markers updated! Count:', markersToShow.length, 'Visible:', showOrderMarkers)
+              console.log(
+                '[AdvancedChart] ✅ Markers updated! Count:',
+                markersToShow.length,
+                'Visible:',
+                showOrderMarkers
+              )
             } catch (err) {
               console.error('[AdvancedChart] ❌ Failed to set markers:', err)
             }
@@ -724,7 +891,7 @@ export function AdvancedChart({
         } else {
           console.log('[AdvancedChart] Skipping markers:', {
             hasTraderID: !!traderID,
-            hasSeries: !!candlestickSeriesRef.current
+            hasSeries: !!candlestickSeriesRef.current,
           })
         }
 
@@ -757,7 +924,7 @@ export function AdvancedChart({
     const loadOpenOrders = async () => {
       try {
         // Clear old price lines first
-        priceLinesRef.current.forEach(line => {
+        priceLinesRef.current.forEach((line) => {
           try {
             candlestickSeriesRef.current?.removePriceLine(line)
           } catch (e) {
@@ -770,14 +937,17 @@ export function AdvancedChart({
         console.log('[AdvancedChart] Open orders for price lines:', openOrders)
 
         if (openOrders.length > 0 && candlestickSeriesRef.current) {
-          openOrders.forEach(order => {
+          openOrders.forEach((order) => {
             // Get trigger price (SL/TP use stop_price, limit orders use price)
-            const linePrice = order.stop_price > 0 ? order.stop_price : order.price
+            const linePrice =
+              order.stop_price > 0 ? order.stop_price : order.price
             if (linePrice <= 0) return
 
             // Determine order type
-            const isStopLoss = order.type.includes('STOP') || order.type.includes('SL')
-            const isTakeProfit = order.type.includes('TAKE_PROFIT') || order.type.includes('TP')
+            const isStopLoss =
+              order.type.includes('STOP') || order.type.includes('SL')
+            const isTakeProfit =
+              order.type.includes('TAKE_PROFIT') || order.type.includes('TP')
             const isLimit = order.type === 'LIMIT'
 
             // Set price line style
@@ -811,7 +981,11 @@ export function AdvancedChart({
               priceLinesRef.current.push(priceLine)
             }
           })
-          console.log('[AdvancedChart] ✅ Created', priceLinesRef.current.length, 'price lines for pending orders')
+          console.log(
+            '[AdvancedChart] ✅ Created',
+            priceLinesRef.current.length,
+            'price lines for pending orders'
+          )
         }
       } catch (err) {
         console.error('[AdvancedChart] Error loading open orders:', err)
@@ -835,9 +1009,16 @@ export function AdvancedChart({
     if (!seriesMarkersRef.current) return
 
     try {
-      const markersToShow = showOrderMarkers ? currentMarkersDataRef.current : []
+      const markersToShow = showOrderMarkers
+        ? currentMarkersDataRef.current
+        : []
       seriesMarkersRef.current.setMarkers(markersToShow)
-      console.log('[AdvancedChart] 🔄 Toggled markers visibility:', showOrderMarkers, 'Count:', markersToShow.length)
+      console.log(
+        '[AdvancedChart] 🔄 Toggled markers visibility:',
+        showOrderMarkers,
+        'Count:',
+        markersToShow.length
+      )
     } catch (err) {
       console.error('[AdvancedChart] ❌ Failed to toggle markers:', err)
     }
@@ -848,13 +1029,13 @@ export function AdvancedChart({
     if (!chartRef.current) return
 
     // Clear old indicators
-    indicatorSeriesRef.current.forEach(series => {
+    indicatorSeriesRef.current.forEach((series) => {
       chartRef.current?.removeSeries(series as any)
     })
     indicatorSeriesRef.current.clear()
 
     // Add enabled indicators
-    indicators.forEach(indicator => {
+    indicators.forEach((indicator) => {
       if (!indicator.enabled || !chartRef.current) return
 
       if (indicator.id.startsWith('ma')) {
@@ -884,7 +1065,9 @@ export function AdvancedChart({
           lineWidth: 1,
           title: 'BB Upper',
         })
-        upperSeries.setData(bbData.map(d => ({ time: d.time as any, value: d.upper })))
+        upperSeries.setData(
+          bbData.map((d) => ({ time: d.time as any, value: d.upper }))
+        )
 
         const middleSeries = chartRef.current.addSeries(LineSeries, {
           color: indicator.color,
@@ -892,14 +1075,18 @@ export function AdvancedChart({
           lineStyle: 2,
           title: 'BB Middle',
         })
-        middleSeries.setData(bbData.map(d => ({ time: d.time as any, value: d.middle })))
+        middleSeries.setData(
+          bbData.map((d) => ({ time: d.time as any, value: d.middle }))
+        )
 
         const lowerSeries = chartRef.current.addSeries(LineSeries, {
           color: indicator.color,
           lineWidth: 1,
           title: 'BB Lower',
         })
-        lowerSeries.setData(bbData.map(d => ({ time: d.time as any, value: d.lower })))
+        lowerSeries.setData(
+          bbData.map((d) => ({ time: d.time as any, value: d.lower }))
+        )
 
         indicatorSeriesRef.current.set(indicator.id + '_upper', upperSeries)
         indicatorSeriesRef.current.set(indicator.id + '_middle', middleSeries)
@@ -910,8 +1097,10 @@ export function AdvancedChart({
 
   // Toggle indicator
   const toggleIndicator = (id: string) => {
-    setIndicators(prev =>
-      prev.map(ind => (ind.id === id ? { ...ind, enabled: !ind.enabled } : ind))
+    setIndicators((prev) =>
+      prev.map((ind) =>
+        ind.id === id ? { ...ind, enabled: !ind.enabled } : ind
+      )
     )
   }
 
@@ -919,7 +1108,8 @@ export function AdvancedChart({
     <div
       className="relative shadow-xl"
       style={{
-        background: 'linear-gradient(180deg, var(--color-surface) 0%, var(--color-background) 100%)',
+        background:
+          'linear-gradient(180deg, var(--color-surface) 0%, var(--color-background) 100%)',
         borderRadius: '12px',
         overflow: 'hidden',
         border: '1px solid var(--color-border)',
@@ -931,19 +1121,31 @@ export function AdvancedChart({
       {/* Compact Professional Header */}
       <div
         className="flex items-center justify-between px-4 py-2"
-        style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-header)', flexShrink: 0 }}
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-header)',
+          flexShrink: 0,
+        }}
       >
         {/* Left: Symbol Info + Price */}
         <div className="flex items-center gap-4">
           {/* Symbol & Interval */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-foreground">{symbol}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{interval}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              {interval}
+            </span>
             <span
               className="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase"
               style={{
-                background: exchange === 'hyperliquid' ? 'var(--color-profit-bg)' : 'var(--color-primary-dim)',
-                color: exchange === 'hyperliquid' ? 'var(--color-profit)' : 'var(--color-primary)',
+                background:
+                  exchange === 'hyperliquid'
+                    ? 'var(--color-profit-bg)'
+                    : 'var(--color-primary-dim)',
+                color:
+                  exchange === 'hyperliquid'
+                    ? 'var(--color-profit)'
+                    : 'var(--color-primary)',
               }}
             >
               {exchange?.toUpperCase()}
@@ -955,29 +1157,57 @@ export function AdvancedChart({
             <div className="flex items-center gap-3 pl-3 border-l border-border">
               <span
                 className="text-base font-bold tabular-nums"
-                style={{ color: marketStats.priceChange >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}
+                style={{
+                  color:
+                    marketStats.priceChange >= 0
+                      ? 'var(--color-profit)'
+                      : 'var(--color-loss)',
+                }}
               >
                 {marketStats.price.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
-                  maximumFractionDigits: exchange === 'forex' || exchange === 'metals' ? 4 : 2
+                  maximumFractionDigits:
+                    exchange === 'forex' || exchange === 'metals' ? 4 : 2,
                 })}
               </span>
               <span
                 className="text-xs font-medium px-1.5 py-0.5 rounded tabular-nums"
                 style={{
-                  background: marketStats.priceChange >= 0 ? 'var(--color-profit-bg)' : 'var(--color-loss-bg)',
-                  color: marketStats.priceChange >= 0 ? 'var(--color-profit)' : 'var(--color-loss)',
+                  background:
+                    marketStats.priceChange >= 0
+                      ? 'var(--color-profit-bg)'
+                      : 'var(--color-loss-bg)',
+                  color:
+                    marketStats.priceChange >= 0
+                      ? 'var(--color-profit)'
+                      : 'var(--color-loss)',
                 }}
               >
-                {marketStats.priceChange >= 0 ? '+' : ''}{marketStats.priceChangePercent.toFixed(2)}%
+                {marketStats.priceChange >= 0 ? '+' : ''}
+                {marketStats.priceChangePercent.toFixed(2)}%
               </span>
 
               {/* Compact H/L */}
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>H <span className="text-foreground">{marketStats.high.toFixed(2)}</span></span>
-                <span>L <span className="text-foreground">{marketStats.low.toFixed(2)}</span></span>
+                <span>
+                  H{' '}
+                  <span className="text-foreground">
+                    {marketStats.high.toFixed(2)}
+                  </span>
+                </span>
+                <span>
+                  L{' '}
+                  <span className="text-foreground">
+                    {marketStats.low.toFixed(2)}
+                  </span>
+                </span>
                 {marketStats.volume > 0 && baseUnit && (
-                  <span>Vol <span className="text-foreground">{formatVolume(marketStats.volume)}</span></span>
+                  <span>
+                    Vol{' '}
+                    <span className="text-foreground">
+                      {formatVolume(marketStats.volume)}
+                    </span>
+                  </span>
                 )}
               </div>
             </div>
@@ -995,8 +1225,12 @@ export function AdvancedChart({
             onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
             style={{
-              background: showIndicatorPanel ? 'var(--color-accent)' + '26' : 'transparent',
-              color: showIndicatorPanel ? 'var(--color-accent)' : 'var(--color-muted-fg)',
+              background: showIndicatorPanel
+                ? 'var(--color-accent)' + '26'
+                : 'transparent',
+              color: showIndicatorPanel
+                ? 'var(--color-accent)'
+                : 'var(--color-muted-fg)',
             }}
           >
             <Settings className="w-3 h-3" />
@@ -1007,8 +1241,12 @@ export function AdvancedChart({
             onClick={() => setShowOrderMarkers(!showOrderMarkers)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
             style={{
-              background: showOrderMarkers ? 'var(--color-profit-bg)' : 'transparent',
-              color: showOrderMarkers ? 'var(--color-profit)' : 'var(--color-muted-fg)',
+              background: showOrderMarkers
+                ? 'var(--color-profit-bg)'
+                : 'transparent',
+              color: showOrderMarkers
+                ? 'var(--color-profit)'
+                : 'var(--color-muted-fg)',
             }}
             title={t('advancedChart.orderMarkers', language)}
           >
@@ -1022,8 +1260,10 @@ export function AdvancedChart({
         <div
           className="absolute top-16 right-4 z-10 rounded-lg shadow-2xl backdrop-blur-sm"
           style={{
-            background: 'linear-gradient(135deg, var(--color-panel) 0%, var(--color-surface) 100%)',
-            border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
+            background:
+              'linear-gradient(135deg, var(--color-panel) 0%, var(--color-surface) 100%)',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
             maxHeight: '500px',
             minWidth: '280px',
             overflowY: 'auto',
@@ -1050,7 +1290,7 @@ export function AdvancedChart({
 
           {/* Indicator list */}
           <div className="p-3 space-y-1">
-            {indicators.map(indicator => (
+            {indicators.map((indicator) => (
               <label
                 key={indicator.id}
                 className="flex items-center gap-3 p-2.5 rounded-md hover:bg-white/5 cursor-pointer transition-all group"
@@ -1089,7 +1329,10 @@ export function AdvancedChart({
 
       {/* Chart container */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-        <div ref={chartContainerRef} style={{ height: '100%', width: '100%' }} />
+        <div
+          ref={chartContainerRef}
+          style={{ height: '100%', width: '100%' }}
+        />
 
         {/* OHLC Tooltip */}
         {tooltipData && (
@@ -1112,36 +1355,66 @@ export function AdvancedChart({
               boxShadow: 'var(--shadow-md)',
             }}
           >
-            <div style={{ marginBottom: '6px', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '11px' }}>
-              {new Date((tooltipData.time as number) * 1000).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+            <div
+              style={{
+                marginBottom: '6px',
+                color: 'var(--color-primary)',
+                fontWeight: 'bold',
+                fontSize: '11px',
+              }}
+            >
+              {new Date((tooltipData.time as number) * 1000).toLocaleString(
+                language === 'zh' ? 'zh-CN' : 'en-US',
+                {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: '11px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr',
+                gap: '4px 12px',
+                fontSize: '11px',
+              }}
+            >
               <span className="text-muted-foreground">O:</span>
-              <span style={{ color: 'var(--foreground)', fontWeight: '500' }}>{tooltipData.open?.toFixed(2)}</span>
+              <span style={{ color: 'var(--foreground)', fontWeight: '500' }}>
+                {tooltipData.open?.toFixed(2)}
+              </span>
 
               <span className="text-muted-foreground">H:</span>
-              <span style={{ color: 'var(--color-profit)', fontWeight: '500' }}>{tooltipData.high?.toFixed(2)}</span>
+              <span style={{ color: 'var(--color-profit)', fontWeight: '500' }}>
+                {tooltipData.high?.toFixed(2)}
+              </span>
 
               <span className="text-muted-foreground">L:</span>
-              <span style={{ color: 'var(--color-loss)', fontWeight: '500' }}>{tooltipData.low?.toFixed(2)}</span>
+              <span style={{ color: 'var(--color-loss)', fontWeight: '500' }}>
+                {tooltipData.low?.toFixed(2)}
+              </span>
 
               <span className="text-muted-foreground">C:</span>
-              <span style={{
-                color: tooltipData.close >= tooltipData.open ? 'var(--color-profit)' : 'var(--color-loss)',
-                fontWeight: 'bold'
-              }}>
+              <span
+                style={{
+                  color:
+                    tooltipData.close >= tooltipData.open
+                      ? 'var(--color-profit)'
+                      : 'var(--color-loss)',
+                  fontWeight: 'bold',
+                }}
+              >
                 {tooltipData.close?.toFixed(2)}
               </span>
 
               {tooltipData.volume > 0 && baseUnit && (
                 <>
                   <span className="text-muted-foreground">V({baseUnit}):</span>
-                  <span style={{ color: 'var(--color-accent)', fontWeight: '500' }}>
+                  <span
+                    style={{ color: 'var(--color-accent)', fontWeight: '500' }}
+                  >
                     {formatVolume(tooltipData.volume)}
                   </span>
                 </>
@@ -1150,7 +1423,9 @@ export function AdvancedChart({
               {tooltipData.quoteVolume > 0 && quoteUnit && (
                 <>
                   <span className="text-muted-foreground">V({quoteUnit}):</span>
-                  <span style={{ color: 'var(--color-accent)', fontWeight: '500' }}>
+                  <span
+                    style={{ color: 'var(--color-accent)', fontWeight: '500' }}
+                  >
                     {formatVolume(tooltipData.quoteVolume)}
                   </span>
                 </>
@@ -1174,10 +1449,13 @@ export function AdvancedChart({
             style={{
               fontSize: '56px',
               fontWeight: '700',
-              color: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+              color:
+                'color-mix(in srgb, var(--color-primary) 12%, transparent)',
               letterSpacing: '4px',
-              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-              textShadow: '0 2px 30px color-mix(in srgb, var(--color-primary) 20%, transparent)',
+              fontFamily:
+                'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+              textShadow:
+                '0 2px 30px color-mix(in srgb, var(--color-primary) 20%, transparent)',
             }}
           >
             AiT
@@ -1197,7 +1475,6 @@ export function AdvancedChart({
           </div>
         </div>
       )}
-
     </div>
   )
 }

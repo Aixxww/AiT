@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, RotateCcw, FileText } from 'lucide-react'
 import type { PromptSectionsConfig } from '../../types'
-import { promptSections as promptSectionsI18n, ts } from '../../i18n/strategy-translations'
+import {
+  promptSections as promptSectionsI18n,
+  ts,
+} from '../../i18n/strategy-translations'
 
 interface PromptSectionsEditorProps {
   config: PromptSectionsConfig | undefined
@@ -48,7 +51,9 @@ export function PromptSectionsEditor({
   disabled,
   language,
 }: PromptSectionsEditorProps) {
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
     role_definition: false,
     trading_frequency: false,
     entry_standards: false,
@@ -56,10 +61,26 @@ export function PromptSectionsEditor({
   })
 
   const sections = [
-    { key: 'role_definition', label: ts(promptSectionsI18n.roleDefinition, language), desc: ts(promptSectionsI18n.roleDefinitionDesc, language) },
-    { key: 'trading_frequency', label: ts(promptSectionsI18n.tradingFrequency, language), desc: ts(promptSectionsI18n.tradingFrequencyDesc, language) },
-    { key: 'entry_standards', label: ts(promptSectionsI18n.entryStandards, language), desc: ts(promptSectionsI18n.entryStandardsDesc, language) },
-    { key: 'decision_process', label: ts(promptSectionsI18n.decisionProcess, language), desc: ts(promptSectionsI18n.decisionProcessDesc, language) },
+    {
+      key: 'role_definition',
+      label: ts(promptSectionsI18n.roleDefinition, language),
+      desc: ts(promptSectionsI18n.roleDefinitionDesc, language),
+    },
+    {
+      key: 'trading_frequency',
+      label: ts(promptSectionsI18n.tradingFrequency, language),
+      desc: ts(promptSectionsI18n.tradingFrequencyDesc, language),
+    },
+    {
+      key: 'entry_standards',
+      label: ts(promptSectionsI18n.entryStandards, language),
+      desc: ts(promptSectionsI18n.entryStandardsDesc, language),
+    },
+    {
+      key: 'decision_process',
+      label: ts(promptSectionsI18n.decisionProcess, language),
+      desc: ts(promptSectionsI18n.decisionProcessDesc, language),
+    },
   ]
 
   const currentConfig = config || {}
@@ -103,13 +124,18 @@ export function PromptSectionsEditor({
           const sectionKey = key as keyof PromptSectionsConfig
           const isExpanded = expandedSections[key]
           const value = getValue(sectionKey)
-          const isModified = currentConfig[sectionKey] !== undefined && currentConfig[sectionKey] !== defaultSections[sectionKey]
+          const isModified =
+            currentConfig[sectionKey] !== undefined &&
+            currentConfig[sectionKey] !== defaultSections[sectionKey]
 
           return (
             <div
               key={key}
               className="rounded-lg overflow-hidden"
-              style={{ background: 'var(--background)', border: '1px solid #2B3139' }}
+              style={{
+                background: 'var(--background)',
+                border: '1px solid #2B3139',
+              }}
             >
               <button
                 onClick={() => toggleSection(key)}
@@ -127,7 +153,10 @@ export function PromptSectionsEditor({
                   {isModified && (
                     <span
                       className="px-1.5 py-0.5 text-[10px] rounded"
-                      style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}
+                      style={{
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        color: '#a855f7',
+                      }}
                     >
                       {ts(promptSectionsI18n.modified, language)}
                     </span>
@@ -140,9 +169,7 @@ export function PromptSectionsEditor({
 
               {isExpanded && (
                 <div className="px-3 pb-3">
-                  <p className="text-xs mb-2 text-muted-foreground">
-                    {desc}
-                  </p>
+                  <p className="text-xs mb-2 text-muted-foreground">{desc}</p>
                   <textarea
                     value={value}
                     onChange={(e) => updateSection(sectionKey, e.target.value)}

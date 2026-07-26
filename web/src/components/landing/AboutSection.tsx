@@ -16,7 +16,10 @@ export default function AboutSection({ language }: AboutSectionProps) {
     {
       icon: Cpu,
       title: language === 'zh' ? '多 AI 支持' : 'Multi-AI Support',
-      desc: language === 'zh' ? 'DeepSeek, GPT, Claude...' : 'DeepSeek, GPT, Claude...',
+      desc:
+        language === 'zh'
+          ? 'DeepSeek, GPT, Claude...'
+          : 'DeepSeek, GPT, Claude...',
     },
     {
       icon: BarChart3,
@@ -30,7 +33,10 @@ export default function AboutSection({ language }: AboutSectionProps) {
       {/* Background Decoration */}
       <div
         className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-30"
-        style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, transparent 70%)' }}
+        style={{
+          background:
+            'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, transparent 70%)',
+        }}
       />
 
       <div className="max-w-6xl mx-auto px-4">
@@ -45,12 +51,20 @@ export default function AboutSection({ language }: AboutSectionProps) {
             <motion.div
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6"
               style={{
-                background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
+                background:
+                  'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+                border:
+                  '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
               }}
             >
-              <Terminal className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-              <span className="text-xs font-medium" style={{ color: 'var(--color-primary)' }}>
+              <Terminal
+                className="w-4 h-4"
+                style={{ color: 'var(--color-primary)' }}
+              />
+              <span
+                className="text-xs font-medium"
+                style={{ color: 'var(--color-primary)' }}
+              >
                 {t('aboutAiT', language)}
               </span>
             </motion.div>
@@ -80,15 +94,24 @@ export default function AboutSection({ language }: AboutSectionProps) {
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}
+                    style={{
+                      background:
+                        'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+                    }}
                   >
-                    <feature.icon className="w-5 h-5" style={{ color: 'var(--color-primary)' }} />
+                    <feature.icon
+                      className="w-5 h-5"
+                      style={{ color: 'var(--color-primary)' }}
+                    />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">
                       {feature.title}
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--color-muted-fg)' }}>
+                    <div
+                      className="text-xs"
+                      style={{ color: 'var(--color-muted-fg)' }}
+                    >
                       {feature.desc}
                     </div>
                   </div>
@@ -115,21 +138,44 @@ export default function AboutSection({ language }: AboutSectionProps) {
               {/* Terminal Header */}
               <div
                 className="flex items-center gap-2 px-4 py-3"
-                style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                }}
               >
                 <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ background: '#FF5F56' }} />
-                  <div className="w-3 h-3 rounded-full" style={{ background: '#FFBD2E' }} />
-                  <div className="w-3 h-3 rounded-full" style={{ background: '#27C93F' }} />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ background: '#FF5F56' }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ background: '#FFBD2E' }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ background: '#27C93F' }}
+                  />
                 </div>
-                <span className="text-xs ml-2" style={{ color: 'var(--color-muted-fg)' }}>terminal</span>
+                <span
+                  className="text-xs ml-2"
+                  style={{ color: 'var(--color-muted-fg)' }}
+                >
+                  terminal
+                </span>
               </div>
 
               {/* Terminal Content */}
               <div className="p-6 font-mono text-sm space-y-2">
-                <div style={{ color: 'var(--color-muted-fg)' }}>$ git clone https://github.com/Aixxww/AiT.git</div>
-                <div style={{ color: 'var(--color-muted-fg)' }}>$ cd AiT && chmod +x start.sh</div>
-                <div style={{ color: 'var(--color-muted-fg)' }}>$ ./start.sh start --build</div>
+                <div style={{ color: 'var(--color-muted-fg)' }}>
+                  $ git clone https://github.com/Aixxww/AiT.git
+                </div>
+                <div style={{ color: 'var(--color-muted-fg)' }}>
+                  $ cd AiT && chmod +x start.sh
+                </div>
+                <div style={{ color: 'var(--color-muted-fg)' }}>
+                  $ ./start.sh start --build
+                </div>
                 <div className="pt-2" style={{ color: 'var(--color-primary)' }}>
                   ✓ {t('startupMessages1', language)}
                 </div>

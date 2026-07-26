@@ -17,12 +17,19 @@ interface AiTSelectProps {
   style?: React.CSSProperties
 }
 
-export function AiTSelect({ value, onChange, options, disabled, className, style }: AiTSelectProps) {
+export function AiTSelect({
+  value,
+  onChange,
+  options,
+  disabled,
+  className,
+  style,
+}: AiTSelectProps) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
-  const selected = options.find(o => String(o.value) === String(value))
+  const selected = options.find((o) => String(o.value) === String(value))
 
   const updatePos = useCallback(() => {
     if (!triggerRef.current) return
@@ -52,15 +59,11 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
   }, [open, updatePos])
 
   return (
-    <div
-      ref={triggerRef}
-      className={cn('relative', className)}
-      style={style}
-    >
+    <div ref={triggerRef} className={cn('relative', className)} style={style}>
       <div
         className={cn(
           'flex items-center justify-between gap-1.5 w-full h-full cursor-pointer',
-          disabled && 'opacity-50 cursor-not-allowed',
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
         onClick={(e) => {
           e.stopPropagation()
@@ -68,59 +71,66 @@ export function AiTSelect({ value, onChange, options, disabled, className, style
         }}
       >
         <span className="truncate">{selected?.label ?? String(value)}</span>
-        <ChevronDown className={cn('w-3 h-3 shrink-0 opacity-50 transition-transform', open && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'w-3 h-3 shrink-0 opacity-50 transition-transform',
+            open && 'rotate-180'
+          )}
+        />
       </div>
-      {open && createPortal(
-        <div
-          ref={dropdownRef}
-          className="fixed z-[9999] rounded border max-h-60 overflow-y-auto"
-          style={{
-            top: pos.top,
-            left: pos.left,
-            minWidth: pos.width,
-            background: 'var(--color-panel)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-foreground)',
-            boxShadow: 'var(--shadow-lg)',
-          }}
-        >
-          {options.map((opt) => (
-            <div
-              key={opt.value}
-              className={cn(
-                'px-3 py-1.5 text-sm cursor-pointer transition-colors whitespace-nowrap',
-                String(opt.value) === String(value)
-                  ? 'text-primary'
-                  : 'text-foreground',
-              )}
-              style={{
-                background:
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed z-[9999] rounded border max-h-60 overflow-y-auto"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              minWidth: pos.width,
+              background: 'var(--color-panel)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-foreground)',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+          >
+            {options.map((opt) => (
+              <div
+                key={opt.value}
+                className={cn(
+                  'px-3 py-1.5 text-sm cursor-pointer transition-colors whitespace-nowrap',
                   String(opt.value) === String(value)
-                    ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-panel))'
-                    : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (String(opt.value) !== String(value)) {
-                  e.currentTarget.style.background = 'var(--color-surface-alt)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (String(opt.value) !== String(value)) {
-                  e.currentTarget.style.background = 'transparent'
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation()
-                onChange(String(opt.value))
-                setOpen(false)
-              }}
-            >
-              {opt.label}
-            </div>
-          ))}
-        </div>,
-        document.body,
-      )}
+                    ? 'text-primary'
+                    : 'text-foreground'
+                )}
+                style={{
+                  background:
+                    String(opt.value) === String(value)
+                      ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-panel))'
+                      : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (String(opt.value) !== String(value)) {
+                    e.currentTarget.style.background =
+                      'var(--color-surface-alt)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (String(opt.value) !== String(value)) {
+                    e.currentTarget.style.background = 'transparent'
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChange(String(opt.value))
+                  setOpen(false)
+                }}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

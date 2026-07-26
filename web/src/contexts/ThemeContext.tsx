@@ -7,7 +7,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Initialize theme from persisted state on mount
   useEffect(() => {
     setMode(mode)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   return <>{children}</>
 }

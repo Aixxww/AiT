@@ -56,7 +56,10 @@ export function FAQContent({
   return (
     <div className="space-y-12">
       {categories.map((category) => (
-        <div key={category.id} className="ait-glass p-8 rounded-xl border border-white/5">
+        <div
+          key={category.id}
+          className="ait-glass p-8 rounded-xl border border-white/5"
+        >
           {/* Category Header */}
           <div className="flex items-center gap-3 mb-6 pb-3 border-b border-white/10">
             <category.icon className="w-7 h-7 text-primary" />
@@ -146,8 +149,8 @@ export function FAQContent({
                               </code>
                             </li>
                             <li>
-                              打开 PR：base 选择 <code>Aixxww/AiT:dev</code>{' '}
-                              ← compare 选择{' '}
+                              打开 PR：base 选择 <code>Aixxww/AiT:dev</code> ←
+                              compare 选择{' '}
                               <code>你的用户名/AiT:feat/your-topic</code>。
                             </li>
                             <li>
@@ -218,13 +221,17 @@ export function FAQContent({
                       <div
                         className="rounded p-3 mt-3"
                         style={{
-                          background: 'color-mix(in srgb, var(--color-primary) 8%, transparent)',
-                          border: '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)',
+                          background:
+                            'color-mix(in srgb, var(--color-primary) 8%, transparent)',
+                          border:
+                            '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)',
                         }}
                       >
                         {language === 'zh' ? (
                           <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>提示：</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>
+                              提示：
+                            </strong>{' '}
                             参与贡献将享有激励制度（如
                             Bounty/奖金、荣誉徽章与鸣谢、优先
                             Review/合并与内测资格 等）。 可在任务中优先选择带
@@ -249,7 +256,9 @@ export function FAQContent({
                           </div>
                         ) : (
                           <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>Note:</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>
+                              Note:
+                            </strong>{' '}
                             Contribution incentives are available (e.g., cash
                             bounties, badges & shout-outs, priority
                             review/merge, beta access). Prefer tasks with
@@ -398,7 +407,9 @@ export function FAQContent({
                           </div>
                         ) : (
                           <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>Note:</strong>{' '}
+                            <strong style={{ color: 'var(--color-primary)' }}>
+                              Note:
+                            </strong>{' '}
                             We offer contribution incentives (bounties, badges,
                             shout-outs, priority review/merge, beta access).
                             Look for tasks with

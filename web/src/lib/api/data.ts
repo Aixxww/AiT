@@ -53,10 +53,7 @@ export const dataApi = {
     return result.data!
   },
 
-  async getPositions(
-    traderId?: string,
-    silent?: boolean
-  ): Promise<Position[]> {
+  async getPositions(traderId?: string, silent?: boolean): Promise<Position[]> {
     const url = traderId
       ? `${API_BASE}/positions?trader_id=${traderId}`
       : `${API_BASE}/positions`
@@ -105,10 +102,7 @@ export const dataApi = {
     return result.data!
   },
 
-  async getEquityHistory(
-    traderId?: string,
-    silent?: boolean
-  ): Promise<any[]> {
+  async getEquityHistory(traderId?: string, silent?: boolean): Promise<any[]> {
     const url = traderId
       ? `${API_BASE}/equity-history?trader_id=${traderId}`
       : `${API_BASE}/equity-history`
@@ -117,7 +111,10 @@ export const dataApi = {
     return result.data!
   },
 
-  async getEquityHistoryBatch(traderIds: string[], hours?: number): Promise<any> {
+  async getEquityHistoryBatch(
+    traderIds: string[],
+    hours?: number
+  ): Promise<any> {
     const result = await httpClient.post<any>(
       `${API_BASE}/equity-history-batch`,
       { trader_ids: traderIds, hours: hours || 0 }
@@ -163,9 +160,7 @@ export const dataApi = {
 
   async getSquareHeat(): Promise<SquareHeatResponse> {
     try {
-      const result = await httpClient.get<any>(
-        `${API_BASE}/square-heat`
-      )
+      const result = await httpClient.get<any>(`${API_BASE}/square-heat`)
       if (result && result.data) {
         return result.data as SquareHeatResponse
       }
@@ -178,12 +173,16 @@ export const dataApi = {
   // ── Square Monitor Worker Control ──
 
   async getSquareMonitorStatus(): Promise<{ running: boolean; pid: number }> {
-    const result = await httpClient.get<any>(`${API_BASE}/square-monitor/status`)
+    const result = await httpClient.get<any>(
+      `${API_BASE}/square-monitor/status`
+    )
     return result.data ?? { running: false, pid: 0 }
   },
 
   async startSquareMonitor(): Promise<{ message: string; pid: number }> {
-    const result = await httpClient.post<any>(`${API_BASE}/square-monitor/start`)
+    const result = await httpClient.post<any>(
+      `${API_BASE}/square-monitor/start`
+    )
     return result.data ?? { message: 'Unknown error', pid: 0 }
   },
 

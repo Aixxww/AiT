@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type FormEvent,
+} from 'react'
 import useSWR from 'swr'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -51,7 +57,8 @@ const toLocalInput = (date: Date) => {
 export function BacktestPage() {
   const { language } = useLanguage()
   const tr = useCallback(
-    (key: string, params?: Record<string, string | number>) => t(`backtestPage.${key}`, language, params),
+    (key: string, params?: Record<string, string | number>) =>
+      t(`backtestPage.${key}`, language, params),
     [language]
   )
 
@@ -62,7 +69,10 @@ export function BacktestPage() {
   const [selectedRunId, setSelectedRunId] = useState<string>()
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
   const [isStarting, setIsStarting] = useState(false)
-  const [toast, setToast] = useState<{ text: string; tone: 'info' | 'error' | 'success' } | null>(null)
+  const [toast, setToast] = useState<{
+    text: string
+    tone: 'info' | 'error' | 'success'
+  } | null>(null)
 
   // Form state
   const [formState, setFormState] = useState<BacktestFormState>({
@@ -90,13 +100,23 @@ export function BacktestPage() {
   })
 
   // Data fetching
-  const { data: runsResp, mutate: refreshRuns } = useSWR(['backtest-runs'], () =>
-    api.getBacktestRuns({ limit: 100, offset: 0 })
-    , { refreshInterval: 5000 })
+  const { data: runsResp, mutate: refreshRuns } = useSWR(
+    ['backtest-runs'],
+    () => api.getBacktestRuns({ limit: 100, offset: 0 }),
+    { refreshInterval: 5000 }
+  )
   const runs = runsResp?.items ?? []
 
-  const { data: aiModels } = useSWR<AIModel[]>('ai-models', api.getModelConfigs, { refreshInterval: 30000 })
-  const { data: strategies } = useSWR<Strategy[]>('strategies', api.getStrategies, { refreshInterval: 30000 })
+  const { data: aiModels } = useSWR<AIModel[]>(
+    'ai-models',
+    api.getModelConfigs,
+    { refreshInterval: 30000 }
+  )
+  const { data: strategies } = useSWR<Strategy[]>(
+    'strategies',
+    api.getStrategies,
+    { refreshInterval: 30000 }
+  )
 
   const { data: status } = useSWR<BacktestStatusPayload>(
     selectedRunId ? ['bt-status', selectedRunId] : null,
@@ -130,7 +150,9 @@ export function BacktestPage() {
 
   const selectedRun = runs.find((r) => r.run_id === selectedRunId)
   const selectedModel = aiModels?.find((m) => m.id === formState.aiModelId)
-  const selectedStrategy = strategies?.find((s) => s.id === formState.strategyId)
+  const selectedStrategy = strategies?.find(
+    (s) => s.id === formState.strategyId
+  )
 
   // Check if selected strategy has dynamic coin source (needed for handleStart)
   const strategyHasDynamicCoins = useMemo(() => {
@@ -138,10 +160,16 @@ export function BacktestPage() {
     const coinSource = selectedStrategy.config?.coin_source
     if (!coinSource) return false
 
-    if (coinSource.source_type === 'ai500' || coinSource.source_type === 'oi_top') {
+    if (
+      coinSource.source_type === 'ai500' ||
+      coinSource.source_type === 'oi_top'
+    ) {
       return true
     }
-    if (coinSource.source_type === 'mixed' && (coinSource.use_ai500 || coinSource.use_oi_top)) {
+    if (
+      coinSource.source_type === 'mixed' &&
+      (coinSource.use_ai500 || coinSource.use_oi_top)
+    ) {
       return true
     }
 
@@ -169,7 +197,10 @@ export function BacktestPage() {
   }, [runs, selectedRunId])
 
   // Handlers
-  const handleFormChange = (key: string, value: string | number | boolean | string[]) => {
+  const handleFormChange = (
+    key: string,
+    value: string | number | boolean | string[]
+  ) => {
     setFormState((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -186,8 +217,12 @@ export function BacktestPage() {
       const end = new Date(formState.end).getTime()
       if (end <= start) throw new Error(tr('toasts.invalidRange'))
 
-      const userSymbols = formState.symbols.split(',').map((s) => s.trim()).filter(Boolean)
-      const symbolsToSend = (userSymbols.length === 0 && strategyHasDynamicCoins) ? [] : userSymbols
+      const userSymbols = formState.symbols
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const symbolsToSend =
+        userSymbols.length === 0 && strategyHasDynamicCoins ? [] : userSymbols
 
       const payload = await api.startBacktest({
         run_id: formState.runId.trim() || undefined,
@@ -215,12 +250,16 @@ export function BacktestPage() {
         },
       })
 
-      setToast({ text: tr('toasts.startSuccess', { id: payload.run_id }), tone: 'success' })
+      setToast({
+        text: tr('toasts.startSuccess', { id: payload.run_id }),
+        tone: 'success',
+      })
       setSelectedRunId(payload.run_id)
       setWizardStep(1)
       await refreshRuns()
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : tr('toasts.startFailed')
+      const errMsg =
+        error instanceof Error ? error.message : tr('toasts.startFailed')
       setToast({ text: errMsg, tone: 'error' })
     } finally {
       setIsStarting(false)
@@ -233,21 +272,28 @@ export function BacktestPage() {
       if (action === 'pause') await api.pauseBacktest(selectedRunId)
       if (action === 'resume') await api.resumeBacktest(selectedRunId)
       if (action === 'stop') await api.stopBacktest(selectedRunId)
-      setToast({ text: tr('toasts.actionSuccess', { action, id: selectedRunId }), tone: 'success' })
+      setToast({
+        text: tr('toasts.actionSuccess', { action, id: selectedRunId }),
+        tone: 'success',
+      })
       await refreshRuns()
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : tr('toasts.actionFailed')
+      const errMsg =
+        error instanceof Error ? error.message : tr('toasts.actionFailed')
       setToast({ text: errMsg, tone: 'error' })
     }
   }
 
   const handleDelete = async () => {
     if (!selectedRunId) return
-    const confirmed = await confirmToast(tr('toasts.confirmDelete', { id: selectedRunId }), {
-      title: t('backtestPageExtra.confirmDelete', language),
-      okText: t('backtestPageExtra.delete', language),
-      cancelText: t('backtestPageExtra.cancel', language),
-    })
+    const confirmed = await confirmToast(
+      tr('toasts.confirmDelete', { id: selectedRunId }),
+      {
+        title: t('backtestPageExtra.confirmDelete', language),
+        okText: t('backtestPageExtra.delete', language),
+        cancelText: t('backtestPageExtra.cancel', language),
+      }
+    )
     if (!confirmed) return
     try {
       await api.deleteBacktestRun(selectedRunId)
@@ -255,7 +301,8 @@ export function BacktestPage() {
       setSelectedRunId(undefined)
       await refreshRuns()
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : tr('toasts.deleteFailed')
+      const errMsg =
+        error instanceof Error ? error.message : tr('toasts.deleteFailed')
       setToast({ text: errMsg, tone: 'error' })
     }
   }
@@ -270,16 +317,22 @@ export function BacktestPage() {
       link.download = `${selectedRunId}_export.zip`
       link.click()
       URL.revokeObjectURL(url)
-      setToast({ text: tr('toasts.exportSuccess', { id: selectedRunId }), tone: 'success' })
+      setToast({
+        text: tr('toasts.exportSuccess', { id: selectedRunId }),
+        tone: 'success',
+      })
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : tr('toasts.exportFailed')
+      const errMsg =
+        error instanceof Error ? error.message : tr('toasts.exportFailed')
       setToast({ text: errMsg, tone: 'error' })
     }
   }
 
   const toggleCompare = (runId: string) => {
     setCompareRunIds((prev) =>
-      prev.includes(runId) ? prev.filter((id) => id !== runId) : [...prev, runId].slice(-3)
+      prev.includes(runId)
+        ? prev.filter((id) => id !== runId)
+        : [...prev, runId].slice(-3)
     )
   }
 
@@ -302,7 +355,12 @@ export function BacktestPage() {
                     : toast.tone === 'success'
                       ? 'color-mix(in srgb, var(--color-profit) 15%, transparent)'
                       : 'color-mix(in srgb, var(--color-primary) 15%, transparent)',
-                color: toast.tone === 'error' ? 'var(--color-loss)' : toast.tone === 'success' ? 'var(--color-profit)' : 'var(--color-primary)',
+                color:
+                  toast.tone === 'error'
+                    ? 'var(--color-loss)'
+                    : toast.tone === 'success'
+                      ? 'var(--color-profit)'
+                      : 'var(--color-primary)',
                 border: `1px solid ${toast.tone === 'error' ? 'color-mix(in srgb, var(--color-loss) 30%, transparent)' : toast.tone === 'success' ? 'color-mix(in srgb, var(--color-profit) 30%, transparent)' : 'color-mix(in srgb, var(--color-primary) 30%, transparent)'}`,
               }}
             >
@@ -315,7 +373,10 @@ export function BacktestPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-3 text-foreground">
-              <Brain className="w-7 h-7" style={{ color: 'var(--color-primary)' }} />
+              <Brain
+                className="w-7 h-7"
+                style={{ color: 'var(--color-primary)' }}
+              />
               {tr('title')}
             </h1>
             <p className="text-sm mt-1 text-muted-foreground">
@@ -325,7 +386,10 @@ export function BacktestPage() {
           <button
             onClick={() => setWizardStep(1)}
             className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all hover:opacity-90"
-            style={{ background: 'var(--color-primary)', color: 'var(--background)' }}
+            style={{
+              background: 'var(--color-primary)',
+              color: 'var(--background)',
+            }}
           >
             <Play className="w-4 h-4" />
             {t('backtestPageExtra.newBacktest', language)}
@@ -375,7 +439,14 @@ export function BacktestPage() {
                 <div className="binance-card p-4">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <ProgressRing progress={status?.progress_pct ?? selectedRun?.summary.progress_pct ?? 0} size={80} />
+                      <ProgressRing
+                        progress={
+                          status?.progress_pct ??
+                          selectedRun?.summary.progress_pct ??
+                          0
+                        }
+                        size={80}
+                      />
                       <div>
                         <h2 className="font-mono font-bold text-foreground">
                           {selectedRunId}
@@ -385,15 +456,22 @@ export function BacktestPage() {
                             className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
                             style={{
                               background: `color-mix(in srgb, ${getStateColor(status?.state ?? selectedRun?.state ?? '')} 12.5%, transparent)`,
-                              color: getStateColor(status?.state ?? selectedRun?.state ?? ''),
+                              color: getStateColor(
+                                status?.state ?? selectedRun?.state ?? ''
+                              ),
                             }}
                           >
-                            {getStateIcon(status?.state ?? selectedRun?.state ?? '')}
-                            {tr(`states.${status?.state ?? selectedRun?.state}`)}
+                            {getStateIcon(
+                              status?.state ?? selectedRun?.state ?? ''
+                            )}
+                            {tr(
+                              `states.${status?.state ?? selectedRun?.state}`
+                            )}
                           </span>
                           {selectedRun?.summary.decision_tf && (
                             <span className="text-xs text-muted-foreground">
-                              {selectedRun.summary.decision_tf} · {selectedRun.summary.symbol_count} symbols
+                              {selectedRun.summary.decision_tf} ·{' '}
+                              {selectedRun.summary.symbol_count} symbols
                             </span>
                           )}
                         </div>
@@ -401,7 +479,8 @@ export function BacktestPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {(status?.state === 'running' || selectedRun?.state === 'running') && (
+                      {(status?.state === 'running' ||
+                        selectedRun?.state === 'running') && (
                         <>
                           <button
                             onClick={() => handleControl('pause')}
@@ -409,7 +488,10 @@ export function BacktestPage() {
                             style={{ border: '1px solid var(--color-border)' }}
                             title={tr('actions.pause')}
                           >
-                            <Pause className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
+                            <Pause
+                              className="w-4 h-4"
+                              style={{ color: 'var(--color-primary)' }}
+                            />
                           </button>
                           <button
                             onClick={() => handleControl('stop')}
@@ -417,7 +499,10 @@ export function BacktestPage() {
                             style={{ border: '1px solid var(--color-border)' }}
                             title={tr('actions.stop')}
                           >
-                            <Square className="w-4 h-4" style={{ color: 'var(--color-loss)' }} />
+                            <Square
+                              className="w-4 h-4"
+                              style={{ color: 'var(--color-loss)' }}
+                            />
                           </button>
                         </>
                       )}
@@ -428,7 +513,10 @@ export function BacktestPage() {
                           style={{ border: '1px solid var(--color-border)' }}
                           title={tr('actions.resume')}
                         >
-                          <Play className="w-4 h-4" style={{ color: 'var(--color-profit)' }} />
+                          <Play
+                            className="w-4 h-4"
+                            style={{ color: 'var(--color-profit)' }}
+                          />
                         </button>
                       )}
                       <button
@@ -445,7 +533,10 @@ export function BacktestPage() {
                         style={{ border: '1px solid var(--color-border)' }}
                         title={tr('detail.deleteLabel')}
                       >
-                        <Trash2 className="w-4 h-4" style={{ color: 'var(--color-loss)' }} />
+                        <Trash2
+                          className="w-4 h-4"
+                          style={{ color: 'var(--color-loss)' }}
+                        />
                       </button>
                     </div>
                   </div>
@@ -454,8 +545,10 @@ export function BacktestPage() {
                     <div
                       className="mt-3 p-2 rounded-lg text-xs flex items-center gap-2"
                       style={{
-                        background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
-                        border: '1px solid color-mix(in srgb, var(--color-loss) 30%, transparent)',
+                        background:
+                          'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                        border:
+                          '1px solid color-mix(in srgb, var(--color-loss) 30%, transparent)',
                         color: 'var(--color-loss)',
                       }}
                     >
@@ -466,7 +559,10 @@ export function BacktestPage() {
 
                   {/* Real-time Positions Display */}
                   {status?.positions && status.positions.length > 0 && (
-                    <PositionsDisplay positions={status.positions} language={language} />
+                    <PositionsDisplay
+                      positions={status.positions}
+                      language={language}
+                    />
                   )}
                 </div>
 
@@ -483,8 +579,14 @@ export function BacktestPage() {
                     icon={TrendingUp}
                     label={t('backtestPageExtra.totalReturn', language)}
                     value={`${(metrics?.total_return_pct ?? 0).toFixed(2)}%`}
-                    trend={(metrics?.total_return_pct ?? 0) >= 0 ? 'up' : 'down'}
-                    color={(metrics?.total_return_pct ?? 0) >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'}
+                    trend={
+                      (metrics?.total_return_pct ?? 0) >= 0 ? 'up' : 'down'
+                    }
+                    color={
+                      (metrics?.total_return_pct ?? 0) >= 0
+                        ? 'var(--color-profit)'
+                        : 'var(--color-loss)'
+                    }
                     metricKey="total_return"
                     language={language}
                   />
@@ -507,13 +609,23 @@ export function BacktestPage() {
 
                 {/* Tabs */}
                 <div className="binance-card">
-                  <div className="flex border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    {(['overview', 'chart', 'trades', 'decisions'] as ViewTab[]).map((tab) => (
+                  <div
+                    className="flex border-b"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    {(
+                      ['overview', 'chart', 'trades', 'decisions'] as ViewTab[]
+                    ).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setViewTab(tab)}
                         className="px-4 py-3 text-sm font-medium transition-all relative"
-                        style={{ color: viewTab === tab ? 'var(--color-primary)' : 'var(--color-muted-fg)' }}
+                        style={{
+                          color:
+                            viewTab === tab
+                              ? 'var(--color-primary)'
+                              : 'var(--color-muted-fg)',
+                        }}
                       >
                         {tab === 'overview'
                           ? t('backtestPageExtra.tabOverview', language)

@@ -1,5 +1,19 @@
 import { useState } from 'react'
-import { Plus, X, Database, TrendingUp, TrendingDown, List, Ban, Zap, Shuffle, Flame, Crosshair, Radar, Activity } from 'lucide-react'
+import {
+  Plus,
+  X,
+  Database,
+  TrendingUp,
+  TrendingDown,
+  List,
+  Ban,
+  Zap,
+  Shuffle,
+  Flame,
+  Crosshair,
+  Radar,
+  Activity,
+} from 'lucide-react'
 import type { CoinSourceConfig } from '../../types'
 import { coinSource, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
@@ -42,15 +56,21 @@ export function CoinSourceEditor({
       totalLimit += config.ai500_limit || 3
     }
     if (config.use_oi_top) {
-      sources.push(`${ts(coinSource.oiIncreaseShort, language)}(${config.oi_top_limit || 3})`)
+      sources.push(
+        `${ts(coinSource.oiIncreaseShort, language)}(${config.oi_top_limit || 3})`
+      )
       totalLimit += config.oi_top_limit || 3
     }
     if (config.use_oi_low) {
-      sources.push(`${ts(coinSource.oiDecreaseShort, language)}(${config.oi_low_limit || 3})`)
+      sources.push(
+        `${ts(coinSource.oiDecreaseShort, language)}(${config.oi_low_limit || 3})`
+      )
       totalLimit += config.oi_low_limit || 3
     }
     if ((config.static_coins || []).length > 0) {
-      sources.push(`${ts(coinSource.custom, language)}(${config.static_coins?.length || 0})`)
+      sources.push(
+        `${ts(coinSource.custom, language)}(${config.static_coins?.length || 0})`
+      )
       totalLimit += config.static_coins?.length || 0
     }
     if (config.use_square_heat) {
@@ -58,7 +78,12 @@ export function CoinSourceEditor({
       totalLimit += config.square_heat_limit || 10
     }
     if (config.use_hunter) {
-      const dirBadge = config.hunter_direction === 'LONG' ? '↑' : config.hunter_direction === 'SHORT' ? '↓' : ''
+      const dirBadge =
+        config.hunter_direction === 'LONG'
+          ? '↑'
+          : config.hunter_direction === 'SHORT'
+            ? '↓'
+            : ''
       sources.push(`🎯HN${dirBadge}(${config.hunter_limit || 10})`)
       totalLimit += config.hunter_limit || 10
     }
@@ -69,19 +94,44 @@ export function CoinSourceEditor({
   // xyz dex assets (stocks, forex, commodities) - should NOT get USDT suffix
   const xyzDexAssets = new Set([
     // Stocks
-    'TSLA', 'NVDA', 'AAPL', 'MSFT', 'META', 'AMZN', 'GOOGL', 'AMD', 'COIN', 'NFLX',
-    'PLTR', 'HOOD', 'INTC', 'MSTR', 'TSM', 'ORCL', 'MU', 'RIVN', 'COST', 'LLY',
-    'CRCL', 'SKHX', 'SNDK',
+    'TSLA',
+    'NVDA',
+    'AAPL',
+    'MSFT',
+    'META',
+    'AMZN',
+    'GOOGL',
+    'AMD',
+    'COIN',
+    'NFLX',
+    'PLTR',
+    'HOOD',
+    'INTC',
+    'MSTR',
+    'TSM',
+    'ORCL',
+    'MU',
+    'RIVN',
+    'COST',
+    'LLY',
+    'CRCL',
+    'SKHX',
+    'SNDK',
     // Forex
-    'EUR', 'JPY',
+    'EUR',
+    'JPY',
     // Commodities
-    'GOLD', 'SILVER',
+    'GOLD',
+    'SILVER',
     // Index
     'XYZ100',
   ])
 
   const isXyzDexAsset = (symbol: string): boolean => {
-    const base = symbol.toUpperCase().replace(/^XYZ:/, '').replace(/USDT$|USD$|-USDC$/, '')
+    const base = symbol
+      .toUpperCase()
+      .replace(/^XYZ:/, '')
+      .replace(/USDT$|USD$|-USDC$/, '')
     return xyzDexAssets.has(base)
   }
 
@@ -90,7 +140,8 @@ export function CoinSourceEditor({
   const showToast = (msg: string) => {
     const toast = document.createElement('div')
     toast.textContent = msg
-    toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm z-50 shadow-lg'
+    toast.className =
+      'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm z-50 shadow-lg'
     toast.style.cssText = 'background:#F6465D;color:#fff;'
     document.body.appendChild(toast)
     setTimeout(() => toast.remove(), 2000)
@@ -101,7 +152,11 @@ export function CoinSourceEditor({
 
     const currentCoins = config.static_coins || []
     if (currentCoins.length >= MAX_STATIC_COINS) {
-      showToast(language === 'zh' ? `最多添加 ${MAX_STATIC_COINS} 个币种` : `Maximum ${MAX_STATIC_COINS} coins allowed`)
+      showToast(
+        language === 'zh'
+          ? `最多添加 ${MAX_STATIC_COINS} 个币种`
+          : `Maximum ${MAX_STATIC_COINS} coins allowed`
+      )
       return
     }
 
@@ -111,7 +166,9 @@ export function CoinSourceEditor({
     let formattedSymbol: string
     if (isXyzDexAsset(symbol)) {
       // Remove xyz: prefix (case-insensitive) and any USD suffixes
-      const base = symbol.replace(/^xyz:/i, '').replace(/USDT$|USD$|-USDC$/i, '')
+      const base = symbol
+        .replace(/^xyz:/i, '')
+        .replace(/USDT$|USD$|-USDC$/i, '')
       formattedSymbol = `xyz:${base}`
     } else {
       formattedSymbol = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`
@@ -140,7 +197,9 @@ export function CoinSourceEditor({
     // For xyz dex assets, use xyz: prefix without USDT
     let formattedSymbol: string
     if (isXyzDexAsset(symbol)) {
-      const base = symbol.replace(/^xyz:/i, '').replace(/USDT$|USD$|-USDC$/i, '')
+      const base = symbol
+        .replace(/^xyz:/i, '')
+        .replace(/USDT$|USD$|-USDC$/i, '')
       formattedSymbol = `xyz:${base}`
     } else {
       formattedSymbol = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`
@@ -165,9 +224,7 @@ export function CoinSourceEditor({
 
   // Binance data source badge component
   const BinanceBadge = () => (
-    <span
-      className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30"
-    >
+    <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
       Binance
     </span>
   )
@@ -196,9 +253,12 @@ export function CoinSourceEditor({
                     hunter_config: {
                       ...(config.hunter_config || {}),
                       v7_max_output: config.hunter_config?.v7_max_output ?? 30,
-                      v7_watch_output: config.hunter_config?.v7_watch_output ?? 5,
-                      v7_min_ai_priority: config.hunter_config?.v7_min_ai_priority ?? 55,
-                      v7_aggressive: config.hunter_config?.v7_aggressive ?? true,
+                      v7_watch_output:
+                        config.hunter_config?.v7_watch_output ?? 5,
+                      v7_min_ai_priority:
+                        config.hunter_config?.v7_min_ai_priority ?? 55,
+                      v7_aggressive:
+                        config.hunter_config?.v7_aggressive ?? true,
                     },
                   })
                   return
@@ -206,17 +266,21 @@ export function CoinSourceEditor({
                 onChange({ ...config, source_type: sourceType })
               }}
               disabled={disabled}
-              className={`p-4 rounded-lg border transition-all ${config.source_type === value
-                ? 'ring-2 ring-ait-gold bg-primary-dim'
-                : 'hover:bg-white/5 bg-ait-bg'
-                } border-ait-gold/20`}
+              className={`p-4 rounded-lg border transition-all ${
+                config.source_type === value
+                  ? 'ring-2 ring-ait-gold bg-primary-dim'
+                  : 'hover:bg-white/5 bg-ait-bg'
+              } border-ait-gold/20`}
             >
               <Icon className="w-6 h-6 mx-auto mb-2" style={{ color }} />
               <div className="text-sm font-medium text-ait-text">
                 {ts(coinSource[value as keyof typeof coinSource], language)}
               </div>
               <div className="text-xs mt-1 text-muted-foreground">
-                {ts(coinSource[`${value}Desc` as keyof typeof coinSource], language)}
+                {ts(
+                  coinSource[`${value}Desc` as keyof typeof coinSource],
+                  language
+                )}
               </div>
             </button>
           ))}
@@ -326,9 +390,7 @@ export function CoinSourceEditor({
 
       {/* AI500 Options - only for ai500 mode */}
       {config.source_type === 'ai500' && (
-        <div
-          className="p-4 rounded-lg bg-primary/5 border border-ait-gold/20"
-        >
+        <div className="p-4 rounded-lg bg-primary/5 border border-ait-gold/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-primary" />
@@ -345,12 +407,15 @@ export function CoinSourceEditor({
                 type="checkbox"
                 checked={config.use_ai500}
                 onChange={(e) =>
-                  !disabled && onChange({ ...config, use_ai500: e.target.checked })
+                  !disabled &&
+                  onChange({ ...config, use_ai500: e.target.checked })
                 }
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-ait-gold"
               />
-              <span className="text-ait-text">{ts(coinSource.useAI500, language)}</span>
+              <span className="text-ait-text">
+                {ts(coinSource.useAI500, language)}
+              </span>
             </label>
 
             {config.use_ai500 && (
@@ -365,7 +430,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, ai500_limit: parseInt(val) || 3 })
                   }
                   disabled={disabled}
-                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -380,14 +448,13 @@ export function CoinSourceEditor({
 
       {/* OI Top Options - only for oi_top mode */}
       {config.source_type === 'oi_top' && (
-        <div
-          className="p-4 rounded-lg bg-ait-success/5 border border-ait-success/20"
-        >
+        <div className="p-4 rounded-lg bg-ait-success/5 border border-ait-success/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-profit" />
               <span className="text-sm font-medium text-ait-text">
-                {ts(coinSource.oiIncreaseTitle, language)} {ts(coinSource.dataSourceConfig, language)}
+                {ts(coinSource.oiIncreaseTitle, language)}{' '}
+                {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
             </div>
@@ -399,12 +466,15 @@ export function CoinSourceEditor({
                 type="checkbox"
                 checked={config.use_oi_top}
                 onChange={(e) =>
-                  !disabled && onChange({ ...config, use_oi_top: e.target.checked })
+                  !disabled &&
+                  onChange({ ...config, use_oi_top: e.target.checked })
                 }
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-ait-success"
               />
-              <span className="text-ait-text">{ts(coinSource.useOITop, language)}</span>
+              <span className="text-ait-text">
+                {ts(coinSource.useOITop, language)}
+              </span>
             </label>
 
             {config.use_oi_top && (
@@ -419,7 +489,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, oi_top_limit: parseInt(val) || 3 })
                   }
                   disabled={disabled}
-                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -434,14 +507,13 @@ export function CoinSourceEditor({
 
       {/* OI Low Options - only for oi_low mode */}
       {config.source_type === 'oi_low' && (
-        <div
-          className="p-4 rounded-lg bg-ait-danger/5 border border-ait-danger/20"
-        >
+        <div className="p-4 rounded-lg bg-ait-danger/5 border border-ait-danger/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-loss" />
               <span className="text-sm font-medium text-ait-text">
-                {ts(coinSource.oiDecreaseTitle, language)} {ts(coinSource.dataSourceConfig, language)}
+                {ts(coinSource.oiDecreaseTitle, language)}{' '}
+                {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
             </div>
@@ -453,12 +525,15 @@ export function CoinSourceEditor({
                 type="checkbox"
                 checked={config.use_oi_low}
                 onChange={(e) =>
-                  !disabled && onChange({ ...config, use_oi_low: e.target.checked })
+                  !disabled &&
+                  onChange({ ...config, use_oi_low: e.target.checked })
                 }
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-red-500"
               />
-              <span className="text-ait-text">{ts(coinSource.useOILow, language)}</span>
+              <span className="text-ait-text">
+                {ts(coinSource.useOILow, language)}
+              </span>
             </label>
 
             {config.use_oi_low && (
@@ -473,7 +548,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, oi_low_limit: parseInt(val) || 3 })
                   }
                   disabled={disabled}
-                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -493,7 +571,8 @@ export function CoinSourceEditor({
             <div className="flex items-center gap-2">
               <Crosshair className="w-4 h-4 text-purple-400" />
               <span className="text-sm font-medium text-ait-text">
-                {ts(coinSource.hunter, language)} {ts(coinSource.dataSourceConfig, language)}
+                {ts(coinSource.hunter, language)}{' '}
+                {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
             </div>
@@ -505,12 +584,15 @@ export function CoinSourceEditor({
                 type="checkbox"
                 checked={config.use_hunter || false}
                 onChange={(e) =>
-                  !disabled && onChange({ ...config, use_hunter: e.target.checked })
+                  !disabled &&
+                  onChange({ ...config, use_hunter: e.target.checked })
                 }
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-purple-500"
               />
-              <span className="text-ait-text">{ts(coinSource.useHunter, language)}</span>
+              <span className="text-ait-text">
+                {ts(coinSource.useHunter, language)}
+              </span>
             </label>
 
             {config.use_hunter && (
@@ -525,7 +607,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                   }
                   disabled={disabled}
-                  options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                  options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -545,14 +630,18 @@ export function CoinSourceEditor({
                       const hasLong = d === 'LONG' || d === 'BOTH'
                       const hasShort = d === 'SHORT' || d === 'BOTH'
                       const nextLong = !hasLong
-                      if (nextLong && hasShort) onChange({ ...config, hunter_direction: 'BOTH' })
-                      else if (nextLong) onChange({ ...config, hunter_direction: 'LONG' })
-                      else if (hasShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      if (nextLong && hasShort)
+                        onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextLong)
+                        onChange({ ...config, hunter_direction: 'LONG' })
+                      else if (hasShort)
+                        onChange({ ...config, hunter_direction: 'SHORT' })
                       else onChange({ ...config, hunter_direction: undefined })
                     }}
                     disabled={disabled}
                     className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                      config.hunter_direction === 'LONG' || config.hunter_direction === 'BOTH'
+                      config.hunter_direction === 'LONG' ||
+                      config.hunter_direction === 'BOTH'
                         ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                         : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-green-500/30'
                     }`}
@@ -566,14 +655,18 @@ export function CoinSourceEditor({
                       const hasLong = d === 'LONG' || d === 'BOTH'
                       const hasShort = d === 'SHORT' || d === 'BOTH'
                       const nextShort = !hasShort
-                      if (nextShort && hasLong) onChange({ ...config, hunter_direction: 'BOTH' })
-                      else if (nextShort) onChange({ ...config, hunter_direction: 'SHORT' })
-                      else if (hasLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      if (nextShort && hasLong)
+                        onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextShort)
+                        onChange({ ...config, hunter_direction: 'SHORT' })
+                      else if (hasLong)
+                        onChange({ ...config, hunter_direction: 'LONG' })
                       else onChange({ ...config, hunter_direction: undefined })
                     }}
                     disabled={disabled}
                     className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                      config.hunter_direction === 'SHORT' || config.hunter_direction === 'BOTH'
+                      config.hunter_direction === 'SHORT' ||
+                      config.hunter_direction === 'BOTH'
                         ? 'bg-red-500/20 text-red-400 border border-red-500/50'
                         : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-red-500/30'
                     }`}
@@ -590,7 +683,6 @@ export function CoinSourceEditor({
                   {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
                 </summary>
                 <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-ait-bg border border-ait-border">
-
                   {/* Strategy Mode Toggle */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs text-muted-foreground">
@@ -598,13 +690,20 @@ export function CoinSourceEditor({
                     </span>
                     <div className="flex gap-1.5">
                       <button
-                        onClick={() => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), strategy_mode: 'default' }
-                        })}
+                        onClick={() =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              strategy_mode: 'default',
+                            },
+                          })
+                        }
                         disabled={disabled}
                         className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
-                          (config.hunter_config?.strategy_mode || 'default') === 'default'
+                          (config.hunter_config?.strategy_mode || 'default') ===
+                          'default'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
                             : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-blue-500/30'
                         }`}
@@ -612,10 +711,16 @@ export function CoinSourceEditor({
                         {language === 'zh' ? '🎯 默认模式' : '🎯 Default'}
                       </button>
                       <button
-                        onClick={() => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), strategy_mode: 'breakout' }
-                        })}
+                        onClick={() =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              strategy_mode: 'breakout',
+                            },
+                          })
+                        }
                         disabled={disabled}
                         className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                           config.hunter_config?.strategy_mode === 'breakout'
@@ -633,15 +738,23 @@ export function CoinSourceEditor({
                     <div className="p-2 rounded bg-orange-500/5 border border-orange-500/20 text-xs text-orange-300/80 space-y-0.5">
                       {language === 'zh' ? (
                         <>
-                          <div>▸ BB Width 漏斗预筛（仅最低 25% 分位进入评分）</div>
+                          <div>
+                            ▸ BB Width 漏斗预筛（仅最低 25% 分位进入评分）
+                          </div>
                           <div>▸ 阻力位/支撑位惩罚被 squeeze 信号豁免</div>
                           <div>▸ Squeeze 爆发支柱上限提升至 70 分</div>
                           <div>▸ OI &gt;15% + squeeze = 单骑破阵放行</div>
                         </>
                       ) : (
                         <>
-                          <div>▸ BB Width funnel: only bottom 25th percentile enters scoring</div>
-                          <div>▸ Resistance/support penalties exempted by squeeze signals</div>
+                          <div>
+                            ▸ BB Width funnel: only bottom 25th percentile
+                            enters scoring
+                          </div>
+                          <div>
+                            ▸ Resistance/support penalties exempted by squeeze
+                            signals
+                          </div>
                           <div>▸ Squeeze explosion pillar cap raised to 70</div>
                           <div>▸ OI &gt;15% + squeeze = lone breaker pass</div>
                         </>
@@ -655,11 +768,19 @@ export function CoinSourceEditor({
                       {language === 'zh' ? '最低OI' : 'Min OI'}
                     </span>
                     <AiTSelect
-                      value={String(config.hunter_config?.min_oi_value || 5000000)}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), min_oi_value: Number(val) }
-                      })}
+                      value={String(
+                        config.hunter_config?.min_oi_value || 5000000
+                      )}
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            min_oi_value: Number(val),
+                          },
+                        })
+                      }
                       disabled={disabled}
                       options={[
                         { value: '2000000', label: '$2M' },
@@ -677,13 +798,24 @@ export function CoinSourceEditor({
                       {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
                     </span>
                     <AiTSelect
-                      value={String(config.hunter_config?.rsi_oversold_threshold || 30)}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), rsi_oversold_threshold: Number(val) }
-                      })}
+                      value={String(
+                        config.hunter_config?.rsi_oversold_threshold || 30
+                      )}
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            rsi_oversold_threshold: Number(val),
+                          },
+                        })
+                      }
                       disabled={disabled}
-                      options={[20, 25, 30, 35, 40].map(n => ({ value: String(n), label: String(n) }))}
+                      options={[20, 25, 30, 35, 40].map((n) => ({
+                        value: String(n),
+                        label: String(n),
+                      }))}
                       className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                     />
                   </div>
@@ -694,13 +826,24 @@ export function CoinSourceEditor({
                       {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
                     </span>
                     <AiTSelect
-                      value={String(config.hunter_config?.rsi_overbought_threshold || 70)}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), rsi_overbought_threshold: Number(val) }
-                      })}
+                      value={String(
+                        config.hunter_config?.rsi_overbought_threshold || 70
+                      )}
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            rsi_overbought_threshold: Number(val),
+                          },
+                        })
+                      }
                       disabled={disabled}
-                      options={[60, 65, 70, 75, 80].map(n => ({ value: String(n), label: String(n) }))}
+                      options={[60, 65, 70, 75, 80].map((n) => ({
+                        value: String(n),
+                        label: String(n),
+                      }))}
                       className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                     />
                   </div>
@@ -709,16 +852,27 @@ export function CoinSourceEditor({
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={config.hunter_config?.enable_funding_rate_signal !== false}
-                      onChange={(e) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), enable_funding_rate_signal: e.target.checked }
-                      })}
+                      checked={
+                        config.hunter_config?.enable_funding_rate_signal !==
+                        false
+                      }
+                      onChange={(e) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            enable_funding_rate_signal: e.target.checked,
+                          },
+                        })
+                      }
                       disabled={disabled}
                       className="w-4 h-4 rounded accent-purple-500"
                     />
                     <span className="text-xs text-ait-text">
-                      {language === 'zh' ? '资金费率信号' : 'Funding Rate Signal'}
+                      {language === 'zh'
+                        ? '资金费率信号'
+                        : 'Funding Rate Signal'}
                     </span>
                   </label>
 
@@ -729,13 +883,22 @@ export function CoinSourceEditor({
                     </span>
                     <AiTSelect
                       value={String(config.hunter_config?.max_24h_change || 50)}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), max_24h_change: Number(val) }
-                      })}
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            max_24h_change: Number(val),
+                          },
+                        })
+                      }
                       disabled={disabled}
                       options={[
-                        { value: '0', label: language === 'zh' ? '不限' : 'None' },
+                        {
+                          value: '0',
+                          label: language === 'zh' ? '不限' : 'None',
+                        },
                         { value: '20', label: '20%' },
                         { value: '30', label: '30%' },
                         { value: '50', label: '50%' },
@@ -751,16 +914,36 @@ export function CoinSourceEditor({
                       {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
                     </span>
                     <AiTSelect
-                      value={config.hunter_config?.wash_trade_sensitivity || 'medium'}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), wash_trade_sensitivity: val as 'low' | 'medium' | 'high' }
-                      })}
+                      value={
+                        config.hunter_config?.wash_trade_sensitivity || 'medium'
+                      }
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            wash_trade_sensitivity: val as
+                              | 'low'
+                              | 'medium'
+                              | 'high',
+                          },
+                        })
+                      }
                       disabled={disabled}
                       options={[
-                        { value: 'low', label: language === 'zh' ? '低' : 'Low' },
-                        { value: 'medium', label: language === 'zh' ? '中' : 'Medium' },
-                        { value: 'high', label: language === 'zh' ? '高' : 'High' },
+                        {
+                          value: 'low',
+                          label: language === 'zh' ? '低' : 'Low',
+                        },
+                        {
+                          value: 'medium',
+                          label: language === 'zh' ? '中' : 'Medium',
+                        },
+                        {
+                          value: 'high',
+                          label: language === 'zh' ? '高' : 'High',
+                        },
                       ]}
                       className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                     />
@@ -771,10 +954,16 @@ export function CoinSourceEditor({
                     <input
                       type="checkbox"
                       checked={config.hunter_config?.enable_cooldown !== false}
-                      onChange={(e) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), enable_cooldown: e.target.checked }
-                      })}
+                      onChange={(e) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            enable_cooldown: e.target.checked,
+                          },
+                        })
+                      }
                       disabled={disabled}
                       className="w-4 h-4 rounded accent-purple-500"
                     />
@@ -789,11 +978,19 @@ export function CoinSourceEditor({
                       {language === 'zh' ? '最低笔数' : 'Min Trades'}
                     </span>
                     <AiTSelect
-                      value={String(config.hunter_config?.min_trade_count || 10000)}
-                      onChange={(val) => !disabled && onChange({
-                        ...config,
-                        hunter_config: { ...(config.hunter_config || {}), min_trade_count: Number(val) }
-                      })}
+                      value={String(
+                        config.hunter_config?.min_trade_count || 10000
+                      )}
+                      onChange={(val) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            min_trade_count: Number(val),
+                          },
+                        })
+                      }
                       disabled={disabled}
                       options={[
                         { value: '1000', label: '1K' },
@@ -804,7 +1001,6 @@ export function CoinSourceEditor({
                       className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                     />
                   </div>
-
                 </div>
               </details>
             )}
@@ -823,7 +1019,8 @@ export function CoinSourceEditor({
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-cyan-400" />
               <span className="text-sm font-medium text-ait-text">
-                {ts(coinSource.hunter_v7, language)} {ts(coinSource.dataSourceConfig, language)}
+                {ts(coinSource.hunter_v7, language)}{' '}
+                {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
             </div>
@@ -841,7 +1038,10 @@ export function CoinSourceEditor({
                   onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                 }
                 disabled={disabled}
-                options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                  value: n,
+                  label: String(n),
+                }))}
                 className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
               />
             </div>
@@ -854,13 +1054,25 @@ export function CoinSourceEditor({
                 value={config.hunter_direction || 'BOTH'}
                 onChange={(val) =>
                   !disabled &&
-                  onChange({ ...config, hunter_direction: val as 'LONG' | 'SHORT' | 'BOTH' })
+                  onChange({
+                    ...config,
+                    hunter_direction: val as 'LONG' | 'SHORT' | 'BOTH',
+                  })
                 }
                 disabled={disabled}
                 options={[
-                  { value: 'BOTH', label: ts(coinSource.hunterDirectionBoth, language) },
-                  { value: 'LONG', label: ts(coinSource.hunterDirectionLong, language) },
-                  { value: 'SHORT', label: ts(coinSource.hunterDirectionShort, language) },
+                  {
+                    value: 'BOTH',
+                    label: ts(coinSource.hunterDirectionBoth, language),
+                  },
+                  {
+                    value: 'LONG',
+                    label: ts(coinSource.hunterDirectionLong, language),
+                  },
+                  {
+                    value: 'SHORT',
+                    label: ts(coinSource.hunterDirectionShort, language),
+                  },
                 ]}
                 className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
               />
@@ -884,7 +1096,10 @@ export function CoinSourceEditor({
                     })
                   }
                   disabled={disabled}
-                  options={[10, 20, 30, 40, 50, 75].map(n => ({ value: n, label: String(n) }))}
+                  options={[10, 20, 30, 40, 50, 75].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -907,7 +1122,10 @@ export function CoinSourceEditor({
                     })
                   }}
                   disabled={disabled}
-                  options={[3, 5, 8, 10].map(n => ({ value: String(n), label: String(n) }))}
+                  options={[3, 5, 8, 10].map((n) => ({
+                    value: String(n),
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -929,7 +1147,10 @@ export function CoinSourceEditor({
                     })
                   }
                   disabled={disabled}
-                  options={[40, 45, 50, 55, 60, 65, 70].map(n => ({ value: String(n), label: String(n) }))}
+                  options={[40, 45, 50, 55, 60, 65, 70].map((n) => ({
+                    value: String(n),
+                    label: String(n),
+                  }))}
                   className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
                 />
               </div>
@@ -974,7 +1195,8 @@ export function CoinSourceEditor({
             <div className="flex items-center gap-2">
               <Radar className="w-4 h-4 text-fuchsia-400" />
               <span className="text-sm font-medium text-ait-text">
-                {ts(coinSource.hunter_sniff, language)} {ts(coinSource.dataSourceConfig, language)}
+                {ts(coinSource.hunter_sniff, language)}{' '}
+                {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
             </div>
@@ -993,7 +1215,10 @@ export function CoinSourceEditor({
                   onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                 }
                 disabled={disabled}
-                options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                  value: n,
+                  label: String(n),
+                }))}
                 className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
               />
             </div>
@@ -1013,11 +1238,20 @@ export function CoinSourceEditor({
                 </>
               ) : (
                 <>
-                  <div className="font-medium mb-1">3-Condition Resonance Filter:</div>
+                  <div className="font-medium mb-1">
+                    3-Condition Resonance Filter:
+                  </div>
                   <div>▸ Volatility squeeze (bb_squeeze_15m) — required</div>
-                  <div>▸ Smart money footprint (OI accumulation / sustained buying / LSR reversal) — any one</div>
-                  <div>▸ Anti-wall filter (no opposing S/R nearby) — must pass</div>
-                  <div>▸ Anti-wash filter (no wash_micro_trades) — must pass</div>
+                  <div>
+                    ▸ Smart money footprint (OI accumulation / sustained buying
+                    / LSR reversal) — any one
+                  </div>
+                  <div>
+                    ▸ Anti-wall filter (no opposing S/R nearby) — must pass
+                  </div>
+                  <div>
+                    ▸ Anti-wash filter (no wash_micro_trades) — must pass
+                  </div>
                   <div className="mt-1.5 text-fuchsia-400/60">
                     Output: LONG_AMBUSH + SHORT_DISTRIBUTION
                   </div>
@@ -1053,13 +1287,19 @@ export function CoinSourceEditor({
                   ? 'bg-primary-dim border-ait-gold/50'
                   : 'bg-ait-bg border-ait-border hover:border-ait-gold/30'
               }`}
-              onClick={() => !disabled && onChange({ ...config, use_ai500: !config.use_ai500 })}
+              onClick={() =>
+                !disabled &&
+                onChange({ ...config, use_ai500: !config.use_ai500 })
+              }
             >
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="checkbox"
                   checked={config.use_ai500}
-                  onChange={(e) => !disabled && onChange({ ...config, use_ai500: e.target.checked })}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({ ...config, use_ai500: e.target.checked })
+                  }
                   disabled={disabled}
                   className="w-4 h-4 rounded accent-ait-gold"
                   onClick={(e) => e.stopPropagation()}
@@ -1073,9 +1313,15 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">Limit:</span>
                   <AiTSelect
                     value={config.ai500_limit || 3}
-                    onChange={(val) => !disabled && onChange({ ...config, ai500_limit: parseInt(val) || 3 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({ ...config, ai500_limit: parseInt(val) || 3 })
+                    }
                     disabled={disabled}
-                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                      value: n,
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
                 </div>
@@ -1089,13 +1335,19 @@ export function CoinSourceEditor({
                   ? 'bg-ait-success/10 border-ait-success/50'
                   : 'bg-ait-bg border-ait-border hover:border-ait-success/30'
               }`}
-              onClick={() => !disabled && onChange({ ...config, use_oi_top: !config.use_oi_top })}
+              onClick={() =>
+                !disabled &&
+                onChange({ ...config, use_oi_top: !config.use_oi_top })
+              }
             >
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="checkbox"
                   checked={config.use_oi_top}
-                  onChange={(e) => !disabled && onChange({ ...config, use_oi_top: e.target.checked })}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({ ...config, use_oi_top: e.target.checked })
+                  }
                   disabled={disabled}
                   className="w-4 h-4 rounded accent-ait-success"
                   onClick={(e) => e.stopPropagation()}
@@ -1113,9 +1365,15 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">Limit:</span>
                   <AiTSelect
                     value={config.oi_top_limit || 3}
-                    onChange={(val) => !disabled && onChange({ ...config, oi_top_limit: parseInt(val) || 3 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({ ...config, oi_top_limit: parseInt(val) || 3 })
+                    }
                     disabled={disabled}
-                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                      value: n,
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
                 </div>
@@ -1129,13 +1387,19 @@ export function CoinSourceEditor({
                   ? 'bg-ait-danger/10 border-ait-danger/50'
                   : 'bg-ait-bg border-ait-border hover:border-ait-danger/30'
               }`}
-              onClick={() => !disabled && onChange({ ...config, use_oi_low: !config.use_oi_low })}
+              onClick={() =>
+                !disabled &&
+                onChange({ ...config, use_oi_low: !config.use_oi_low })
+              }
             >
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="checkbox"
                   checked={config.use_oi_low}
-                  onChange={(e) => !disabled && onChange({ ...config, use_oi_low: e.target.checked })}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({ ...config, use_oi_low: e.target.checked })
+                  }
                   disabled={disabled}
                   className="w-4 h-4 rounded accent-red-500"
                   onClick={(e) => e.stopPropagation()}
@@ -1153,9 +1417,15 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">Limit:</span>
                   <AiTSelect
                     value={config.oi_low_limit || 3}
-                    onChange={(val) => !disabled && onChange({ ...config, oi_low_limit: parseInt(val) || 3 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({ ...config, oi_low_limit: parseInt(val) || 3 })
+                    }
                     disabled={disabled}
-                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ value: n, label: String(n) }))}
+                    options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+                      value: n,
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
                 </div>
@@ -1169,13 +1439,22 @@ export function CoinSourceEditor({
                   ? 'bg-orange-500/10 border-orange-500/50'
                   : 'bg-ait-bg border-ait-border hover:border-orange-500/30'
               }`}
-              onClick={() => !disabled && onChange({ ...config, use_square_heat: !config.use_square_heat })}
+              onClick={() =>
+                !disabled &&
+                onChange({
+                  ...config,
+                  use_square_heat: !config.use_square_heat,
+                })
+              }
             >
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="checkbox"
                   checked={config.use_square_heat || false}
-                  onChange={(e) => !disabled && onChange({ ...config, use_square_heat: e.target.checked })}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({ ...config, use_square_heat: e.target.checked })
+                  }
                   disabled={disabled}
                   className="w-4 h-4 rounded accent-orange-500"
                   onClick={(e) => e.stopPropagation()}
@@ -1193,17 +1472,37 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">Limit:</span>
                   <AiTSelect
                     value={config.square_heat_limit || 10}
-                    onChange={(val) => !disabled && onChange({ ...config, square_heat_limit: parseInt(val) || 10 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({
+                        ...config,
+                        square_heat_limit: parseInt(val) || 10,
+                      })
+                    }
                     disabled={disabled}
-                    options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                    options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                      value: n,
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
-                  <span className="text-xs text-muted-foreground">Min Score:</span>
+                  <span className="text-xs text-muted-foreground">
+                    Min Score:
+                  </span>
                   <AiTSelect
                     value={String(config.square_min_score || 25)}
-                    onChange={(val) => !disabled && onChange({ ...config, square_min_score: parseFloat(val) || 25 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({
+                        ...config,
+                        square_min_score: parseFloat(val) || 25,
+                      })
+                    }
                     disabled={disabled}
-                    options={[10, 15, 20, 25, 30, 40, 50].map(n => ({ value: String(n), label: String(n) }))}
+                    options={[10, 15, 20, 25, 30, 40, 50].map((n) => ({
+                      value: String(n),
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
                 </div>
@@ -1217,13 +1516,19 @@ export function CoinSourceEditor({
                   ? 'bg-purple-500/10 border-purple-500/50'
                   : 'bg-ait-bg border-ait-border hover:border-purple-500/30'
               }`}
-              onClick={() => !disabled && onChange({ ...config, use_hunter: !config.use_hunter })}
+              onClick={() =>
+                !disabled &&
+                onChange({ ...config, use_hunter: !config.use_hunter })
+              }
             >
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="checkbox"
                   checked={config.use_hunter || false}
-                  onChange={(e) => !disabled && onChange({ ...config, use_hunter: e.target.checked })}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({ ...config, use_hunter: e.target.checked })
+                  }
                   disabled={disabled}
                   className="w-4 h-4 rounded accent-purple-500"
                   onClick={(e) => e.stopPropagation()}
@@ -1241,16 +1546,24 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">Limit:</span>
                   <AiTSelect
                     value={config.hunter_limit || 10}
-                    onChange={(val) => !disabled && onChange({ ...config, hunter_limit: parseInt(val) || 10 })}
+                    onChange={(val) =>
+                      !disabled &&
+                      onChange({ ...config, hunter_limit: parseInt(val) || 10 })
+                    }
                     disabled={disabled}
-                    options={[3, 5, 8, 10, 15, 20].map(n => ({ value: n, label: String(n) }))}
+                    options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                      value: n,
+                      label: String(n),
+                    }))}
                     className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                   />
                 </div>
               )}
               {config.use_hunter && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">{ts(coinSource.hunterDirection, language)}:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.hunterDirection, language)}:
+                  </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -1259,14 +1572,18 @@ export function CoinSourceEditor({
                       const hasLong = d === 'LONG' || d === 'BOTH'
                       const hasShort = d === 'SHORT' || d === 'BOTH'
                       const nextLong = !hasLong
-                      if (nextLong && hasShort) onChange({ ...config, hunter_direction: 'BOTH' })
-                      else if (nextLong) onChange({ ...config, hunter_direction: 'LONG' })
-                      else if (hasShort) onChange({ ...config, hunter_direction: 'SHORT' })
+                      if (nextLong && hasShort)
+                        onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextLong)
+                        onChange({ ...config, hunter_direction: 'LONG' })
+                      else if (hasShort)
+                        onChange({ ...config, hunter_direction: 'SHORT' })
                       else onChange({ ...config, hunter_direction: undefined })
                     }}
                     disabled={disabled}
                     className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                      config.hunter_direction === 'LONG' || config.hunter_direction === 'BOTH'
+                      config.hunter_direction === 'LONG' ||
+                      config.hunter_direction === 'BOTH'
                         ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                         : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-green-500/30'
                     }`}
@@ -1281,14 +1598,18 @@ export function CoinSourceEditor({
                       const hasLong = d === 'LONG' || d === 'BOTH'
                       const hasShort = d === 'SHORT' || d === 'BOTH'
                       const nextShort = !hasShort
-                      if (nextShort && hasLong) onChange({ ...config, hunter_direction: 'BOTH' })
-                      else if (nextShort) onChange({ ...config, hunter_direction: 'SHORT' })
-                      else if (hasLong) onChange({ ...config, hunter_direction: 'LONG' })
+                      if (nextShort && hasLong)
+                        onChange({ ...config, hunter_direction: 'BOTH' })
+                      else if (nextShort)
+                        onChange({ ...config, hunter_direction: 'SHORT' })
+                      else if (hasLong)
+                        onChange({ ...config, hunter_direction: 'LONG' })
                       else onChange({ ...config, hunter_direction: undefined })
                     }}
                     disabled={disabled}
                     className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                      config.hunter_direction === 'SHORT' || config.hunter_direction === 'BOTH'
+                      config.hunter_direction === 'SHORT' ||
+                      config.hunter_direction === 'BOTH'
                         ? 'bg-red-500/20 text-red-400 border border-red-500/50'
                         : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-red-500/30'
                     }`}
@@ -1303,18 +1624,25 @@ export function CoinSourceEditor({
                     {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
                   </summary>
                   <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-ait-bg border border-ait-border">
-
                     {/* Min OI Value */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         {language === 'zh' ? '最低OI' : 'Min OI'}
                       </span>
                       <AiTSelect
-                        value={String(config.hunter_config?.min_oi_value || 5000000)}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), min_oi_value: Number(val) }
-                        })}
+                        value={String(
+                          config.hunter_config?.min_oi_value || 5000000
+                        )}
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              min_oi_value: Number(val),
+                            },
+                          })
+                        }
                         disabled={disabled}
                         options={[
                           { value: '2000000', label: '$2M' },
@@ -1332,13 +1660,24 @@ export function CoinSourceEditor({
                         {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
                       </span>
                       <AiTSelect
-                        value={String(config.hunter_config?.rsi_oversold_threshold || 30)}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), rsi_oversold_threshold: Number(val) }
-                        })}
+                        value={String(
+                          config.hunter_config?.rsi_oversold_threshold || 30
+                        )}
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              rsi_oversold_threshold: Number(val),
+                            },
+                          })
+                        }
                         disabled={disabled}
-                        options={[20, 25, 30, 35, 40].map(n => ({ value: String(n), label: String(n) }))}
+                        options={[20, 25, 30, 35, 40].map((n) => ({
+                          value: String(n),
+                          label: String(n),
+                        }))}
                         className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                       />
                     </div>
@@ -1349,13 +1688,24 @@ export function CoinSourceEditor({
                         {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
                       </span>
                       <AiTSelect
-                        value={String(config.hunter_config?.rsi_overbought_threshold || 70)}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), rsi_overbought_threshold: Number(val) }
-                        })}
+                        value={String(
+                          config.hunter_config?.rsi_overbought_threshold || 70
+                        )}
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              rsi_overbought_threshold: Number(val),
+                            },
+                          })
+                        }
                         disabled={disabled}
-                        options={[60, 65, 70, 75, 80].map(n => ({ value: String(n), label: String(n) }))}
+                        options={[60, 65, 70, 75, 80].map((n) => ({
+                          value: String(n),
+                          label: String(n),
+                        }))}
                         className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                       />
                     </div>
@@ -1364,16 +1714,27 @@ export function CoinSourceEditor({
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={config.hunter_config?.enable_funding_rate_signal !== false}
-                        onChange={(e) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), enable_funding_rate_signal: e.target.checked }
-                        })}
+                        checked={
+                          config.hunter_config?.enable_funding_rate_signal !==
+                          false
+                        }
+                        onChange={(e) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              enable_funding_rate_signal: e.target.checked,
+                            },
+                          })
+                        }
                         disabled={disabled}
                         className="w-4 h-4 rounded accent-purple-500"
                       />
                       <span className="text-xs text-ait-text">
-                        {language === 'zh' ? '资金费率信号' : 'Funding Rate Signal'}
+                        {language === 'zh'
+                          ? '资金费率信号'
+                          : 'Funding Rate Signal'}
                       </span>
                     </label>
 
@@ -1383,14 +1744,25 @@ export function CoinSourceEditor({
                         {language === 'zh' ? '最大24h波动' : 'Max 24h Change'}
                       </span>
                       <AiTSelect
-                        value={String(config.hunter_config?.max_24h_change || 50)}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), max_24h_change: Number(val) }
-                        })}
+                        value={String(
+                          config.hunter_config?.max_24h_change || 50
+                        )}
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              max_24h_change: Number(val),
+                            },
+                          })
+                        }
                         disabled={disabled}
                         options={[
-                          { value: '0', label: language === 'zh' ? '不限' : 'None' },
+                          {
+                            value: '0',
+                            label: language === 'zh' ? '不限' : 'None',
+                          },
                           { value: '20', label: '20%' },
                           { value: '30', label: '30%' },
                           { value: '50', label: '50%' },
@@ -1406,16 +1778,37 @@ export function CoinSourceEditor({
                         {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
                       </span>
                       <AiTSelect
-                        value={config.hunter_config?.wash_trade_sensitivity || 'medium'}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), wash_trade_sensitivity: val as 'low' | 'medium' | 'high' }
-                        })}
+                        value={
+                          config.hunter_config?.wash_trade_sensitivity ||
+                          'medium'
+                        }
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              wash_trade_sensitivity: val as
+                                | 'low'
+                                | 'medium'
+                                | 'high',
+                            },
+                          })
+                        }
                         disabled={disabled}
                         options={[
-                          { value: 'low', label: language === 'zh' ? '低' : 'Low' },
-                          { value: 'medium', label: language === 'zh' ? '中' : 'Medium' },
-                          { value: 'high', label: language === 'zh' ? '高' : 'High' },
+                          {
+                            value: 'low',
+                            label: language === 'zh' ? '低' : 'Low',
+                          },
+                          {
+                            value: 'medium',
+                            label: language === 'zh' ? '中' : 'Medium',
+                          },
+                          {
+                            value: 'high',
+                            label: language === 'zh' ? '高' : 'High',
+                          },
                         ]}
                         className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                       />
@@ -1425,11 +1818,19 @@ export function CoinSourceEditor({
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={config.hunter_config?.enable_cooldown !== false}
-                        onChange={(e) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), enable_cooldown: e.target.checked }
-                        })}
+                        checked={
+                          config.hunter_config?.enable_cooldown !== false
+                        }
+                        onChange={(e) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              enable_cooldown: e.target.checked,
+                            },
+                          })
+                        }
                         disabled={disabled}
                         className="w-4 h-4 rounded accent-purple-500"
                       />
@@ -1444,11 +1845,19 @@ export function CoinSourceEditor({
                         {language === 'zh' ? '最低笔数' : 'Min Trades'}
                       </span>
                       <AiTSelect
-                        value={String(config.hunter_config?.min_trade_count || 10000)}
-                        onChange={(val) => !disabled && onChange({
-                          ...config,
-                          hunter_config: { ...(config.hunter_config || {}), min_trade_count: Number(val) }
-                        })}
+                        value={String(
+                          config.hunter_config?.min_trade_count || 10000
+                        )}
+                        onChange={(val) =>
+                          !disabled &&
+                          onChange({
+                            ...config,
+                            hunter_config: {
+                              ...(config.hunter_config || {}),
+                              min_trade_count: Number(val),
+                            },
+                          })
+                        }
                         disabled={disabled}
                         options={[
                           { value: '1000', label: '1K' },
@@ -1459,7 +1868,6 @@ export function CoinSourceEditor({
                         className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
                       />
                     </div>
-
                   </div>
                 </details>
               )}
@@ -1545,13 +1953,16 @@ export function CoinSourceEditor({
             return (
               <div className="p-2 rounded bg-ait-bg border border-ait-border">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{ts(coinSource.mixedSummary, language)}:</span>
+                  <span className="text-muted-foreground">
+                    {ts(coinSource.mixedSummary, language)}:
+                  </span>
                   <span className="text-ait-text font-medium">
                     {sources.join(' + ')}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {ts(coinSource.maxCoins, language)} {totalLimit} {ts(coinSource.coins, language)}
+                  {ts(coinSource.maxCoins, language)} {totalLimit}{' '}
+                  {ts(coinSource.coins, language)}
                 </div>
               </div>
             )

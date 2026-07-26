@@ -31,7 +31,10 @@ function formatPct(val?: number): string {
   return `${sign}${val.toFixed(2)}%`
 }
 
-export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHeatPanelProps) {
+export function SquareHeatPanel({
+  language,
+  refreshInterval = 30000,
+}: SquareHeatPanelProps) {
   const [data, setData] = useState<SquareHeatResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -121,7 +124,10 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
             )}
           </button>
           <button
-            onClick={() => { setLoading(true); fetchData() }}
+            onClick={() => {
+              setLoading(true)
+              fetchData()
+            }}
             className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-muted-foreground hover:text-foreground"
             title="Refresh"
           >
@@ -133,8 +139,13 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
       {/* Update time */}
       {data?.updated_at && (
         <div className="text-[10px] text-muted-foreground mb-3 relative z-10">
-          {t('traderDashboard.lastUpdate', language)}: {new Date(data.updated_at).toLocaleTimeString()}
-          {data.count > 0 && <span className="ml-2">{data.count} {t('symbols', language)}</span>}
+          {t('traderDashboard.lastUpdate', language)}:{' '}
+          {new Date(data.updated_at).toLocaleTimeString()}
+          {data.count > 0 && (
+            <span className="ml-2">
+              {data.count} {t('symbols', language)}
+            </span>
+          )}
         </div>
       )}
 
@@ -173,7 +184,9 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
             >
               {/* Rank + Trend */}
               <div className="flex items-center gap-1.5 min-w-[36px]">
-                <span className="text-[10px] text-muted-foreground font-mono w-4 text-right">{i + 1}</span>
+                <span className="text-[10px] text-muted-foreground font-mono w-4 text-right">
+                  {i + 1}
+                </span>
                 <span className="text-sm">{getTrendIcon(item.trend)}</span>
               </div>
 
@@ -184,13 +197,17 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
                     {item.symbol}
                   </span>
                   {item.direction && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${
-                      item.direction.includes('多') || item.direction.includes('↑')
-                        ? 'bg-ait-green/10 text-ait-green'
-                        : item.direction.includes('空') || item.direction.includes('↓')
-                          ? 'bg-ait-red/10 text-ait-red'
-                          : 'bg-white/5 text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded ${
+                        item.direction.includes('多') ||
+                        item.direction.includes('↑')
+                          ? 'bg-ait-green/10 text-ait-green'
+                          : item.direction.includes('空') ||
+                              item.direction.includes('↓')
+                            ? 'bg-ait-red/10 text-ait-red'
+                            : 'bg-white/5 text-muted-foreground'
+                      }`}
+                    >
                       {item.direction}
                     </span>
                   )}
@@ -216,10 +233,15 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
               <div className="text-right min-w-[65px]">
                 {item.mark_price != null && (
                   <div className="font-mono text-xs text-ait-text-main">
-                    ${item.mark_price < 1 ? item.mark_price.toPrecision(4) : item.mark_price.toFixed(2)}
+                    $
+                    {item.mark_price < 1
+                      ? item.mark_price.toPrecision(4)
+                      : item.mark_price.toFixed(2)}
                   </div>
                 )}
-                <div className={`font-mono text-[10px] ${getChangeColor(item.change_24h_pct)}`}>
+                <div
+                  className={`font-mono text-[10px] ${getChangeColor(item.change_24h_pct)}`}
+                >
                   {formatPct(item.change_24h_pct)}
                 </div>
               </div>
@@ -228,7 +250,10 @@ export function SquareHeatPanel({ language, refreshInterval = 30000 }: SquareHea
               {item.tags && item.tags.length > 0 && (
                 <div className="hidden xl:flex flex-col gap-0.5 min-w-[60px]">
                   {item.tags.slice(0, 2).map((tag, j) => (
-                    <span key={j} className="text-[8px] px-1 py-0.5 rounded bg-white/5 text-muted-foreground truncate">
+                    <span
+                      key={j}
+                      className="text-[8px] px-1 py-0.5 rounded bg-white/5 text-muted-foreground truncate"
+                    >
                       {tag}
                     </span>
                   ))}

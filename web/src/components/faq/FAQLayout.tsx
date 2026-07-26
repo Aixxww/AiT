@@ -135,7 +135,8 @@ export function FAQLayout({ language }: FAQLayoutProps) {
           style={{
             background:
               'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, color-mix(in srgb, var(--color-primary) 5%, transparent) 100%)',
-            border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
           }}
         >
           <h3 className="text-xl font-bold mb-3 text-foreground">
@@ -164,7 +165,8 @@ export function FAQLayout({ language }: FAQLayoutProps) {
               rel="noopener noreferrer"
               className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"
               style={{
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)',
+                background:
+                  'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)',
                 color: 'var(--background)',
               }}
             >

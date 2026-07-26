@@ -79,9 +79,7 @@ export function TraderStatusPanel() {
               )}
             </div>
             <div>
-              <div
-                style={{ fontSize: 13, fontWeight: 600, color: '#eaeaf0' }}
-              >
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#eaeaf0' }}>
                 {trader.trader_name}
               </div>
               <div style={{ fontSize: 10, color: '#5c5c72' }}>

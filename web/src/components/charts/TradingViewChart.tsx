@@ -79,7 +79,7 @@ function TradingViewChartComponent({
     if (defaultExchange && defaultExchange !== exchange) {
       const normalizedExchange = defaultExchange.toUpperCase()
       // console.log('[TradingViewChart] 更新交易所:', normalizedExchange)
-      if (EXCHANGES.some(e => e.id === normalizedExchange)) {
+      if (EXCHANGES.some((e) => e.id === normalizedExchange)) {
         setExchange(normalizedExchange)
       }
     }
@@ -125,7 +125,8 @@ function TradingViewChartComponent({
       height: '100%',
       symbol: getFullSymbol(),
       interval: timeInterval,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+      timezone:
+        Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
       theme: 'dark',
       style: '1',
       locale: language === 'zh' ? 'zh_CN' : 'en',
@@ -165,30 +166,34 @@ function TradingViewChartComponent({
 
   return (
     <div
-      className={`${embedded ? '' : 'binance-card'} overflow-hidden ${embedded ? '' : 'animate-fade-in'} ${isFullscreen
-          ? 'fixed inset-0 z-50 rounded-none flex flex-col'
-          : ''
-        }`}
+      className={`${embedded ? '' : 'binance-card'} overflow-hidden ${embedded ? '' : 'animate-fade-in'} ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none flex flex-col' : ''
+      }`}
       style={isFullscreen ? { background: 'var(--background)' } : undefined}
     >
       {/* Header */}
       <div
         className="flex flex-wrap items-center gap-2 p-3 sm:p-4"
-        style={{ borderBottom: embedded ? 'none' : '1px solid var(--color-border)' }}
+        style={{
+          borderBottom: embedded ? 'none' : '1px solid var(--color-border)',
+        }}
       >
         {!embedded && (
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" style={{ color: 'var(--color-primary)' }} />
-            <h3
-              className="text-base sm:text-lg font-bold text-foreground"
-            >
+            <TrendingUp
+              className="w-5 h-5"
+              style={{ color: 'var(--color-primary)' }}
+            />
+            <h3 className="text-base sm:text-lg font-bold text-foreground">
               {t('marketChart', language)}
             </h3>
           </div>
         )}
 
         {/* Controls */}
-        <div className={`flex flex-wrap items-center gap-2 ${embedded ? '' : 'ml-auto'}`}>
+        <div
+          className={`flex flex-wrap items-center gap-2 ${embedded ? '' : 'ml-auto'}`}
+        >
           {/* Exchange Selector */}
           <div className="relative">
             <button
@@ -224,7 +229,10 @@ function TradingViewChartComponent({
                     }}
                     className="w-full px-4 py-2 text-left text-sm transition-all hover:bg-opacity-50"
                     style={{
-                      color: exchange === ex.id ? 'var(--color-primary)' : 'var(--foreground)',
+                      color:
+                        exchange === ex.id
+                          ? 'var(--color-primary)'
+                          : 'var(--foreground)',
                       background:
                         exchange === ex.id
                           ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
@@ -247,8 +255,10 @@ function TradingViewChartComponent({
               }}
               className="flex items-center gap-1 px-3 py-1.5 rounded text-sm font-bold transition-all"
               style={{
-                background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
+                background:
+                  'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+                border:
+                  '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
                 color: 'var(--color-primary)',
               }}
             >
@@ -265,13 +275,20 @@ function TradingViewChartComponent({
                 }}
               >
                 {/* Custom Input */}
-                <div className="px-3 pb-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <div
+                  className="px-3 pb-2"
+                  style={{ borderBottom: '1px solid var(--color-border)' }}
+                >
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={customSymbol}
-                      onChange={(e) => setCustomSymbol(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCustomSymbolSubmit()}
+                      onChange={(e) =>
+                        setCustomSymbol(e.target.value.toUpperCase())
+                      }
+                      onKeyDown={(e) =>
+                        e.key === 'Enter' && handleCustomSymbolSubmit()
+                      }
                       placeholder={t('enterSymbol', language)}
                       className="flex-1 px-3 py-1.5 rounded text-sm"
                       style={{
@@ -295,9 +312,7 @@ function TradingViewChartComponent({
 
                 {/* Popular Symbols */}
                 <div className="px-2 pt-2">
-                  <div
-                    className="text-xs px-2 py-1 mb-1 text-muted-foreground"
-                  >
+                  <div className="text-xs px-2 py-1 mb-1 text-muted-foreground">
                     {t('popularSymbols', language)}
                   </div>
                   <div className="grid grid-cols-3 gap-1">
@@ -310,7 +325,10 @@ function TradingViewChartComponent({
                         }}
                         className="px-2 py-1.5 rounded text-xs font-medium transition-all"
                         style={{
-                          color: symbol === sym ? 'var(--color-primary)' : 'var(--foreground)',
+                          color:
+                            symbol === sym
+                              ? 'var(--color-primary)'
+                              : 'var(--foreground)',
                           background:
                             symbol === sym
                               ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
@@ -329,7 +347,10 @@ function TradingViewChartComponent({
           {/* Interval Selector */}
           <div
             className="flex gap-0.5 p-0.5 rounded"
-            style={{ background: 'var(--background)', border: '1px solid var(--color-border)' }}
+            style={{
+              background: 'var(--background)',
+              border: '1px solid var(--color-border)',
+            }}
           >
             {INTERVALS.map((int) => (
               <button
@@ -337,8 +358,14 @@ function TradingViewChartComponent({
                 onClick={() => setTimeInterval(int.id)}
                 className="px-2 py-1 rounded text-xs font-medium transition-all"
                 style={{
-                  background: timeInterval === int.id ? 'var(--color-primary)' : 'transparent',
-                  color: timeInterval === int.id ? 'var(--color-primary-fg)' : 'var(--color-muted-fg)',
+                  background:
+                    timeInterval === int.id
+                      ? 'var(--color-primary)'
+                      : 'transparent',
+                  color:
+                    timeInterval === int.id
+                      ? 'var(--color-primary-fg)'
+                      : 'var(--color-muted-fg)',
                 }}
               >
                 {int.label}
@@ -352,15 +379,27 @@ function TradingViewChartComponent({
             className="p-1.5 rounded transition-all"
             style={{
               background: isFullscreen ? 'var(--color-primary)' : 'transparent',
-              color: isFullscreen ? 'var(--color-primary-fg)' : 'var(--color-muted-fg)',
+              color: isFullscreen
+                ? 'var(--color-primary-fg)'
+                : 'var(--color-muted-fg)',
               border: '1px solid var(--color-border)',
             }}
-            title={isFullscreen ? t('exitFullscreen', language) : t('fullscreen', language)}
+            title={
+              isFullscreen
+                ? t('exitFullscreen', language)
+                : t('fullscreen', language)
+            }
           >
             {isFullscreen ? (
               <X className="w-4 h-4" />
             ) : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
               </svg>
             )}

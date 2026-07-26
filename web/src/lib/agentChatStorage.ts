@@ -66,7 +66,12 @@ export function persistAgentMessages<T>(
 }
 
 export function prepareAgentMessagesForPersistence<
-  T extends { streaming?: boolean; text?: string; steps?: unknown[]; time?: string }
+  T extends {
+    streaming?: boolean
+    text?: string
+    steps?: unknown[]
+    time?: string
+  },
 >(messages: T[]): T[] {
   return messages.map((message) => {
     if (!message.streaming) {
@@ -89,7 +94,10 @@ export function migrateAgentMessages(storage: Storage, userId?: string) {
   const targetMessages = loadMessagesFromKey(storage, targetKey)
   if (targetMessages.length > 0) return
 
-  for (const sourceKey of [chatStorageKey('guest'), LEGACY_AGENT_CHAT_STORAGE_KEY]) {
+  for (const sourceKey of [
+    chatStorageKey('guest'),
+    LEGACY_AGENT_CHAT_STORAGE_KEY,
+  ]) {
     const sourceMessages = loadMessagesFromKey(storage, sourceKey)
     if (sourceMessages.length === 0) continue
     storage.setItem(targetKey, JSON.stringify(sourceMessages))

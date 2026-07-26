@@ -40,8 +40,14 @@ export function Header({ simple = false }: HeaderProps) {
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'zh'
-                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
-                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
+                  ? {
+                      background: 'var(--color-primary)',
+                      color: 'var(--color-primary-fg)',
+                    }
+                  : {
+                      background: 'transparent',
+                      color: 'var(--color-muted-fg)',
+                    }
               }
             >
               中文
@@ -51,8 +57,14 @@ export function Header({ simple = false }: HeaderProps) {
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'en'
-                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
-                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
+                  ? {
+                      background: 'var(--color-primary)',
+                      color: 'var(--color-primary-fg)',
+                    }
+                  : {
+                      background: 'transparent',
+                      color: 'var(--color-muted-fg)',
+                    }
               }
             >
               EN
@@ -62,8 +74,14 @@ export function Header({ simple = false }: HeaderProps) {
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
                 language === 'id'
-                  ? { background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }
-                  : { background: 'transparent', color: 'var(--color-muted-fg)' }
+                  ? {
+                      background: 'var(--color-primary)',
+                      color: 'var(--color-primary-fg)',
+                    }
+                  : {
+                      background: 'transparent',
+                      color: 'var(--color-muted-fg)',
+                    }
               }
             >
               ID

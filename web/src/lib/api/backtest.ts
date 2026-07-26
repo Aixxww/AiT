@@ -32,7 +32,9 @@ export const backtestApi = {
     return handleJSONResponse<BacktestRunsResponse>(res)
   },
 
-  async startBacktest(config: BacktestStartConfig): Promise<BacktestRunMetadata> {
+  async startBacktest(
+    config: BacktestStartConfig
+  ): Promise<BacktestRunMetadata> {
     const res = await fetch(`${API_BASE}/backtest/start`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -183,7 +185,10 @@ export const backtestApi = {
       try {
         const data = text ? JSON.parse(text) : null
         throw new Error(
-          data?.error || data?.message || text || 'Export failed, please try again later'
+          data?.error ||
+            data?.message ||
+            text ||
+            'Export failed, please try again later'
         )
       } catch (err) {
         if (err instanceof Error && err.message) {

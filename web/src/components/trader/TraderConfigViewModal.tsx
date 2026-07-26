@@ -33,7 +33,11 @@ export function TraderConfigViewModal({
     <div className="flex justify-between items-start py-2 border-b border-[var(--color-border)] last:border-b-0">
       <span className="text-sm text-muted-foreground font-medium">{label}</span>
       <span className="text-sm text-foreground font-mono text-right">
-        {typeof value === 'boolean' ? (value ? t('traderConfigView.yes', language) : t('traderConfigView.no', language)) : value}
+        {typeof value === 'boolean'
+          ? value
+            ? t('traderConfigView.yes', language)
+            : t('traderConfigView.no', language)
+          : value}
       </span>
     </div>
   )
@@ -48,14 +52,21 @@ export function TraderConfigViewModal({
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-panel)] to-[#252B35]">
           <div className="flex items-center gap-3">
             <PunkAvatar
-              seed={getTraderAvatar(traderData.trader_id || '', traderData.trader_name)}
+              seed={getTraderAvatar(
+                traderData.trader_id || '',
+                traderData.trader_name
+              )}
               size={48}
               className="rounded-lg"
             />
             <div>
-              <h2 className="text-xl font-bold text-foreground">{t('traderConfigView.traderConfig', language)}</h2>
+              <h2 className="text-xl font-bold text-foreground">
+                {t('traderConfigView.traderConfig', language)}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {t('traderConfigView.configInfo', language, { name: traderData.trader_name })}
+                {t('traderConfigView.configInfo', language, {
+                  name: traderData.trader_name,
+                })}
               </p>
             </div>
           </div>
@@ -65,12 +76,22 @@ export function TraderConfigViewModal({
               className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"
               style={
                 traderData.is_running
-                  ? { background: 'color-mix(in srgb, var(--color-profit) 10%, transparent)', color: 'var(--color-profit)' }
-                  : { background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)', color: 'var(--color-loss)' }
+                  ? {
+                      background:
+                        'color-mix(in srgb, var(--color-profit) 10%, transparent)',
+                      color: 'var(--color-profit)',
+                    }
+                  : {
+                      background:
+                        'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                      color: 'var(--color-loss)',
+                    }
               }
             >
               <span>{traderData.is_running ? '●' : '○'}</span>
-              {traderData.is_running ? t('traderConfigView.running', language) : t('traderConfigView.stopped', language)}
+              {traderData.is_running
+                ? t('traderConfigView.running', language)
+                : t('traderConfigView.stopped', language)}
             </div>
             <button
               onClick={onClose}
@@ -107,11 +128,17 @@ export function TraderConfigViewModal({
               />
               <InfoRow
                 label={t('traderConfigView.marginMode', language)}
-                value={traderData.is_cross_margin ? t('traderConfigView.crossMargin', language) : t('traderConfigView.isolatedMargin', language)}
+                value={
+                  traderData.is_cross_margin
+                    ? t('traderConfigView.crossMargin', language)
+                    : t('traderConfigView.isolatedMargin', language)
+                }
               />
               <InfoRow
                 label={t('traderConfigView.scanIntervalLabel', language)}
-                value={t('traderConfigView.scanInterval', language, { minutes: traderData.scan_interval_minutes || 3 })}
+                value={t('traderConfigView.scanInterval', language, {
+                  minutes: traderData.scan_interval_minutes || 3,
+                })}
               />
             </div>
           </div>

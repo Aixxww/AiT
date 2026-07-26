@@ -75,7 +75,9 @@ export function LoginPage() {
             <h1 className="text-2xl font-bold text-foreground mb-1.5">
               Welcome back
             </h1>
-            <p className="text-muted-foreground text-sm">Sign in to your account</p>
+            <p className="text-muted-foreground text-sm">
+              Sign in to your account
+            </p>
           </div>
 
           {/* Card */}
@@ -148,7 +150,6 @@ export function LoginPage() {
                   : t('signIn', language) || 'Sign In'}
               </button>
             </form>
-
           </div>
         </div>
       </div>

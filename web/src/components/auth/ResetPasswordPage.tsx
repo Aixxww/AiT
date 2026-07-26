@@ -76,9 +76,15 @@ export function ResetPasswordPage() {
           <div className="text-center mb-8">
             <div
               className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full"
-              style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}
+              style={{
+                background:
+                  'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+              }}
             >
-              <KeyRound className="w-8 h-8" style={{ color: 'var(--color-primary)' }} />
+              <KeyRound
+                className="w-8 h-8"
+                style={{ color: 'var(--color-primary)' }}
+              />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {t('resetPasswordTitle', language)}
@@ -91,14 +97,15 @@ export function ResetPasswordPage() {
           {/* Reset Password Form */}
           <div
             className="rounded-lg p-6"
-            style={{ background: 'var(--color-panel)', border: '1px solid var(--color-border)' }}
+            style={{
+              background: 'var(--color-panel)',
+              border: '1px solid var(--color-border)',
+            }}
           >
             {success ? (
               <div className="text-center py-8">
                 <div className="text-5xl mb-4">✅</div>
-                <p
-                  className="text-lg font-semibold mb-2 text-foreground"
-                >
+                <p className="text-lg font-semibold mb-2 text-foreground">
                   {t('resetPasswordSuccess', language)}
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -108,9 +115,7 @@ export function ResetPasswordPage() {
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
-                  <label
-                    className="block text-sm font-semibold mb-2 text-foreground"
-                  >
+                  <label className="block text-sm font-semibold mb-2 text-foreground">
                     {t('email', language)}
                   </label>
                   <Input
@@ -123,9 +128,7 @@ export function ResetPasswordPage() {
                 </div>
 
                 <div>
-                  <label
-                    className="block text-sm font-semibold mb-2 text-foreground"
-                  >
+                  <label className="block text-sm font-semibold mb-2 text-foreground">
                     {t('newPassword', language)}
                   </label>
                   <div className="relative">
@@ -154,9 +157,7 @@ export function ResetPasswordPage() {
                 </div>
 
                 <div>
-                  <label
-                    className="block text-sm font-semibold mb-2 text-foreground"
-                  >
+                  <label className="block text-sm font-semibold mb-2 text-foreground">
                     {t('confirmPassword', language)}
                   </label>
                   <div className="relative">
@@ -226,7 +227,8 @@ export function ResetPasswordPage() {
                   <div
                     className="text-sm px-3 py-2 rounded"
                     style={{
-                      background: 'color-mix(in srgb, var(--color-loss) 10%, transparent)',
+                      background:
+                        'color-mix(in srgb, var(--color-loss) 10%, transparent)',
                       color: 'var(--color-loss)',
                     }}
                   >
@@ -238,7 +240,10 @@ export function ResetPasswordPage() {
                   type="submit"
                   disabled={loading || !passwordValid}
                   className="w-full px-4 py-2 rounded text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+                  style={{
+                    background: 'var(--color-primary)',
+                    color: 'var(--color-primary-fg)',
+                  }}
                 >
                   {loading
                     ? t('loading', language)

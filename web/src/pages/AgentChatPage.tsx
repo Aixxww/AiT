@@ -63,7 +63,9 @@ function parsePlanSteps(data: string): AgentStep[] {
 }
 
 function parseStepEvent(data: string, fallbackIndex: number): AgentStep {
-  const match = data.match(/Step\s+(\d+)\/(\d+):\s+(.+)$/i) || data.match(/步骤\s+(\d+)\/(\d+):\s+(.+)$/)
+  const match =
+    data.match(/Step\s+(\d+)\/(\d+):\s+(.+)$/i) ||
+    data.match(/步骤\s+(\d+)\/(\d+):\s+(.+)$/)
   if (match) {
     const id = `action-${match[1]}`
     return {
@@ -81,7 +83,10 @@ function parseStepEvent(data: string, fallbackIndex: number): AgentStep {
   }
 }
 
-function markLatestRunningCompleted(existing: AgentStep[] | undefined, detail: string): AgentStep[] {
+function markLatestRunningCompleted(
+  existing: AgentStep[] | undefined,
+  detail: string
+): AgentStep[] {
   const prev = existing ?? []
   for (let i = prev.length - 1; i >= 0; i--) {
     if (prev[i].status === 'running') {
@@ -96,7 +101,9 @@ function markLatestRunningCompleted(existing: AgentStep[] | undefined, detail: s
 export function AgentChatPage() {
   const { language } = useLanguage()
   const { token, user } = useAuth()
-  const [storageUserId, setStorageUserId] = useState<string | undefined>(() => getStoredAuthUserId())
+  const [storageUserId, setStorageUserId] = useState<string | undefined>(() =>
+    getStoredAuthUserId()
+  )
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 1024)
   const storageKey = chatStorageKey(user?.id || storageUserId)
   const messages = useAgentChatStore((state) => state.messages)
@@ -145,22 +152,39 @@ export function AgentChatPage() {
       nextUserId,
       loadAgentMessages<Message>(window.localStorage, nextUserId).messages
     )
-  }, [activeUserId, historyHydrated, resetForUser, storageKey, storageUserId, user?.id])
+  }, [
+    activeUserId,
+    historyHydrated,
+    resetForUser,
+    storageKey,
+    storageUserId,
+    user?.id,
+  ])
 
   // Persist chat history locally so page navigation does not wipe the conversation.
   useEffect(() => {
     if (!historyHydrated) return
     try {
-      const persistable = prepareAgentMessagesForPersistence(messages).slice(-100)
-      persistAgentMessages(window.localStorage, user?.id || storageUserId, persistable)
+      const persistable =
+        prepareAgentMessagesForPersistence(messages).slice(-100)
+      persistAgentMessages(
+        window.localStorage,
+        user?.id || storageUserId,
+        persistable
+      )
     } catch {
       // Ignore storage failures and keep the chat usable.
     }
   }, [historyHydrated, messages, storageKey, storageUserId, user?.id])
 
   const persistMessagesSnapshot = (nextMessages: Message[]) => {
-    const persistable = prepareAgentMessagesForPersistence(nextMessages).slice(-100)
-    persistAgentMessages(window.localStorage, user?.id || storageUserId, persistable)
+    const persistable =
+      prepareAgentMessagesForPersistence(nextMessages).slice(-100)
+    persistAgentMessages(
+      window.localStorage,
+      user?.id || storageUserId,
+      persistable
+    )
   }
 
   const replaceMessages = (nextMessages: Message[]) => {
@@ -243,7 +267,11 @@ export function AgentChatPage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text, lang: language, user_key: user?.id }),
+        body: JSON.stringify({
+          message: text,
+          lang: language,
+          user_key: user?.id,
+        }),
         signal: controller.signal,
       })
       if (!res.ok) {
@@ -292,9 +320,7 @@ export function AgentChatPage() {
               finalText = data
               patchMessages((prev) =>
                 prev.map((m) =>
-                  m.id === botId
-                    ? { ...m, text: data, time: now() }
-                    : m
+                  m.id === botId ? { ...m, text: data, time: now() } : m
                 )
               )
             } else if (eventType === 'plan') {
@@ -353,9 +379,7 @@ export function AgentChatPage() {
                     : m
                 )
               )
-            } else if (
-              eventType === 'tool'
-            ) {
+            } else if (eventType === 'tool') {
               // Show tool being called as a status indicator
               patchMessages((prev) =>
                 prev.map((m) =>
@@ -431,21 +455,22 @@ export function AgentChatPage() {
     chatInputRef.current?.focus()
   }
 
-  const quickActions = language === 'zh'
-    ? [
-        { label: '💼 持仓', cmd: '/positions' },
-        { label: '💰 余额', cmd: '/balance' },
-        { label: '📋 Traders', cmd: '/traders' },
-        { label: '🧹 清除记忆', cmd: '/clear' },
-        { label: '❓ 帮助', cmd: '/help' },
-      ]
-    : [
-        { label: '💼 Positions', cmd: '/positions' },
-        { label: '💰 Balance', cmd: '/balance' },
-        { label: '📋 Traders', cmd: '/traders' },
-        { label: '🧹 Clear', cmd: '/clear' },
-        { label: '❓ Help', cmd: '/help' },
-      ]
+  const quickActions =
+    language === 'zh'
+      ? [
+          { label: '💼 持仓', cmd: '/positions' },
+          { label: '💰 余额', cmd: '/balance' },
+          { label: '📋 Traders', cmd: '/traders' },
+          { label: '🧹 清除记忆', cmd: '/clear' },
+          { label: '❓ 帮助', cmd: '/help' },
+        ]
+      : [
+          { label: '💼 Positions', cmd: '/positions' },
+          { label: '💰 Balance', cmd: '/balance' },
+          { label: '📋 Traders', cmd: '/traders' },
+          { label: '🧹 Clear', cmd: '/clear' },
+          { label: '❓ Help', cmd: '/help' },
+        ]
 
   const sidebarSections = [
     {
@@ -548,8 +573,12 @@ export function AgentChatPage() {
               transition: 'color 0.2s',
             }}
             title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-foreground)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted-foreground)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--color-foreground)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--color-muted-foreground)'
+            }}
           >
             {sidebarOpen ? (
               <PanelRightClose size={18} />
@@ -648,17 +677,24 @@ export function AgentChatPage() {
                       fontFamily: 'inherit',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                      e.currentTarget.style.background =
+                        'rgba(255,255,255,0.03)'
                       e.currentTarget.style.color = 'var(--color-foreground)'
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = 'var(--color-muted-foreground)'
+                      e.currentTarget.style.color =
+                        'var(--color-muted-foreground)'
                     }}
                   >
                     {section.icon}
                     <span>{section.title}</span>
-                    <span style={{ marginLeft: 'auto', transition: 'transform 0.2s' }}>
+                    <span
+                      style={{
+                        marginLeft: 'auto',
+                        transition: 'transform 0.2s',
+                      }}
+                    >
                       {sections[section.key] ? (
                         <ChevronDown size={14} />
                       ) : (
@@ -675,9 +711,7 @@ export function AgentChatPage() {
                         transition={{ duration: 0.15 }}
                         style={{ overflow: 'hidden', padding: '0 4px' }}
                       >
-                        <div style={{ paddingTop: 4 }}>
-                          {section.component}
-                        </div>
+                        <div style={{ paddingTop: 4 }}>{section.component}</div>
                       </motion.div>
                     )}
                   </AnimatePresence>
