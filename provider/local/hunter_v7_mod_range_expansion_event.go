@@ -35,39 +35,26 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 		return nil
 	}
 	dir := rangeExpansionEventDirection(ctx)
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    dir,
-		SetupType:    V7SetupRangeExpansion,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryFastConfirm,
-		Confidence:   "B",
-		MarketRegime: regime,
-		ReasonCodes:  []string{"range_expansion_event"},
-	}
+	s := newV7Signal(ctx, regime, V7SetupRangeExpansion, dir, V7EntryFastConfirm, "B")
+	s.reason("range_expansion_event")
+	sig := s.sig
 
-	score := 20.0
+	s.add(20)
 	switch {
 	case ctx.Amplitude24h >= 45:
-		score += 24
-		sig.ReasonCodes = append(sig.ReasonCodes, "amplitude_24h_extreme")
+		s.add(24, "amplitude_24h_extreme")
 	case ctx.Amplitude24h >= 30:
-		score += 18
-		sig.ReasonCodes = append(sig.ReasonCodes, "amplitude_24h_major")
+		s.add(18, "amplitude_24h_major")
 	default:
-		score += 12
-		sig.ReasonCodes = append(sig.ReasonCodes, "amplitude_24h_event")
+		s.add(12, "amplitude_24h_event")
 	}
 	switch {
 	case ctx.RangeExpansion1h >= 3.0:
-		score += 22
-		sig.ReasonCodes = append(sig.ReasonCodes, "massive_range_expansion_event")
+		s.add(22, "massive_range_expansion_event")
 	case ctx.RangeExpansion1h >= 2.2:
-		score += 16
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_range_expansion_event")
+		s.add(16, "strong_range_expansion_event")
 	default:
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "moderate_range_expansion_event")
+		s.add(10, "moderate_range_expansion_event")
 	}
 	impulse := ctx.Change1h
 	velocity := ctx.Velocity15m
@@ -76,37 +63,34 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 		velocity = -velocity
 	}
 	if impulse >= 4 || velocity >= 2 {
-		score += 16
 		if dir == V7DirShort {
-			sig.ReasonCodes = append(sig.ReasonCodes, "event_breakdown_short")
+			s.add(16, "event_breakdown_short")
 		} else {
-			sig.ReasonCodes = append(sig.ReasonCodes, "event_continuation_long")
+			s.add(16, "event_continuation_long")
 		}
 	} else if impulse >= 1 || velocity >= 0.8 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "event_directional_followthrough")
+		s.add(10, "event_directional_followthrough")
 	}
 	if ctx.VolumeBurst15m >= 2.5 {
-		score += 12
-		sig.ReasonCodes = append(sig.ReasonCodes, "volume_burst_15m")
+		s.add(12, "volume_burst_15m")
 	} else if ctx.VolumeBurst5m >= 2.0 {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "volume_burst_5m")
+		s.add(8, "volume_burst_5m")
 	}
 	if rangeExpansionFlowAligned(ctx, dir) {
-		score += 12
 		if dir == V7DirShort {
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_aligned")
+			s.add(12, "taker_sell_aligned")
 		} else {
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_aligned")
+			s.add(12, "taker_buy_aligned")
 		}
 	} else {
-		sig.RiskTags = append(sig.RiskTags, "event_flow_confirmation_needed")
+		s.riskTag("event_flow_confirmation_needed")
 		sig.ExecutionQuality = V7ExecNearConfirm
 		sig.Confidence = "C"
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
+	// Handwritten tail: the subtype/quality passes below mutate TimingScore
+	// after it is first assigned, so the shared finish helpers cannot own it.
+	sig.SetupScore = clampFloat(s.score, 0, 100)
 	sig.TimingScore = rangeExpansionTimingScore(ctx, dir)
 	if sig.TimingScore < 50 {
 		sig.ExecutionQuality = V7ExecChaseRisk

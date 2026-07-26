@@ -54,92 +54,66 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	}
 
 	snap := ctx.Snapshot
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupDisplacementLong,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryMomentumTrailing,
-		Confidence:   "B",
-		MarketRegime: regime,
-	}
-
-	var score float64
+	s := newV7Signal(ctx, regime, V7SetupDisplacementLong, V7DirLong, V7EntryMomentumTrailing, "B")
 
 	// 1. Displacement magnitude (0-30): how large is the volatility break
 	if ctx.RangeExpansion1h >= 3.0 {
-		score += 30
-		sig.ReasonCodes = append(sig.ReasonCodes, "massive_vol_displacement")
+		s.add(30, "massive_vol_displacement")
 	} else if ctx.RangeExpansion1h >= 2.5 {
-		score += 22
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_vol_displacement")
+		s.add(22, "strong_vol_displacement")
 	} else {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "moderate_vol_displacement")
+		s.add(15, "moderate_vol_displacement")
 	}
 
 	// 2. Price momentum confirmation (0-20)
 	if ctx.Change1h >= 4 {
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_1h_impulse")
+		s.add(20, "strong_1h_impulse")
 	} else if ctx.Change1h >= 2 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "solid_1h_impulse")
+		s.add(15, "solid_1h_impulse")
 	} else {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "early_1h_displacement")
+		s.add(8, "early_1h_displacement")
 	}
 
 	// 3. 4h range break or key level reclaim (0-20)
 	if ctx.High4h > 0 && ctx.CurrentPrice >= ctx.High4h*0.995 {
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "breaks_4h_high")
+		s.add(20, "breaks_4h_high")
 	} else if ctx.High1h > 0 && ctx.CurrentPrice >= ctx.High1h*0.998 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "breaks_1h_high")
+		s.add(15, "breaks_1h_high")
 	} else if ctx.VWAP15m > 0 && ctx.CurrentPrice > ctx.VWAP15m {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "above_vwap_15m")
+		s.add(10, "above_vwap_15m")
 	}
 
 	// 4. OI confirmation (0-15)
 	oiDeltaMissing := snap.OI <= 0 || (snap.OIDelta1h == 0 && snap.OIDelta4h == 0)
 	if snap.OIDelta1h >= 5 && snap.OIDelta1h < 40 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "oi_confirms_new_demand")
+		s.add(15, "oi_confirms_new_demand")
 	} else if snap.OIDelta1h >= 2 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "oi_moderate_inflow")
+		s.add(10, "oi_moderate_inflow")
 	} else if oiDeltaMissing {
-		score += 4
-		sig.ReasonCodes = append(sig.ReasonCodes, "oi_delta_missing_displacement")
-		sig.RiskTags = append(sig.RiskTags, "needs_oi_confirmation")
-		sig.RequiredConfirms = append(sig.RequiredConfirms,
+		s.add(4, "oi_delta_missing_displacement")
+		s.riskTag("needs_oi_confirmation")
+		s.sig.RequiredConfirms = append(s.sig.RequiredConfirms,
 			"price_holds_vwap_or_trailing_support",
 			"taker_buy_15m_stays_above_0_52",
 			"oi_delta_1h_positive_or_quote_volume_expands",
 		)
 	} else {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "oi_minimal_confirm")
+		s.add(5, "oi_minimal_confirm")
 	}
 
 	// 5. Taker flow alignment (0-15)
 	if ctx.TakerBuy15m >= 0.55 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_aggressive")
+		s.add(15, "taker_buy_aggressive")
 	} else if ctx.TakerBuy15m >= 0.52 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_aligned")
+		s.add(10, "taker_buy_aligned")
 	} else if ctx.TakerBuy15m >= 0.50 {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_neutral")
+		s.add(5, "taker_buy_neutral")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
+	sig := s.sig
 
 	// Timing score: how early are we in the displacement
-	sig.TimingScore = calcDisplacementTiming(ctx, sig)
+	timing := calcDisplacementTiming(ctx, sig)
 
 	// Anti-chase guardrails
 	if oiDeltaMissing {
@@ -149,7 +123,7 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	}
 	if chaseReason := displacementChaseCheck(ctx, snap); chaseReason != "" {
 		sig.ExecutionQuality = V7ExecChaseRisk
-		sig.RiskTags = append(sig.RiskTags, chaseReason)
+		s.riskTag(chaseReason)
 		sig.EntryMode = V7EntryWaitConfirm
 		sig.Confidence = "C"
 	}
@@ -157,12 +131,13 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	// RSI extreme check
 	if ctx.RSI1h > 82 && math.Abs(snap.FundingRate) > 0.0005 {
 		sig.ExecutionQuality = V7ExecWatchOnly
-		sig.RiskTags = append(sig.RiskTags, "rsi_extreme_with_crowded_funding")
+		s.riskTag("rsi_extreme_with_crowded_funding")
 		sig.EntryMode = V7EntryWaitConfirm
 		sig.Confidence = "C"
 	}
 
-	// Build entry zone, invalidation, targets
+	// Build entry zone, invalidation, targets (module-specific geometry —
+	// the shared zone templates do not apply)
 	sig.EntryZone = displacementEntryZone(ctx)
 	sig.Invalidation = displacementInvalidation(ctx)
 	sig.Targets = displacementTargets(ctx)
@@ -171,20 +146,18 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	// minimum geometry. Backend and trader layers still recalculate live RR.
 	if rr, ok := displacementBestRR(sig, ctx); !ok || rr < 1.5 {
 		sig.ExecutionQuality = V7ExecInvalidRR
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "displacement_rr_insufficient")
+		s.riskTag("displacement_rr_insufficient")
 	} else if rr >= 1.5 && len(sig.Targets) > 1 {
 		firstRR := displacementTargetRR(sig, ctx, sig.Targets[0].Price)
 		if firstRR > 0 && firstRR < 1.5 {
-			sig.RiskTags = appendIfMissing(sig.RiskTags, "displacement_rr_repaired")
-			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "displacement_extension_rr_valid")
+			s.riskTag("displacement_rr_repaired")
+			s.reason("displacement_extension_rr_valid")
 		}
 	}
 
-	// Build price/derivatives context
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-
-	return sig
+	// No score floor: displacement ships every matched signal and lets the
+	// guardrails downgrade execution quality instead.
+	return s.finishWithTiming(0, timing)
 }
 
 // calcDisplacementTiming scores how early/fresh the displacement is.

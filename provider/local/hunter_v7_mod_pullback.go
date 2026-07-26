@@ -48,166 +48,120 @@ func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 		return nil
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupPullbackLong,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryWaitConfirm,
-		Confidence:   "B",
-		MarketRegime: regime,
-	}
-
-	var score float64
+	s := newV7Signal(ctx, regime, V7SetupPullbackLong, V7DirLong, V7EntryWaitConfirm, "B")
 
 	// 1. Position Score (0-25): proximity to support
 	if ctx.ATR4h > 0 {
 		dist := (ctx.CurrentPrice - ctx.Low4h) / ctx.ATR4h
 		if dist <= 0.5 {
-			score += 25
-			sig.ReasonCodes = append(sig.ReasonCodes, "near_4h_support")
+			s.add(25, "near_4h_support")
 		} else if dist <= 1.0 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "near_4h_support")
+			s.add(20, "near_4h_support")
 		} else if dist <= 1.5 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "approaching_4h_support")
+			s.add(15, "approaching_4h_support")
 		}
 	}
 	// 1d support bonus
 	if ctx.ATR1d > 0 && ctx.Low1d > 0 {
 		dist1d := (ctx.CurrentPrice - ctx.Low1d) / ctx.ATR1d
 		if dist1d <= 2.0 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "near_1d_support")
+			s.add(10, "near_1d_support")
 		}
 	}
 
 	// 2. Trend Integrity (0-20)
 	if ctx.EMA20_4h > 0 && ctx.EMA60_4h > 0 {
 		if ctx.EMA20_4h > ctx.EMA60_4h {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "uptrend_intact")
+			s.add(15, "uptrend_intact")
 		} else if ctx.CurrentPrice > ctx.EMA60_4h {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "above_ema60")
+			s.add(10, "above_ema60")
 		}
 	}
 	// RSI oversold bonus
 	if ctx.RSI1h > 0 && ctx.RSI1h < 35 {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "rsi_oversold")
+		s.add(5, "rsi_oversold")
 	}
 
 	// 3. OI Stabilization (0-15)
 	snap := ctx.Snapshot
 	if snap != nil {
 		if snap.OIDelta1h > -8 && snap.OIDelta1h < 8 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_stable")
+			s.add(10, "oi_stable")
 		} else if snap.OIDelta1h >= 8 {
-			score += 5 // OI increasing = new money entering
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_increasing")
+			// OI increasing = new money entering
+			s.add(5, "oi_increasing")
 		}
 		// OI accumulated
 		if snap.OIDelta4h > 8 && snap.OIDelta4h < 30 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_accumulation")
+			s.add(5, "oi_accumulation")
 		}
 	}
 
 	// 4. Taker Recovery (0-20)
 	if ctx.TakerBuy15m > 0.55 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_strong")
+		s.add(15, "taker_buy_strong")
 	} else if ctx.TakerBuy15m > 0.52 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_recovering")
+		s.add(10, "taker_buy_recovering")
 	} else if ctx.TakerBuy15m > 0.50 {
-		score += 5
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_neutral")
+		s.add(5, "taker_buy_neutral")
 	}
 
 	// 5. LSR Reversal (0-10)
 	if snap != nil {
 		if snap.LSROldest < 0.9 && snap.LSR > snap.LSROldest {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "lsr_reversal")
+			s.add(10, "lsr_reversal")
 		} else if snap.LSR > 1.0 && snap.LSR > snap.LSRPrev {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "lsr_improving")
+			s.add(5, "lsr_improving")
 		}
 	}
 
-	// 6. Volume Confirmation (0-10) — basic check
+	// 6. Volume Confirmation (0-10) — moderate pullback is healthier
 	if ctx.Change24h < -5 && ctx.Change24h > -12 {
-		score += 5 // moderate pullback is healthier
-		sig.ReasonCodes = append(sig.ReasonCodes, "healthy_pullback")
+		s.add(5, "healthy_pullback")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
-
-	// Signal confirmation filter: near_support without confirming signal → lower score
+	// Signal confirmation filter: near_support without confirming signal →
+	// lower score. The 0.70 multiplier applies to the clamped score, so clamp
+	// here; finish() re-clamps to the identical value.
+	s.score = clampFloat(s.score, 0, 100)
 	hasSupport := false
-	for _, code := range sig.ReasonCodes {
+	for _, code := range s.sig.ReasonCodes {
 		if code == "near_4h_support" || code == "near_1d_support" {
 			hasSupport = true
 			break
 		}
 	}
 	hasConfirm := false
-	for _, code := range sig.ReasonCodes {
+	for _, code := range s.sig.ReasonCodes {
 		if code == "oi_accumulation" || code == "lsr_reversal" || code == "taker_buy_strong" || code == "taker_buy_recovering" {
 			hasConfirm = true
 			break
 		}
 	}
 	if hasSupport && !hasConfirm {
-		sig.SetupScore *= 0.70
-		sig.Status = V7StatusWaitConfirm
+		s.score *= 0.70
+		s.sig.Status = V7StatusWaitConfirm
 		// Canonical, machine-evaluable codes. The old spelling
 		// taker_buy_gt_0_52 had no evaluator anywhere, so every pullback that
 		// entered this branch carried permanently unsatisfiable confirmations
 		// and could never leave WATCH.
-		sig.RequiredConfirms = []string{"taker_buy_15m_gt_0_52", "oi_stabilize", "lsr_turning_up"}
+		s.sig.RequiredConfirms = []string{"taker_buy_15m_gt_0_52", "oi_stabilize", "lsr_turning_up"}
 	}
 
-	if sig.SetupScore < 30 {
-		return nil
-	}
-
-	// Build price context
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-
-	// Entry zone: near current price
-	if ctx.ATR15m > 0 {
-		sig.EntryZone = V7PriceZone{
-			Lower: ctx.CurrentPrice - ctx.ATR15m*0.5,
-			Upper: ctx.CurrentPrice + ctx.ATR15m*0.3,
-		}
-	}
-
-	// Invalidation: below 4h low
+	// Entry near the current price; invalidate below the 4h low; targets are
+	// the mean-reversion magnets.
+	s.zoneATR(0.5, 0.3)
 	if ctx.Low4h > 0 {
-		sig.Invalidation = V7InvalidationRule{
-			Price:  ctx.Low4h - ctx.ATR4h*0.3,
-			Reason: "break_4h_low",
-		}
+		s.invalidate(ctx.Low4h-ctx.ATR4h*0.3, "break_4h_low")
 	}
-
-	// Targets: mean reversion to VWAP and prior resistance
 	if ctx.VWAP15m > ctx.CurrentPrice {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.VWAP15m, Reason: "mean_reversion_vwap"})
+		s.target(ctx.VWAP15m, "mean_reversion_vwap")
 	}
 	if ctx.ATR4h > 0 {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.CurrentPrice + ctx.ATR4h*2, Reason: "atr_target"})
+		s.target(ctx.CurrentPrice+ctx.ATR4h*2, "atr_target")
 	}
 
-	// Timing score
-	sig.TimingScore = calcTimingScore(sig, ctx)
-
-	return sig
+	return s.finish(30)
 }
 
 // helper: build price context

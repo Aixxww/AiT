@@ -107,36 +107,21 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 		}
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    dir,
-		SetupType:    V7SetupRangeReversion,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryRangeEdge,
-		Confidence:   "B",
-		MarketRegime: regime,
-	}
+	s := newV7Signal(ctx, regime, V7SetupRangeReversion, dir, V7EntryRangeEdge, "B")
 
-	var score float64
-
-	// 1. Range Quality (0-30): how well-defined the range is
-	// Lower ADX = better range quality
+	// 1. Range Quality (0-30): lower ADX = better-defined range.
 	if ctx.ADX1h < 10 {
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_range")
+		s.add(20, "strong_range")
 	} else if ctx.ADX1h < 15 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "defined_range")
+		s.add(15, "defined_range")
 	} else {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "weak_range")
+		s.add(8, "weak_range")
 	}
 	// BB width moderate bonus
 	if ctx.BBWidthPercentile >= 30 && ctx.BBWidthPercentile <= 60 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "ideal_bb_width")
+		s.add(10, "ideal_bb_width")
 	} else {
-		score += 5
+		s.add(5)
 	}
 
 	// 2. Edge Proximity (0-30): how close to range boundary
@@ -144,26 +129,20 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 		if dir == V7DirLong {
 			dist := (ctx.CurrentPrice - ctx.Low1h) / ctx.ATR1h
 			if dist < 0.3 {
-				score += 30
-				sig.ReasonCodes = append(sig.ReasonCodes, "at_range_bottom")
+				s.add(30, "at_range_bottom")
 			} else if dist < 0.5 {
-				score += 22
-				sig.ReasonCodes = append(sig.ReasonCodes, "near_range_bottom")
+				s.add(22, "near_range_bottom")
 			} else if dist < 0.8 {
-				score += 15
-				sig.ReasonCodes = append(sig.ReasonCodes, "approaching_range_bottom")
+				s.add(15, "approaching_range_bottom")
 			}
 		} else {
 			dist := (ctx.High1h - ctx.CurrentPrice) / ctx.ATR1h
 			if dist < 0.3 {
-				score += 30
-				sig.ReasonCodes = append(sig.ReasonCodes, "at_range_top")
+				s.add(30, "at_range_top")
 			} else if dist < 0.5 {
-				score += 22
-				sig.ReasonCodes = append(sig.ReasonCodes, "near_range_top")
+				s.add(22, "near_range_top")
 			} else if dist < 0.8 {
-				score += 15
-				sig.ReasonCodes = append(sig.ReasonCodes, "approaching_range_top")
+				s.add(15, "approaching_range_top")
 			}
 		}
 	}
@@ -171,44 +150,34 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 	// 3. Oscillator Signal (0-20): RSI confirmation at the edge
 	if dir == V7DirLong {
 		if ctx.RSI1h < 25 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_deeply_oversold")
+			s.add(20, "rsi_deeply_oversold")
 		} else if ctx.RSI1h < 30 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_oversold")
+			s.add(15, "rsi_oversold")
 		} else if ctx.RSI1h < 35 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_approaching_oversold")
+			s.add(10, "rsi_approaching_oversold")
 		}
 	} else {
 		if ctx.RSI1h > 75 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_deeply_overbought")
+			s.add(20, "rsi_deeply_overbought")
 		} else if ctx.RSI1h > 70 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_overbought")
+			s.add(15, "rsi_overbought")
 		} else if ctx.RSI1h > 65 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "rsi_approaching_overbought")
+			s.add(10, "rsi_approaching_overbought")
 		}
 	}
 
 	// 4. Taker Confirm (0-10): directional taker flow at the edge
 	if dir == V7DirLong {
 		if ctx.TakerBuy15m > 0.53 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_recovering")
+			s.add(10, "taker_buy_recovering")
 		} else if ctx.TakerBuy15m > 0.50 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_neutral")
+			s.add(5, "taker_buy_neutral")
 		}
 	} else {
 		if ctx.TakerBuy15m < 0.45 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_strong")
+			s.add(10, "taker_sell_strong")
 		} else if ctx.TakerBuy15m < 0.48 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_sell_mild")
+			s.add(5, "taker_sell_mild")
 		}
 	}
 
@@ -219,32 +188,22 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 			oiAbs = -oiAbs
 		}
 		if oiAbs < 3 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_neutral")
+			s.add(10, "oi_neutral")
 		} else if oiAbs < 6 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_mild")
+			s.add(5, "oi_mild")
 		}
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
-
-	if sig.SetupScore < 30 {
-		return nil
-	}
-
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-
-	// Entry zone: at the range edge
+	// Entry zone hugs the range edge (asymmetric around the boundary, not the
+	// current price, so the zoneATR template does not apply here).
 	if ctx.ATR15m > 0 {
 		if dir == V7DirLong {
-			sig.EntryZone = V7PriceZone{
+			s.sig.EntryZone = V7PriceZone{
 				Lower: ctx.Low1h,
 				Upper: ctx.Low1h + ctx.ATR15m*0.5,
 			}
 		} else {
-			sig.EntryZone = V7PriceZone{
+			s.sig.EntryZone = V7PriceZone{
 				Lower: ctx.High1h - ctx.ATR15m*0.5,
 				Upper: ctx.High1h,
 			}
@@ -253,34 +212,27 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 
 	// Invalidation: beyond the range boundary
 	if dir == V7DirLong && ctx.Low1h > 0 {
-		sig.Invalidation = V7InvalidationRule{
-			Price:  ctx.Low1h - ctx.ATR1h*0.5,
-			Reason: "break_range_low",
-		}
+		s.invalidate(ctx.Low1h-ctx.ATR1h*0.5, "break_range_low")
 	} else if dir == V7DirShort && ctx.High1h > 0 {
-		sig.Invalidation = V7InvalidationRule{
-			Price:  ctx.High1h + ctx.ATR1h*0.5,
-			Reason: "break_range_high",
-		}
+		s.invalidate(ctx.High1h+ctx.ATR1h*0.5, "break_range_high")
 	}
 
-	// Targets: range midpoint and opposite edge
+	// Targets: range midpoint and opposite edge. Direct appends: the legacy
+	// module recorded the opposite edge even when its price was unset, and
+	// target()'s price>0 guard would silently drop that case.
 	if dir == V7DirLong {
 		if ctx.High1h > ctx.CurrentPrice {
 			mid := (ctx.High1h + ctx.Low1h) / 2
-			sig.Targets = append(sig.Targets, V7Target{Price: mid, Reason: "range_midpoint"})
-			sig.Targets = append(sig.Targets, V7Target{Price: ctx.High1h, Reason: "range_top"})
+			s.sig.Targets = append(s.sig.Targets, V7Target{Price: mid, Reason: "range_midpoint"})
+			s.sig.Targets = append(s.sig.Targets, V7Target{Price: ctx.High1h, Reason: "range_top"})
 		}
 	} else {
 		if ctx.Low1h < ctx.CurrentPrice {
 			mid := (ctx.High1h + ctx.Low1h) / 2
-			sig.Targets = append(sig.Targets, V7Target{Price: mid, Reason: "range_midpoint"})
-			sig.Targets = append(sig.Targets, V7Target{Price: ctx.Low1h, Reason: "range_bottom"})
+			s.sig.Targets = append(s.sig.Targets, V7Target{Price: mid, Reason: "range_midpoint"})
+			s.sig.Targets = append(s.sig.Targets, V7Target{Price: ctx.Low1h, Reason: "range_bottom"})
 		}
 	}
 
-	// Timing score
-	sig.TimingScore = calcTimingScore(sig, ctx)
-
-	return sig
+	return s.finish(30)
 }

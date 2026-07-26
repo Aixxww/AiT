@@ -39,52 +39,38 @@ func (m *mmsBottomWakeLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	if !m.Match(ctx, regime) {
 		return nil
 	}
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupMMSBottomWakeLong,
-		Status:       V7StatusWaitConfirm,
-		EntryMode:    V7EntryBreakout,
-		Confidence:   "B",
-		MarketRegime: regime,
-		ReasonCodes:  []string{"mms_bottom_wake", "mms_small_cap_proxy", "mms_quiet_accumulation"},
-		RiskTags:     []string{"mms_breakout_not_confirmed"},
-	}
+	s := newV7Signal(ctx, regime, V7SetupMMSBottomWakeLong, V7DirLong, V7EntryBreakout, "B")
+	s.sig.Status = V7StatusWaitConfirm
+	s.reason("mms_bottom_wake", "mms_small_cap_proxy", "mms_quiet_accumulation")
+	s.riskTag("mms_breakout_not_confirmed")
 
-	score := 0.0
-	score += boundedScore(0.025-ctx.StdRatio1h72, 0.003, 0.02, 22)
-	score += boundedScore(ctx.VolumeBurst1h, 2.5, 5.0, 20)
-	score += boundedScore(ctx.Snapshot.OIDelta4h, 12, 30, 24)
+	s.add(boundedScore(0.025-ctx.StdRatio1h72, 0.003, 0.02, 22))
+	s.add(boundedScore(ctx.VolumeBurst1h, 2.5, 5.0, 20))
+	s.add(boundedScore(ctx.Snapshot.OIDelta4h, 12, 30, 24))
 	if ctx.Snapshot.OIDelta1h > 0 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "oi_consistent_inflow")
+		s.add(8, "oi_consistent_inflow")
 	}
 	if ctx.VolumeBurst1h >= 3.0 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "mms_volume_wake")
+		s.add(8, "mms_volume_wake")
 	}
 	if ctx.Snapshot.OIDelta4h >= 15 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "mms_oi_stealth_inflow")
+		s.add(8, "mms_oi_stealth_inflow")
 	}
 	if ctx.TakerBuy15m >= 0.50 && ctx.TakerBuy15m <= 0.58 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "taker_neutral_bullish")
+		s.add(8, "taker_neutral_bullish")
 	}
 	if ctx.BBWidthPercentile > 0 && ctx.BBWidthPercentile < 25 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "extreme_compression")
+		s.add(8, "extreme_compression")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
-	sig.TimingScore = 45
+	timing := 45.0
 	if ctx.VolumeBurst1h >= 3.0 && ctx.Snapshot.OIDelta1h > 0 {
-		sig.TimingScore = 55
+		timing = 55
 	}
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-	sig.RequiredConfirms = []string{"5m_or_15m_close_through_breakout_level", "oi_or_volume_expands_with_price", "live_price_in_entry_zone"}
+	s.sig.RequiredConfirms = []string{"5m_or_15m_close_through_breakout_level", "oi_or_volume_expands_with_price", "live_price_in_entry_zone"}
 
+	// Breakout-trigger zone anchored on the upper band, not the current price,
+	// so the zoneATR/zonePad templates do not apply.
 	trigger := ctx.CurrentPrice
 	if ctx.BBUpper15m > 0 {
 		trigger = ctx.BBUpper15m
@@ -93,18 +79,18 @@ func (m *mmsBottomWakeLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	if ctx.ATR15m > 0 {
 		pad = maxFloat(pad, ctx.ATR15m*0.35)
 	}
-	sig.EntryZone = V7PriceZone{Lower: trigger, Upper: trigger + pad}
+	s.sig.EntryZone = V7PriceZone{Lower: trigger, Upper: trigger + pad}
 	stop := ctx.CurrentPrice * 0.025
 	if ctx.BBLower15m > 0 && ctx.CurrentPrice-ctx.BBLower15m > 0 {
 		stop = maxFloat(stop, ctx.CurrentPrice-ctx.BBLower15m)
 	}
-	sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stop, Reason: "mms_bottom_wake_range_lost"}
+	s.sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stop, Reason: "mms_bottom_wake_range_lost"}
 	target := ctx.CurrentPrice + stop*2.2
 	if ctx.ATR4h > 0 {
 		target = maxFloat(target, ctx.CurrentPrice+ctx.ATR4h*1.2)
 	}
-	sig.Targets = []V7Target{{Price: target, Reason: "mms_bottom_wake_expansion_target"}}
-	return sig
+	s.sig.Targets = []V7Target{{Price: target, Reason: "mms_bottom_wake_expansion_target"}}
+	return s.finishWithTiming(0, timing)
 }
 
 type mmsTrendRideLongModule struct{}
@@ -148,28 +134,17 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 	if !m.Match(ctx, regime) {
 		return nil
 	}
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupMMSTrendRideLong,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryMomentumTrailing,
-		Confidence:   "A",
-		MarketRegime: regime,
-		ReasonCodes:  []string{"mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "mms_low_volume_retest"},
-	}
-	score := 65.0
+	s := newV7Signal(ctx, regime, V7SetupMMSTrendRideLong, V7DirLong, V7EntryMomentumTrailing, "A")
+	s.reason("mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "mms_low_volume_retest")
+	s.add(65)
 	if ctx.Change1h > 0 && ctx.Change4h > 0 {
-		score += 12
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "mms_trend_continuation")
+		s.add(12, "mms_trend_continuation")
 	}
 	if ctx.Snapshot.OIDelta1h >= 0 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "oi_stable")
+		s.add(8, "oi_stable")
 	}
 	if ctx.TakerBuy15m >= 0.54 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "taker_buy_strong")
+		s.add(8, "taker_buy_strong")
 	}
 	// Trend-ride longs drift instead of running when the move is dead on both
 	// price frames, or when open interest is leaving on both frames. Either
@@ -178,30 +153,27 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 	priceContextWeak := ctx.Change1h <= 0 && ctx.Change4h <= 0
 	oiDoesNotSupport := ctx.Snapshot.OIDelta1h < 0 && ctx.Snapshot.OIDelta4h < 0
 	if priceContextWeak || oiDoesNotSupport {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "mms_weak_continuation_review_only")
+		s.riskTag("mms_weak_continuation_review_only")
 	}
-	sig.SetupScore = clampFloat(score, 0, 100)
-	sig.TimingScore = 68
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-	sig.RequiredConfirms = []string{"5m_price_holds_ema20_or_trailing_support", "taker_flow_not_flipping_against_direction", "live_price_in_entry_zone"}
+	s.sig.RequiredConfirms = []string{"5m_price_holds_ema20_or_trailing_support", "taker_flow_not_flipping_against_direction", "live_price_in_entry_zone"}
 
+	// Retest zone anchored on EMA25, not the current price.
 	pad := ctx.CurrentPrice * 0.005
 	if ctx.ATR15m > 0 {
 		pad = maxFloat(pad, ctx.ATR15m*0.5)
 	}
-	sig.EntryZone = V7PriceZone{Lower: ctx.EMA25_15m, Upper: ctx.EMA25_15m + pad}
+	s.sig.EntryZone = V7PriceZone{Lower: ctx.EMA25_15m, Upper: ctx.EMA25_15m + pad}
 	stopDist := ctx.CurrentPrice * 0.022
 	if ctx.EMA99_15m > 0 && ctx.CurrentPrice-ctx.EMA99_15m > 0 && ctx.CurrentPrice-ctx.EMA99_15m <= ctx.CurrentPrice*0.035 {
 		stopDist = maxFloat(stopDist, ctx.CurrentPrice-ctx.EMA99_15m)
 	}
-	sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stopDist, Reason: "mms_trend_ride_ema99_lost"}
+	s.sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stopDist, Reason: "mms_trend_ride_ema99_lost"}
 	targetDist := stopDist * 2.0
 	if targetDist > ctx.CurrentPrice*0.075 {
 		targetDist = ctx.CurrentPrice * 0.075
 	}
-	sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_trend_ride_continuation_target"}}
-	return sig
+	s.sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_trend_ride_continuation_target"}}
+	return s.finishWithTiming(0, 68)
 }
 
 type mmsSqueezeEngineLongModule struct{}
@@ -233,53 +205,41 @@ func (m *mmsSqueezeEngineLongModule) Score(ctx *V7SymbolContext, regime V7Market
 	if !m.Match(ctx, regime) {
 		return nil
 	}
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupMMSSqueezeLong,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryFastConfirm,
-		Confidence:   "A",
-		MarketRegime: regime,
-		ReasonCodes:  []string{"mms_squeeze_engine", "mms_top_trader_long_lock", "mms_oi_price_squeeze_fuel", "mms_short_ban_active"},
-	}
-	score := 45.0
-	score += boundedScore(ctx.Snapshot.LSR, 1.55, 2.4, 18)
-	score += boundedScore(ctx.Snapshot.OIDelta1h, 8, 25, 18)
-	score += boundedScore(ctx.Change1h, 2.5, 8, 16)
+	s := newV7Signal(ctx, regime, V7SetupMMSSqueezeLong, V7DirLong, V7EntryFastConfirm, "A")
+	s.reason("mms_squeeze_engine", "mms_top_trader_long_lock", "mms_oi_price_squeeze_fuel", "mms_short_ban_active")
+	s.add(45)
+	s.add(boundedScore(ctx.Snapshot.LSR, 1.55, 2.4, 18))
+	s.add(boundedScore(ctx.Snapshot.OIDelta1h, 8, 25, 18))
+	s.add(boundedScore(ctx.Change1h, 2.5, 8, 16))
 	if ctx.TakerBuy15m >= 0.58 {
-		score += 10
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "taker_buy_strong")
+		s.add(10, "taker_buy_strong")
 	}
 	if ctx.VolumeBurst15m >= 1.3 {
-		score += 8
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "volume_expansion")
+		s.add(8, "volume_expansion")
 	}
 	if ctx.Change24h > 35 || ctx.RSI1h >= 82 {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "mms_squeeze_late_chase")
+		s.riskTag("mms_squeeze_late_chase")
 	}
-	sig.SetupScore = clampFloat(score, 0, 100)
-	sig.TimingScore = 72
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-	sig.RequiredConfirms = []string{"5m_or_15m_close_above_trigger", "taker_buy_15m_gt_0_52", "oi_delta_1h_positive_or_quote_volume_expands"}
+	s.sig.RequiredConfirms = []string{"5m_or_15m_close_above_trigger", "taker_buy_15m_gt_0_52", "oi_delta_1h_positive_or_quote_volume_expands"}
 
+	// Asymmetric fast-confirm band around the current price (0.4x pad below,
+	// full pad above) — not the symmetric zonePad template.
 	pad := ctx.CurrentPrice * 0.006
 	if ctx.ATR15m > 0 {
 		pad = maxFloat(pad, ctx.ATR15m*0.4)
 	}
-	sig.EntryZone = V7PriceZone{Lower: ctx.CurrentPrice - pad*0.4, Upper: ctx.CurrentPrice + pad}
+	s.sig.EntryZone = V7PriceZone{Lower: ctx.CurrentPrice - pad*0.4, Upper: ctx.CurrentPrice + pad}
 	stopDist := ctx.CurrentPrice * 0.022
 	if ctx.EMA25_1h > 0 && ctx.CurrentPrice-ctx.EMA25_1h > 0 && ctx.CurrentPrice-ctx.EMA25_1h <= ctx.CurrentPrice*0.035 {
 		stopDist = maxFloat(stopDist, ctx.CurrentPrice-ctx.EMA25_1h)
 	}
-	sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stopDist, Reason: "mms_squeeze_ema25_1h_lost"}
+	s.sig.Invalidation = V7InvalidationRule{Price: ctx.CurrentPrice - stopDist, Reason: "mms_squeeze_ema25_1h_lost"}
 	targetDist := stopDist * 2.0
 	if targetDist > ctx.CurrentPrice*0.075 {
 		targetDist = ctx.CurrentPrice * 0.075
 	}
-	sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_squeeze_continuation_target"}}
-	return sig
+	s.sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_squeeze_continuation_target"}}
+	return s.finishWithTiming(0, 72)
 }
 
 func mmsSmallCapProxyOK(ctx *V7SymbolContext) bool {

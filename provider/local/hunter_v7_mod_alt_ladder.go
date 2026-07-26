@@ -45,58 +45,47 @@ func (m *altLadderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Marke
 		return nil
 	}
 	stage := altLadderLongStage(ctx)
-	sig := &V7SignalOutput{
-		Symbol:           ctx.Symbol,
-		Direction:        V7DirLong,
-		SetupType:        V7SetupAltLadderLong,
-		Status:           V7StatusCandidate,
-		EntryMode:        V7EntryMomentumTrailing,
-		Confidence:       "B",
-		MarketRegime:     regime,
-		ReasonCodes:      []string{"alt_ladder_momentum_long", stage},
-		RequiredConfirms: []string{"live_price_in_entry_zone", "taker_buy_15m_gt_0_52", "oi_delta_1h_positive_or_quote_volume_expands", "taker_flow_not_flipping_against_direction"},
-		PriceCtx:         buildPriceCtx(ctx),
-		DerivativesCtx:   buildDerivCtx(ctx),
-		ExecutionQuality: V7ExecNearConfirm,
-		MarketShape:      V7ShapeCleanMomentum,
-		QuoteVolume24h:   ctx.Snapshot.QuoteVolume24h,
-		SetupScore:       altLadderLongSetupScore(ctx, stage),
-		TimingScore:      altLadderLongTimingScore(ctx),
-		EntryZone:        altLadderLongEntryZone(ctx),
-		Invalidation:     altLadderLongInvalidation(ctx),
-		Targets:          altLadderLongTargets(ctx),
-	}
+	s := newV7Signal(ctx, regime, V7SetupAltLadderLong, V7DirLong, V7EntryMomentumTrailing, "B")
+	s.reason("alt_ladder_momentum_long", stage)
+	s.add(altLadderLongSetupScore(ctx, stage))
+	s.sig.RequiredConfirms = []string{"live_price_in_entry_zone", "taker_buy_15m_gt_0_52", "oi_delta_1h_positive_or_quote_volume_expands", "taker_flow_not_flipping_against_direction"}
+	s.sig.ExecutionQuality = V7ExecNearConfirm
+	s.sig.MarketShape = V7ShapeCleanMomentum
+	s.sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+	s.sig.EntryZone = altLadderLongEntryZone(ctx)
+	s.sig.Invalidation = altLadderLongInvalidation(ctx)
+	s.sig.Targets = altLadderLongTargets(ctx)
 	// The 0.56 cutoff is a razor edge relative to taker-ratio sampling noise:
 	// BANKUSDT 2026-07-26 read 0.5588, lost the flow tag by 0.0012, was held
 	// out of the executable path — and hit TP0. Readings within 0.01 below the
 	// cutoff keep the flow tag but carry taker_buy_borderline so sizing is
 	// reduced instead of the signal being discarded outright.
 	if ctx.TakerBuy15m >= 0.56 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_taker_buy")
+		s.reason("alt_ladder_taker_buy")
 	} else if ctx.TakerBuy15m >= 0.55 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_taker_buy")
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "taker_buy_borderline")
+		s.reason("alt_ladder_taker_buy")
+		s.riskTag("taker_buy_borderline")
 	}
 	if ctx.Snapshot.OIDelta1h > 0.5 || ctx.Snapshot.OIDelta4h > 2 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_oi_inflow")
+		s.reason("alt_ladder_oi_inflow")
 	}
 	if ctx.VolumeBurst15m >= 1.1 || ctx.VolumeBurst1h >= 1.2 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_volume_expansion")
+		s.reason("alt_ladder_volume_expansion")
 	}
 	// Price and taker flow can look strong while open interest is actually
 	// leaving the move. Those longs (AKEUSDT 2026-07-26) reverse straight into
 	// the stop, so flag the missing same-direction OI participation instead of
 	// letting taker_buy carry the signal alone.
 	if ctx.Snapshot.OIDelta1h <= -1 && ctx.Snapshot.OIDelta4h <= -3 {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "fresh_oi_absent")
+		s.riskTag("fresh_oi_absent")
 	}
 	if stage == "alt_ladder_stage_late" || ctx.Change1h > 7 {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "alt_ladder_late_chase_risk")
+		s.riskTag("alt_ladder_late_chase_risk")
 	}
 	if stage == "alt_ladder_stage_extreme" {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "alt_ladder_extreme_continuation_watch")
+		s.riskTag("alt_ladder_extreme_continuation_watch")
 	}
-	return sig
+	return s.finishWithTiming(0, altLadderLongTimingScore(ctx))
 }
 
 type altLadderBreakdownShortModule struct{}
@@ -135,42 +124,31 @@ func (m *altLadderBreakdownShortModule) Score(ctx *V7SymbolContext, regime V7Mar
 		return nil
 	}
 	stage := altLadderShortStage(ctx)
-	sig := &V7SignalOutput{
-		Symbol:           ctx.Symbol,
-		Direction:        V7DirShort,
-		SetupType:        V7SetupAltLadderShort,
-		Status:           V7StatusCandidate,
-		EntryMode:        V7EntryFastConfirm,
-		Confidence:       "B",
-		MarketRegime:     regime,
-		ReasonCodes:      []string{"alt_ladder_breakdown_short", stage},
-		RequiredConfirms: []string{"live_price_in_entry_zone", "taker_buy_15m_lt_0_48", "5m_or_15m_close_below_trigger", "taker_flow_not_flipping_against_direction"},
-		PriceCtx:         buildPriceCtx(ctx),
-		DerivativesCtx:   buildDerivCtx(ctx),
-		ExecutionQuality: V7ExecNearConfirm,
-		MarketShape:      V7ShapeDistributionShort,
-		QuoteVolume24h:   ctx.Snapshot.QuoteVolume24h,
-		SetupScore:       altLadderShortSetupScore(ctx, stage),
-		TimingScore:      altLadderShortTimingScore(ctx),
-		EntryZone:        altLadderShortEntryZone(ctx),
-		Invalidation:     altLadderShortInvalidation(ctx),
-		Targets:          altLadderShortTargets(ctx),
-	}
+	s := newV7Signal(ctx, regime, V7SetupAltLadderShort, V7DirShort, V7EntryFastConfirm, "B")
+	s.reason("alt_ladder_breakdown_short", stage)
+	s.add(altLadderShortSetupScore(ctx, stage))
+	s.sig.RequiredConfirms = []string{"live_price_in_entry_zone", "taker_buy_15m_lt_0_48", "5m_or_15m_close_below_trigger", "taker_flow_not_flipping_against_direction"}
+	s.sig.ExecutionQuality = V7ExecNearConfirm
+	s.sig.MarketShape = V7ShapeDistributionShort
+	s.sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+	s.sig.EntryZone = altLadderShortEntryZone(ctx)
+	s.sig.Invalidation = altLadderShortInvalidation(ctx)
+	s.sig.Targets = altLadderShortTargets(ctx)
 	if ctx.TakerBuy15m > 0 && ctx.TakerBuy15m <= 0.46 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_taker_sell")
+		s.reason("alt_ladder_taker_sell")
 	}
 	if ctx.Snapshot.OIDelta1h > 0.5 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_new_shorts")
+		s.reason("alt_ladder_new_shorts")
 	} else if ctx.Snapshot.OIDelta1h < -2 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_long_flush")
+		s.reason("alt_ladder_long_flush")
 	}
 	if ctx.VolumeBurst15m >= 1.1 {
-		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_sell_volume")
+		s.reason("alt_ladder_sell_volume")
 	}
 	if stage == "alt_ladder_downshift_late" && ctx.Snapshot.OIDelta1h >= 0 {
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "alt_ladder_late_short_risk")
+		s.riskTag("alt_ladder_late_short_risk")
 	}
-	return sig
+	return s.finishWithTiming(0, altLadderShortTimingScore(ctx))
 }
 
 func altLadderLongStructureOK(ctx *V7SymbolContext) bool {

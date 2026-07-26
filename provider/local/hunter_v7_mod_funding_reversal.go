@@ -120,18 +120,10 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 		}
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    dir,
-		SetupType:    V7SetupFundingReversal,
-		Status:       V7StatusWaitConfirm,
-		EntryMode:    V7EntryWaitPriceReversal,
-		Confidence:   "C",
-		MarketRegime: regime,
-	}
-	sig.RequiredConfirms = fundingReversalConfirmations(dir)
-
-	var score float64
+	s := newV7Signal(ctx, regime, V7SetupFundingReversal, dir, V7EntryWaitPriceReversal, "C")
+	s.sig.Status = V7StatusWaitConfirm
+	s.sig.RequiredConfirms = fundingReversalConfirmations(dir)
+	sig := s.sig
 
 	// 1. Funding Extreme (0-25): how extreme the funding rate is
 	fundingAbs := snap.FundingRate
@@ -139,42 +131,32 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 		fundingAbs = -fundingAbs
 	}
 	if fundingAbs >= 0.0015 {
-		score += 25
-		sig.ReasonCodes = append(sig.ReasonCodes, "extreme_funding")
+		s.add(25, "extreme_funding")
 	} else if fundingAbs >= 0.0010 {
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "very_high_funding")
+		s.add(20, "very_high_funding")
 	} else if fundingAbs >= 0.0005 {
-		score += 15
-		sig.ReasonCodes = append(sig.ReasonCodes, "high_funding")
+		s.add(15, "high_funding")
 	} else {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "elevated_funding")
+		s.add(8, "elevated_funding")
 	}
 
 	// 2. Crowding (0-25): how extreme the LSR is
 	if dir == V7DirShort {
 		if snap.LSR >= 3.0 {
-			score += 25
-			sig.ReasonCodes = append(sig.ReasonCodes, "extreme_long_crowding")
+			s.add(25, "extreme_long_crowding")
 		} else if snap.LSR >= 2.5 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "heavy_long_crowding")
+			s.add(20, "heavy_long_crowding")
 		} else if snap.LSR >= 2.2 {
-			score += 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "long_crowding")
+			s.add(12, "long_crowding")
 		}
 	} else {
 		lsrAbs := snap.LSR
 		if lsrAbs > 0 && lsrAbs < 0.5 {
-			score += 25
-			sig.ReasonCodes = append(sig.ReasonCodes, "extreme_short_crowding")
+			s.add(25, "extreme_short_crowding")
 		} else if lsrAbs < 0.65 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "heavy_short_crowding")
+			s.add(20, "heavy_short_crowding")
 		} else if lsrAbs < 0.8 {
-			score += 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "short_crowding")
+			s.add(12, "short_crowding")
 		}
 	}
 
@@ -182,26 +164,20 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	if dir == V7DirShort {
 		// For short: price stalling after rally (recent 1h negative while 24h positive)
 		if ctx.Change1h < -1 && ctx.Change24h > 3 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_stalling_after_rally")
+			s.add(20, "price_stalling_after_rally")
 		} else if ctx.Change1h < 0 && ctx.Change24h > 0 {
-			score += 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_turning_down")
+			s.add(12, "price_turning_down")
 		} else if ctx.Change1h < 1 {
-			score += 6
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_flattening")
+			s.add(6, "price_flattening")
 		}
 	} else {
 		// For long: price holding support after drop (recent 1h positive while 24h negative)
 		if ctx.Change1h > 1 && ctx.Change24h < -3 {
-			score += 20
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_bouncing_from_support")
+			s.add(20, "price_bouncing_from_support")
 		} else if ctx.Change1h > 0 && ctx.Change24h < 0 {
-			score += 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_turning_up")
+			s.add(12, "price_turning_up")
 		} else if ctx.Change1h > -1 {
-			score += 6
-			sig.ReasonCodes = append(sig.ReasonCodes, "price_flattening")
+			s.add(6, "price_flattening")
 		}
 	}
 
@@ -209,80 +185,70 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	if dir == V7DirShort {
 		// OI elevated or starting to drop (longs getting liquidated)
 		if snap.OIDelta1h < -3 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_declining_long_flush")
+			s.add(15, "oi_declining_long_flush")
 		} else if snap.OIDelta1h > 5 {
-			score -= 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_elevated_still_building")
-			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
+			s.add(-12, "oi_elevated_still_building")
+			s.riskTag("oi_building_no_flush")
 		} else if snap.OIDelta1h > 0 {
-			score -= 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_mild_buildup")
-			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
+			s.add(-5, "oi_mild_buildup")
+			s.riskTag("oi_building_no_flush")
 		}
 	} else {
 		// For a long funding reversal, expanding OI after a pump/drop is still
 		// late-entry risk unless there is a clear reset/failed rebuild.
 		if snap.OIDelta1h < -3 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_declining_short_flush")
+			s.add(15, "oi_declining_short_flush")
 		} else if snap.OIDelta1h > 5 {
-			score -= 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_elevated_still_building")
-			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
+			s.add(-12, "oi_elevated_still_building")
+			s.riskTag("oi_building_no_flush")
 		} else if snap.OIDelta1h > 0 {
-			score -= 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_mild_buildup")
-			sig.RiskTags = append(sig.RiskTags, "oi_building_no_flush")
+			s.add(-5, "oi_mild_buildup")
+			s.riskTag("oi_building_no_flush")
 		} else {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_stable")
+			s.add(5, "oi_stable")
 		}
 	}
 
 	// 5. Taker Reversal (0-15): taker flow turning against the crowd
 	if dir == V7DirShort {
 		if ctx.TakerBuy15m < 0.42 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "strong_taker_sell_reversal")
+			s.add(15, "strong_taker_sell_reversal")
 		} else if ctx.TakerBuy15m < 0.46 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_selling_emerging")
+			s.add(10, "taker_selling_emerging")
 		} else if ctx.TakerBuy15m < 0.50 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_neutral")
+			s.add(5, "taker_neutral")
 		}
 	} else {
 		if ctx.TakerBuy15m > 0.58 {
-			score += 15
-			sig.ReasonCodes = append(sig.ReasonCodes, "strong_taker_buy_reversal")
+			s.add(15, "strong_taker_buy_reversal")
 		} else if ctx.TakerBuy15m > 0.53 {
-			score += 10
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_buying_emerging")
+			s.add(10, "taker_buying_emerging")
 		} else if ctx.TakerBuy15m > 0.50 {
-			score += 5
-			sig.ReasonCodes = append(sig.ReasonCodes, "taker_neutral")
+			s.add(5, "taker_neutral")
 		}
 	}
 
 	if dir == V7DirShort && ctx.Change24h < -12 && snap.OIDelta1h >= 0 {
-		score -= 20
-		sig.RiskTags = append(sig.RiskTags, "late_short_after_deep_drop")
+		s.add(-20)
+		s.riskTag("late_short_after_deep_drop")
 	}
 	if dir == V7DirShort && ctx.Change1h < -5 && snap.OIDelta1h >= 0 {
-		score -= 15
-		sig.RiskTags = append(sig.RiskTags, "short_after_fast_drop_without_flush")
+		s.add(-15)
+		s.riskTag("short_after_fast_drop_without_flush")
 	}
 	if dir == V7DirLong && ctx.Change24h > 12 && snap.OIDelta1h >= 0 {
-		score -= 20
-		sig.RiskTags = append(sig.RiskTags, "late_long_after_deep_pump")
+		s.add(-20)
+		s.riskTag("late_long_after_deep_pump")
 	}
 	if dir == V7DirLong && ctx.Change1h > 5 && snap.OIDelta1h >= 0 {
-		score -= 15
-		sig.RiskTags = append(sig.RiskTags, "long_after_fast_pump_without_flush")
+		s.add(-15)
+		s.riskTag("long_after_fast_pump_without_flush")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
+	// Handwritten tail from here: the no-taker-reversal penalty multiplies the
+	// clamped score, the geometry has direction-dependent fallbacks, and the
+	// status upgrade runs after the module-specific timing model.
+	sig.SetupScore = clampFloat(s.score, 0, 100)
 
 	// Funding reversal requires stronger confirmation — penalty if no taker reversal signal
 	hasTakerReversal := false
