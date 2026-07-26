@@ -19,11 +19,11 @@ import (
 type MatrixCell struct {
 	Regime         local.V7MarketRegime `json:"regime"`
 	SetupType      local.V7SetupType    `json:"setup_type"`
-	SignalCount    int            `json:"signal_count"`
-	ExecCount      int            `json:"exec_count"`
-	AvgPriority    float64        `json:"avg_priority"`
-	AvgSetupScore  float64        `json:"avg_setup_score"`
-	AvgTimingScore float64        `json:"avg_timing_score"`
+	SignalCount    int                  `json:"signal_count"`
+	ExecCount      int                  `json:"exec_count"`
+	AvgPriority    float64              `json:"avg_priority"`
+	AvgSetupScore  float64              `json:"avg_setup_score"`
+	AvgTimingScore float64              `json:"avg_timing_score"`
 }
 
 // MatrixReport holds the full diagnostic matrix.

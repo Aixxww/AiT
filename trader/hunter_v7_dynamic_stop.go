@@ -25,24 +25,24 @@ type DynamicStopConfig struct {
 	TimeDecayRate    float64       // 0.02 per minute (fraction of gap to close)
 
 	// Trailing stop (profit protection)
-	TrailingEnabled      bool
-	TrailingActivationR  float64 // 0.5 — activate when MFE >= 0.5R
-	TrailingDistanceR    float64 // 0.4 — trail at 0.4R from best price
+	TrailingEnabled     bool
+	TrailingActivationR float64 // 0.5 — activate when MFE >= 0.5R
+	TrailingDistanceR   float64 // 0.4 — trail at 0.4R from best price
 }
 
 // DefaultDynamicStopConfig returns sensible defaults.
 func DefaultDynamicStopConfig() DynamicStopConfig {
 	return DynamicStopConfig{
-		HighVolThreshold:     80.0,
-		LowVolThreshold:      20.0,
-		HighVolStopWiden:     1.3,
-		LowVolStopTighten:    0.7,
-		TimeDecayEnabled:     true,
-		TimeDecayAfter:       30 * time.Minute,
-		TimeDecayRate:        0.02,
-		TrailingEnabled:      true,
-		TrailingActivationR:  0.5,
-		TrailingDistanceR:    0.4,
+		HighVolThreshold:    80.0,
+		LowVolThreshold:     20.0,
+		HighVolStopWiden:    1.3,
+		LowVolStopTighten:   0.7,
+		TimeDecayEnabled:    true,
+		TimeDecayAfter:      30 * time.Minute,
+		TimeDecayRate:       0.02,
+		TrailingEnabled:     true,
+		TrailingActivationR: 0.5,
+		TrailingDistanceR:   0.4,
 	}
 }
 
