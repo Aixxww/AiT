@@ -945,13 +945,6 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 			coin.V7RiskScore < 45 &&
 			containsStringValue(coin.V7ReasonCodes, "whale_flow_detected") &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_1h_confirming_accumulation", "stealth_accumulation_breakout", "funding_not_crowded"})
-	case "displacement_momentum_long":
-		return coin.V7AIPriority >= 60 &&
-			coin.V7SetupScore >= 70 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 45 &&
-			!containsStringValue(coin.V7ReasonCodes, "chase_high_protection") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_confirms_new_demand", "taker_buy_aggressive", "taker_buy_aligned"})
 	case "pullback_reversal_long":
 		return coin.V7AIPriority >= 48 &&
 			coin.V7SetupScore >= 60 &&
@@ -1131,14 +1124,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 55 &&
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "long_setup_ready_confirmed"
-		}
-	case "displacement_momentum_long":
-		if coin.V7AIPriority >= 55 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "displacement_ready_confirmed"
 		}
 	case "range_expansion_event":
 		if hunterV7ConfirmedRangeExpansionContinuation(coin, true) &&
@@ -1388,15 +1373,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 	case "pre_breakout_watch", "pre_squeeze_watch", "pre_distribution_watch", "accumulation_watch":
 		if hunterV7WatchUpgradedReviewable(coin) {
 			return true, "watch_state_upgraded_reviewable"
-		}
-	case "displacement_momentum_long":
-		if coin.V7AIPriority >= 48 &&
-			coin.V7SetupScore >= 50 &&
-			coin.V7TimingScore >= 40 &&
-			coin.V7RiskScore < 55 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "displacement_reviewable_needs_confirm"
 		}
 	case "range_expansion_event":
 		if hunterV7ConfirmedRangeExpansionContinuation(coin, false) &&
