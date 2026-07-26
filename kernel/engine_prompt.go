@@ -738,6 +738,10 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			continue
 		}
 		coin = hunterV7CandidateWithLiveMarketPrice(coin, data)
+		// Settle live-confirmable required confirmations before tiering, so a
+		// candidate whose only gap was "nobody has looked at the latest close
+		// yet" is not parked in REVIEWABLE until after the LLM has seen it.
+		coin = hunterV7ApplyLiveConfirmations(coin, data)
 		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, geometry)
 		coin.V7ExecutionTier = tier
 		coin.V7TierReason = reason

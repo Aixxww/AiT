@@ -202,7 +202,7 @@ func runValidation(opts validationOptions, round int) error {
 	regime := v7Result.Regime
 	signals := v7Result.Signals
 	candidates := signalsToCandidates(signals)
-	prompt := buildPrompt(candidates, signals, strategyCfg)
+	prompt := buildPrompt(candidates, signals, snap, strategyCfg)
 
 	now := time.Now()
 	stamp := now.Format("20060102-150405")
@@ -350,7 +350,7 @@ func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error
 	return &cfg, nil
 }
 
-func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, strategyCfg *store.StrategyConfig) string {
+func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, snap *datafetch.Snapshot, strategyCfg *store.StrategyConfig) string {
 	cfg := store.GetDefaultStrategyConfig("zh")
 	if strategyCfg != nil {
 		cfg = *strategyCfg
@@ -378,6 +378,19 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 		if sig.DerivativesCtx != nil {
 			funding = sig.DerivativesCtx.FundingRate
 			oi = sig.DerivativesCtx.OIValue
+		}
+		// Prefer the production converter so the prompt cycle sees the same
+		// TimeframeData (klines + EMA20 series) the live trader would; the
+		// pre-prompt live-confirmation pass depends on it. Fall back to the
+		// sparse context-only Data when the snapshot lacks klines.
+		if snap != nil {
+			if ss, ok := snap.Symbols[sig.Symbol]; ok && ss != nil && len(ss.Klines) > 0 {
+				if full, err := market.BuildDataFromSymbolSnapshot(sig.Symbol, ss, []string{"5m", "15m", "1h"}, "15m", 60); err == nil {
+					full.FundingRate = funding
+					md[sig.Symbol] = full
+					continue
+				}
+			}
 		}
 		md[sig.Symbol] = &market.Data{
 			Symbol:        sig.Symbol,
