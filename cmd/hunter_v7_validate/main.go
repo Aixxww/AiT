@@ -213,7 +213,7 @@ func runValidation(opts validationOptions, round int) error {
 		fmt.Printf("golden fixture: %s (universe=%d regime=%s)\n", opts.dumpUniverse, len(universe), regime)
 	}
 	geometry := executionGeometryFromStrategy(strategyCfg)
-	candidates := signalsToCandidates(signals, geometry)
+	candidates := kernel.AssembleHunterV7CandidateCoins(signals, "BOTH", geometry)
 	prompt := buildPrompt(candidates, signals, snap, strategyCfg)
 
 	now := time.Now()
@@ -290,71 +290,6 @@ func executionGeometryFromStrategy(strategyCfg *store.StrategyConfig) kernel.Hun
 		riskControl.MinRiskRewardRatio,
 		true,
 	)
-}
-
-func signalsToCandidates(signals []local.V7SignalOutput, geometry kernel.HunterV7ExecutionGeometry) []kernel.CandidateCoin {
-	candidates := make([]kernel.CandidateCoin, 0, len(signals))
-	for _, sig := range signals {
-		tags := append([]string{string(sig.SetupType), string(sig.Status)}, sig.ReasonCodes...)
-		tags = append(tags, sig.RiskTags...)
-		cc := kernel.CandidateCoin{
-			Symbol:             sig.Symbol,
-			Sources:            []string{"hunter_v7"},
-			Direction:          string(sig.Direction),
-			SignalTags:         tags,
-			V7SignalID:         sig.SignalID,
-			V7SetupType:        string(sig.SetupType),
-			V7Status:           string(sig.Status),
-			V7AIPriority:       sig.AIPriority,
-			V7SetupScore:       sig.SetupScore,
-			V7RiskScore:        sig.RiskScore,
-			V7LiquidityScore:   sig.LiquidityScore,
-			V7TimingScore:      sig.TimingScore,
-			V7RegimeFitScore:   sig.RegimeFitScore,
-			V7RiskLevel:        string(sig.RiskLevel),
-			V7EntryMode:        string(sig.EntryMode),
-			V7ExecutionQuality: string(sig.ExecutionQuality),
-			V7MarketRegime:     string(sig.MarketRegime),
-			V7Confidence:       sig.Confidence,
-			V7ReasonCodes:      append([]string{}, sig.ReasonCodes...),
-			V7RiskTags:         append([]string{}, sig.RiskTags...),
-			V7RequiredConfirms: append([]string{}, sig.RequiredConfirms...),
-			V7EntryZone:        sig.EntryZone,
-			V7Invalidation:     sig.Invalidation,
-			V7Targets:          append([]local.V7Target{}, sig.Targets...),
-			V7ConfirmSummary:   sig.ConfirmSummary,
-			V7PriceContext:     sig.PriceCtx,
-			V7DerivativesCtx:   sig.DerivativesCtx,
-			V7Readiness:        sig.ExecutionReadiness,
-			V7ExecutionContext: sig.ExecutionContext,
-			V7DataFreshness:    sig.DataFreshness,
-			V7TP0Price:         sig.TP0Price,
-			V7TP0RR:            sig.TP0RR,
-			V7TP0TimeWindow:    sig.TP0TimeWindow,
-			V7TP0Method:        sig.TP0Method,
-			V7TP1Price:         sig.TP1Price,
-			V7TP1RR:            sig.TP1RR,
-			V7TP1TimeWindow:    sig.TP1TimeWindow,
-			V7TP1Method:        sig.TP1Method,
-			V7TP2Price:         sig.TP2Price,
-			V7TP2RR:            sig.TP2RR,
-			V7TP2TimeWindow:    sig.TP2TimeWindow,
-			V7TP2Method:        sig.TP2Method,
-			V7TPPlan:           sig.TPPlan,
-			V7QuoteVolume24h:   sig.QuoteVolume24h,
-		}
-		cc.V7ExecutionTier, cc.V7TierReason = kernel.ClassifyHunterV7CandidateTierForRuntime(cc, geometry)
-		if sig.Direction == local.V7DirLong {
-			cc.LongScore = sig.AIPriority
-			cc.LongTags = tags
-		} else {
-			cc.ShortScore = sig.AIPriority
-			cc.ShortTags = tags
-		}
-		cc.CapitalLevel, cc.CapitalTier = local.V7ConfidenceToCapitalLevel(sig.Confidence)
-		candidates = append(candidates, cc)
-	}
-	return candidates
 }
 
 func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error) {
@@ -600,7 +535,7 @@ func validateCoverage(signals []local.V7SignalOutput, geometry kernel.HunterV7Ex
 		c.ByStatus[string(sig.Status)]++
 		c.ByRiskLevel[string(sig.RiskLevel)]++
 		c.ByEntryMode[string(sig.EntryMode)]++
-		cc := signalsToCandidates([]local.V7SignalOutput{sig}, geometry)
+		cc := kernel.AssembleHunterV7CandidateCoins([]local.V7SignalOutput{sig}, "BOTH", geometry)
 		if len(cc) > 0 {
 			tier := cc[0].V7ExecutionTier
 			if tier == "" {

@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/provider/local"
 )
 
@@ -99,7 +100,7 @@ func TestSignalsToCandidatesPreservesSignalContractFields(t *testing.T) {
 		},
 	}
 
-	candidates := signalsToCandidates(signals, executionGeometryFromStrategy(nil))
+	candidates := kernel.AssembleHunterV7CandidateCoins(signals, "BOTH", executionGeometryFromStrategy(nil))
 	if len(candidates) != 1 {
 		t.Fatalf("candidate count = %d, want 1", len(candidates))
 	}

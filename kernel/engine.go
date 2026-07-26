@@ -531,8 +531,14 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 // hunterV7SignalsToCandidateCoins converts Hunter v7 structured signals into
 // CandidateCoin while preserving the rich signal context for the AI prompt.
 func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7SignalOutput, direction string) []CandidateCoin {
+	return AssembleHunterV7CandidateCoins(signals, direction, e.hunterV7ExecutionGeometry())
+}
+
+// AssembleHunterV7CandidateCoins is the production signal→candidate assembly,
+// exported so offline tooling (cmd/hunter_v7_validate) sees exactly what the
+// live engine would build instead of maintaining a hand copy (U5.3).
+func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction string, geometry HunterV7ExecutionGeometry) []CandidateCoin {
 	var candidates []CandidateCoin
-	geometry := e.hunterV7ExecutionGeometry()
 	for _, sig := range signals {
 		if sig.Direction == "" {
 			continue
