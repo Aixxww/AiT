@@ -166,7 +166,9 @@ func (wm *WSManager) connectAndReadOne(streams []string) error {
 		u.Host = "fstream.binance.com"
 	}
 
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	dialer := *websocket.DefaultDialer
+	dialer.Proxy = binanceProxyFromEnvironment
+	conn, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("dial %s: %w", u.String(), err)
 	}

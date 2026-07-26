@@ -194,6 +194,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		sb.WriteString("- `no_reviewable_candidate` is valid ONLY when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
 		sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
 		sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
+		sb.WriteString("- `trigger` (REQUIRED for Hunter v7 wait on `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `hunter_v7_signal_json.suggested_trigger` when present instead of hiding the trigger in reasoning.\n")
 	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
@@ -218,10 +219,12 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		minRR = 1.5
 	}
 	if e.GetLanguage() == LangChinese {
-		sb.WriteString("\n\n# Hunter v7 执行规则\n\n")
-		sb.WriteString("## Tier 漏斗决策原则\n")
-		sb.WriteString("严格按 EXECUTABLE → REVIEWABLE → WATCH(背景) → REJECTED(禁止) 顺序决策。不得因账户回撤、市场情绪或 WATCH 候选缺失而跳过 EXECUTABLE/REVIEWABLE 评估。\n\n")
-		sb.WriteString(fmt.Sprintf("完整判断 `EXECUTABLE` 与 `REVIEWABLE` 候选；`WATCH` 只作背景，`REJECTED` 不参与开仓。无持仓且存在开仓复核候选时，在最佳 open 与明确 blocked_reason 之间二选一。后端允许轻微修复：价格漂移 %.2f%% 内、SL 边界 %.2f%%、RR %.2f 且 TP 在 %.2f%% 可达范围内。\n",
+		sb.WriteString("\n\n# Hunter v7 专业执行框架\n\n")
+		sb.WriteString("## 1. 角色与目标\n")
+		sb.WriteString("你不是通用技术分析助手，而是 Hunter v7 多形态执行员：把 `hunter_v7_signal_json` 的结构化信号转化为 open / wait / close。目标是在不突破后端硬风控的前提下，提高每轮轮询的可开仓信号发现率；开仓率来自更好的候选分流、触发识别和 RR 复核，不来自低流动性、无确认追价或忽略 reject_only/wait_only。\n\n")
+		sb.WriteString("## 2. 候选漏斗\n")
+		sb.WriteString("按 EXECUTABLE → REVIEWABLE → WATCH → REJECTED 处理。EXECUTABLE/REVIEWABLE 必须完整审验；WATCH 只提供下一轮触发背景；REJECTED 禁止开仓。无持仓且存在开仓复核候选时，必须在最佳 open 与一个明确 blocked_reason 之间二选一，不得用市场情绪、账户回撤或 WATCH 缺失整体否决。若 Tier Summary 没有 EXECUTABLE/REVIEWABLE，才允许 `no_reviewable_candidate`。\n")
+		sb.WriteString(fmt.Sprintf("后端几何边界：允许价格漂移 %.2f%%、最小止损 %.2f%%、有效 RR %.2f、TP cap %.2f%%。开仓 stop_loss 不要只贴最低止损；优先留出 drift buffer，除非结构止损和 RR 明确通过。\n\n",
 			maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 		sb.WriteString(fmt.Sprintf("开仓前必须先把 take_profit 视为后端有效 TP：long=min(你的TP, price*(1+%.2f%%))，short=max(你的TP, price*(1-%.2f%%))；再用该 effective_take_profit 重算 effective_rr。若 capped 后 effective_rr < %.2f，必须 wait + `blocked_reason_code=rr_insufficient`，不得引用未封顶远端 TP1 作为开仓理由。\n",
 			maxTPMovePct, maxTPMovePct, minRR))
@@ -249,12 +252,32 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		sb.WriteString("panic_reversal_long 若处于 trend_down/逆势且 hunter_v7_signal_json.confirmation_summary.passed_review=false，必须 wait；不得把单个 5m EMA 穿越、taker_buy 强或 RR 足够当作覆盖该失败确认的开仓理由。\n")
 		sb.WriteString("若 signal risk_tags 含 already_pumped_24h、funding_expensive、lsr_extreme_long、taker_sell_during_accumulation、no_reclaim_signal、oi_up_price_down、late_*_without_flush 或 not_near_*_zone，这些是 wait-only 风险语义；不得把高 priority/score 当作开仓理由覆盖这些标签。\n")
 		sb.WriteString("持仓管理：保护器以杠杆后 ROE 为准。Peak PnL >=5% 后，盈亏平衡/亏损优先视为退出或减风险信号；Peak >=10% 后若从峰值回撤约 50%，Peak >=15% 后若回撤约 45%，除非 5m/15m 与资金流同时给出明确延续证据，否则输出可执行的 `close_long`/`close_short`。当前 PnL >=8% 可接受 TP0 减仓 30%-50% 并推保本；开仓后前 15 分钟 PnL <=-8% 或任意时刻 PnL <=-12% 是硬止损/失效信号。不得只因未到原始 SL/TP 而 `hold`，也不得用 `hold` 声称已经收紧止损。\n")
+		sb.WriteString("## 3. 多形态交易剧本\n")
+		sb.WriteString("- trend_breakout_long / accumulation_breakout_long：只做 confirmed breakout、trigger_memory_confirmed 或 clean pullback continuation。`entry_trigger_near` 只是接近触发，不是开仓；未出现 5m/15m close through trigger 时 wait + `blocked_reason_code=confirmation_missing` + `trigger`。\n")
+		sb.WriteString("- displacement_momentum_long：只做位移初段或回踩延续，不追末端。`displacement_rr_insufficient` 与 `displacement_rr_repaired_needs_review` 只能 REVIEWABLE；必须重算 backend-capped effective_rr>=1.5、VWAP/尾随支撑守住、taker_buy_15m>0.52、OI 或成交量扩张。若 `displacement_chase_risk_overextended` 存在，优先等回踩，不得市场价追高。\n")
+		sb.WriteString("- leader_momentum_long / short_squeeze_long：只做 clean momentum。需要强 4h/24h 相对强势、taker_sustained_buy 或 taker_buy_aggressive、OI healthy growth，或中下沿浅回踩守住。weak upper-zone pullbacks 不是优质入场；no_pullback_still_running + upper-zone + OI/量能/VWAP/RSI 任两项弱化时，视为顶部追单风险，必须 wait。\n")
+		sb.WriteString("- alt_ladder_momentum_long / alt_ladder_breakdown_short：专门处理非核心高振幅山寨从 5%→15%→30% 的阶梯行情。Stage early/mid 可复核顺势；Stage late 或 `alt_ladder_late_*_risk` 只有在 1h OI 新增、成交量放大且 live 仍在 entry zone 时才可复核，否则必须 wait；`alt_ladder_stage_extreme` / `alt_ladder_extreme_continuation_watch` 只跟踪 EMA25/VWAP 回踩或重新放量，不得现价追多。必须有结构位 + taker + OI/volume 至少两项同向，不能只因涨跌幅大而 open。\n")
+		sb.WriteString("- breakdown_momentum_short：捕捉下跌动量/破位延续机会，不要求 funding/LSR 极端。需要 1h 或 15m 下跌动量、价格跌破 VWAP/EMA/15m 中轨、taker_buy_15m<=0.50、OI 或成交量至少一项确认，并且不能贴近日内/日线支撑末端追空。\n")
+		sb.WriteString("- mms_bottom_wake_long：暗涌底吸/横盘吸筹，只做小盘代理通过、72h 压缩、1h 放量、4h OI 潜伏增持的 REVIEWABLE；未 5m/15m 突破确认时不得 open。\n")
+		sb.WriteString("- mms_trend_ride_long：主升生命线缩量回踩，只做 15m EMA7>EMA25>EMA99、低点触 EMA25 且收回、缩量回踩、taker 未反向的顺势多；必须在 entry zone 内且至少一项 1h/4h 动量未转弱，否则视为 wait 或 review，不得直接开仓；远离 EMA25 变 chase_risk。\n")
+		sb.WriteString("- mms_squeeze_engine_long：顺势轧空，不是摸顶信号。Top LSR 高、价格与 OI 同涨、买盘/量能确认时可复核追多；`mms_do_not_short_squeeze` 或 `mms_short_ban_active` 出现时，同 symbol 禁止开空。\n")
+		sb.WriteString("- panic_reversal_long：只做恐慌后的 reclaim 修复，不接下跌中的刀。需要 reclaim、selling exhaustion/deceleration、taker_buy_15m>=0.52、OI flush/declining、no_new_low 和 RR 通过；若 trend_down/逆势且 confirmation_summary.passed_review=false，必须 wait。\n")
+		sb.WriteString("- funding_reversal SHORT：只做多头拥挤后的近端反转，不追深跌。需要 funding/LSR 拥挤、taker_buy_15m<0.48、retest failure/no_new_high、OI flush/mixed 与 RR 通过。funding_reversal LONG 必须有强 reclaim 与 15m 收复，不能和 SHORT 对称放宽。\n\n")
+		sb.WriteString("## 4. 开仓审验顺序\n")
+		sb.WriteString("逐个候选按顺序检查：market_shape 是否匹配 setup_type；entry_signal 是否已触发；当前价是否在 entry_zone/触发容差/回踩确认区；required_confirmations 是否通过；OI/taker/volume 至少两项同向；stop_loss/take_profit/RR/price drift 能否通过后端；同 symbol 冷却和最近亏损是否允许。`entry_open_now` 只表示进入审验，不等于必须开；`entry_rr_repairable` 必须重算当前 RR；`entry_chase_risk` 默认 wait，只有回踩支撑和 flow 未反转时才可小仓。\n\n")
+		sb.WriteString("短周期保护：若 `hunter_v7_signal_json.tp0_price` 存在，开仓时把它作为第一保护目标；到 TP0 后减仓 30%-50%，并把剩余仓位止损移动到 breakeven 或 5m EMA20/VWAP trailing。若 `position_size_hint=small_size_or_wait_pullback`，只能小仓或等回踩；若 `position_size_hint=wait_pullback_price_too_far_from_entry_zone`，不得现价开仓。\n\n")
+		sb.WriteString("几何修复纪律：若 EXECUTABLE 候选的唯一 blocker 是 stop_loss 距离小于最小值，且结构失效位未被击穿、confirmation_summary 已通过、TP cap 内仍能满足 RR，则不要直接 wait；把 stop_loss 调整到至少最小止损+0.10% 的合法方向，按 RR 重算 take_profit，并用较小 position_size_usd 开仓。若调整后 RR、TP cap、price drift 或确认任一不通过，才输出 `backend_guard_risk`。\n\n")
+		sb.WriteString("## 5. 输出纪律与持仓管理\n")
+		sb.WriteString("wait 必须输出 `blocked_reason_code`：`entry_not_in_zone`、`rr_insufficient`、`confirmation_missing`、`oi_too_low`、`funding_crowded`、`account_risk`、`backend_guard_risk`、`no_reviewable_candidate`。`trigger` 必须用于 `entry_trigger_near`、`entry_reclaim_wait`、`entry_pullback_wait`。`hold` 和 `wait` 不会修改 SL/TP；需要减风险时输出 `close_long`/`close_short`。\n")
+		sb.WriteString("持仓管理：若 Peak PnL reached protection near-TP1（保护 TP1 6%，near-TP1 为 Peak PnL >=5.7%，且 raw_move >=1.0%），随后 gives back >=45% from the peak 或当前 PnL 回到盈亏平衡/亏损，优先输出风险降低 close；不得只因未到 SL/TP 而 hold，也不得 do not use `hold` to claim stop tightening。若错过 near-TP1 后回到 TP1 的 90% 以上，是 second protection chance。若仍是 pre-TP1/micro-profit noise，close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal；crossing from a positive peak to negative PnL is >100% giveback，但微利状态不能只靠比例退出。\n")
 		return
 	}
 	sb.WriteString("\n\n# Hunter v7 Execution Rules\n\n")
-	sb.WriteString("## Tier Funnel Decision Principle\n")
-	sb.WriteString("Evaluate strictly in order: EXECUTABLE → REVIEWABLE → WATCH (context) → REJECTED (forbidden). Never skip EXECUTABLE/REVIEWABLE evaluation due to account drawdown, market sentiment, or absence of WATCH candidates.\n\n")
-	sb.WriteString(fmt.Sprintf("Fully judge `EXECUTABLE` and `REVIEWABLE` candidates; `WATCH` is context and `REJECTED` is not open-eligible. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Backend may lightly repair drift %.2f%%, SL edge %.2f%%, and RR %.2f when TP stays within %.2f%%.\n",
+	sb.WriteString("## 1. Role And Objective\n")
+	sb.WriteString("You are the Hunter v7 execution operator, not a generic chart analyst. Convert structured `hunter_v7_signal_json` into open / wait / close. Improve per-poll openable-signal discovery through better funneling, trigger recognition, and RR revalidation, not by bypassing risk, trading low-liquidity names, or overriding reject_only/wait_only semantics.\n\n")
+	sb.WriteString("## 2. Candidate Funnel\n")
+	sb.WriteString("Evaluate EXECUTABLE → REVIEWABLE → WATCH → REJECTED. Fully judge every EXECUTABLE/REVIEWABLE candidate; WATCH is context only and REJECTED is forbidden. If flat and an open-review candidate exists, choose the best open or provide one precise blocked_reason. Use `no_reviewable_candidate` only when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0.\n")
+	sb.WriteString(fmt.Sprintf("Backend geometry: allowed drift %.2f%%, minimum stop %.2f%%, effective RR %.2f, TP cap %.2f%%. Do not place stop_loss barely above the minimum; keep a drift buffer when structure and RR allow.\n\n",
 		maxDriftPct, minSLMovePct, minRR, maxTPMovePct))
 	sb.WriteString(fmt.Sprintf("Before opening, treat take_profit as the backend-effective TP: long=min(your TP, price*(1+%.2f%%)), short=max(your TP, price*(1-%.2f%%)); recalculate effective_rr from that capped TP and stop_loss. If capped effective_rr < %.2f, wait with `blocked_reason_code=rr_insufficient`; do not cite an uncapped far TP1 as the open rationale.\n",
 		maxTPMovePct, maxTPMovePct, minRR))
@@ -282,6 +305,24 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	sb.WriteString("For panic_reversal_long in trend_down/counter-trend, if hunter_v7_signal_json.confirmation_summary.passed_review=false, wait; do not override that failed confirmation with a single 5m EMA reclaim, strong taker buy, or acceptable RR.\n")
 	sb.WriteString("If signal risk_tags include already_pumped_24h, funding_expensive, lsr_extreme_long, taker_sell_during_accumulation, no_reclaim_signal, oi_up_price_down, late_*_without_flush, or not_near_*_zone, those are wait-only risk semantics; do not override them with high priority/score.\n")
 	sb.WriteString("Position management: the protector uses leveraged ROE. Once Peak PnL >=5%, breakeven/loss is first an exit or risk-reduction signal. Once Peak >=10%, about 50% giveback from peak is a protection close signal; once Peak >=15%, about 45% giveback is a protection close signal unless 5m/15m structure and flow both give explicit continuation evidence. Current PnL >=8% can justify TP0 partial close of 30%-50% and moving the stop to breakeven. In the first 15 minutes, PnL <=-8% is a hard invalidation signal; at any age, PnL <=-12% is hard stop territory. Do not `hold` only because original SL/TP has not been reached, and do not use `hold` to claim stop tightening.\n")
+	sb.WriteString("## 3. Multi-Setup Playbooks\n")
+	sb.WriteString("- trend_breakout_long / accumulation_breakout_long: trade only confirmed breakout, trigger_memory_confirmed, or clean pullback continuation. `entry_trigger_near` is not an entry; without a 5m/15m close through trigger, wait with `blocked_reason_code=confirmation_missing` and include `trigger`.\n")
+	sb.WriteString("- displacement_momentum_long: trade early displacement or supported pullback continuation, not late chase. `displacement_rr_insufficient` and `displacement_rr_repaired_needs_review` are REVIEWABLE only; require backend-capped effective_rr>=1.5, VWAP/trailing support hold, taker_buy_15m>0.52, and OI/volume expansion. If displacement_chase_risk_overextended is present, prefer pullback confirmation.\n")
+	sb.WriteString("- leader_momentum_long / short_squeeze_long: require clean momentum, strong 4h/24h relative strength, sustained/aggressive taker buy, healthy OI growth, or a mid/lower-zone shallow pullback. weak upper-zone pullbacks are not quality entries; no_pullback_still_running + upper-zone + any two weak OI/volume/VWAP/RSI conditions is top-chase risk and must wait.\n")
+	sb.WriteString("- alt_ladder_momentum_long / alt_ladder_breakdown_short: specialized high-amplitude non-core alt lifecycle routes from 5%→15%→30%. Stage early/mid can be reviewed with trend; Stage late or `alt_ladder_late_*_risk` requires reduced size or a pullback/retest, and only becomes executable again when 1h OI/volume shows fresh continuation; `alt_ladder_stage_extreme` / `alt_ladder_extreme_continuation_watch` tracks EMA25/VWAP pullback or renewed volume only and never permits current-price chasing. Require structure + taker + OI/volume alignment; never open from move size alone.\n")
+	sb.WriteString("- breakdown_momentum_short: capture downside momentum / breakdown continuation without requiring extreme funding or LSR. Require 1h or 15m downside impulse, price below VWAP/EMA/15m mid band, taker_buy_15m<=0.50, at least one OI or volume confirmation, and avoid chasing into daily support after an exhausted crash.\n")
+	sb.WriteString("- mms_bottom_wake_long: quiet small-cap accumulation. REVIEWABLE only until a 5m/15m breakout/reclaim confirms; require 72h compression, 1h volume wake, 4h OI stealth inflow, and no active sell pressure.\n")
+	sb.WriteString("- mms_trend_ride_long: trend-life-line retest. Require 15m EMA7>EMA25>EMA99, low touches EMA25 and close reclaims, low-volume retest, and taker flow not against long. If far above EMA25 or 1h/4h momentum both turn negative, treat as wait or review instead of open.\n")
+	sb.WriteString("- mms_squeeze_engine_long: squeeze-fuel continuation, not a top-short signal. Top LSR high, price and OI rising together, and buy/volume confirmation allow long review; `mms_do_not_short_squeeze` or `mms_short_ban_active` blocks same-symbol shorts.\n")
+	sb.WriteString("- panic_reversal_long: trade reclaim repair after capitulation, not falling knives. Require reclaim, selling exhaustion/deceleration, taker_buy_15m>=0.52, OI flush/decline, no_new_low, and RR. If counter-trend and confirmation_summary.passed_review=false, wait.\n")
+	sb.WriteString("- funding_reversal SHORT: trade crowded-long reversal near retest, not late deep drops. Require funding/LSR crowding, taker_buy_15m<0.48, retest failure/no_new_high, OI flush/mixed, and RR. funding_reversal LONG needs strong reclaim and 15m recovery; do not mirror SHORT loosely.\n\n")
+	sb.WriteString("## 4. Open Review Order\n")
+	sb.WriteString("For every EXECUTABLE/REVIEWABLE candidate, check in order: market_shape matches setup_type; entry_signal is triggered; current price is in entry_zone / trigger tolerance / pullback confirmation zone; required_confirmations pass; at least two of OI/taker/volume align; stop_loss/take_profit/RR/price drift pass backend guards; same-symbol cooldown and recent losses allow a new open. `entry_open_now` means review now, not must-open. `entry_rr_repairable` requires current RR recalculation. `entry_chase_risk` defaults to wait unless pullback support holds and flow has not reversed.\n\n")
+	sb.WriteString("Short-cycle protection: if `hunter_v7_signal_json.tp0_price` exists, use it as the first protection target; after TP0 reduce 30%-50% and move the remaining stop to breakeven or 5m EMA20/VWAP trailing. If `position_size_hint=small_size_or_wait_pullback`, use reduced size or wait; if `position_size_hint=wait_pullback_price_too_far_from_entry_zone`, do not open at market.\n\n")
+	sb.WriteString("Geometry repair discipline: when an EXECUTABLE candidate's only blocker is stop_loss distance below the minimum, and the structural invalidation is not already broken, confirmation_summary has passed, and RR still passes within the TP cap, do not immediately wait. Move stop_loss to at least minimum stop + 0.10% in the valid direction, recalculate take_profit from RR, and open with a smaller position_size_usd. Output `backend_guard_risk` only if the repaired geometry fails RR, TP cap, price drift, or confirmation checks.\n\n")
+	sb.WriteString("## 5. Output Discipline And Position Management\n")
+	sb.WriteString("Wait decisions MUST include one `blocked_reason_code`: `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. `trigger` is required for `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`. `hold` and `wait` do not change SL/TP; output `close_long`/`close_short` when risk reduction is needed.\n")
+	sb.WriteString("Position management: if Peak PnL reached protection near-TP1 (protection TP1 is 6%; near-TP1 means Peak PnL >=5.7% AND raw_move >=1.0%) and then gives back >=45% from the peak or crosses to breakeven/loss, treat it first as an exit/risk-reduction signal. Do not `hold` only because SL/TP has not been reached, and do not use `hold` to claim stop tightening. A later return above 90% of TP1 is a second protection chance only when raw_move >=1.0%. If Peak PnL is below 5.7% or raw_move <1.0%, it is pre-TP1/micro-profit noise: close only on planned SL/hard invalidation or when both 5m and 15m confirm structural reversal. crossing from a positive peak to negative PnL is >100% giveback, but micro-profit state cannot exit from that ratio alone.\n")
 }
 
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
@@ -834,9 +875,9 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			if displayedBlocked > 6 {
 				break
 			}
-			sb.WriteString(fmt.Sprintf("- %s %s tier=%s setup=%s status=%s quality=%s ai_priority=%.1f risk=%.0f reason=%s\n",
+			sb.WriteString(fmt.Sprintf("- %s %s tier=%s setup=%s status=%s quality=%s%s ai_priority=%.1f risk=%.0f reason=%s\n",
 				item.Coin.Symbol, item.Coin.Direction, item.Tier, item.Coin.V7SetupType, item.Coin.V7Status,
-				item.Coin.V7ExecutionQuality, item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+				item.Coin.V7ExecutionQuality, hunterV7ShapeEntrySignalSuffix(item.Coin), item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
 		}
 		if displayedBlocked == 0 {
 			sb.WriteString("- None\n")
@@ -856,9 +897,9 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 			if displayedWatch > 6 {
 				break
 			}
-			sb.WriteString(fmt.Sprintf("- %s %s setup=%s status=%s quality=%s ai_priority=%.1f risk=%.0f reason=%s\n",
+			sb.WriteString(fmt.Sprintf("- %s %s setup=%s status=%s quality=%s%s ai_priority=%.1f risk=%.0f reason=%s\n",
 				item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7Status,
-				item.Coin.V7ExecutionQuality, item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+				item.Coin.V7ExecutionQuality, hunterV7ShapeEntrySignalSuffix(item.Coin), item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
 		}
 		if displayedWatch == 0 {
 			sb.WriteString("- None\n")
@@ -1176,6 +1217,8 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Status                string                        `json:"status"`
 		MarketRegime          string                        `json:"market_regime"`
 		EntryMode             string                        `json:"entry_mode"`
+		MarketShape           string                        `json:"market_shape,omitempty"`
+		EntrySignal           string                        `json:"entry_signal,omitempty"`
 		ExecutionQuality      string                        `json:"execution_quality,omitempty"`
 		ExecutionPolicy       string                        `json:"execution_policy,omitempty"`
 		DoNotOpenUntilConfirm bool                          `json:"do_not_open_until_confirmed,omitempty"`
@@ -1191,6 +1234,11 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		RiskTags              []string                      `json:"risk_tags"`
 		RequiredConfirmations []string                      `json:"required_confirmations"`
 		ConfirmationSummary   *local.V7ConfirmationSummary  `json:"confirmation_summary,omitempty"`
+		ExecutionGeometry     *hunterV7ExecutionGeometry    `json:"execution_geometry,omitempty"`
+		TP0DistancePct        float64                       `json:"tp0_distance_pct,omitempty"`
+		MoveStopToBreakeven   bool                          `json:"move_stop_to_breakeven,omitempty"`
+		PositionSizeHint      string                        `json:"position_size_hint,omitempty"`
+		SuggestedTrigger      *DecisionTrigger              `json:"suggested_trigger,omitempty"`
 		TagSemantics          []local.HunterV7TagDefinition `json:"tag_semantics,omitempty"`
 		EntryZone             local.V7PriceZone             `json:"entry_zone"`
 		Invalidation          local.V7InvalidationRule      `json:"invalidation"`
@@ -1225,6 +1273,8 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		Status:                coin.V7Status,
 		MarketRegime:          coin.V7MarketRegime,
 		EntryMode:             coin.V7EntryMode,
+		MarketShape:           coin.V7MarketShape,
+		EntrySignal:           coin.V7EntrySignal,
 		ExecutionQuality:      coin.V7ExecutionQuality,
 		ExecutionPolicy:       hunterV7ExecutionPolicy(coin),
 		DoNotOpenUntilConfirm: hunterV7DoNotOpenUntilConfirmed(coin),
@@ -1240,11 +1290,16 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		RiskTags:              coin.V7RiskTags,
 		RequiredConfirmations: coin.V7RequiredConfirms,
 		ConfirmationSummary:   coin.V7ConfirmSummary,
+		ExecutionGeometry:     buildHunterV7ExecutionGeometry(coin),
+		TP0DistancePct:        hunterV7EffectiveTP0DistancePct(coin),
+		MoveStopToBreakeven:   hunterV7EffectiveMoveStopToBreakeven(coin),
+		PositionSizeHint:      hunterV7PositionSizeHint(coin),
+		SuggestedTrigger:      buildHunterV7SuggestedTrigger(coin),
 		TagSemantics:          local.DescribeHunterV7Tags(coin.V7ReasonCodes, coin.V7RiskTags, coin.V7RequiredConfirms),
 		EntryZone:             coin.V7EntryZone,
 		Invalidation:          coin.V7Invalidation,
 		Targets:               coin.V7Targets,
-		TP0Price:              coin.V7TP0Price,
+		TP0Price:              hunterV7EffectiveTP0Price(coin),
 		TP0RR:                 coin.V7TP0RR,
 		TP0TimeWindow:         coin.V7TP0TimeWindow,
 		TP0Method:             coin.V7TP0Method,
@@ -1268,6 +1323,232 @@ func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
 		return ""
 	}
 	return string(data)
+}
+
+// hunterV7ShapeEntrySignalSuffix renders market shape and entry signal only when
+// the router populated them, so summary lines stay compact for older signals.
+func hunterV7ShapeEntrySignalSuffix(coin CandidateCoin) string {
+	suffix := ""
+	if coin.V7MarketShape != "" {
+		suffix += " shape=" + coin.V7MarketShape
+	}
+	if coin.V7EntrySignal != "" {
+		suffix += " entry_signal=" + coin.V7EntrySignal
+	}
+	return suffix
+}
+
+// hunterV7EffectiveTP0Price prefers the router-supplied TP0 from the take-profit
+// ladder and falls back to the derived micro-TP0 for momentum setups that ship
+// without an explicit ladder.
+func hunterV7EffectiveTP0Price(coin CandidateCoin) float64 {
+	if coin.V7TP0Price > 0 {
+		return coin.V7TP0Price
+	}
+	return hunterV7TP0Price(coin)
+}
+
+func hunterV7EffectiveTP0DistancePct(coin CandidateCoin) float64 {
+	if coin.V7TPPlan != nil && coin.V7TPPlan.TP0DistancePct > 0 {
+		return coin.V7TPPlan.TP0DistancePct
+	}
+	return hunterV7TP0DistancePct(coin)
+}
+
+func hunterV7EffectiveMoveStopToBreakeven(coin CandidateCoin) bool {
+	if coin.V7TPPlan != nil && coin.V7TPPlan.MoveStopToBreakeven {
+		return true
+	}
+	return hunterV7TP0Price(coin) > 0
+}
+
+func hunterV7TP0Price(coin CandidateCoin) float64 {
+	price := hunterV7PromptReferencePrice(coin)
+	distancePct := hunterV7TP0DistancePct(coin)
+	if price <= 0 || distancePct <= 0 {
+		return 0
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		return price * (1 - distancePct/100)
+	}
+	if strings.EqualFold(coin.Direction, "LONG") {
+		return price * (1 + distancePct/100)
+	}
+	return 0
+}
+
+func hunterV7TP0DistancePct(coin CandidateCoin) float64 {
+	if coin.V7ExecutionTier != "EXECUTABLE" && coin.V7ExecutionTier != "REVIEWABLE" {
+		return 0
+	}
+	switch coin.V7SetupType {
+	case "mms_trend_ride_long", "mms_squeeze_engine_long", "alt_ladder_momentum_long", "alt_ladder_breakdown_short", "displacement_momentum_long", "breakdown_momentum_short":
+	default:
+		return 0
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{"high_volatility", "extreme_volatility", "alt_ladder_late_chase_risk"}) {
+		return 0.65
+	}
+	return 0.5
+}
+
+func hunterV7PositionSizeHint(coin CandidateCoin) string {
+	if coin.V7ExecutionTier != "EXECUTABLE" && coin.V7ExecutionTier != "REVIEWABLE" {
+		return ""
+	}
+	if coin.V7SetupType != "mms_trend_ride_long" && coin.V7SetupType != "mms_squeeze_engine_long" {
+		return ""
+	}
+	geo := buildHunterV7ExecutionGeometry(coin)
+	if geo == nil || geo.InsideEntryZone {
+		return "normal_if_backend_rr_and_confirmations_pass"
+	}
+	if geo.DistanceToEntryPct > 0.75 {
+		return "wait_pullback_price_too_far_from_entry_zone"
+	}
+	if geo.DistanceToEntryPct > 0.35 {
+		return "small_size_or_wait_pullback"
+	}
+	return "normal_if_backend_rr_and_confirmations_pass"
+}
+
+func hunterV7PromptReferencePrice(coin CandidateCoin) float64 {
+	if coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
+		return coin.V7PriceContext.Last
+	}
+	if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > 0 {
+		return (coin.V7EntryZone.Lower + coin.V7EntryZone.Upper) / 2
+	}
+	return 0
+}
+
+func buildHunterV7SuggestedTrigger(coin CandidateCoin) *DecisionTrigger {
+	lower, upper := coin.V7EntryZone.Lower, coin.V7EntryZone.Upper
+	if lower <= 0 || upper <= 0 {
+		return nil
+	}
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+
+	switch coin.V7EntrySignal {
+	case "entry_trigger_near":
+		if strings.EqualFold(coin.Direction, "SHORT") {
+			return &DecisionTrigger{
+				TriggerPrice:      lower,
+				RequiredClose:     "5m_or_15m_close_below_trigger",
+				ExpiresInBars:     2,
+				ActionIfTriggered: "review_for_open_with_rr_flow_and_backend_guard",
+			}
+		}
+		return &DecisionTrigger{
+			TriggerPrice:      upper,
+			RequiredClose:     "5m_or_15m_close_through_breakout_level",
+			ExpiresInBars:     2,
+			ActionIfTriggered: "review_for_open_with_rr_flow_and_backend_guard",
+		}
+	case "entry_reclaim_wait", "entry_pullback_wait":
+		mid := (lower + upper) / 2
+		if strings.EqualFold(coin.Direction, "SHORT") {
+			return &DecisionTrigger{
+				TriggerPrice:      mid,
+				RequiredClose:     "5m_close_below_ema20_or_entry_zone_mid",
+				ExpiresInBars:     2,
+				ActionIfTriggered: "review_for_open_after_failed_retest_with_rr_flow_and_backend_guard",
+			}
+		}
+		return &DecisionTrigger{
+			TriggerPrice:      mid,
+			RequiredClose:     "5m_close_above_ema20_or_entry_zone_mid",
+			ExpiresInBars:     2,
+			ActionIfTriggered: "review_for_open_after_reclaim_with_rr_flow_no_new_low_and_backend_guard",
+		}
+	default:
+		return nil
+	}
+}
+
+type hunterV7ExecutionGeometry struct {
+	CurrentPrice         float64 `json:"current_price,omitempty"`
+	EntryZoneLower       float64 `json:"entry_zone_lower,omitempty"`
+	EntryZoneUpper       float64 `json:"entry_zone_upper,omitempty"`
+	EntryZonePositionPct float64 `json:"entry_zone_position_pct,omitempty"`
+	DistanceToEntryPct   float64 `json:"distance_to_entry_pct,omitempty"`
+	InsideEntryZone      bool    `json:"inside_entry_zone"`
+	StopDistancePct      float64 `json:"stop_distance_pct,omitempty"`
+	NearestTargetPrice   float64 `json:"nearest_target_price,omitempty"`
+	NearestTargetRRPct   float64 `json:"nearest_target_rr,omitempty"`
+	RemoteTargetOnly     bool    `json:"remote_target_only,omitempty"`
+}
+
+func buildHunterV7ExecutionGeometry(coin CandidateCoin) *hunterV7ExecutionGeometry {
+	price := 0.0
+	if coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
+	}
+	if price <= 0 || coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= 0 {
+		return nil
+	}
+	lower, upper := coin.V7EntryZone.Lower, coin.V7EntryZone.Upper
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+	geo := &hunterV7ExecutionGeometry{
+		CurrentPrice:    price,
+		EntryZoneLower:  lower,
+		EntryZoneUpper:  upper,
+		InsideEntryZone: price >= lower && price <= upper,
+	}
+	if upper > lower {
+		geo.EntryZonePositionPct = (price - lower) / (upper - lower) * 100
+	}
+	if !geo.InsideEntryZone {
+		if price < lower {
+			geo.DistanceToEntryPct = (lower - price) / price * 100
+		} else {
+			geo.DistanceToEntryPct = (price - upper) / price * 100
+		}
+	}
+	risk := hunterV7RiskDistance(coin, price)
+	if risk > 0 {
+		geo.StopDistancePct = risk / price * 100
+	}
+	nearestReward := 0.0
+	for _, target := range coin.V7Targets {
+		reward := hunterV7TargetReward(coin.Direction, price, target.Price)
+		if reward <= 0 {
+			continue
+		}
+		if nearestReward == 0 || reward < nearestReward {
+			nearestReward = reward
+			geo.NearestTargetPrice = target.Price
+		}
+	}
+	if nearestReward > 0 && risk > 0 {
+		geo.NearestTargetRRPct = nearestReward / risk
+		geo.RemoteTargetOnly = nearestReward/price*100 > 8.0
+	}
+	return geo
+}
+
+func hunterV7RiskDistance(coin CandidateCoin, price float64) float64 {
+	if price <= 0 || coin.V7Invalidation.Price <= 0 {
+		return 0
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		return coin.V7Invalidation.Price - price
+	}
+	return price - coin.V7Invalidation.Price
+}
+
+func hunterV7TargetReward(direction string, price, targetPrice float64) float64 {
+	if price <= 0 || targetPrice <= 0 {
+		return 0
+	}
+	if strings.EqualFold(direction, "SHORT") {
+		return price - targetPrice
+	}
+	return targetPrice - price
 }
 
 func hunterV7ExecutionPolicy(coin CandidateCoin) string {

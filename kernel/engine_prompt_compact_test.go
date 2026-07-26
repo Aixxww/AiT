@@ -1257,14 +1257,14 @@ func TestClassifyHunterV7CandidateTierRejectsCatalogRejectOnlyRiskTag(t *testing
 		V7RiskScore:        15,
 		V7LiquidityScore:   90,
 		V7RiskLevel:        "LOW",
-		V7RiskTags:         []string{"displacement_rr_insufficient"},
+		V7RiskTags:         []string{"wash_volume_high"},
 		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.55},
 	}
 
 	tier, reason := classifyHunterV7CandidateTier(coin)
 
-	if tier != "REJECTED" || reason != "displacement_rr_insufficient" {
-		t.Fatalf("tier = %q (%s), want REJECTED displacement_rr_insufficient", tier, reason)
+	if tier != "REJECTED" || reason != "wash_volume_high" {
+		t.Fatalf("tier = %q (%s), want REJECTED wash_volume_high", tier, reason)
 	}
 }
 
@@ -2927,5 +2927,744 @@ func hunterV7PromptTestMarketData(symbol string, price float64) *market.Data {
 				ATR14:       price * 0.005,
 			},
 		},
+	}
+}
+
+func TestClassifyHunterV7AltLadderLateStageNeedsFreshFlow(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "NIGHTUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "alt_ladder_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       77,
+		V7SetupScore:       84,
+		V7TimingScore:      64,
+		V7RiskScore:        15,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_late", "alt_ladder_taker_buy", "alt_ladder_oi_inflow"},
+		V7RiskTags:         []string{"alt_ladder_late_chase_risk", "high_volatility"},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.02434, Upper: 0.02460},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.02452},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.590, OIChange1h: -0.94, OIChange4h: 9.62},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier == "EXECUTABLE" || reason == "alt_ladder_long_ready_confirmed" {
+		t.Fatalf("tier = %q (%s), late-stage alt ladder without fresh flow should not be executable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7AltLadderLongRequiresStrongFlowForExecutable(t *testing.T) {
+	tests := []struct {
+		name       string
+		coin       CandidateCoin
+		wantTier   string
+		wantReason string
+	}{
+		{
+			name: "weak taker single oi inflow becomes reviewable",
+			coin: CandidateCoin{
+				Symbol:             "ZBTUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "alt_ladder_momentum_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       86,
+				V7SetupScore:       98,
+				V7TimingScore:      64,
+				V7RiskScore:        0,
+				V7LiquidityScore:   90,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_mid", "alt_ladder_oi_inflow"},
+				V7EntryZone:        local.V7PriceZone{Lower: 0.1014, Upper: 0.1024},
+				V7PriceContext:     &local.V7PriceContext{Last: 0.1021},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.521, OIChange1h: 0.5, OIChange4h: -3.0},
+			},
+			wantTier:   "REVIEWABLE",
+			wantReason: "alt_ladder_long_reviewable_confirmed",
+		},
+		{
+			name: "stop tightened with weak oi is downgraded",
+			coin: CandidateCoin{
+				Symbol:             "ALLOUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "alt_ladder_momentum_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       90,
+				V7SetupScore:       98,
+				V7TimingScore:      76,
+				V7RiskScore:        0,
+				V7LiquidityScore:   100,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_mid", "alt_ladder_taker_buy", "alt_ladder_volume_expansion"},
+				V7RiskTags:         []string{"execution_stop_tightened"},
+				V7EntryZone:        local.V7PriceZone{Lower: 0.4498, Upper: 0.4528},
+				V7PriceContext:     &local.V7PriceContext{Last: 0.4518},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.565, OIChange1h: -0.69, OIChange4h: -1.26},
+			},
+			wantTier:   "REVIEWABLE",
+			wantReason: "alt_ladder_long_reviewable_confirmed",
+		},
+		{
+			name: "strong taker and oi stays executable",
+			coin: CandidateCoin{
+				Symbol:             "PHAUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "alt_ladder_momentum_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       79,
+				V7SetupScore:       89,
+				V7TimingScore:      64,
+				V7RiskScore:        8,
+				V7LiquidityScore:   60,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_early", "alt_ladder_taker_buy", "alt_ladder_oi_inflow"},
+				V7EntryZone:        local.V7PriceZone{Lower: 0.02435, Upper: 0.02455},
+				V7PriceContext:     &local.V7PriceContext{Last: 0.02449},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.635, OIChange1h: -1.98, OIChange4h: 6.84},
+			},
+			wantTier:   "EXECUTABLE",
+			wantReason: "alt_ladder_long_ready_confirmed",
+		},
+		{
+			name: "late high volatility without oi inflow is reviewable",
+			coin: CandidateCoin{
+				Symbol:             "SYNUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "alt_ladder_momentum_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       87,
+				V7SetupScore:       96,
+				V7TimingScore:      85,
+				V7RiskScore:        15,
+				V7LiquidityScore:   100,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_late", "alt_ladder_taker_buy", "alt_ladder_volume_expansion"},
+				V7RiskTags:         []string{"alt_ladder_late_chase_risk", "high_volatility"},
+				V7EntryZone:        local.V7PriceZone{Lower: 0.2303, Upper: 0.2329},
+				V7PriceContext:     &local.V7PriceContext{Last: 0.2321},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.60, OIChange1h: -0.56, OIChange4h: -7.89},
+			},
+			wantTier:   "REVIEWABLE",
+			wantReason: "alt_ladder_long_reviewable_confirmed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tier, reason := classifyHunterV7CandidateTier(tt.coin)
+			if tier != tt.wantTier || reason != tt.wantReason {
+				t.Fatalf("tier = %q (%s), want %s %s", tier, reason, tt.wantTier, tt.wantReason)
+			}
+		})
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes(t *testing.T) {
+	tests := []struct {
+		name       string
+		coin       CandidateCoin
+		wantTier   string
+		wantReason string
+	}{
+		{
+			name: "alt ladder long ready",
+			coin: CandidateCoin{
+				Symbol:             "ALTAUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "alt_ladder_momentum_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       66,
+				V7SetupScore:       68,
+				V7TimingScore:      64,
+				V7RiskScore:        12,
+				V7LiquidityScore:   75,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_early", "alt_ladder_taker_buy", "alt_ladder_oi_inflow"},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.58},
+			},
+			wantTier:   "EXECUTABLE",
+			wantReason: "alt_ladder_long_ready_confirmed",
+		},
+		{
+			name: "alt ladder short ready",
+			coin: CandidateCoin{
+				Symbol:             "ALTCUSDT",
+				Direction:          "SHORT",
+				V7SetupType:        "alt_ladder_breakdown_short",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       64,
+				V7SetupScore:       66,
+				V7TimingScore:      62,
+				V7RiskScore:        10,
+				V7LiquidityScore:   75,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_breakdown_short", "alt_ladder_downshift_early", "alt_ladder_taker_sell", "alt_ladder_new_shorts"},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.44},
+			},
+			wantTier:   "REVIEWABLE",
+			wantReason: "alt_ladder_short_reviewable_confirmed",
+		},
+		{
+			name: "alt ladder short strong ready",
+			coin: CandidateCoin{
+				Symbol:             "ALTDUSDT",
+				Direction:          "SHORT",
+				V7SetupType:        "alt_ladder_breakdown_short",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       68,
+				V7SetupScore:       76,
+				V7TimingScore:      68,
+				V7RiskScore:        10,
+				V7LiquidityScore:   75,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"alt_ladder_breakdown_short", "alt_ladder_downshift_mid", "alt_ladder_taker_sell", "alt_ladder_new_shorts"},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.42},
+			},
+			wantTier:   "EXECUTABLE",
+			wantReason: "alt_ladder_short_ready_strong_confirmed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tier, reason := classifyHunterV7CandidateTier(tt.coin)
+			if tier != tt.wantTier || reason != tt.wantReason {
+				t.Fatalf("tier = %q (%s), want %s %s", tier, reason, tt.wantTier, tt.wantReason)
+			}
+		})
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsBreakdownMomentumShort(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SKYAIUSDT",
+		Direction:          "SHORT",
+		V7SetupType:        "breakdown_momentum_short",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       61,
+		V7SetupScore:       78,
+		V7TimingScore:      66,
+		V7RiskScore:        8,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"strong_1h_downside_momentum",
+			"below_vwap_breakdown",
+			"heavy_taker_selling",
+			"oi_confirms_new_shorts",
+			"sell_volume_confirmed",
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "EXECUTABLE" || reason != "short_or_reversion_ready_confirmed" {
+		t.Fatalf("tier = %q (%s), want EXECUTABLE short_or_reversion_ready_confirmed", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsBreakoutTriggerMemoryConfirmedReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SUIUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "near_confirm",
+		V7MarketShape:      "shape_trend_breakout",
+		V7EntrySignal:      "entry_open_now",
+		V7AIPriority:       52.57,
+		V7SetupScore:       86,
+		V7TimingScore:      25,
+		V7RiskScore:        20,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"trigger_memory_confirmed", "5m_or_15m_close_through_breakout_level"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.53},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "breakout_trigger_memory_confirmed_reviewable" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE breakout_trigger_memory_confirmed_reviewable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsBreakoutTriggerNearReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "BULLAUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7MarketShape:      "shape_trend_breakout",
+		V7EntrySignal:      "entry_trigger_near",
+		V7AIPriority:       54.9,
+		V7SetupScore:       86.4,
+		V7TimingScore:      25,
+		V7RiskScore:        0,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"shape_trend_breakout", "entry_trigger_near"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.53},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "breakout_trigger_near_reviewable" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE breakout_trigger_near_reviewable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsFlowConfirmedBreakoutTriggerNearReview(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "NEARUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7MarketShape:      "shape_trend_breakout",
+		V7EntrySignal:      "entry_trigger_near",
+		V7AIPriority:       48.7,
+		V7SetupScore:       76.8,
+		V7TimingScore:      25,
+		V7RiskScore:        8,
+		V7LiquidityScore:   85,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"approaching_breakout", "taker_aggressive_buy", "clear_air_above", "entry_trigger_near"},
+		V7ConfirmSummary:   &local.V7ConfirmationSummary{RR: 20.56},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.64, OIChange1h: 0.3},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "breakout_trigger_near_flow_reviewable" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE breakout_trigger_near_flow_reviewable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsMMSRoutes(t *testing.T) {
+	tests := []struct {
+		name       string
+		coin       CandidateCoin
+		wantTier   string
+		wantReason string
+	}{
+		{
+			name: "bottom wake reviewable",
+			coin: CandidateCoin{
+				Symbol:           "MMSAUSDT",
+				Direction:        "LONG",
+				V7SetupType:      "mms_bottom_wake_long",
+				V7Status:         "wait_confirm",
+				V7AIPriority:     52,
+				V7SetupScore:     64,
+				V7TimingScore:    50,
+				V7RiskScore:      8,
+				V7LiquidityScore: 70,
+				V7RiskLevel:      "LOW",
+				V7ReasonCodes:    []string{"mms_bottom_wake", "mms_oi_stealth_inflow", "mms_volume_wake"},
+				V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.52},
+			},
+			wantTier:   "REVIEWABLE",
+			wantReason: "mms_bottom_wake_reviewable_breakout_required",
+		},
+		{
+			name: "squeeze ready",
+			coin: CandidateCoin{
+				Symbol:             "MMSCUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "mms_squeeze_engine_long",
+				V7Status:           "candidate",
+				V7ExecutionQuality: "ready",
+				V7AIPriority:       72,
+				V7SetupScore:       86,
+				V7TimingScore:      72,
+				V7RiskScore:        8,
+				V7LiquidityScore:   80,
+				V7RiskLevel:        "LOW",
+				V7ReasonCodes:      []string{"mms_squeeze_engine", "mms_short_ban_active"},
+				V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.57},
+			},
+			wantTier:   "EXECUTABLE",
+			wantReason: "mms_long_ready_confirmed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tier, reason := classifyHunterV7CandidateTier(tt.coin)
+			if tier != tt.wantTier || reason != tt.wantReason {
+				t.Fatalf("tier = %q (%s), want %s %s", tier, reason, tt.wantTier, tt.wantReason)
+			}
+		})
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsNearConfirmWhenMicroConfirmed(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "MICROUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "custom_near_confirm_setup",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       58,
+		V7SetupScore:       60,
+		V7TimingScore:      55,
+		V7RiskScore:        20,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "LOW",
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: true,
+		},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "near_confirm_reviewable_micro_confirmed" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE near_confirm_reviewable_micro_confirmed", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierAllowsRepairedDisplacementOnlyReviewable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DODOXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "displacement_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7EntrySignal:      "entry_rr_repairable",
+		V7AIPriority:       77.955,
+		V7SetupScore:       93.5,
+		V7TimingScore:      70,
+		V7RiskScore:        30,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7RiskTags: []string{
+			"displacement_chase_risk_overextended",
+			"displacement_rr_repaired_needs_review",
+			"high_volatility",
+			"funding_elevated",
+			"execution_stop_tightened",
+		},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.027769},
+		V7Invalidation:   local.V7InvalidationRule{Price: 0.027074775},
+		V7Targets:        []local.V7Target{{Price: 0.029071}},
+		V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.53, OIChange1h: 11.87},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "displacement_reviewable_needs_confirm" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE displacement_reviewable_needs_confirm", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierBlocksLeaderMomentumUpperZoneChase(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SKYAIUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "leader_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       85.56,
+		V7SetupScore:       100,
+		V7TimingScore:      78,
+		V7RiskScore:        0,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes: []string{
+			"strong_24h_momentum",
+			"solid_4h_momentum",
+			"accelerating_1h",
+			"oi_healthy_growth",
+			"taker_strong_buy",
+			"no_pullback_still_running",
+		},
+		V7EntryZone:      local.V7PriceZone{Lower: 0.03549129456896678, Upper: 0.036259514536637456},
+		V7PriceContext:   &local.V7PriceContext{Last: 0.03605, VWAP15m: 0.033929655667319744},
+		V7DerivativesCtx: &local.V7DerivativesContext{OIChange1h: -3.0062172399272358, TakerBuy15m: 0.5845970211937053},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "momentum_upper_zone_chase_wait" {
+		t.Fatalf("tier = %q (%s), want WATCH momentum_upper_zone_chase_wait", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierDowngradesStopTightenedWithoutStrongFlow(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "LABUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       79,
+		V7SetupScore:       90,
+		V7TimingScore:      68,
+		V7RiskScore:        8,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7RiskTags:         []string{"execution_stop_tightened"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier == "EXECUTABLE" || reason == "mms_long_ready_confirmed" {
+		t.Fatalf("tier = %q (%s), stop-tightened weak flow should not be EXECUTABLE", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierKeepsAltLadderExtremeAsWatch(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "AKEUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "alt_ladder_momentum_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       43,
+		V7SetupScore:       74,
+		V7TimingScore:      25,
+		V7RiskScore:        80,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "EXTREME",
+		V7ReasonCodes:      []string{"alt_ladder_momentum_long", "alt_ladder_stage_extreme"},
+		V7RiskTags:         []string{"alt_ladder_extreme_continuation_watch", "extreme_volatility", "funding_extreme"},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "alt_ladder_extreme_continuation_watch" {
+		t.Fatalf("tier = %q (%s), want WATCH alt_ladder_extreme_continuation_watch", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierKeepsNearConfirmWatchWhenMicroFails(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "MICROFAILUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "custom_near_confirm_setup",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "near_confirm",
+		V7AIPriority:       58,
+		V7SetupScore:       60,
+		V7TimingScore:      55,
+		V7RiskScore:        20,
+		V7LiquidityScore:   80,
+		V7RiskLevel:        "LOW",
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.54},
+		V7ConfirmSummary: &local.V7ConfirmationSummary{
+			PassedHard:   true,
+			PassedReview: false,
+		},
+	}
+
+	tier, _ := classifyHunterV7CandidateTier(coin)
+
+	if tier == "REVIEWABLE" || tier == "EXECUTABLE" {
+		t.Fatalf("tier = %q, want WATCH-class result when micro review failed", tier)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierReportsLowLiquidityWhenDisplacementFinalRROK(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "DATAIPUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "displacement_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       65.9,
+		V7SetupScore:       85.8,
+		V7TimingScore:      60,
+		V7RiskScore:        45,
+		V7LiquidityScore:   40,
+		V7RiskLevel:        "LOW",
+		V7RiskTags:         []string{"displacement_rr_insufficient", "funding_extreme", "low_liquidity"},
+		V7ConfirmSummary:   &local.V7ConfirmationSummary{RR: 1.76},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.64},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REJECTED" || reason != "liquidity_lt_50" {
+		t.Fatalf("tier = %q (%s), want REJECTED liquidity_lt_50", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7CandidateTierReviewsStrongDisplacementRRInsufficient(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "SLXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "displacement_momentum_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7EntrySignal:      "entry_open_now",
+		V7AIPriority:       80,
+		V7SetupScore:       85,
+		V7TimingScore:      70,
+		V7RiskScore:        15,
+		V7LiquidityScore:   90,
+		V7RiskLevel:        "LOW",
+		V7RiskTags:         []string{"displacement_rr_insufficient"},
+		V7ConfirmSummary:   &local.V7ConfirmationSummary{RR: 2.6},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.55},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "displacement_reviewable_needs_confirm" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE displacement_reviewable_needs_confirm", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7MMSLongDowngradesExtendedVWAPChase(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "TRADOORUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       89,
+		V7SetupScore:       100,
+		V7TimingScore:      68,
+		V7RiskScore:        0,
+		V7LiquidityScore:   100,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "taker_buy_strong"},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.5326, Change24h: 22.24, VWAP15m: 0.5071},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.574, OIChange1h: 0.58, OIChange4h: -1.05},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "mms_long_reviewable_confirmed" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE mms_long_reviewable_confirmed", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7MMSLongRejectsWeakReentryOutsideZone(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "MYXUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       74,
+		V7SetupScore:       78,
+		V7TimingScore:      68,
+		V7RiskScore:        8,
+		V7LiquidityScore:   55,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "mms_low_volume_retest", "shape_clean_momentum", "entry_open_now"},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.08341, Change1h: -0.11, Change4h: -0.11, VWAP15m: 0.08075},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.08279, Upper: 0.08332},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.589, OIChange1h: 0.63, OIChange4h: -1.35},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier == "EXECUTABLE" || reason == "mms_long_ready_confirmed" {
+		t.Fatalf("tier = %q (%s), weak reentry outside zone should not be executable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7TrendBreakoutStrongFlowUpgradesWatchToReviewable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "ENAUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "trend_breakout_long",
+		V7Status:           "wait_confirm",
+		V7ExecutionQuality: "watch_only",
+		V7AIPriority:       47,
+		V7SetupScore:       64,
+		V7TimingScore:      25,
+		V7RiskScore:        0,
+		V7LiquidityScore:   85,
+		V7RiskLevel:        "LOW",
+		V7ReasonCodes:      []string{"approaching_breakout", "taker_aggressive_buy", "clear_air_above", "low_timing_watch_only"},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.58, OIChange1h: 0.4},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "REVIEWABLE" || reason != "breakout_watch_strong_flow_reviewable" {
+		t.Fatalf("tier = %q (%s), want REVIEWABLE breakout_watch_strong_flow_reviewable", tier, reason)
+	}
+}
+
+func TestClassifyHunterV7WaitOnlyRiskTagBlocksExecutable(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "HUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7AIPriority:       88,
+		V7SetupScore:       100,
+		V7TimingScore:      68,
+		V7RiskScore:        0,
+		V7LiquidityScore:   55,
+		V7RiskLevel:        "LOW",
+		V7RiskTags:         []string{"crowding_extreme"},
+		V7ReasonCodes:      []string{"mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "entry_open_now"},
+		V7EntryZone:        local.V7PriceZone{Lower: 0.0618, Upper: 0.0624},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.06213, Change1h: 0.13, Change4h: 0.11},
+		V7DerivativesCtx:   &local.V7DerivativesContext{TakerBuy15m: 0.517, OIChange1h: -0.32, OIChange4h: 0.5},
+	}
+
+	tier, reason := classifyHunterV7CandidateTier(coin)
+
+	if tier != "WATCH" || reason != "crowding_extreme" {
+		t.Fatalf("tier = %q (%s), want WATCH crowding_extreme", tier, reason)
+	}
+}
+
+func TestFormatHunterV7SignalJSONIncludesTP0AndPositionHint(t *testing.T) {
+	engine := NewStrategyEngine(&store.StrategyConfig{})
+	coin := CandidateCoin{
+		Symbol:             "HEIUSDT",
+		Direction:          "LONG",
+		V7SetupType:        "mms_trend_ride_long",
+		V7Status:           "candidate",
+		V7ExecutionQuality: "ready",
+		V7ExecutionTier:    "EXECUTABLE",
+		V7TierReason:       "mms_long_ready_confirmed",
+		V7AIPriority:       78,
+		V7RiskScore:        16,
+		V7TimingScore:      68,
+		V7LiquidityScore:   60,
+		V7EntryZone:        local.V7PriceZone{Lower: 0.1100, Upper: 0.1108},
+		V7Invalidation:     local.V7InvalidationRule{Price: 0.1084},
+		V7Targets:          []local.V7Target{{Price: 0.1157, Reason: "mms_trend_ride_continuation_target"}},
+		V7PriceContext:     &local.V7PriceContext{Last: 0.1109},
+	}
+
+	raw := engine.formatHunterV7SignalJSON(coin)
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("invalid json: %v\n%s", err, raw)
+	}
+	if payload["tp0_price"] == nil || payload["tp0_distance_pct"] == nil {
+		t.Fatalf("tp0 fields missing: %s", raw)
+	}
+	if payload["move_stop_to_breakeven"] != true {
+		t.Fatalf("move_stop_to_breakeven = %v, want true", payload["move_stop_to_breakeven"])
+	}
+	if payload["position_size_hint"] != "normal_if_backend_rr_and_confirmations_pass" {
+		t.Fatalf("position_size_hint = %v", payload["position_size_hint"])
 	}
 }

@@ -69,6 +69,7 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 		// attribution even before OI detail has been fetched by the detail selector.
 		if ss.OI <= 0 &&
 			symbolAmplitude24h(ss) < 12 &&
+			symbolDrawdownFromHigh24h(ss) < 8 &&
 			symbolVelocityScore(ss) < 2.0 &&
 			symbolNewActivityScore(ss) < 3.0 {
 			continue
@@ -90,6 +91,7 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 		fund  float64 // |funding rate|
 		vel   float64 // short-term price velocity
 		act   float64 // short-term activity burst
+		dd    float64 // drawdown from 24h high
 	}
 
 	var entries []ranked
@@ -103,6 +105,7 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 			fund:  math.Abs(r.ss.FundingRate),
 			vel:   symbolVelocityScore(r.ss),
 			act:   symbolNewActivityScore(r.ss),
+			dd:    symbolDrawdownFromHigh24h(r.ss),
 		})
 	}
 
@@ -152,6 +155,7 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	addFromRanking(entries, func(r ranked) float64 { return r.fund }, 50, "funding")
 	addFromRanking(entries, func(r ranked) float64 { return r.vel }, 80, "velocity")
 	addFromRanking(entries, func(r ranked) float64 { return r.act }, 80, "new_activity")
+	addFromRanking(entries, func(r ranked) float64 { return r.dd }, 80, "high_drawdown")
 
 	// Amplitude pool: symbols with 24h amplitude >= 12%
 	for _, r := range entries {
@@ -333,8 +337,10 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		ctx.Low1h = low
 		ctx.EMA20_1h = computeEMAFromKlines(kb1h, 20)
 		ctx.EMA60_1h = computeEMAFromKlines(kb1h, 60)
+		ctx.EMA25_1h = computeEMAFromKlines(kb1h, 25)
 		ctx.RSI1h = computeRSIFromKlines(kb1h, 14)
 		ctx.ADX1h = computeADXFromKlines(kb1h, 14)
+		ctx.StdRatio1h72 = computeCloseStdRatio(kb1h, 72)
 		// Latest taker buy ratio from 1h
 		if last := kb1h[len(kb1h)-1]; last.Volume > 0 {
 			ctx.TakerBuy1h = last.TakerBuyBaseVolume / last.Volume
@@ -351,6 +357,14 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		ctx.BBUpper15m = upper
 		ctx.BBMiddle15m = middle
 		ctx.BBLower15m = lower
+		ctx.EMA7_15m = computeEMAFromKlines(kb15m, 7)
+		ctx.EMA25_15m = computeEMAFromKlines(kb15m, 25)
+		ctx.EMA99_15m = computeEMAFromKlines(kb15m, 99)
+		if len(kb15m) > 0 {
+			last15m := kb15m[len(kb15m)-1]
+			ctx.Last15mLow = last15m.Low
+			ctx.Last15mClose = last15m.Close
+		}
 		// BB percentile
 		ctx.BBWidthPercentile = computeBBWidthPercentile(kb15m)
 		// Latest taker buy ratio
@@ -393,6 +407,7 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 	ctx.Velocity15m = symbolKlineVelocityPct(ss, "15m")
 	ctx.VolumeBurst5m = symbolKlineVolumeBurst(ss, "5m", 12)
 	ctx.VolumeBurst15m = symbolKlineVolumeBurst(ss, "15m", 8)
+	ctx.VolumeBurst1h = symbolKlineVolumeBurst(ss, "1h", 24)
 
 	// Range expansion: latest 1h true range / median of last 20 1h true ranges
 	if bars1h, ok := klines["1h"]; ok && len(bars1h) >= 5 {
@@ -526,11 +541,39 @@ func symbolKlineVolumeBurst(ss *datafetch.SymbolSnapshot, interval string, lookb
 	return last / avg
 }
 
+func computeCloseStdRatio(klines []klineBar, lookback int) float64 {
+	if lookback <= 1 || len(klines) < lookback {
+		return 0
+	}
+	start := len(klines) - lookback
+	sum := 0.0
+	for i := start; i < len(klines); i++ {
+		sum += klines[i].Close
+	}
+	mean := sum / float64(lookback)
+	if mean <= 0 {
+		return 0
+	}
+	var variance float64
+	for i := start; i < len(klines); i++ {
+		diff := klines[i].Close - mean
+		variance += diff * diff
+	}
+	return math.Sqrt(variance/float64(lookback)) / mean
+}
+
 func symbolAmplitude24h(ss *datafetch.SymbolSnapshot) float64 {
 	if ss == nil || ss.LowPrice24h <= 0 || ss.HighPrice24h <= 0 {
 		return 0
 	}
 	return (ss.HighPrice24h - ss.LowPrice24h) / ss.LowPrice24h * 100
+}
+
+func symbolDrawdownFromHigh24h(ss *datafetch.SymbolSnapshot) float64 {
+	if ss == nil || ss.HighPrice24h <= 0 || ss.Price <= 0 {
+		return 0
+	}
+	return (ss.HighPrice24h - ss.Price) / ss.HighPrice24h * 100
 }
 
 func symbolOINotional(ss *datafetch.SymbolSnapshot) float64 {

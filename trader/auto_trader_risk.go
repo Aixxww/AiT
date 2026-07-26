@@ -1585,6 +1585,10 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		return nil
 	}
 
+	if decision.Action == "open_short" && hunterV7MMSSqueezeShortBanActive(ctx, decision.Symbol) {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: MMS squeeze-engine short ban active", decision.Symbol)
+	}
+
 	candidate := hunterV7CandidateForDecision(ctx, decision)
 	if candidate == nil {
 		if strings.TrimSpace(decision.SelectedHunterV7SignalID) != "" {
@@ -1595,6 +1599,21 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	}
 	if candidate.V7SetupType == "" {
 		return nil
+	}
+
+	if strings.EqualFold(candidate.V7ExecutionTier, "WATCH") || strings.EqualFold(candidate.V7ExecutionTier, "REJECTED") {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: execution_tier=%s (%s)",
+			candidate.V7SetupType, decision.Symbol, candidate.V7ExecutionTier, candidate.V7TierReason)
+	}
+	for _, tag := range candidate.V7RiskTags {
+		action, ok := local.HunterV7TagLLMAction(tag)
+		if !ok {
+			continue
+		}
+		if action == local.V7TagActionWaitOnly || action == local.V7TagActionRejectOnly {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: risk tag %s is %s",
+				candidate.V7SetupType, decision.Symbol, tag, action)
+		}
 	}
 
 	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
@@ -1622,6 +1641,8 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	if err := validateHunterV7RiskTagCombos(candidate, decision); err != nil {
 		return err
 	}
+
+	at.capHunterV7LowLiquidityPosition(decision, candidate)
 
 	// Look up per-setup guard thresholds from strategy config
 	guard := at.setupGuardForSetup(candidate.V7SetupType)
@@ -1999,6 +2020,81 @@ func containsStringValue(values []string, want string) bool {
 	return false
 }
 
+func hunterV7MMSSqueezeShortBanActive(ctx *kernel.Context, symbol string) bool {
+	if ctx == nil || symbol == "" {
+		return false
+	}
+	for i := range ctx.CandidateCoins {
+		candidate := &ctx.CandidateCoins[i]
+		if !strings.EqualFold(candidate.Symbol, symbol) {
+			continue
+		}
+		if hunterV7StringSliceContains(candidate.V7RiskTags, "mms_do_not_short_squeeze") ||
+			hunterV7StringSliceContains(candidate.V7ReasonCodes, "mms_short_ban_active") {
+			return true
+		}
+	}
+	return false
+}
+
+func hunterV7StringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hunterV7ConfirmationCheckCodes(checks []local.V7ConfirmationCheck) string {
+	if len(checks) == 0 {
+		return "missing_confirmation_detail"
+	}
+	codes := make([]string, 0, len(checks))
+	for _, check := range checks {
+		code := strings.TrimSpace(check.Code)
+		if code == "" {
+			continue
+		}
+		codes = append(codes, code)
+	}
+	if len(codes) == 0 {
+		return "missing_confirmation_detail"
+	}
+	return strings.Join(codes, ",")
+}
+
+func (at *AutoTrader) capHunterV7LowLiquidityPosition(decision *kernel.Decision, candidate *kernel.CandidateCoin) {
+	if decision == nil || candidate == nil || decision.PositionSizeUSD <= 0 || candidate.V7QuoteVolume24h <= 0 {
+		return
+	}
+	capUSD := hunterV7LiquidityPositionCapUSD(candidate.V7QuoteVolume24h)
+	if capUSD <= 0 || decision.PositionSizeUSD <= capUSD {
+		return
+	}
+	oldSize := decision.PositionSizeUSD
+	decision.PositionSizeUSD = capUSD
+	logger.Infof("  🧯 [HUNTER V7 LIQUIDITY CAP] %s quote_volume_24h=%.0f caps position %.2f → %.2f USDT",
+		decision.Symbol, candidate.V7QuoteVolume24h, oldSize, decision.PositionSizeUSD)
+}
+
+func hunterV7LiquidityPositionCapUSD(quoteVolume24h float64) float64 {
+	switch {
+	case quoteVolume24h <= 0:
+		return 0
+	case quoteVolume24h < 5_000_000:
+		return quoteVolume24h * 0.000005
+	case quoteVolume24h < 10_000_000:
+		return quoteVolume24h * 0.000010
+	case quoteVolume24h < 25_000_000:
+		return quoteVolume24h * 0.000020
+	case quoteVolume24h < 50_000_000:
+		return quoteVolume24h * 0.000040
+	default:
+		return 0
+	}
+}
+
 // setupGuardForSetup returns the guard config for a given setup type.
 // Returns nil if no guard is configured (setup is unconstrained).
 func (at *AutoTrader) setupGuardForSetup(setupType string) *setupGuardDefaults {
@@ -2032,10 +2128,22 @@ func builtinSetupGuardDefaults(setupType string) *setupGuardDefaults {
 		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
 	case "long_squeeze_short":
 		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
+	case "breakdown_momentum_short":
+		return &setupGuardDefaults{MinZonePosShort: 45, MaxZonePosLong: 100, RequireOIFlush: false}
+	case "alt_ladder_breakdown_short":
+		return &setupGuardDefaults{MinZonePosShort: 40, MaxZonePosLong: 100, RequireOIFlush: false}
 	case "range_reversion":
 		return &setupGuardDefaults{MinZonePosShort: 55, MaxZonePosLong: 45, RequireOIFlush: false}
 	case "pullback_reversal_long":
 		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 50, RequireOIFlush: false}
+	case "alt_ladder_momentum_long":
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 72, RequireOIFlush: false}
+	case "mms_bottom_wake_long":
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 65, RequireOIFlush: false}
+	case "mms_trend_ride_long":
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 70, RequireOIFlush: false}
+	case "mms_squeeze_engine_long":
+		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 75, RequireOIFlush: false}
 	default:
 		return nil
 	}
@@ -2115,7 +2223,13 @@ func hunterV7EntryZonePositionPct(candidate *kernel.CandidateCoin, price float64
 	}
 	lower := candidate.V7EntryZone.Lower
 	upper := candidate.V7EntryZone.Upper
-	if lower <= 0 || upper <= lower {
+	if lower <= 0 || upper <= 0 {
+		return 0, false
+	}
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+	if upper <= lower {
 		return 0, false
 	}
 	return (price - lower) / (upper - lower) * 100, true

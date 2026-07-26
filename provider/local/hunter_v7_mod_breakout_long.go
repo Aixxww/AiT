@@ -174,9 +174,10 @@ func (m *trendBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 
 	// Entry zone: breakout confirmation zone
 	if ctx.ATR15m > 0 {
+		trigger := ctx.BBUpper15m
 		sig.EntryZone = V7PriceZone{
-			Lower: ctx.BBUpper15m - ctx.ATR15m*0.2,
-			Upper: ctx.CurrentPrice + ctx.ATR15m*0.5,
+			Lower: trigger - ctx.ATR15m*0.2,
+			Upper: trigger,
 		}
 	}
 

@@ -31,6 +31,7 @@ func NewV7Router() *V7Router {
 		&accumulationBreakoutLongModule{},
 		&distributionShortModule{},
 		&squeezeShortModule{},
+		&breakdownMomentumShortModule{},
 		&rangeReversionModule{},
 		&fundingReversalModule{},
 		&displacementMomentumLongModule{},
@@ -39,6 +40,11 @@ func NewV7Router() *V7Router {
 		&intradayScalpLongModule{},
 		&volatilitySqueezeBreakoutModule{},
 		&whaleFlowReversalModule{},
+		&altLadderMomentumLongModule{},
+		&altLadderBreakdownShortModule{},
+		&mmsBottomWakeLongModule{},
+		&mmsTrendRideLongModule{},
+		&mmsSqueezeEngineLongModule{},
 	}
 	return r
 }
@@ -241,20 +247,56 @@ func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7Signal
 			SetupType:        V7SetupModuleNoMatch,
 			Status:           V7StatusFiltered,
 			ExecutionQuality: V7ExecWatchOnly,
+			MarketShape:      V7ShapeNoiseNoTrade,
+			EntrySignal:      V7EntrySignalNoTrade,
 			MarketRegime:     regime,
 			LiquidityScore:   AssessLiquidityScore(ctx),
-			ReasonCodes:      []string{"no_setup_matched"},
-			RiskTags:         []string{"module_no_match"},
 			PriceCtx:         buildPriceCtx(ctx),
 			DerivativesCtx:   buildDerivCtx(ctx),
 			ExecutionContext: ctx.ExecutionContext,
 		}
+		noMatchReason := classifyV7ModuleNoMatchReason(ctx)
+		sig.ReasonCodes = []string{"no_setup_matched", noMatchReason, string(V7ShapeNoiseNoTrade), string(V7EntrySignalNoTrade)}
+		sig.RiskTags = []string{"module_no_match"}
 		if ctx.Snapshot != nil {
 			sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
 		}
 		out = append(out, sig)
 	}
 	return out
+}
+
+func classifyV7ModuleNoMatchReason(ctx *V7SymbolContext) string {
+	if ctx == nil {
+		return "no_match_unknown"
+	}
+	liq := AssessLiquidityScore(ctx)
+	if liq > 0 && liq < 50 {
+		return "no_match_low_liquidity"
+	}
+	if ctx.Amplitude24h > 0 && ctx.Amplitude24h < 3 && ctx.RangeExpansion1h < 1.1 {
+		return "no_match_low_amplitude"
+	}
+	if mathAbs(ctx.Velocity15m) > 4 || mathAbs(ctx.Change1h) > 6 {
+		return "no_match_late_move"
+	}
+	if ctx.BBWidthPercentile > 0 && ctx.BBWidthPercentile < 1.25 && ctx.Snapshot != nil && ctx.Snapshot.OIDelta1h > 0 {
+		return "no_match_pre_breakout_candidate"
+	}
+	if ctx.Snapshot != nil && mathAbs(ctx.Snapshot.OIDelta1h) >= 8 && mathAbs(ctx.Change1h) < 2 {
+		return "no_match_oi_flow_candidate"
+	}
+	if ctx.Snapshot != nil && ((ctx.Snapshot.OIDelta1h > 3 && ctx.Change1h < -1) || (ctx.Snapshot.OIDelta1h < -3 && ctx.Change1h > 1)) {
+		return "no_match_conflict_price_oi"
+	}
+	return "no_match_mid_range_noise"
+}
+
+func mathAbs(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // CalcAIPriority computes the composite AI priority score.

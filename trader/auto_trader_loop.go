@@ -287,16 +287,18 @@ func (at *AutoTrader) runCycle() error {
 				at.logWarnf("⚠️ Degraded context: BLOCKED %s %s (open orders disabled)", d.Action, d.Symbol)
 				record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⚠️ Degraded context blocked %s %s", d.Symbol, d.Action))
 				record.Decisions = append(record.Decisions, store.DecisionAction{
-					Action:     d.Action,
-					Symbol:     d.Symbol,
-					Leverage:   d.Leverage,
-					StopLoss:   d.StopLoss,
-					TakeProfit: d.TakeProfit,
-					Confidence: d.Confidence,
-					Reasoning:  d.Reasoning,
-					Timestamp:  time.Now().UTC(),
-					Success:    false,
-					Error:      "degraded trading context: open orders disabled",
+					Action:            d.Action,
+					Symbol:            d.Symbol,
+					Leverage:          d.Leverage,
+					StopLoss:          d.StopLoss,
+					TakeProfit:        d.TakeProfit,
+					Confidence:        d.Confidence,
+					Reasoning:         d.Reasoning,
+					BlockedReasonCode: d.BlockedReasonCode,
+					Trigger:           decisionTriggerForStore(d.Trigger),
+					Timestamp:         time.Now().UTC(),
+					Success:           false,
+					Error:             "degraded trading context: open orders disabled",
 				})
 				continue
 			}
@@ -317,17 +319,19 @@ func (at *AutoTrader) runCycle() error {
 		}
 
 		actionRecord := store.DecisionAction{
-			Action:     d.Action,
-			Symbol:     d.Symbol,
-			Quantity:   0,
-			Leverage:   d.Leverage,
-			Price:      0,
-			StopLoss:   d.StopLoss,
-			TakeProfit: d.TakeProfit,
-			Confidence: d.Confidence,
-			Reasoning:  d.Reasoning,
-			Timestamp:  time.Now().UTC(),
-			Success:    false,
+			Action:            d.Action,
+			Symbol:            d.Symbol,
+			Quantity:          0,
+			Leverage:          d.Leverage,
+			Price:             0,
+			StopLoss:          d.StopLoss,
+			TakeProfit:        d.TakeProfit,
+			Confidence:        d.Confidence,
+			Reasoning:         d.Reasoning,
+			BlockedReasonCode: d.BlockedReasonCode,
+			Trigger:           decisionTriggerForStore(d.Trigger),
+			Timestamp:         time.Now().UTC(),
+			Success:           false,
 		}
 
 		if err := at.validateHunterV7ExecutionGuard(ctx, &d); err != nil {
@@ -407,7 +411,11 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
 		return false
 	}
 
+	topSummary := hunterV7TopCandidateSummary(ctx.CandidateCoins)
 	reason := fmt.Sprintf("no_open_review_candidates watch=%d rejected=%d", watchCount, rejectedCount)
+	if topSummary != "" {
+		reason += " top=" + topSummary
+	}
 	at.logInfof("ℹ️ Hunter v7 has no EXECUTABLE/REVIEWABLE candidates (%s), skipping AI this cycle", reason)
 	record.Success = true
 	record.DecisionJSON = fmt.Sprintf(`[
@@ -427,6 +435,9 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
 		},
 	}
 	record.ExecutionLog = append(record.ExecutionLog, "Hunter v7 no EXECUTABLE/REVIEWABLE candidates; AI skipped")
+	if topSummary != "" {
+		record.ExecutionLog = append(record.ExecutionLog, "Hunter v7 top blocked candidate: "+topSummary)
+	}
 	record.AccountState = store.AccountSnapshot{
 		TotalBalance:          ctx.Account.TotalEquity,
 		AvailableBalance:      ctx.Account.AvailableBalance,
@@ -436,6 +447,25 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
 		InitialBalance:        at.initialBalance,
 	}
 	return true
+}
+
+func hunterV7TopCandidateSummary(coins []kernel.CandidateCoin) string {
+	var top *kernel.CandidateCoin
+	for i := range coins {
+		if top == nil || coins[i].V7AIPriority > top.V7AIPriority {
+			top = &coins[i]
+		}
+	}
+	if top == nil || top.Symbol == "" {
+		return ""
+	}
+	rrText := "n/a"
+	if top.V7ConfirmSummary != nil && top.V7ConfirmSummary.RR > 0 {
+		rrText = fmt.Sprintf("%.2f", top.V7ConfirmSummary.RR)
+	}
+	return fmt.Sprintf("%s/%s setup=%s shape=%s entry_signal=%s quality=%s priority=%.1f liq=%.0f rr=%s reason=%s",
+		top.Symbol, top.Direction, top.V7SetupType, top.V7MarketShape, top.V7EntrySignal,
+		top.V7ExecutionQuality, top.V7AIPriority, top.V7LiquidityScore, rrText, top.V7TierReason)
 }
 
 func (at *AutoTrader) degradedContextCacheAgeLimit() time.Duration {
@@ -1022,10 +1052,25 @@ func shouldSkipCandidateForRepeatedWait(coin kernel.CandidateCoin, waitCount int
 	if tier == "EXECUTABLE" && coin.V7ExecutionQuality == "ready" && coin.V7AIPriority >= 55 {
 		return false
 	}
+	if tier == "REVIEWABLE" && coin.V7EntrySignal == "entry_trigger_near" && coin.V7AIPriority >= 45 && coin.V7RiskScore < 55 {
+		return false
+	}
 	if tier == "REVIEWABLE" && coin.V7AIPriority >= 58 && coin.V7TimingScore >= 55 {
 		return false
 	}
 	return true
+}
+
+func decisionTriggerForStore(trigger *kernel.DecisionTrigger) *store.DecisionTrigger {
+	if trigger == nil {
+		return nil
+	}
+	return &store.DecisionTrigger{
+		TriggerPrice:      trigger.TriggerPrice,
+		RequiredClose:     trigger.RequiredClose,
+		ExpiresInBars:     trigger.ExpiresInBars,
+		ActionIfTriggered: trigger.ActionIfTriggered,
+	}
 }
 
 func (at *AutoTrader) filterHunterV7RecentLossCooldown(candidates []kernel.CandidateCoin, recentTrades []store.RecentTrade) ([]kernel.CandidateCoin, int) {

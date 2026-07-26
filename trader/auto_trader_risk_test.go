@@ -2,6 +2,7 @@ package trader
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -1578,5 +1579,139 @@ func TestProtectionCloseQuantityPartial(t *testing.T) {
 	}
 	if closeQty != 40 {
 		t.Fatalf("closeQty = %v, want 40", closeQty)
+	}
+}
+
+func TestHunterV7ExecutionGuardAllowsReviewPassedPanicReversalOpen(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:             "TRIAUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "panic_reversal_long",
+				V7ExecutionTier:    "REVIEWABLE",
+				V7EntrySignal:      "entry_open_now",
+				V7ExecutionQuality: "ready",
+				V7ConfirmSummary: &local.V7ConfirmationSummary{
+					PassedHard:   true,
+					PassedReview: true,
+					RR:           2.3,
+				},
+			},
+		},
+		MarketDataMap: map[string]*market.Data{
+			"TRIAUSDT": {Symbol: "TRIAUSDT", CurrentPrice: 0.00862},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol:     "TRIAUSDT",
+		Action:     "open_long",
+		Price:      0.00862,
+		StopLoss:   0.00841,
+		TakeProfit: 0.00910,
+		Confidence: 82,
+	}
+
+	if err := at.validateHunterV7ExecutionGuard(ctx, decision); err != nil {
+		t.Fatalf("unexpected review-passed guard rejection: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardBlocksLeaderMomentumUpperZoneChase(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:             "SKYAIUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "leader_momentum_long",
+				V7ExecutionTier:    "EXECUTABLE",
+				V7ExecutionQuality: "ready",
+				V7RiskTags:         []string{"momentum_upper_zone_chase"},
+			},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol:          "SKYAIUSDT",
+		Action:          "open_long",
+		PositionSizeUSD: 42,
+		Price:           0.03601,
+		StopLoss:        0.03525,
+		TakeProfit:      0.03727,
+		Confidence:      85,
+	}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil {
+		t.Fatal("expected upper-zone chase guard rejection")
+	}
+	if !strings.Contains(err.Error(), "momentum_upper_zone_chase") {
+		t.Fatalf("expected momentum_upper_zone_chase in error, got: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardBlocksShortWhenMMSSqueezeBanActive(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:        "MMSCUSDT",
+				Direction:     "LONG",
+				V7SetupType:   "mms_squeeze_engine_long",
+				V7ReasonCodes: []string{"mms_squeeze_engine", "mms_short_ban_active"},
+			},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol:          "MMSCUSDT",
+		Action:          "open_short",
+		PositionSizeUSD: 30,
+		Price:           1.20,
+		StopLoss:        1.23,
+		TakeProfit:      1.15,
+		Confidence:      80,
+	}
+
+	err := at.validateHunterV7ExecutionGuard(ctx, decision)
+	if err == nil {
+		t.Fatal("expected MMS squeeze short-ban rejection")
+	}
+	if !strings.Contains(err.Error(), "MMS squeeze-engine short ban active") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestHunterV7ExecutionGuardCapsLowLiquidityPosition(t *testing.T) {
+	at := testRiskAutoTrader()
+	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
+	ctx := &kernel.Context{
+		CandidateCoins: []kernel.CandidateCoin{
+			{
+				Symbol:             "JCTUSDT",
+				Direction:          "LONG",
+				V7SetupType:        "leader_momentum_long",
+				V7QuoteVolume24h:   5_280_000,
+				V7ExecutionTier:    "EXECUTABLE",
+				V7ExecutionQuality: "ready",
+			},
+		},
+	}
+	decision := &kernel.Decision{
+		Symbol:          "JCTUSDT",
+		Action:          "open_long",
+		PositionSizeUSD: 100,
+		Price:           0.004,
+	}
+
+	if err := at.validateHunterV7ExecutionGuard(ctx, decision); err != nil {
+		t.Fatalf("expected low-liquidity cap to allow decision, got: %v", err)
+	}
+	want := 52.8
+	if math.Abs(decision.PositionSizeUSD-want) > 0.0001 {
+		t.Fatalf("position size = %.4f, want %.4f", decision.PositionSizeUSD, want)
 	}
 }

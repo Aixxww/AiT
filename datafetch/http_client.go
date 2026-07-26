@@ -2,11 +2,14 @@ package datafetch
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -139,27 +142,36 @@ type HTTPClient struct {
 // NewHTTPClient creates an HTTP client with connection pooling, rate limiting,
 // and circuit breaking for Binance API calls.
 func NewHTTPClient(baseURL string) *HTTPClient {
+	return NewHTTPClientWithTimeout(baseURL, 10*time.Second)
+}
+
+// NewHTTPClientWithTimeout creates an HTTP client with an explicit request
+// timeout for Binance API calls.
+func NewHTTPClientWithTimeout(baseURL string, timeout time.Duration) *HTTPClient {
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
 	// DisableKeepAlives forces a fresh TCP connection per request, preventing
 	// HTTP/2 multiplexing from collapsing all concurrent streams onto one TCP
 	// connection that cascades on failure. Also ensures ProxyFromEnvironment
 	// is re-evaluated per connection for proper proxy tunneling.
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy: binanceProxyFromEnvironment,
 		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
+			Timeout:   timeout,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		MaxIdleConns:        400,
 		MaxIdleConnsPerHost: 200,
 		IdleConnTimeout:     90 * time.Second,
 		MaxConnsPerHost:     200,
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: timeout,
 		ForceAttemptHTTP2:   true,
 		DisableKeepAlives:   true,
 	}
 	inner := &http.Client{
 		Transport: transport,
-		Timeout:   10 * time.Second,
+		Timeout:   timeout,
 	}
 	return &HTTPClient{
 		inner:   inner,
@@ -167,6 +179,13 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 		breaker: NewCircuitBreaker(5, 30*time.Second),
 		baseURL: baseURL,
 	}
+}
+
+func binanceProxyFromEnvironment(req *http.Request) (*url.URL, error) {
+	if proxyURL := strings.TrimSpace(os.Getenv("AIT_BINANCE_PROXY_URL")); proxyURL != "" {
+		return url.Parse(proxyURL)
+	}
+	return http.ProxyFromEnvironment(req)
 }
 
 // doPublic performs a rate-limited, circuit-breaker-protected GET request
@@ -262,9 +281,16 @@ func truncateBody(b []byte, max int) string {
 // isRetryable returns true if the error is a transient network issue
 // (connection reset, timeout, EOF) that should be retried.
 func isRetryable(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
 	s := err.Error()
 	return strings.Contains(s, "connection reset") ||
 		strings.Contains(s, "i/o timeout") ||
+		strings.Contains(s, "TLS handshake timeout") ||
+		strings.Contains(s, "Client.Timeout exceeded") ||
+		strings.Contains(s, "context deadline exceeded") ||
 		strings.Contains(s, "EOF") ||
 		strings.Contains(s, "broken pipe") ||
 		strings.Contains(s, "server closed idle connection")

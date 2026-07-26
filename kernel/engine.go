@@ -88,6 +88,8 @@ type CandidateCoin struct {
 	V7RegimeFitScore   float64                      `json:"-"`
 	V7RiskLevel        string                       `json:"-"`
 	V7EntryMode        string                       `json:"-"`
+	V7MarketShape      string                       `json:"-"`
+	V7EntrySignal      string                       `json:"-"`
 	V7ExecutionQuality string                       `json:"-"`
 	V7MarketRegime     string                       `json:"-"`
 	V7Confidence       string                       `json:"-"`
@@ -206,16 +208,24 @@ type Decision struct {
 	OrderID    string  `json:"order_id,omitempty"`    // Order ID (for cancel)
 
 	// Common parameters
-	Confidence               int     `json:"confidence,omitempty"` // Confidence level (0-100)
-	RiskUSD                  float64 `json:"risk_usd,omitempty"`   // Maximum USD risk
-	Reasoning                string  `json:"reasoning"`
-	BlockedReasonCode        string  `json:"blocked_reason_code,omitempty"`          // Structured wait reason enum (hunter_v7)
-	SelectedHunterV7SignalID string  `json:"selected_hunter_v7_signal_id,omitempty"` // Exact Hunter v7 signal selected for open.
-	SelectedHunterV7Tier     string  `json:"selected_hunter_v7_tier,omitempty"`
-	SelectedHunterV7Setup    string  `json:"selected_hunter_v7_setup,omitempty"`
-	BlockedSignalSymbol      string  `json:"blocked_signal_symbol,omitempty"`
-	EffectiveRRAfterCap      float64 `json:"effective_rr_after_cap,omitempty"`
-	SignalAgeMs              int64   `json:"signal_age_ms,omitempty"`
+	Confidence               int              `json:"confidence,omitempty"` // Confidence level (0-100)
+	RiskUSD                  float64          `json:"risk_usd,omitempty"`   // Maximum USD risk
+	Reasoning                string           `json:"reasoning"`
+	BlockedReasonCode        string           `json:"blocked_reason_code,omitempty"`          // Structured wait reason enum (hunter_v7)
+	SelectedHunterV7SignalID string           `json:"selected_hunter_v7_signal_id,omitempty"` // Exact Hunter v7 signal selected for open.
+	SelectedHunterV7Tier     string           `json:"selected_hunter_v7_tier,omitempty"`
+	SelectedHunterV7Setup    string           `json:"selected_hunter_v7_setup,omitempty"`
+	BlockedSignalSymbol      string           `json:"blocked_signal_symbol,omitempty"`
+	EffectiveRRAfterCap      float64          `json:"effective_rr_after_cap,omitempty"`
+	SignalAgeMs              int64            `json:"signal_age_ms,omitempty"`
+	Trigger                  *DecisionTrigger `json:"trigger,omitempty"` // Structured wait trigger (hunter_v7)
+}
+
+type DecisionTrigger struct {
+	TriggerPrice      float64 `json:"trigger_price,omitempty"`
+	RequiredClose     string  `json:"required_close,omitempty"`
+	ExpiresInBars     int     `json:"expires_in_bars,omitempty"`
+	ActionIfTriggered string  `json:"action_if_triggered,omitempty"`
 }
 
 // FullDecision AI's complete decision (including chain of thought)
@@ -559,6 +569,8 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7RegimeFitScore:   sig.RegimeFitScore,
 			V7RiskLevel:        string(sig.RiskLevel),
 			V7EntryMode:        string(sig.EntryMode),
+			V7MarketShape:      string(sig.MarketShape),
+			V7EntrySignal:      string(sig.EntrySignal),
 			V7ExecutionQuality: string(sig.ExecutionQuality),
 			V7MarketRegime:     string(sig.MarketRegime),
 			V7Confidence:       sig.Confidence,
@@ -653,6 +665,11 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	if coin.V7Status == "filtered" {
 		return "REJECTED", "status_filtered"
 	}
+	// Alt-ladder extreme continuation stays visible as WATCH instead of being
+	// rejected outright, so the review pool keeps strong-but-risky movers.
+	if hunterV7AltLadderExtremeContinuationWatch(coin) {
+		return "WATCH", "alt_ladder_extreme_continuation_watch"
+	}
 	if strings.EqualFold(coin.V7RiskLevel, "EXTREME") {
 		return "REJECTED", "risk_extreme"
 	}
@@ -660,6 +677,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 		return "REJECTED", "invalid_rr"
 	}
 	for _, tag := range coin.V7RiskTags {
+		if hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin, tag) {
+			continue
+		}
 		if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionRejectOnly {
 			return "REJECTED", tag
 		}
@@ -684,6 +704,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	if reason := hunterV7ReadinessMissingExecutionWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
+	if hunterV7NonFundingCrowdedLongWait(coin) {
+		return "WATCH", "crowding_extreme"
+	}
 	if coin.V7SetupType == "funding_reversal" &&
 		containsStringValue(coin.V7RiskTags, "oi_building_no_flush") &&
 		!hunterV7FundingShortMixedOIReviewAllowed(coin) {
@@ -702,6 +725,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 			return "REVIEWABLE", reason
 		}
 		return "WATCH", "momentum_late_pullback_zone_upper_wait"
+	}
+	if hunterV7LeaderMomentumUpperChaseWait(coin) {
+		return "WATCH", "momentum_upper_zone_chase_wait"
 	}
 	if reason := hunterV7HighRiskSignalWaitReason(coin); reason != "" {
 		// High RSI + volume expansion: REVIEWABLE with position_reduce instead of WATCH
@@ -967,6 +993,81 @@ func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin) (string, string
 	return classifyHunterV7CandidateTier(coin)
 }
 
+func hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin CandidateCoin, tag string) bool {
+	if tag != "displacement_rr_insufficient" || coin.V7SetupType != "displacement_momentum_long" {
+		return false
+	}
+	if coin.V7LiquidityScore <= 0 || coin.V7LiquidityScore >= 50 {
+		return false
+	}
+	rr, ok := hunterV7FinalConfirmationRR(coin)
+	return ok && rr >= hunterV7BackendMinRR
+}
+
+func hunterV7NonFundingCrowdedLongWait(coin CandidateCoin) bool {
+	return strings.EqualFold(coin.Direction, "LONG") &&
+		coin.V7SetupType != "funding_reversal" &&
+		containsStringValue(coin.V7RiskTags, "crowding_extreme")
+}
+
+func hunterV7AltLadderExtremeContinuationWatch(coin CandidateCoin) bool {
+	return coin.V7SetupType == "alt_ladder_momentum_long" &&
+		containsStringValue(coin.V7RiskTags, "alt_ladder_extreme_continuation_watch") &&
+		containsStringValue(coin.V7ReasonCodes, "alt_ladder_stage_extreme")
+}
+
+func hunterV7StopTightenedNeedsReview(coin CandidateCoin) bool {
+	if !containsStringValue(coin.V7RiskTags, "execution_stop_tightened") {
+		return false
+	}
+	switch coin.V7SetupType {
+	case "alt_ladder_momentum_long", "alt_ladder_breakdown_short", "mms_trend_ride_long":
+	default:
+		return false
+	}
+	if coin.V7AIPriority < 80 || coin.V7TimingScore < 70 || coin.V7RiskScore >= 20 {
+		return true
+	}
+	if strings.EqualFold(coin.Direction, "LONG") {
+		return !hunterV7TakerBuyAtLeast(coin, 0.56)
+	}
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		return !hunterV7TakerBuyAtMost(coin, 0.44)
+	}
+	return true
+}
+
+func hunterV7FinalConfirmationRR(coin CandidateCoin) (float64, bool) {
+	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.RR > 0 {
+		return coin.V7ConfirmSummary.RR, true
+	}
+	price := hunterV7ReferencePrice(coin)
+	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
+		return 0, false
+	}
+	risk := 0.0
+	if strings.EqualFold(coin.Direction, "SHORT") {
+		risk = coin.V7Invalidation.Price - price
+	} else if strings.EqualFold(coin.Direction, "LONG") {
+		risk = price - coin.V7Invalidation.Price
+	}
+	if risk <= 0 {
+		return 0, false
+	}
+	bestReward := 0.0
+	for _, target := range coin.V7Targets {
+		reward := hunterV7DirectionalRewardPct(price, target.Price, coin.Direction)
+		if reward > bestReward {
+			bestReward = reward
+		}
+	}
+	if bestReward <= 0 {
+		return 0, false
+	}
+	riskPct := risk / price * 100
+	return bestReward / riskPct, true
+}
+
 func hunterV7ExecutableCandidateReason(coin CandidateCoin) (bool, string) {
 	if coin.V7RiskScore >= 65 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
 		return false, ""
@@ -977,10 +1078,16 @@ func hunterV7ExecutableCandidateReason(coin CandidateCoin) (bool, string) {
 	if hunterV7DirectOpenWaitOnlyReason(coin) != "" {
 		return false, ""
 	}
+	if hunterV7StopTightenedNeedsReview(coin) || hunterV7DisplacementReviewOnlyRisk(coin) {
+		return false, ""
+	}
 	if coin.V7SetupType == "funding_reversal" && containsStringValue(coin.V7RiskTags, "oi_building_no_flush") {
 		return false, ""
 	}
 	if coin.V7ExecutionQuality == "ready" {
+		return hunterV7ReadyExecutableReason(coin)
+	}
+	if coin.V7EntrySignal == "entry_open_now" {
 		return hunterV7ReadyExecutableReason(coin)
 	}
 	if coin.V7ExecutionQuality == "near_confirm" || coin.V7Status == "candidate" {
@@ -1015,6 +1122,9 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			return true, "funding_long_ready_strong_confirm"
 		}
 	case "leader_momentum_long":
+		if hunterV7LeaderMomentumUpperChaseWait(coin) {
+			return false, ""
+		}
 		if coin.V7AIPriority >= 65 &&
 			coin.V7SetupScore >= 70 &&
 			coin.V7TimingScore >= 65 &&
@@ -1030,6 +1140,20 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 55 &&
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "long_setup_ready_confirmed"
+		}
+	case "mms_trend_ride_long", "mms_squeeze_engine_long":
+		if coin.V7AIPriority >= 58 &&
+			coin.V7SetupScore >= 60 &&
+			coin.V7TimingScore >= 60 &&
+			coin.V7RiskScore < 55 &&
+			hunterV7TakerBuyAtLeast(coin, 0.50) &&
+			hunterV7MMSLongExecutableFreshEnough(coin) &&
+			!hunterV7MMSLongExecutableChaseBlock(coin) {
+			return true, "mms_long_ready_confirmed"
+		}
+	case "alt_ladder_momentum_long":
+		if hunterV7AltLadderLongExecutable(coin) {
+			return true, "alt_ladder_long_ready_confirmed"
 		}
 	case "displacement_momentum_long":
 		if coin.V7AIPriority >= 55 &&
@@ -1047,7 +1171,16 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 35 {
 			return true, "range_expansion_ready_confirmed_continuation"
 		}
-	case "distribution_short", "long_squeeze_short", "range_reversion":
+	case "alt_ladder_breakdown_short":
+		if coin.V7AIPriority >= 60 &&
+			coin.V7TimingScore >= 65 &&
+			coin.V7RiskScore < 35 &&
+			hunterV7TakerBuyAtMost(coin, 0.46) &&
+			containsStringValue(coin.V7ReasonCodes, "alt_ladder_taker_sell") &&
+			containsAnyStringValue(coin.V7ReasonCodes, []string{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}) {
+			return true, "alt_ladder_short_ready_strong_confirmed"
+		}
+	case "distribution_short", "long_squeeze_short", "breakdown_momentum_short", "range_reversion":
 		if coin.V7AIPriority >= 55 &&
 			coin.V7TimingScore >= 55 &&
 			coin.V7RiskScore < 55 {
@@ -1089,6 +1222,36 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 	}
 	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
 		return false, ""
+	}
+	if coin.V7ExecutionQuality == "near_confirm" &&
+		coin.V7AIPriority >= 45 &&
+		coin.V7SetupScore >= 45 &&
+		coin.V7TimingScore >= 45 &&
+		coin.V7RiskScore < 45 &&
+		hunterV7TakerBuyAligned(coin) &&
+		hunterV7ConfirmationSummaryReviewPassed(coin) {
+		return true, "near_confirm_reviewable_micro_confirmed"
+	}
+	if containsStringValue(coin.V7ReasonCodes, "trigger_memory_confirmed") &&
+		(coin.V7SetupType == "trend_breakout_long" || coin.V7SetupType == "accumulation_breakout_long") &&
+		coin.V7AIPriority >= 45 &&
+		coin.V7SetupScore >= 50 &&
+		coin.V7RiskScore < 55 &&
+		(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 70) &&
+		hunterV7TakerBuyAligned(coin) {
+		return true, "breakout_trigger_memory_confirmed_reviewable"
+	}
+	if coin.V7EntrySignal == "entry_trigger_near" &&
+		(coin.V7SetupType == "trend_breakout_long" || coin.V7SetupType == "accumulation_breakout_long") &&
+		coin.V7SetupScore >= 78 &&
+		coin.V7AIPriority >= 45 &&
+		coin.V7RiskScore < 55 &&
+		(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 70) &&
+		hunterV7TakerBuyAligned(coin) {
+		return true, "breakout_trigger_near_reviewable"
+	}
+	if hunterV7BreakoutTriggerNearFlowReviewable(coin) {
+		return true, "breakout_trigger_near_flow_reviewable"
 	}
 	switch coin.V7SetupType {
 	case "panic_reversal_long":
@@ -1243,6 +1406,33 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			containsStringValue(coin.V7ReasonCodes, "clear_air_above") {
 			return true, "breakout_reviewable_low_risk_pressure_floor"
 		}
+		if hunterV7TrendBreakoutStrongFlowReviewable(coin) {
+			return true, "breakout_watch_strong_flow_reviewable"
+		}
+	case "mms_bottom_wake_long":
+		if coin.V7AIPriority >= 45 &&
+			coin.V7SetupScore >= 48 &&
+			coin.V7RiskScore < 45 &&
+			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
+			hunterV7TakerBuyAtLeast(coin, 0.48) {
+			return true, "mms_bottom_wake_reviewable_breakout_required"
+		}
+	case "mms_trend_ride_long", "mms_squeeze_engine_long":
+		if coin.V7AIPriority >= 50 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 55 &&
+			coin.V7RiskScore < 55 &&
+			hunterV7TakerBuyAtLeast(coin, 0.50) {
+			return true, "mms_long_reviewable_confirmed"
+		}
+	case "alt_ladder_momentum_long":
+		if coin.V7AIPriority >= 50 &&
+			coin.V7SetupScore >= 55 &&
+			coin.V7TimingScore >= 52 &&
+			coin.V7RiskScore < 55 &&
+			hunterV7TakerBuyAtLeast(coin, 0.50) {
+			return true, "alt_ladder_long_reviewable_confirmed"
+		}
 	case "pre_breakout_watch", "pre_squeeze_watch", "pre_distribution_watch", "accumulation_watch":
 		if hunterV7WatchUpgradedReviewable(coin) {
 			return true, "watch_state_upgraded_reviewable"
@@ -1264,7 +1454,14 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			coin.V7RiskScore < 45 {
 			return true, "range_expansion_reviewable_confirmed_continuation"
 		}
-	case "distribution_short", "long_squeeze_short", "range_reversion":
+	case "alt_ladder_breakdown_short":
+		if coin.V7AIPriority >= 52 &&
+			coin.V7TimingScore >= 58 &&
+			coin.V7RiskScore <= 45 &&
+			hunterV7TakerBuyAtMost(coin, 0.48) {
+			return true, "alt_ladder_short_reviewable_confirmed"
+		}
+	case "distribution_short", "long_squeeze_short", "breakdown_momentum_short", "range_reversion":
 		if coin.V7AIPriority >= 50 &&
 			coin.V7TimingScore >= 50 &&
 			coin.V7RiskScore < 55 {
@@ -3093,4 +3290,230 @@ func detectLanguage(text string) Language {
 		}
 	}
 	return LangEnglish
+}
+
+func hunterV7AltLadderLateLongNeedsFreshFlow(coin CandidateCoin) bool {
+	if coin.V7SetupType != "alt_ladder_momentum_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return false
+	}
+	late := containsStringValue(coin.V7ReasonCodes, "alt_ladder_stage_late") ||
+		containsStringValue(coin.V7RiskTags, "alt_ladder_late_chase_risk") ||
+		containsStringValue(coin.V7RiskTags, "high_volatility")
+	if !late {
+		return false
+	}
+	if coin.V7DerivativesCtx == nil {
+		return true
+	}
+	freshOI := coin.V7DerivativesCtx.OIChange1h > 0.5
+	freshParticipation := containsStringValue(coin.V7ReasonCodes, "alt_ladder_volume_expansion") ||
+		hunterV7TakerBuyConfirmedAtLeast(coin, 0.60)
+	return !(freshOI && freshParticipation)
+}
+
+func hunterV7AltLadderLongExecutable(coin CandidateCoin) bool {
+	if coin.V7AIPriority < 58 ||
+		coin.V7SetupScore < 58 ||
+		coin.V7TimingScore < 60 ||
+		coin.V7RiskScore >= 55 ||
+		!hunterV7PriceInsideEntryZone(coin) {
+		return false
+	}
+	if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.55) {
+		return false
+	}
+	if !containsStringValue(coin.V7ReasonCodes, "alt_ladder_taker_buy") {
+		return false
+	}
+	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"alt_ladder_oi_inflow", "alt_ladder_volume_expansion"}) {
+		return false
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{"alt_ladder_late_chase_risk", "high_volatility"}) &&
+		!containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange4h < -3 &&
+		!containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") {
+		return false
+	}
+	if containsStringValue(coin.V7ReasonCodes, "alt_ladder_stage_mid") &&
+		!containsStringValue(coin.V7ReasonCodes, "alt_ladder_taker_buy") {
+		return false
+	}
+	if hunterV7AltLadderLateLongNeedsFreshFlow(coin) {
+		return false
+	}
+	if containsStringValue(coin.V7RiskTags, "execution_stop_tightened") {
+		if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.58) {
+			return false
+		}
+		if !containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") &&
+			(coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.OIChange1h < 0) {
+			return false
+		}
+	}
+	return true
+}
+
+func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {
+	if coin.V7EntrySignal != "entry_trigger_near" {
+		return false
+	}
+	if coin.V7SetupType != "trend_breakout_long" && coin.V7SetupType != "accumulation_breakout_long" {
+		return false
+	}
+	if coin.V7SetupScore < 74 || coin.V7AIPriority < 45 || coin.V7RiskScore >= 35 {
+		return false
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 70 {
+		return false
+	}
+	if !hunterV7TakerBuyAtLeast(coin, 0.58) {
+		return false
+	}
+	if !containsStringValue(coin.V7ReasonCodes, "clear_air_above") {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange1h < 0 {
+		return false
+	}
+	rr, ok := hunterV7FinalConfirmationRR(coin)
+	return ok && rr >= hunterV7BackendMinRR
+}
+
+func hunterV7DisplacementReviewOnlyRisk(coin CandidateCoin) bool {
+	if coin.V7SetupType != "displacement_momentum_long" {
+		return false
+	}
+	return containsAnyStringValue(coin.V7RiskTags, []string{
+		"displacement_rr_insufficient",
+		"displacement_rr_repaired_needs_review",
+		"displacement_chase_risk_overextended",
+		"displacement_chase_risk_extreme_1h_move",
+	})
+}
+
+func hunterV7LeaderMomentumUpperChaseWait(coin CandidateCoin) bool {
+	if coin.V7SetupType != "leader_momentum_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return false
+	}
+	if containsAnyStringValue(coin.V7RiskTags, []string{"momentum_upper_zone_chase", "do_not_market_chase"}) ||
+		containsStringValue(coin.V7ReasonCodes, "leader_momentum_upper_chase_wait") {
+		return true
+	}
+	if containsAnyStringValue(coin.V7ReasonCodes, []string{"trigger_memory_confirmed", "confirmed_breakout", "strong_breakout", "taker_sustained_buy", "taker_buy_aggressive"}) {
+		return false
+	}
+	if containsAnyStringValue(coin.V7ReasonCodes, []string{"micro_pullback", "shallow_pullback", "shallow_pullback_1h"}) {
+		return false
+	}
+	if !containsStringValue(coin.V7ReasonCodes, "no_pullback_still_running") {
+		return false
+	}
+	if coin.V7PriceContext == nil || coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= coin.V7EntryZone.Lower {
+		return false
+	}
+	pos := (coin.V7PriceContext.Last - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+	if pos < 65 {
+		return false
+	}
+	weakVotes := 0
+	if coin.V7DerivativesCtx != nil {
+		if coin.V7DerivativesCtx.OIChange1h < 0 {
+			weakVotes++
+		}
+		if coin.V7DerivativesCtx.TakerBuy15m > 0 && coin.V7DerivativesCtx.TakerBuy15m < 0.60 {
+			weakVotes++
+		}
+	}
+	if coin.V7PriceContext.VWAP15m > 0 && coin.V7PriceContext.Last > coin.V7PriceContext.VWAP15m {
+		vwapDistancePct := (coin.V7PriceContext.Last - coin.V7PriceContext.VWAP15m) / coin.V7PriceContext.VWAP15m * 100
+		if vwapDistancePct >= 4.0 {
+			weakVotes++
+		}
+	}
+	return weakVotes >= 2
+}
+
+func hunterV7MMSLongExecutableChaseBlock(coin CandidateCoin) bool {
+	if coin.V7SetupType != "mms_trend_ride_long" && coin.V7SetupType != "mms_squeeze_engine_long" {
+		return false
+	}
+	if !strings.EqualFold(coin.Direction, "LONG") || coin.V7PriceContext == nil {
+		return false
+	}
+	if coin.V7PriceContext.Change24h < 18 || coin.V7PriceContext.VWAP15m <= 0 || coin.V7PriceContext.Last <= 0 {
+		return false
+	}
+	vwapDistancePct := (coin.V7PriceContext.Last - coin.V7PriceContext.VWAP15m) / coin.V7PriceContext.VWAP15m * 100
+	if vwapDistancePct < 4 {
+		return false
+	}
+	return coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.OIChange4h < 0
+}
+
+func hunterV7MMSLongExecutableFreshEnough(coin CandidateCoin) bool {
+	if coin.V7SetupType != "mms_trend_ride_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return true
+	}
+	if !hunterV7PriceInsideEntryZone(coin) {
+		return false
+	}
+	if coin.V7PriceContext != nil && coin.V7PriceContext.Change1h <= 0 && coin.V7PriceContext.Change4h <= 0 {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil &&
+		coin.V7DerivativesCtx.OIChange1h < 0 &&
+		coin.V7DerivativesCtx.OIChange4h <= 0 &&
+		!containsStringValue(coin.V7ReasonCodes, "mms_trend_continuation") {
+		return false
+	}
+	return true
+}
+
+func hunterV7PriceInsideEntryZone(coin CandidateCoin) bool {
+	if coin.V7PriceContext == nil || coin.V7PriceContext.Last <= 0 ||
+		coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= 0 {
+		return true
+	}
+	lower, upper := coin.V7EntryZone.Lower, coin.V7EntryZone.Upper
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+	return coin.V7PriceContext.Last >= lower && coin.V7PriceContext.Last <= upper
+}
+
+func hunterV7TrendBreakoutStrongFlowReviewable(coin CandidateCoin) bool {
+	if coin.V7SetupType != "trend_breakout_long" && coin.V7SetupType != "accumulation_breakout_long" {
+		return false
+	}
+	if coin.V7AIPriority < 35 ||
+		coin.V7SetupScore < 48 ||
+		coin.V7RiskScore >= 35 ||
+		(coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 30) {
+		return false
+	}
+	if !containsStringValue(coin.V7ReasonCodes, "clear_air_above") {
+		return false
+	}
+	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "confirmed_breakout", "strong_breakout", "breakout_attempt"}) {
+		return false
+	}
+	flowOK := containsAnyStringValue(coin.V7ReasonCodes, []string{"taker_aggressive_buy", "taker_strong_buy", "taker_moderate_buy"})
+	contextOK := coin.V7RiskScore < 16 &&
+		containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_increasing", "oi_stable_breakout"}) &&
+		containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "volume_decent"})
+	structureOnlyOK := coin.V7RiskScore < 25 &&
+		!containsAnyStringValue(coin.V7ReasonCodes, []string{"some_resistance_overhead", "low_liquidity"})
+	if !flowOK && !contextOK && !structureOnlyOK {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0 && coin.V7DerivativesCtx.TakerBuy15m < 0.52 {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange1h < -0.5 &&
+		!containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate"}) {
+		return false
+	}
+	return true
 }

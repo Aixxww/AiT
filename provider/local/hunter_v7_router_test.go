@@ -495,6 +495,59 @@ func TestV7ExecutionQualityUsesValidDirectionalTargetForRR(t *testing.T) {
 	}
 }
 
+func TestV7ExecutionQualityNormalizesReversedEntryZone(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "ZONEUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupPanicReversalLong,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryImmediate,
+		TimingScore:  65,
+		RiskScore:    25,
+		EntryZone:    V7PriceZone{Lower: 102, Upper: 99},
+		Invalidation: V7InvalidationRule{Price: 98},
+		Targets:      []V7Target{{Price: 104, Reason: "valid_extension"}},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.EntryZone.Lower != 99 || sig.EntryZone.Upper != 102 {
+		t.Fatalf("entry zone = %.2f..%.2f, want normalized 99..102", sig.EntryZone.Lower, sig.EntryZone.Upper)
+	}
+	if !containsString(sig.ReasonCodes, "entry_zone_normalized") {
+		t.Fatalf("missing entry_zone_normalized reason: %+v", sig.ReasonCodes)
+	}
+}
+
+func TestV7ExecutionQualityIgnoresRemoteTargetsForShortTermRR(t *testing.T) {
+	sig := &V7SignalOutput{
+		Symbol:       "REMOTEUSDT",
+		Direction:    V7DirLong,
+		SetupType:    V7SetupPanicReversalLong,
+		Status:       V7StatusCandidate,
+		EntryMode:    V7EntryImmediate,
+		TimingScore:  65,
+		RiskScore:    25,
+		EntryZone:    V7PriceZone{Lower: 99, Upper: 102},
+		Invalidation: V7InvalidationRule{Price: 98},
+		Targets: []V7Target{
+			{Price: 101, Reason: "near_but_thin"},
+			{Price: 120, Reason: "remote_context_target"},
+		},
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+
+	finalizeV7SignalForExecution(sig, ctx, DefaultV7Config())
+
+	if sig.ExecutionQuality != V7ExecInvalidRR {
+		t.Fatalf("execution quality = %s, want invalid_rr from nearest short-term target", sig.ExecutionQuality)
+	}
+	if !containsString(sig.RiskTags, "invalid_rr_context_only") {
+		t.Fatalf("missing invalid_rr_context_only tag: %+v", sig.RiskTags)
+	}
+}
+
 func TestV7ExecutionQualityTightensOverWideInvalidationForScoring(t *testing.T) {
 	sig := &V7SignalOutput{
 		Symbol:       "STOPUSDT",

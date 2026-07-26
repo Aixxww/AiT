@@ -217,6 +217,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 		return err
 	}
+	actualPositionSize = decision.PositionSizeUSD
 
 	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "long"); err != nil {
 		return err
@@ -375,6 +376,7 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 		return err
 	}
+	actualPositionSize = decision.PositionSizeUSD
 
 	if adjustedSize, wasCapped, err := at.enforceSingleTradeLossLimit(decision, executionPrice, equity, "short"); err != nil {
 		return err

@@ -162,7 +162,7 @@ type KlineInterval struct {
 var DefaultKlineIntervals = []KlineInterval{
 	{Interval: "1m", Limit: 60},
 	{Interval: "5m", Limit: 50},
-	{Interval: "15m", Limit: 50},
+	{Interval: "15m", Limit: 120},
 	{Interval: "1h", Limit: 100},
 	{Interval: "4h", Limit: 100},
 	{Interval: "1d", Limit: 50},
@@ -174,7 +174,7 @@ var DefaultKlineIntervals = []KlineInterval{
 var FastKlineIntervals = []KlineInterval{
 	{Interval: "1m", Limit: 60},
 	{Interval: "5m", Limit: 50},
-	{Interval: "15m", Limit: 50},
+	{Interval: "15m", Limit: 120},
 	{Interval: "1h", Limit: 100},
 }
 

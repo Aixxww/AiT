@@ -86,29 +86,38 @@ type PositionSnapshot struct {
 
 // DecisionAction decision action
 type DecisionAction struct {
-	Action                   string    `json:"action"`
-	Symbol                   string    `json:"symbol"`
-	Quantity                 float64   `json:"quantity"`
-	Leverage                 int       `json:"leverage"`
-	Price                    float64   `json:"price"`
-	StopLoss                 float64   `json:"stop_loss,omitempty"`   // Stop loss price
-	TakeProfit               float64   `json:"take_profit,omitempty"` // Take profit price
-	Confidence               int       `json:"confidence,omitempty"`  // AI confidence (0-100)
-	Reasoning                string    `json:"reasoning,omitempty"`   // Brief reasoning
-	EffectivePositionSizeUSD float64   `json:"effective_position_size_usd,omitempty"`
-	EffectiveStopLoss        float64   `json:"effective_stop_loss,omitempty"`
-	EffectiveTakeProfit      float64   `json:"effective_take_profit,omitempty"`
-	TPWasCapped              bool      `json:"tp_was_capped,omitempty"`
-	PositionWasReduced       bool      `json:"position_was_reduced,omitempty"`
-	RiskAtStopUSD            float64   `json:"risk_at_stop_usd,omitempty"`
-	RRAfterBackendRepair     float64   `json:"rr_after_backend_repair,omitempty"`
-	FinalRR                  float64   `json:"final_rr,omitempty"`
-	FinalEffectiveTakeProfit float64   `json:"final_effective_take_profit,omitempty"`
-	FinalStopLoss            float64   `json:"final_stop_loss,omitempty"`
-	OrderID                  int64     `json:"order_id"`
-	Timestamp                time.Time `json:"timestamp"`
-	Success                  bool      `json:"success"`
-	Error                    string    `json:"error"`
+	Action                   string           `json:"action"`
+	Symbol                   string           `json:"symbol"`
+	Quantity                 float64          `json:"quantity"`
+	Leverage                 int              `json:"leverage"`
+	Price                    float64          `json:"price"`
+	StopLoss                 float64          `json:"stop_loss,omitempty"`   // Stop loss price
+	TakeProfit               float64          `json:"take_profit,omitempty"` // Take profit price
+	Confidence               int              `json:"confidence,omitempty"`  // AI confidence (0-100)
+	Reasoning                string           `json:"reasoning,omitempty"`   // Brief reasoning
+	EffectivePositionSizeUSD float64          `json:"effective_position_size_usd,omitempty"`
+	EffectiveStopLoss        float64          `json:"effective_stop_loss,omitempty"`
+	EffectiveTakeProfit      float64          `json:"effective_take_profit,omitempty"`
+	TPWasCapped              bool             `json:"tp_was_capped,omitempty"`
+	PositionWasReduced       bool             `json:"position_was_reduced,omitempty"`
+	RiskAtStopUSD            float64          `json:"risk_at_stop_usd,omitempty"`
+	RRAfterBackendRepair     float64          `json:"rr_after_backend_repair,omitempty"`
+	FinalRR                  float64          `json:"final_rr,omitempty"`
+	FinalEffectiveTakeProfit float64          `json:"final_effective_take_profit,omitempty"`
+	FinalStopLoss            float64          `json:"final_stop_loss,omitempty"`
+	BlockedReasonCode        string           `json:"blocked_reason_code,omitempty"`
+	Trigger                  *DecisionTrigger `json:"trigger,omitempty"`
+	OrderID                  int64            `json:"order_id"`
+	Timestamp                time.Time        `json:"timestamp"`
+	Success                  bool             `json:"success"`
+	Error                    string           `json:"error"`
+}
+
+type DecisionTrigger struct {
+	TriggerPrice      float64 `json:"trigger_price,omitempty"`
+	RequiredClose     string  `json:"required_close,omitempty"`
+	ExpiresInBars     int     `json:"expires_in_bars,omitempty"`
+	ActionIfTriggered string  `json:"action_if_triggered,omitempty"`
 }
 
 // Statistics statistics information

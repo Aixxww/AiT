@@ -313,13 +313,39 @@ func classifyExchangeProbeError(err error) (status string, code string, message 
 		return exchangeAccountStatusUnavailable, "UNSUPPORTED_EXCHANGE", "Unsupported exchange type"
 	case strings.Contains(msg, "requires ") || strings.Contains(msg, "missing") || strings.Contains(msg, "empty"):
 		return exchangeAccountStatusMissingCredentials, "MISSING_REQUIRED_FIELDS", "Exchange credentials are incomplete"
+	case isExchangeTransientConnectivityError(msg):
+		return exchangeAccountStatusUnavailable, "EXCHANGE_UNAVAILABLE", limitErrorMessage(rawMessage)
 	case strings.Contains(msg, "permission") || strings.Contains(msg, "forbidden") || strings.Contains(msg, "no authority") || strings.Contains(msg, "not allowed"):
 		return exchangeAccountStatusPermissionDenied, "PERMISSION_DENIED", "Exchange account has no permission to read balances"
-	case strings.Contains(msg, "invalid") || strings.Contains(msg, "signature") || strings.Contains(msg, "unauthorized") || strings.Contains(msg, "api key") || strings.Contains(msg, "api-key") || strings.Contains(msg, "auth"):
+	case isExchangeCredentialError(msg):
 		return exchangeAccountStatusInvalidCredentials, "INVALID_CREDENTIALS", "Exchange credentials are invalid"
 	default:
 		return exchangeAccountStatusUnavailable, "EXCHANGE_UNAVAILABLE", limitErrorMessage(rawMessage)
 	}
+}
+
+func isExchangeTransientConnectivityError(msg string) bool {
+	return strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "connection aborted") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "temporary") ||
+		strings.Contains(msg, "eof")
+}
+
+func isExchangeCredentialError(msg string) bool {
+	return strings.Contains(msg, "invalid api") ||
+		strings.Contains(msg, "invalid key") ||
+		strings.Contains(msg, "invalid credentials") ||
+		strings.Contains(msg, "signature for this request is not valid") ||
+		strings.Contains(msg, "signature is not valid") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "api key") ||
+		strings.Contains(msg, "api-key") ||
+		strings.Contains(msg, "authentication failed") ||
+		strings.Contains(msg, "auth failed")
 }
 
 func limitErrorMessage(message string) string {

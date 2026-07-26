@@ -49,7 +49,7 @@ func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 	}
 	return &DataFetcher{
 		cfg:    cfg,
-		client: NewHTTPClient(cfg.BinanceURL),
+		client: NewHTTPClientWithTimeout(cfg.BinanceURL, cfg.Timeout),
 	}
 }
 

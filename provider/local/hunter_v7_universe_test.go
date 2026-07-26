@@ -57,6 +57,37 @@ func TestBuildV7UniverseKeepsHighAmplitudeWithoutOIDetail(t *testing.T) {
 	}
 }
 
+func TestBuildV7UniverseKeepsHighDrawdownWithoutOIDetail(t *testing.T) {
+	snap := &datafetch.Snapshot{Symbols: map[string]*datafetch.SymbolSnapshot{
+		"SKYAIUSDT": {
+			Symbol:         "SKYAIUSDT",
+			Price:          0.03018,
+			QuoteVolume24h: 1_000_000,
+			HighPrice24h:   0.03300,
+			LowPrice24h:    0.03018,
+			PriceChange24h: -2.14,
+			OI:             0,
+		},
+		"FLATUSDT": {
+			Symbol:         "FLATUSDT",
+			Price:          1.00,
+			QuoteVolume24h: 1_000_000,
+			HighPrice24h:   1.04,
+			LowPrice24h:    0.99,
+			PriceChange24h: -1.0,
+			OI:             0,
+		},
+	}}
+
+	universe := BuildV7Universe(snap)
+	if !hasUniverseSymbol(universe, "SKYAIUSDT") {
+		t.Fatalf("expected high-drawdown symbol without OI detail to stay in universe, got %+v", universe)
+	}
+	if hasUniverseSymbol(universe, "FLATUSDT") {
+		t.Fatalf("expected flat symbol without OI detail to be excluded, got %+v", universe)
+	}
+}
+
 func TestBuildV7UniverseConvertsOIQuantityToNotional(t *testing.T) {
 	snap := &datafetch.Snapshot{Symbols: map[string]*datafetch.SymbolSnapshot{
 		"OIUSDT": {

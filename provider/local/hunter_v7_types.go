@@ -41,6 +41,12 @@ const (
 	V7SetupAccumulationLong   V7SetupType = "accumulation_breakout_long"
 	V7SetupDistributionShort  V7SetupType = "distribution_short"
 	V7SetupLongSqueezeShort   V7SetupType = "long_squeeze_short"
+	V7SetupBreakdownShort     V7SetupType = "breakdown_momentum_short"
+	V7SetupAltLadderLong      V7SetupType = "alt_ladder_momentum_long"
+	V7SetupAltLadderShort     V7SetupType = "alt_ladder_breakdown_short"
+	V7SetupMMSBottomWakeLong  V7SetupType = "mms_bottom_wake_long"
+	V7SetupMMSTrendRideLong   V7SetupType = "mms_trend_ride_long"
+	V7SetupMMSSqueezeLong     V7SetupType = "mms_squeeze_engine_long"
 	V7SetupRangeReversion     V7SetupType = "range_reversion"
 	V7SetupFundingReversal    V7SetupType = "funding_reversal"
 	V7SetupPreBreakoutWatch   V7SetupType = "pre_breakout_watch"
@@ -92,6 +98,38 @@ const (
 	V7EntryRangeEdge         V7EntryMode = "range_edge_only"
 	V7EntryWaitPriceReversal V7EntryMode = "wait_price_reversal"
 	V7EntryMomentumTrailing  V7EntryMode = "momentum_with_trailing_stop"
+)
+
+// V7MarketShape describes the market pattern family behind a signal. It is
+// intentionally coarser than setup_type so prompts can apply shape-level rules.
+type V7MarketShape string
+
+const (
+	V7ShapeTrendBreakout          V7MarketShape = "shape_trend_breakout"
+	V7ShapeCleanMomentum          V7MarketShape = "shape_clean_momentum"
+	V7ShapePullbackContinuation   V7MarketShape = "shape_pullback_continuation"
+	V7ShapePanicReversal          V7MarketShape = "shape_panic_reversal"
+	V7ShapeFundingCrowdingReverse V7MarketShape = "shape_funding_crowding_reversal"
+	V7ShapeDistributionShort      V7MarketShape = "shape_distribution_short"
+	V7ShapeRangeReversion         V7MarketShape = "shape_range_reversion"
+	V7ShapeCompressionPrebreakout V7MarketShape = "shape_compression_prebreakout"
+	V7ShapeNoiseNoTrade           V7MarketShape = "shape_noise_no_trade"
+)
+
+// V7EntrySignal describes how close a signal is to an actionable entry.
+type V7EntrySignal string
+
+const (
+	V7EntrySignalOpenNow          V7EntrySignal = "entry_open_now"
+	V7EntrySignalTriggerNear      V7EntrySignal = "entry_trigger_near"
+	V7EntrySignalPullbackWait     V7EntrySignal = "entry_pullback_wait"
+	V7EntrySignalBreakoutWait     V7EntrySignal = "entry_breakout_wait"
+	V7EntrySignalReclaimWait      V7EntrySignal = "entry_reclaim_wait"
+	V7EntrySignalRRRepairable     V7EntrySignal = "entry_rr_repairable"
+	V7EntrySignalRRInvalid        V7EntrySignal = "entry_rr_invalid"
+	V7EntrySignalChaseRisk        V7EntrySignal = "entry_chase_risk"
+	V7EntrySignalLiquidityBlocked V7EntrySignal = "entry_liquidity_blocked"
+	V7EntrySignalNoTrade          V7EntrySignal = "entry_no_trade"
 )
 
 // V7ExecutionQuality summarizes whether a signal is executable now or should
@@ -157,6 +195,13 @@ type V7SymbolContext struct {
 	EMA20_1h float64
 	EMA60_1h float64
 
+	// MMS-router derived indicators.
+	EMA7_15m     float64
+	EMA25_15m    float64
+	EMA99_15m    float64
+	EMA25_1h     float64
+	StdRatio1h72 float64
+
 	// Taker buy/sell ratio by timeframe
 	TakerBuy15m float64 // Latest 15m Taker Buy Ratio (0-1)
 	TakerBuy1h  float64 // Latest 1h Taker Buy Ratio (0-1)
@@ -190,11 +235,13 @@ type V7SymbolContext struct {
 	VolumeBurst5m    float64 // latest 5m volume / recent average
 	VolumeBurst15m   float64 // latest 15m volume / recent average
 	ExecutionContext *V7ExecutionContext
-
 	// 5m micro-structure data (v8 timing booster)
-	RSI5m      float64 // 5m RSI for timing booster
-	OI5m       float64 // 5m OI change
-	TakerBuy5m float64 // 5m taker buy ratio
+	RSI5m         float64 // 5m RSI for timing booster
+	OI5m          float64 // 5m OI change
+	TakerBuy5m    float64 // 5m taker buy ratio
+	VolumeBurst1h float64 // latest 1h volume / recent average
+	Last15mLow    float64
+	Last15mClose  float64
 }
 
 // SymbolSnapshotData is a lightweight copy of the snapshot data needed by modules.
@@ -351,6 +398,8 @@ type V7SignalOutput struct {
 	ReasonCodes      []string               `json:"reason_codes"`
 	RiskTags         []string               `json:"risk_tags"`
 	EntryMode        V7EntryMode            `json:"entry_mode"`
+	MarketShape      V7MarketShape          `json:"market_shape,omitempty"`
+	EntrySignal      V7EntrySignal          `json:"entry_signal,omitempty"`
 	ExecutionQuality V7ExecutionQuality     `json:"execution_quality,omitempty"`
 	EntryZone        V7PriceZone            `json:"entry_zone"`
 	Invalidation     V7InvalidationRule     `json:"invalidation"`
