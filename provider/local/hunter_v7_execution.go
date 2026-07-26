@@ -595,11 +595,10 @@ func hasV7ExecutionRiskTag(sig *V7SignalOutput, tag string) bool {
 }
 
 func v7EntryZonePositionPct(sig *V7SignalOutput, price float64) (float64, bool) {
-	if sig == nil || price <= 0 || sig.EntryZone.Lower <= 0 || sig.EntryZone.Upper <= sig.EntryZone.Lower {
+	if sig == nil {
 		return 0, false
 	}
-	pos := (price - sig.EntryZone.Lower) / (sig.EntryZone.Upper - sig.EntryZone.Lower) * 100
-	return clampFloat(pos, 0, 100), true
+	return V7ZonePositionPctClamped(sig.EntryZone, price)
 }
 
 func v7SetupExpectancyBonus(sig *V7SignalOutput) float64 {

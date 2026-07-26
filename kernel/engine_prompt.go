@@ -1997,8 +1997,7 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 		fmt.Sprintf("timing=%.0f", coin.V7TimingScore),
 		fmt.Sprintf("risk=%.0f", coin.V7RiskScore),
 	}
-	if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
-		pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
+	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok {
 		parts = append(parts,
 			fmt.Sprintf("entry_zone_pos=%.1f%%", pos),
 			fmt.Sprintf("dist_zone_upper=%+.2f%%", pctMove(price, coin.V7EntryZone.Upper)),
@@ -2365,11 +2364,8 @@ func hunterV7ExecutionWarning(price float64, coin *CandidateCoin) string {
 		if strings.EqualFold(coin.V7Confidence, "C") && coin.V7AIPriority < 60 {
 			warnings = append(warnings, "C_conf_ai_lt_60")
 		}
-		if coin.V7EntryZone.Lower > 0 && coin.V7EntryZone.Upper > coin.V7EntryZone.Lower {
-			pos := (price - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
-			if pos <= 45 {
-				warnings = append(warnings, "short_near_zone_lower")
-			}
+		if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok && pos <= 45 {
+			warnings = append(warnings, "short_near_zone_lower")
 		}
 		if coin.V7DerivativesCtx != nil && fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h) == "mixed" {
 			warnings = append(warnings, "oi_mixed")

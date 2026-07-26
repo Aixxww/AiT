@@ -2200,21 +2200,10 @@ func hunterV7FundingReversalOIState(candidate *kernel.CandidateCoin) string {
 }
 
 func hunterV7EntryZonePositionPct(candidate *kernel.CandidateCoin, price float64) (float64, bool) {
-	if candidate == nil || price <= 0 {
+	if candidate == nil {
 		return 0, false
 	}
-	lower := candidate.V7EntryZone.Lower
-	upper := candidate.V7EntryZone.Upper
-	if lower <= 0 || upper <= 0 {
-		return 0, false
-	}
-	if lower > upper {
-		lower, upper = upper, lower
-	}
-	if upper <= lower {
-		return 0, false
-	}
-	return (price - lower) / (upper - lower) * 100, true
+	return local.V7ZonePositionPct(candidate.V7EntryZone, price)
 }
 
 // validateOpenDecision enforces non-negotiable safety checks before any open order.

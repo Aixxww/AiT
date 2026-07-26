@@ -2006,11 +2006,11 @@ func hunterV7LeaderMomentumLatePullbackWait(coin CandidateCoin) bool {
 	if coin.V7SetupType != "leader_momentum_long" || !strings.EqualFold(coin.Direction, "LONG") {
 		return false
 	}
-	if coin.V7PriceContext == nil || coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= coin.V7EntryZone.Lower {
+	if coin.V7PriceContext == nil {
 		return false
 	}
-	pos := (coin.V7PriceContext.Last - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
-	if pos < 70 {
+	pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, coin.V7PriceContext.Last)
+	if !ok || pos < 70 {
 		return false
 	}
 	pullback := coin.V7PriceContext.Change1h < 0 ||
@@ -3400,11 +3400,11 @@ func hunterV7LeaderMomentumUpperChaseWait(coin CandidateCoin) bool {
 	if !containsStringValue(coin.V7ReasonCodes, "no_pullback_still_running") {
 		return false
 	}
-	if coin.V7PriceContext == nil || coin.V7EntryZone.Lower <= 0 || coin.V7EntryZone.Upper <= coin.V7EntryZone.Lower {
+	if coin.V7PriceContext == nil {
 		return false
 	}
-	pos := (coin.V7PriceContext.Last - coin.V7EntryZone.Lower) / (coin.V7EntryZone.Upper - coin.V7EntryZone.Lower) * 100
-	if pos < 65 {
+	pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, coin.V7PriceContext.Last)
+	if !ok || pos < 65 {
 		return false
 	}
 	weakVotes := 0
