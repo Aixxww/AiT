@@ -1,5 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+/* Self-hosted fonts (bundled by Vite, font-display: swap, zero external requests) */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/inter/800.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import '@fontsource/ibm-plex-mono/700.css';
 
 @tailwind base;
 @tailwind components;
@@ -11,14 +19,21 @@ html {
 }
 
 :root {
+  /* Inter carries no CJK glyphs — the CJK fallbacks are load-bearing */
   font-family:
     'Inter',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    'Noto Sans SC',
     sans-serif;
   line-height: 1.6;
   font-weight: 400;
+  /* Terminal baseline: every numeral in the app is tabular */
+  font-variant-numeric: tabular-nums;
   color-scheme: light dark;
   color: var(--color-foreground);
   background-color: var(--color-background);

@@ -77,10 +77,20 @@ export default {
         'ait-danger': 'var(--color-loss)',
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+        sans: [
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei',
+          'Noto Sans SC',
+          'sans-serif',
+        ],
         mono: [
           'IBM Plex Mono',
           'JetBrains Mono',
+          'ui-monospace',
           'Menlo',
           'Monaco',
           'Courier New',
