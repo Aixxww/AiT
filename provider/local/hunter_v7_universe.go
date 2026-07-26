@@ -457,7 +457,32 @@ func buildV7DataFreshness(ss *datafetch.SymbolSnapshot, snap *datafetch.Snapshot
 		fresh.Kline1mAgeMs = latestKlineAgeMs(now, ss.Klines["1m"])
 		fresh.Kline5mAgeMs = latestKlineAgeMs(now, ss.Klines["5m"])
 	}
+	if snap != nil {
+		fresh.SnapshotFetchMs = snap.Meta.FetchDuration.Milliseconds()
+	}
+	fresh.StaleThresholdMs = v7StaleThresholdMs(fresh.SnapshotFetchMs)
 	return fresh
+}
+
+// v7StaleThresholdMs derives the staleness cutoff from how long the snapshot
+// itself took. A fixed 45s cutoff marks every symbol stale as soon as the
+// detail phase runs longer than that, which says nothing about the market and
+// everything about our own fetch cadence. One full cycle plus slack is the
+// freshest the pipeline can deliver, so anything within it is not "stale".
+func v7StaleThresholdMs(snapshotFetchMs int64) int64 {
+	const (
+		baseThresholdMs = 45_000
+		slackMs         = 15_000
+		ceilingMs       = 180_000
+	)
+	threshold := int64(baseThresholdMs)
+	if snapshotFetchMs > 0 && snapshotFetchMs+slackMs > threshold {
+		threshold = snapshotFetchMs + slackMs
+	}
+	if threshold > ceilingMs {
+		threshold = ceilingMs
+	}
+	return threshold
 }
 
 func latestKlineAgeMs(now time.Time, klines []datafetch.Kline) int64 {

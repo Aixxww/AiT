@@ -273,6 +273,11 @@ type V7DataFreshness struct {
 	PriceAgeMs    int64 `json:"price_age_ms,omitempty"`
 	Kline1mAgeMs  int64 `json:"kline_1m_age_ms,omitempty"`
 	Kline5mAgeMs  int64 `json:"kline_5m_age_ms,omitempty"`
+	// SnapshotFetchMs is how long the snapshot that produced this signal took to
+	// assemble. Data can never be fresher than one fetch cycle, so the staleness
+	// threshold is derived from it rather than from a fixed constant.
+	SnapshotFetchMs  int64 `json:"snapshot_fetch_ms,omitempty"`
+	StaleThresholdMs int64 `json:"stale_threshold_ms,omitempty"`
 }
 
 // V7PriceZone defines an entry price range.

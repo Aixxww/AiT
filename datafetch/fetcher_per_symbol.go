@@ -179,6 +179,18 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		}
 	}
 
+	// The bulk phase stamped this snapshot when the 24hr ticker batch was
+	// parsed, but the detail phase runs for another 50-90s afterwards. Re-stamp
+	// with the moment this symbol's own live data landed, and carry the latest
+	// 1m close forward as the current price, so downstream freshness checks
+	// measure real per-symbol age instead of the whole batch duration.
+	if k1m := ss.Klines["1m"]; len(k1m) > 0 {
+		if last := k1m[len(k1m)-1]; last.Close > 0 {
+			ss.Price = last.Close
+		}
+	}
+	ss.Timestamp = now()
+
 	totalFetches := 1 + len(klineIntervals)
 	if refreshSlowDerivatives {
 		totalFetches += 2

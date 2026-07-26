@@ -195,13 +195,33 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 	}
 }
 
+// v7SignalDataIsStale decides whether a signal rests on data too old to trade.
+// Kline close time is real market time and is unaffected by how long our own
+// snapshot took, so it is the primary evidence; price/snapshot age fall back to
+// a cadence-aware threshold.
+func v7SignalDataIsStale(fresh V7DataFreshness) bool {
+	threshold := fresh.StaleThresholdMs
+	if threshold <= 0 {
+		threshold = 45_000
+	}
+	// A live 1m feed always has an in-progress candle, which latestKlineAgeMs
+	// reports as 0. A non-zero age means the newest candle has already closed
+	// and nothing arrived after it.
+	if fresh.Kline1mAgeMs > 120_000 {
+		return true
+	}
+	if fresh.PriceAgeMs > threshold {
+		return true
+	}
+	return fresh.SnapshotAgeMs > threshold+15_000
+}
+
 func applyV7FreshnessRisk(sig *V7SignalOutput, ctx *V7SymbolContext) {
 	if sig == nil || ctx == nil {
 		return
 	}
 	fresh := ctx.DataFreshness
-	isStale := fresh.PriceAgeMs > 45_000 || fresh.SnapshotAgeMs > 60_000
-	if !isStale {
+	if !v7SignalDataIsStale(fresh) {
 		return
 	}
 	sig.RiskTags = appendIfMissing(sig.RiskTags, "stale_data_risk")
