@@ -75,12 +75,13 @@ func hunterV7ApplyLiveConfirmations(coin CandidateCoin, data *market.Data) Candi
 	for _, code := range cleared {
 		coin.V7ReasonCodes = appendReasonCodeIfMissing(coin.V7ReasonCodes, "live_confirmed_"+code)
 	}
-	// Only claim the umbrella freshness codes once every outstanding
-	// review-severity gap has actually been settled against live data.
-	if updated.PassedReview && len(updated.MissingHard) == 0 {
-		coin.V7ReasonCodes = appendReasonCodeIfMissing(coin.V7ReasonCodes, "fresh_micro_confirmed")
-		coin.V7ReasonCodes = appendReasonCodeIfMissing(coin.V7ReasonCodes, "fresh_rest_confirmed")
-	}
+	// Deliberately NOT minted here: fresh_micro_confirmed / fresh_rest_confirmed.
+	// Those codes attest that the trader's decision-time orderbook/REST refresh
+	// ran, and the trader guard is their single owner
+	// (validateHunterV7MicroRefresh / validateHunterV7RESTMicroRefresh). This
+	// pass settles individual confirmations from prompt-cycle data and says so
+	// with per-code live_confirmed_* stamps; claiming the umbrella codes as
+	// well would tell downstream readers a refresh happened that never did.
 	return coin
 }
 
