@@ -152,3 +152,20 @@ func TestHunterV7LiveConfirmationsMissingDataLeavesCandidateUntouched(t *testing
 		}
 	}
 }
+
+// A reading exactly on the threshold must produce the same verdict in the
+// pre-prompt live pass as in the provider evaluator and the tier classifier.
+// Before U2.2 this pass alone used strict comparison and disagreed at the
+// boundary on the same request path.
+func TestHunterV7LiveTakerBoundaryIsInclusive(t *testing.T) {
+	coin := hunterV7LiveConfirmMMSCandidate()
+	coin.V7DerivativesCtx.TakerBuy15m = 0.52
+
+	if passed, known := hunterV7VerifyLiveConfirmation(coin, hunterV7LiveConfirmMarketData(0.712, 0.708), "taker_buy_15m_gt_0_52"); !known || !passed {
+		t.Fatalf("taker exactly 0.52 must pass gt_0_52 inclusively (passed=%v known=%v)", passed, known)
+	}
+	coin.V7DerivativesCtx.TakerBuy15m = 0.48
+	if passed, known := hunterV7VerifyLiveConfirmation(coin, hunterV7LiveConfirmMarketData(0.712, 0.708), "taker_buy_15m_lt_0_48"); !known || !passed {
+		t.Fatalf("taker exactly 0.48 must pass lt_0_48 inclusively (passed=%v known=%v)", passed, known)
+	}
+}

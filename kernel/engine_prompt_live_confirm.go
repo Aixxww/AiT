@@ -201,12 +201,17 @@ func hunterV7LiveTakerBuy(coin CandidateCoin) (float64, bool) {
 	return coin.V7DerivativesCtx.TakerBuy15m, true
 }
 
+// Boundary semantics are inclusive (>=/<=), matching the provider's
+// v7TakerConfirmationCheck and the tier classifier's hunterV7TakerBuyAtLeast.
+// The strict > used here previously meant a reading of exactly 0.52 failed
+// taker_buy_15m_gt_0_52 in this pass while passing every other gate on the
+// same request path.
 func hunterV7TakerAtLeast(coin CandidateCoin, threshold float64) (bool, bool) {
 	taker, ok := hunterV7LiveTakerBuy(coin)
 	if !ok {
 		return false, false
 	}
-	return taker > threshold, true
+	return taker >= threshold, true
 }
 
 func hunterV7TakerAtMostLive(coin CandidateCoin, threshold float64) (bool, bool) {
@@ -214,7 +219,7 @@ func hunterV7TakerAtMostLive(coin CandidateCoin, threshold float64) (bool, bool)
 	if !ok {
 		return false, false
 	}
-	return taker < threshold, true
+	return taker <= threshold, true
 }
 
 // hunterV7CloseHoldsEMA20 checks the latest close of a timeframe against its
