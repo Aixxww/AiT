@@ -926,6 +926,10 @@ func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
 }
 
 func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
+	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok && spec.OpenRateFloor != nil {
+		matched, _ := hunterV7EvalTierRules(coin, spec.OpenRateFloor)
+		return matched
+	}
 	switch coin.V7SetupType {
 	case "trend_breakout_long", "accumulation_breakout_long":
 		return coin.V7AIPriority >= 55 &&
@@ -1081,6 +1085,9 @@ func hunterV7ExecutableCandidateReason(coin CandidateCoin) (bool, string) {
 }
 
 func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
+	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
+		return hunterV7EvalTierRules(coin, spec.Ready)
+	}
 	switch coin.V7SetupType {
 	case "panic_reversal_long":
 		if coin.V7AIPriority >= 55 &&
@@ -1179,6 +1186,9 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 }
 
 func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
+	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
+		return hunterV7EvalTierRules(coin, spec.NearConfirm)
+	}
 	switch coin.V7SetupType {
 	case "panic_reversal_long":
 		if coin.V7AIPriority >= 60 &&
@@ -1236,6 +1246,9 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 	}
 	if hunterV7BreakoutTriggerNearFlowReviewable(coin) {
 		return true, "breakout_trigger_near_flow_reviewable"
+	}
+	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
+		return hunterV7EvalTierRules(coin, spec.Reviewable)
 	}
 	switch coin.V7SetupType {
 	case "panic_reversal_long":
