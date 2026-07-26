@@ -86,6 +86,8 @@ AiT 前端**已经有一套相当完整的设计 token 基础设施**（CSS 变�
 5. **正文字体是等宽字体**：`:root` 的 `font-family` 以 `'IBM Plex Mono'` 开头（`index.css:89–95`），与 `tailwind.config.js` 中 `font-sans: Inter` 冲突——所有未显式声明 `font-sans` 的正文都在用 mono 排中文/英文段落，中文回退到系统字体，视觉割裂。
 6. **Google Fonts 外链 `@import`**（`index.css:1–2`）：render-blocking，且部署环境若在中国大陆访问不稳定，字体失败时 mono 数字排版全面回退。
 7. **主题修补 hack 段**（`index.css:1701–1718`）：`[data-theme] .text-muted-foreground.opacity-50 {...}` 系列选择器强行覆盖 utility 的透明度——这是 token 对比度没调好之后打在消费端的补丁，是"token 失去权威性"的直接证据。
+8. **全局按钮位移动效**（`index.css:437–447`，2026-07-27 审校补充）：不只 `button:active { scale(0.98) }`，`button:hover` 还带 `translateY(-1px) + brightness(1.1) + box-shadow`（且 `filter` 声明重复了两行）——**所有**按钮 hover 一律上浮发亮，与 §4 "动效仅服务数据变化" 直接冲突，必须与 :active 一并在 P0 移除（原方案将其归入 P2.1，太晚）。
+9. **`from-surface`/`to-panel` 渐变补丁携带 Cyber 色**（`index.css:1806–1826`，审校补充）：`[data-theme='dark'] .from-surface` 强制 `rgba(16,36,58,…)`（Cyber 蓝面板色）——删除 Cyber 层时若漏删此段，Pro Dark 下的渐变面板会残留一块青蓝底。同理 `.ait-mobile-menu-overlay` 的 `#10243a` 渐变、dark 模式 `select option` 的 `#10243a` 底色都是 Cyber 泄漏点，P0.1 一并清除。
 
 ### 2.4 组件一致性（变体蔓延统计）
 
@@ -158,12 +160,14 @@ AiT 前端**已经有一套相当完整的设计 token 基础设施**（CSS 变�
 
 ### 5.2 Token 规范化（在现有 `--color-*` 上收口，不推倒重来）
 
-- 色板保持 Pro Dark 现值（`#f0b90b / #0ecb81 / #f6465d / #0a0d10` 系）——它已经是 Binance 级配色，问题从来不是色板本身；
-- 新增缺失的 token：`--color-neutral-badge`（HOLD/WAIT 用，替代硬编码 `rgba(132,142,156,.15)`）、`--color-purple`/`--color-blue`（DecisionCard 折叠区、CoinSourceEditor 源类型等"分类色"需求，给 2–3 个受控的分类色而不是放任 15 种紫蓝）；
+- 色板保持 Pro Dark 现值（`#f0b90b / #0ecb81 / #f6465d / #0a0d10` 系）——它已经是 Binance 级配色，问题从来不是色板本身；**`:root` 缺省值同步改写为 Pro Dark 全量拷贝**（而非 Cyber 残值），使"Pro Dark 唯一权威"在无主题属性的极端情形（测试环境、单元渲染）下也成立；
+- 新增缺失的 token：`--color-purple`（DecisionCard 折叠区、CoinSourceEditor 源类型等"分类色"需求；Dark `#a78bfa` / Light `#7c3aed`），蓝色分类需求直接复用 `--color-info`，不再新增 `--color-blue`（审校修订：两个蓝会立刻回到"哪个蓝"的老问题）。Tailwind 侧映射为 `accent-purple`——**不得占用 `purple`/`blue` 原色阶键名**，否则迁移期与 Tailwind 原始调色板类冲突。HOLD/WAIT 中性徽章不新增 token，直接 `color-mix(in srgb, var(--color-muted-fg) 15%, transparent)`；
 - radius 收敛为一套：`4/6/8/12px`（面板 8、控件 6、chip 4、模态 12），删除 `[data-style]` 的二次覆盖；
 - 字号刻度收敛为 7 级：`10(label)/11(dense-data)/12(body-dense)/13(body)/14(emphasis)/18(section)/24(hero-number)`，禁止新的任意值字号；
-- 数字排版基线：`.tabular` 工具类（`font-variant-numeric: tabular-nums`）挂到所有价格/数量/百分比，表格数字列一律右对齐；
-- 正文字体修正：`:root` font-family 改为 Inter 优先，mono 仅经 `font-mono` 显式使用；字体 self-host（`@fontsource/inter` + `@fontsource/ibm-plex-mono` 或 `public/fonts/` + `font-display: swap`）。
+- 数字排版基线（审校修订）：`font-variant-numeric: tabular-nums` 直接挂 `:root` 全局继承——交易终端里**所有**数字都应等宽，逐处贴 `.tabular` 的覆盖率永远到不了 100%；`.tabular` 工具类保留用于显式声明与第三方组件内部；表格数字列一律右对齐；
+- 正文字体修正：`:root` font-family 改为 Inter 优先；**审校补充：Inter 无 CJK 字形，栈内必须显式追加中文回退（`'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC'`）置于 generic 前，`font-mono` 栈同理**——否则中文在部分平台落到衬线兜底，割裂感比现在更糟；
+- 字体加载策略（审校修订，原稿"或 public/fonts"二选一不成立）：用 `@fontsource/inter` + `@fontsource/ibm-plex-mono`（皆 `font-display: swap`），经 Vite 打包为同源 hashed woff2——零外链请求、零 render-blocking；仅引 `400/500/600/700(/800 若 landing 用到)` 五个 weight 的 latin 子集，避免全家桶体积；数字列使用 mono 字体 + tabular-nums，swap 造成的回流仅一次且发生在首屏字体就绪前，可接受，无需 `font-display: optional` 牺牲品牌字体；
+- `::selection` 修正（审校修订）：原稿建议 `--color-primary-dim`（10% α）作选区底色——太淡到不可见；应为 `color-mix(in srgb, var(--color-primary) 30%, transparent)`。
 
 ### 5.3 Hunter v7 信号面板：四级 tier 色彩体系（P1 核心新增）
 
@@ -172,16 +176,26 @@ AiT 前端**已经有一套相当完整的设计 token 基础设施**（CSS 变�
 tier 用"亮度 + 品牌色阶梯"表达注意力优先级：
 
 ```css
-/* 提案：加入 index.css Pro Dark 块 */
---tier-executable:        var(--color-primary);            /* #f0b90b 金——唯一实心高亮 */
---tier-executable-bg:     rgba(240, 185, 11, 0.12);
---tier-reviewable:        var(--color-accent);             /* #00d4e8 青——次级，需要人看 */
---tier-reviewable-bg:     rgba(0, 212, 232, 0.10);
---tier-watch:             var(--color-muted-fg);           /* #8b95a5 灰——观察中 */
---tier-watch-bg:          rgba(139, 149, 165, 0.08);
---tier-rejected:          var(--color-disabled-fg);        /* #4a5568 暗灰——已否决 */
---tier-rejected-bg:       transparent;                     /* 无底色，仅描边/删除线 */
+/* 提案（2026-07-27 审校修订）：命名并入 --color-* 体系（token 命名单一成体系），
+   bg 一律 color-mix 从主 token 派生（light 主题自动跟随，不再手抄 rgba 常数） */
+--color-tier-executable:     var(--color-primary);      /* #f0b90b 金——唯一实心高亮 */
+--color-tier-executable-bg:  color-mix(in srgb, var(--color-tier-executable) 12%, transparent);
+--color-tier-reviewable:     var(--color-accent);       /* Dark #00d4e8 / Light #0891b2 青——次级，需要人看 */
+--color-tier-reviewable-bg:  color-mix(in srgb, var(--color-tier-reviewable) 10%, transparent);
+--color-tier-watch:          var(--color-muted-fg);     /* 灰——观察中 */
+--color-tier-watch-bg:       color-mix(in srgb, var(--color-tier-watch) 8%, transparent);
+--color-tier-rejected:       var(--color-disabled-fg);  /* 暗灰——已否决 */
+--color-tier-rejected-bg:    transparent;               /* 无底色，仅描边/删除线 */
 ```
+
+WCAG 对比度核验（审校补充，Pro Dark 底 `#0a0d10` / Pro Light 底 `#f8f9fa`）：
+
+| tier 前景 | Dark 对比度 | Light 对比度 | 结论 |
+|---|---|---|---|
+| executable `#f0b90b` / `#d4a00a` | ≈11.3:1 | ≈2.4:1 | Dark 达标；**Light 下金色文字不达标——tier 徽章在 Light 用金底深字（`--color-primary` 底 + `--color-primary-fg` 字），不用金字** |
+| reviewable `#00d4e8` / `#0891b2` | ≈9.5:1 | ≈3.9:1 | Dark 达标；Light 3.9:1 仅够大字/图形（AA large），徽章字号 ≤12px 时用描边+正常前景色文字，青色只上边框 |
+| watch `#8b95a5` / `#6b7280` | ≈5.5:1 | ≈4.9:1 | 双主题达标 |
+| rejected `#4a5568` / `#9ca3af` | ≈2.5:1 | ≈2.5:1 | **蓄意不达标**（被否决行的整体降权是设计意图），但 **veto 原因码 chip 的文字必须用 `--color-muted-fg`（≥4.5:1）**——否决原因是一等公民数据，可读性不容牺牲 |
 
 呈现规则：
 - **EXECUTABLE**：金色左边框(2px) + 金 bg 徽章 + 数值全亮——整屏唯一"喊你行动"的颜色；
@@ -211,15 +225,15 @@ tier 用"亮度 + 品牌色阶梯"表达注意力优先级：
 
 | # | 事项 | 文件落点 | 说明 |
 |---|---|---|---|
-| 0.1 | 移除 Cyber 皮肤层与全局装饰 | `index.css`（:root 缺省值改为 Pro Dark 值；删 1369–1468 行 override 块、`body::before` 网格、`.crt-overlay`/`.tech-border`/scan/glitch/neon 相关段）；`tailwind.config.js`（删 scanlines/glitch/neon 扩展）；`components/common/DeepVoidBackground.tsx`（退化为纯容器或删除，9 处调用点同步） | Landing 页若要保留赛博风，把这些样式搬进 `components/landing/` 局部作用域 |
+| 0.1 | 移除 Cyber 皮肤层与全局装饰 | `index.css`（:root 缺省值改为 Pro Dark 值；删 1369–1468 行 override 块、`body::before` 网格、`.crt-overlay`/`.tech-border`/scan/glitch/neon 相关段、§2.3-8 全局按钮位移、§2.3-9 各 Cyber 泄漏补丁）；`tailwind.config.js`（删 scan/glitch/neon 扩展；`shimmer`/`float`/`scanlines`/`grid-pattern` 仅 landing 消费，保留）；`components/common/DeepVoidBackground.tsx`（退化为纯容器，9 处调用点同步删 `disableAnimation`） | Landing 页保留赛博风：`.crt-overlay`/`.tech-border` 仅 `TerminalHero` 使用，搬进 `components/landing/landing.css` 局部作用域。**Glass 皮肤审校决定：P0 保留其 token 块**（纯变量定义无泄漏、删除属产品决策），仅移除 Cyber；Glass 去留另行确认 |
 | 0.2 | 字体修正 + self-host | `index.css:1–2,89–95`、新增 `@fontsource` 依赖或 `public/fonts/` | 正文 Inter、`font-mono` 显式化；顺带修 `::selection` 用 `--color-primary-dim` |
-| 0.3 | 清 509 hex / 339 raw-palette / 418 `ait-*` | 49 个含 hex 的文件；重点：`DecisionCard.tsx`、`CoinSourceEditor.tsx`、`PositionHistory.tsx`、`ModelConfigModal.tsx`、`chartTheme.ts` 白名单除外 | 机械替换到语义 token；emerald→profit、red→loss、zinc/gray→muted 系;`ait-*` 别名全部替换后**删除 tailwind.config.js 兼容段与 index.css L4 转发段** |
+| 0.3 | 清 509 hex / 339 raw-palette / 418 `ait-*` | 49 个含 hex 的文件；重点：`DecisionCard.tsx`、`CoinSourceEditor.tsx`、`PositionHistory.tsx`、`ModelConfigModal.tsx`。白名单（审校修订，扩充）：`chartTheme.ts`、`ModelIcons.tsx`/`ExchangeIcons`（品牌 logo 色）、`PunkAvatar.tsx`（89 处，程序化头像调色板——是数据不是 UI 样式）、`traderColors.ts`（10 处，trader 身份识别色板） | 机械替换到语义 token；emerald→profit、red→loss、zinc/gray→muted 系;`ait-*` 别名全部替换后**删除 tailwind.config.js 兼容段与 index.css L4 转发段**；raw-palette 清零后，`index.css` 中针对 `text-zinc-*`/`text-gray-*`/`text-slate-*` 的整段 hack 覆盖（1744–1804 行）即成死代码，**在本阶段一并删除**（原方案推迟到 P2.4，会留下 60 行僵尸选择器） |
 | 0.4 | 修 §2.3 缺陷清单 | `DecisionCard.tsx:103,123,136`（改用 `color-mix()` 或预置 `-border` token）、`:431–487`（嵌套 button 拆为 div[role] + 独立按钮）、`index.css:486`（删重复 `.btn-outline`）、`bg-ait-green` 等死类 | 每项都是确定性 bug，随清理顺手修 |
 | 0.5 | 数字排版基线 | `index.css` 加 `.tabular` 基类；`utils/format.ts` 集中价格格式化（DecisionCard 里的本地 `formatPrice` 合并进去） | 全库价格/数量挂 tabular-nums + 右对齐 |
 | 0.6 | radius/字号刻度收敛声明 | `index.css` token 段 + 本文档 §5.2 作为规范 | 本阶段只定规范并处理新增代码，存量 `rounded-xl` 等在 P2 迁移时顺带收敛 |
 
 **验收标准**：
-- `grep -rE '#[0-9a-fA-F]{3,8}' web/src --include='*.tsx' --include='*.ts'` 命中数从 509 降到 ≤ 30（白名单：`chartTheme.ts`、品牌/交易所 logo 色、`ExchangeIcons`/`ModelIcons`）；
+- `grep -rE '#[0-9a-fA-F]{3,8}' web/src --include='*.tsx' --include='*.ts'` 命中数：**白名单文件（`chartTheme.ts`、`ModelIcons`/`ExchangeIcons`、`PunkAvatar.tsx`、`traderColors.ts`）之外 ≤ 30**（审校修订：原稿"总数 ≤30 但白名单除外"口径自相矛盾——仅 PunkAvatar 一文件即 89 处程序化调色板）；
 - raw palette 类命中从 339 → 0；`ait-*` 类从 418 → 0 且配置中别名删除；
 - 四主题模式（或决定删 Glass 后的两模式）截图对比：核心四页（Dashboard/Studio/Market/Agent）无回归；
 - Lighthouse：字体外链请求为 0。
