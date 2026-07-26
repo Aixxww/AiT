@@ -127,7 +127,7 @@ func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 	}
 	hasConfirm := false
 	for _, code := range s.sig.ReasonCodes {
-		if code == "oi_accumulation" || code == "lsr_reversal" || code == "taker_buy_strong" || code == "taker_buy_recovering" {
+		if code == "oi_accumulation" || code == "lsr_reversal" || code == "flow_taker_buy_strong" || code == "flow_taker_buy_recovering" {
 			hasConfirm = true
 			break
 		}
@@ -198,13 +198,17 @@ func calcTimingScore(sig *V7SignalOutput, ctx *V7SymbolContext) float64 {
 	// Confirming signals present?
 	for _, code := range sig.ReasonCodes {
 		switch code {
-		case "taker_buy_strong", "lsr_reversal", "oi_accumulation":
+		case "flow_taker_buy_strong", "lsr_reversal", "oi_accumulation":
 			timing += 15
-		case "taker_buy_recovering", "oi_stable":
+		case "flow_taker_buy_recovering", "oi_stable":
 			timing += 10
-		case "taker_sell_dominant", "taker_sell_emerging", "lsr_bearish_reversal", "oi_distribution", "oi_long_squeeze":
+		case "flow_taker_sell_dominant", "flow_taker_sell_emerging", "lsr_bearish_reversal", "oi_distribution", "oi_long_squeeze":
 			timing += 15
-		case "taker_selling_emerging", "oi_declining_long_flush", "price_turning_down":
+		// The former taker_selling_emerging arm here was dead: its only
+		// producer (funding_reversal) computes its own timing score and never
+		// reaches this shared switch, so the U6.3 synonym merge into
+		// flow_taker_sell_emerging (the +15 arm above) changes nothing live.
+		case "oi_declining_long_flush", "price_turning_down":
 			timing += 10
 		}
 	}

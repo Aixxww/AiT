@@ -776,7 +776,7 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	// Fallback: confirmed breakout + aggressive taker → force REVIEWABLE for any setup type
 	if coin.V7SetupType != "" && coin.V7RiskScore < 55 &&
 		containsStringValue(coin.V7ReasonCodes, "confirmed_breakout") &&
-		containsStringValue(coin.V7ReasonCodes, "taker_aggressive_buy") &&
+		containsStringValue(coin.V7ReasonCodes, "flow_taker_buy_aggressive") &&
 		hunterV7TakerBuyAtLeast(coin, 0.52) {
 		return "REVIEWABLE", "confirmed_breakout_aggressive_taker_force_reviewable"
 	}
@@ -913,14 +913,14 @@ func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing stri
 	}
 	if strings.EqualFold(coin.Direction, "SHORT") {
 		if !containsAnyStringValue(coin.V7ReasonCodes, []string{"event_breakdown_short", "event_directional_followthrough", "range_expansion_continuation"}) ||
-			!containsStringValue(coin.V7ReasonCodes, "taker_sell_aligned") ||
+			!containsStringValue(coin.V7ReasonCodes, "flow_taker_sell_aligned") ||
 			!hunterV7TakerBuyAtMost(coin, 0.48) {
 			return false, ""
 		}
 		return true, "range_expansion_live_reviewable_short_" + missing
 	}
 	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"event_continuation_long", "event_directional_followthrough", "range_expansion_continuation"}) ||
-		!containsAnyStringValue(coin.V7ReasonCodes, []string{"taker_buy_aligned", "taker_buy_strong", "taker_aggressive_buy"}) ||
+		!containsAnyStringValue(coin.V7ReasonCodes, []string{"flow_taker_buy_aligned", "flow_taker_buy_strong", "flow_taker_buy_aggressive"}) ||
 		!hunterV7TakerBuyAtLeast(coin, 0.52) {
 		return false, ""
 	}
@@ -1258,7 +1258,7 @@ func hunterV7LeaderMomentumFlexibleReviewableReason(coin CandidateCoin) (bool, s
 	if coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 || coin.V7Targets[0].Price <= 0 {
 		return false, ""
 	}
-	if containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") || !hunterV7EntryZoneReachable(coin) {
+	if containsStringValue(coin.V7ReasonCodes, "flow_taker_buy_weak") || !hunterV7EntryZoneReachable(coin) {
 		return false, ""
 	}
 
@@ -1290,7 +1290,7 @@ func hunterV7LeaderMomentumEvidenceCount(coin CandidateCoin) int {
 			"strong_4h_momentum", "solid_4h_momentum",
 			"accelerating_1h", "holding_1h",
 			"oi_healthy_growth", "oi_moderate_growth", "oi_explosive_growth",
-			"taker_sustained_buy", "taker_aggressive_buy", "taker_neutral_buy",
+			"flow_taker_buy_sustained", "flow_taker_buy_aggressive", "flow_taker_buy_neutral",
 			"volume_expansion", "confirmed_breakout",
 			"micro_pullback", "shallow_pullback", "shallow_pullback_1h":
 			evidence++
@@ -1364,7 +1364,7 @@ func hunterV7ChaseRiskReviewableReason(coin CandidateCoin) (bool, string) {
 			coin.V7SetupScore >= 90 &&
 			coin.V7TimingScore >= 45 &&
 			hunterV7TakerBuyAtLeast(coin, 0.50) &&
-			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
+			!containsStringValue(coin.V7ReasonCodes, "flow_taker_buy_weak") {
 			return true, "momentum_chase_risk_reviewable_pullback_only"
 		}
 	case "displacement_momentum_long":
@@ -1466,7 +1466,7 @@ func hunterV7PanicReversalHasHighWinReclaim(coin CandidateCoin) bool {
 	confirmations := 0
 	for _, reason := range coin.V7ReasonCodes {
 		switch reason {
-		case "taker_buy_aggressive", "taker_buy_strong", "taker_buy_recovering",
+		case "flow_taker_buy_aggressive", "flow_taker_buy_strong", "flow_taker_buy_recovering",
 			"selling_exhaustion", "selling_decelerating",
 			"oi_massive_flush", "oi_heavy_flush", "oi_flush", "oi_declining",
 			"1h_green_shoot", "rsi_recovering_from_extreme":
@@ -1637,7 +1637,7 @@ func hunterV7FundingReversalOIStateForTier(coin CandidateCoin) string {
 }
 
 func hunterV7LeaderMomentumHasCleanPullback(coin CandidateCoin) bool {
-	if containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
+	if containsStringValue(coin.V7ReasonCodes, "flow_taker_buy_weak") {
 		return false
 	}
 	for _, tag := range coin.V7RiskTags {
@@ -1691,14 +1691,14 @@ func hunterV7LeaderMomentumLatePullbackReviewable(coin CandidateCoin) (bool, str
 	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 50 {
 		return false, ""
 	}
-	if containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") ||
+	if containsStringValue(coin.V7ReasonCodes, "flow_taker_buy_weak") ||
 		containsStringValue(coin.V7RiskTags, "momentum_confirmation_missing") {
 		return false, ""
 	}
 	if !hunterV7EntryZoneReachable(coin) || !hunterV7TakerBuyAtLeast(coin, 0.52) {
 		return false, ""
 	}
-	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"strong_4h_momentum", "taker_sustained_buy", "taker_buy_aggressive"}) {
+	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"strong_4h_momentum", "flow_taker_buy_sustained", "flow_taker_buy_aggressive"}) {
 		return false, ""
 	}
 	return true, "momentum_late_pullback_reviewable_trailing_entry"
@@ -3124,7 +3124,7 @@ func hunterV7TrendBreakoutStrongFlowReviewable(coin CandidateCoin) bool {
 	if !containsAnyStringValue(coin.V7ReasonCodes, []string{"approaching_breakout", "confirmed_breakout", "strong_breakout", "breakout_attempt"}) {
 		return false
 	}
-	flowOK := containsAnyStringValue(coin.V7ReasonCodes, []string{"taker_aggressive_buy", "taker_strong_buy", "taker_moderate_buy"})
+	flowOK := containsAnyStringValue(coin.V7ReasonCodes, []string{"flow_taker_buy_aggressive", "flow_taker_buy_strong", "flow_taker_buy_moderate"})
 	contextOK := coin.V7RiskScore < 16 &&
 		containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_increasing", "oi_stable_breakout"}) &&
 		containsAnyStringValue(coin.V7ReasonCodes, []string{"volume_expansion", "volume_adequate", "volume_decent"})

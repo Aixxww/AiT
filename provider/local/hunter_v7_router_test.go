@@ -441,7 +441,7 @@ func TestFilterV7SignalsPromotesLowRiskPanicWatchToReviewableFloor(t *testing.T)
 			LiquidityScore:   80,
 			RiskScore:        30,
 			Confidence:       "B",
-			ReasonCodes:      []string{"moderate_capitulation", "oi_declining", "taker_buy_strong", "low_timing_watch_only"},
+			ReasonCodes:      []string{"moderate_capitulation", "oi_declining", "flow_taker_buy_strong", "low_timing_watch_only"},
 		},
 	}
 

@@ -53,9 +53,9 @@ Hunter v7 execution compact: setup=mms_trend_ride_long | entry_mode=momentum_wit
 - CHILLGUYUSDT LONG setup=alt_ladder_momentum_long status=candidate quality=ready shape=shape_clean_momentum entry_signal=entry_open_now ai_priority=83.6 risk=0 reason=confirmation_missing_oi_delta_1h_positive_or_quote_volume_expands
 - LDOUSDT LONG setup=intraday_scalp_long status=wait_confirm quality=watch_only entry_signal=entry_no_trade ai_priority=47.9 risk=23 reason=confirmation_missing_5m_or_15m_close_above_trigger
 - KAITOUSDT LONG setup=whale_flow_reversal status=candidate quality=ready entry_signal=entry_open_now ai_priority=63.1 risk=8 reason=confirmation_missing_taker_flow_confirms_long
+- ZECUSDT LONG setup=trend_breakout_long status=wait_confirm quality=watch_only shape=shape_trend_breakout entry_signal=entry_trigger_near ai_priority=55.7 risk=0 reason=confirmation_missing_5m_or_15m_close_through_breakout_level
 - BNBUSDT LONG setup=trend_breakout_long status=wait_confirm quality=watch_only shape=shape_trend_breakout entry_signal=entry_breakout_wait ai_priority=53.4 risk=0 reason=confirmation_missing_5m_or_15m_close_through_breakout_level
 - DOGEUSDT LONG setup=trend_breakout_long status=wait_confirm quality=watch_only shape=shape_trend_breakout entry_signal=entry_trigger_near ai_priority=55.5 risk=8 reason=confirmation_missing_5m_or_15m_close_through_breakout_level
-- ZECUSDT LONG setup=trend_breakout_long status=wait_confirm quality=watch_only shape=shape_trend_breakout entry_signal=entry_trigger_near ai_priority=51.9 risk=0 reason=confirmation_missing_5m_or_15m_close_through_breakout_level
 - ... 2 more WATCH candidates omitted
 
 ### REJECTED candidates (count only)

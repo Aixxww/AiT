@@ -78,9 +78,9 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 	}
 	if rangeExpansionFlowAligned(ctx, dir) {
 		if dir == V7DirShort {
-			s.add(12, "taker_sell_aligned")
+			s.add(12, "flow_taker_sell_aligned")
 		} else {
-			s.add(12, "taker_buy_aligned")
+			s.add(12, "flow_taker_buy_aligned")
 		}
 	} else {
 		s.riskTag("event_flow_confirmation_needed")

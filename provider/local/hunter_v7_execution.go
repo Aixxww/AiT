@@ -121,8 +121,8 @@ func leaderMomentumUpperZoneChaseRisk(sig *V7SignalOutput, ctx *V7SymbolContext)
 	if containsV7String(sig.ReasonCodes, "trigger_memory_confirmed") ||
 		containsV7String(sig.ReasonCodes, "confirmed_breakout") ||
 		containsV7String(sig.ReasonCodes, "strong_breakout") ||
-		containsV7String(sig.ReasonCodes, "taker_sustained_buy") ||
-		containsV7String(sig.ReasonCodes, "taker_buy_aggressive") {
+		containsV7String(sig.ReasonCodes, "flow_taker_buy_sustained") ||
+		containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive") {
 		return false
 	}
 	if containsV7String(sig.ReasonCodes, "micro_pullback") ||
@@ -489,9 +489,9 @@ func hunterV7BreakoutFlowOK(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
 	if ctx != nil && ctx.TakerBuy15m >= 0.55 {
 		return true
 	}
-	return containsV7String(sig.ReasonCodes, "taker_aggressive_buy") ||
-		containsV7String(sig.ReasonCodes, "taker_strong_buy") ||
-		containsV7String(sig.ReasonCodes, "taker_buy_aggressive")
+	return containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive") ||
+		containsV7String(sig.ReasonCodes, "flow_taker_buy_strong") ||
+		containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive")
 }
 
 func v7BreakoutTriggerNear(sig *V7SignalOutput, ctx *V7SymbolContext) bool {

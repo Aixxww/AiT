@@ -27,37 +27,37 @@ type V7TakerBandRow struct {
 // derived ratios, or non-ladder shapes).
 var v7TakerLadders = map[V7SetupType][]V7TakerBandRow{
 	V7SetupShortSqueezeLong: {
-		{Threshold: 0.65, Exclusive: true, Points: 25, Tag: "taker_aggressive_buy"},
-		{Threshold: 0.60, Exclusive: true, Points: 20, Tag: "taker_strong_buy"},
-		{Threshold: 0.55, Exclusive: true, Points: 15, Tag: "taker_moderate_buy"},
+		{Threshold: 0.65, Exclusive: true, Points: 25, Tag: "flow_taker_buy_aggressive"},
+		{Threshold: 0.60, Exclusive: true, Points: 20, Tag: "flow_taker_buy_strong"},
+		{Threshold: 0.55, Exclusive: true, Points: 15, Tag: "flow_taker_buy_moderate"},
 	},
 	V7SetupTrendBreakoutLong: {
-		{Threshold: 0.60, Exclusive: true, Points: 15, Tag: "taker_aggressive_buy"},
-		{Threshold: 0.55, Exclusive: true, Points: 12, Tag: "taker_strong_buy"},
-		{Threshold: 0.52, Exclusive: true, Points: 8, Tag: "taker_moderate_buy"},
+		{Threshold: 0.60, Exclusive: true, Points: 15, Tag: "flow_taker_buy_aggressive"},
+		{Threshold: 0.55, Exclusive: true, Points: 12, Tag: "flow_taker_buy_strong"},
+		{Threshold: 0.52, Exclusive: true, Points: 8, Tag: "flow_taker_buy_moderate"},
 		{Points: 3},
 	},
 	V7SetupLeaderMomentumLong: {
-		{Threshold: 0.60, Exclusive: true, Points: 15, Tag: "taker_sustained_buy"},
-		{Threshold: 0.55, Exclusive: true, Points: 12, Tag: "taker_strong_buy"},
-		{Threshold: 0.50, Exclusive: true, Points: 8, Tag: "taker_neutral_buy"},
-		{Points: 3, Tag: "taker_weak_buy"},
+		{Threshold: 0.60, Exclusive: true, Points: 15, Tag: "flow_taker_buy_sustained"},
+		{Threshold: 0.55, Exclusive: true, Points: 12, Tag: "flow_taker_buy_strong"},
+		{Threshold: 0.50, Exclusive: true, Points: 8, Tag: "flow_taker_buy_neutral"},
+		{Points: 3, Tag: "flow_taker_buy_weak"},
 	},
 	V7SetupDisplacementLong: {
-		{Threshold: 0.55, Points: 15, Tag: "taker_buy_aggressive"},
-		{Threshold: 0.52, Points: 10, Tag: "taker_buy_aligned"},
-		{Threshold: 0.50, Points: 5, Tag: "taker_buy_neutral"},
+		{Threshold: 0.55, Points: 15, Tag: "flow_taker_buy_aggressive"},
+		{Threshold: 0.52, Points: 10, Tag: "flow_taker_buy_aligned"},
+		{Threshold: 0.50, Points: 5, Tag: "flow_taker_buy_neutral"},
 	},
 	V7SetupPanicReversalLong: {
-		{Threshold: 0.58, Exclusive: true, Points: 15, Tag: "taker_buy_aggressive"},
-		{Threshold: 0.54, Exclusive: true, Points: 12, Tag: "taker_buy_strong"},
-		{Threshold: 0.51, Exclusive: true, Points: 8, Tag: "taker_buy_recovering"},
-		{Threshold: 0.48, Exclusive: true, Points: 3, Tag: "taker_buy_neutral"},
+		{Threshold: 0.58, Exclusive: true, Points: 15, Tag: "flow_taker_buy_aggressive"},
+		{Threshold: 0.54, Exclusive: true, Points: 12, Tag: "flow_taker_buy_strong"},
+		{Threshold: 0.51, Exclusive: true, Points: 8, Tag: "flow_taker_buy_recovering"},
+		{Threshold: 0.48, Exclusive: true, Points: 3, Tag: "flow_taker_buy_neutral"},
 	},
 	V7SetupPullbackLong: {
-		{Threshold: 0.55, Exclusive: true, Points: 15, Tag: "taker_buy_strong"},
-		{Threshold: 0.52, Exclusive: true, Points: 10, Tag: "taker_buy_recovering"},
-		{Threshold: 0.50, Exclusive: true, Points: 5, Tag: "taker_buy_neutral"},
+		{Threshold: 0.55, Exclusive: true, Points: 15, Tag: "flow_taker_buy_strong"},
+		{Threshold: 0.52, Exclusive: true, Points: 10, Tag: "flow_taker_buy_recovering"},
+		{Threshold: 0.50, Exclusive: true, Points: 5, Tag: "flow_taker_buy_neutral"},
 	},
 }
 

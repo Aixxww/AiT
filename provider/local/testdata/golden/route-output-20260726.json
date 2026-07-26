@@ -19,7 +19,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "mms_trend_continuation",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -385,7 +385,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "mms_trend_continuation",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -796,6 +796,209 @@
    }
   },
   {
+   "signal_id": "0|ZECUSDT|LONG|trend_breakout_long",
+   "symbol": "ZECUSDT",
+   "direction": "LONG",
+   "setup_type": "trend_breakout_long",
+   "status": "wait_confirm",
+   "setup_score": 82.8,
+   "risk_score": 0,
+   "liquidity_score": 85,
+   "timing_score": 40,
+   "regime_fit_score": 80.39999999999999,
+   "ai_priority": 55.67999999999999,
+   "reason_codes": [
+    "extreme_compression",
+    "approaching_breakout",
+    "oi_increasing",
+    "flow_taker_buy_strong",
+    "volume_decent",
+    "clear_air_above",
+    "low_timing_watch_only",
+    "shape_trend_breakout",
+    "entry_trigger_near"
+   ],
+   "risk_tags": null,
+   "entry_mode": "breakout_or_pullback",
+   "market_shape": "shape_trend_breakout",
+   "entry_signal": "entry_trigger_near",
+   "execution_quality": "watch_only",
+   "entry_zone": {
+    "lower": 493.8402078330179,
+    "upper": 494.1645277220858
+   },
+   "invalidation": {
+    "price": 491.6760201663982,
+    "reason": "reentry_below_bb_middle"
+   },
+   "targets": [
+    {
+     "price": 497.3140554441715,
+     "reason": "measured_move"
+    },
+    {
+     "price": 499.5144482587881,
+     "reason": "tp1_median_1.5R_atr_structure"
+    },
+    {
+     "price": 508.3337770287661,
+     "reason": "tp2_3xATR1h_regime_mult"
+    },
+    {
+     "price": 512.2387743148895,
+     "reason": "atr_extension"
+    }
+   ],
+   "required_confirmations": [
+    "5m_or_15m_close_through_breakout_level",
+    "oi_or_volume_expands_with_price",
+    "no_failed_breakout_back_inside_range"
+   ],
+   "confirmation_summary": {
+    "passed_hard": true,
+    "passed_review": false,
+    "missing_review": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "actual": 493.31,
+      "threshold": 494.1645277220858,
+      "severity": "review_wait",
+      "reason": "long trigger has not cleared entry-zone upper bound"
+     }
+    ],
+    "context_checks": [
+     {
+      "code": "oi_or_volume_expands_with_price",
+      "passed": false,
+      "severity": "context",
+      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+     },
+     {
+      "code": "no_failed_breakout_back_inside_range",
+      "passed": false,
+      "severity": "context",
+      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+     }
+    ],
+    "stop_distance_pct": 0.3312277946122749,
+    "reward_pct": 3.837095196709877,
+    "rr": 11.584460178535025
+   },
+   "confidence": "B",
+   "risk_level": "LOW",
+   "market_regime": "trend_up",
+   "price_context": {
+    "last": 493.31,
+    "change_1h": 0.08926578888640882,
+    "change_4h": 0.08115071716945838,
+    "change_24h": 3.217,
+    "atr_1h": 3.674720320824171,
+    "atr_4h": 9.464387157444765,
+    "vwap_15m": 483.3833879861355
+   },
+   "derivatives_context": {
+    "oi_value": 249938268.01515,
+    "oi_change_1h": 0.24747635820512578,
+    "oi_change_4h": 0.09989710584929687,
+    "funding_rate": -0.00009146,
+    "lsr_oldest": 0.9513,
+    "lsr_newest": 0.938,
+    "taker_buy_ratio_15m": 0.5787634156998788
+   },
+   "data_freshness": {
+    "snapshot_age_ms": 9,
+    "price_age_ms": 36827,
+    "kline_1m_age_ms": 24953,
+    "snapshot_fetch_ms": 39796,
+    "stale_threshold_ms": 54796
+   },
+   "execution_readiness": {
+    "tier": "WATCH",
+    "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
+    "ready_score": 74.28548296519563,
+    "window_health": 90,
+    "entry_zone_position": 0,
+    "price_deviation_pct": -0.10736424953012426,
+    "data_quality": "complete",
+    "blocked_gate": "confirmation_missing",
+    "next_confirmations": [
+     "5m_or_15m_close_through_breakout_level",
+     "oi_or_volume_expands_with_price",
+     "no_failed_breakout_back_inside_range"
+    ]
+   },
+   "execution_context": {
+    "data_quality": "complete_for_execution",
+    "timeframes": {
+     "15m": {
+      "timeframe": "15m",
+      "candle_count": 120,
+      "last_close": 493.35,
+      "recent_high3": 494.27,
+      "recent_low3": 492.25,
+      "has_ema20": true,
+      "close_vs_ema20_pct": 0.2702046395167603,
+      "has_atr": true,
+      "atr_pct": 0.3287181377509791,
+      "min_stop_0_8atr_pct": 0.2629745102007833,
+      "has_vwap20": true,
+      "vwap20": 492.35903134963957,
+      "close_vs_vwap20_pct": 0.20126951823023223,
+      "no_new_high": true,
+      "no_new_low": true,
+      "volume_vs_avg5": 0.6788851373506757
+     },
+     "5m": {
+      "timeframe": "5m",
+      "candle_count": 50,
+      "last_close": 493.35,
+      "recent_high3": 493.6,
+      "recent_low3": 492.25,
+      "has_ema20": true,
+      "close_vs_ema20_pct": 0.09860585880905517,
+      "has_atr": true,
+      "atr_pct": 0.18257748141303023,
+      "min_stop_0_8atr_pct": 0.14606198513042418,
+      "has_vwap20": true,
+      "vwap20": 492.9730246737027,
+      "close_vs_vwap20_pct": 0.0764697675997273,
+      "no_new_low": true,
+      "volume_vs_avg5": 0.6852302829591198
+     }
+    }
+   },
+   "quote_volume_24h": 243985220.33,
+   "tp0_price": 499.9303961908825,
+   "tp0_rr": 2.548212650985064,
+   "tp0_time_window": "5m-30m",
+   "tp0_method": "tp0_dynamic",
+   "tp1_price": 499.5144482587881,
+   "tp1_rr": 2.3694139494925825,
+   "tp1_time_window": "1h-4h",
+   "tp1_method": "median_1.5R_atr_structure",
+   "tp2_price": 508.3337770287661,
+   "tp2_rr": 6.160476268680734,
+   "tp2_time_window": "4h-24h",
+   "tp2_method": "3xATR1h_regime_mult",
+   "take_profit_plan": {
+    "tp0_price": 499.9303961908825,
+    "tp0_distance_pct": 1.2000000000000057,
+    "tp0_reduce_pct_min": 30,
+    "tp0_reduce_pct_max": 50,
+    "move_stop_to_breakeven": true,
+    "trailing_stop_mode": "after_tp0_partial",
+    "trailing_basis": [
+     "5m_ema20",
+     "15m_vwap",
+     "0.8-1.2atr15m"
+    ],
+    "trailing_distance_pct_min": 0.8,
+    "trailing_distance_pct_max": 1.2,
+    "stats_bucket": "tp0_tp1_no_sl"
+   }
+  },
+  {
    "signal_id": "0|DOGEUSDT|LONG|trend_breakout_long",
    "symbol": "DOGEUSDT",
    "direction": "LONG",
@@ -811,7 +1014,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_expansion",
     "clear_air_above",
     "low_timing_watch_only",
@@ -1016,7 +1219,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_decent",
     "clear_air_above",
     "low_timing_watch_only",
@@ -1203,209 +1406,6 @@
    }
   },
   {
-   "signal_id": "0|ZECUSDT|LONG|trend_breakout_long",
-   "symbol": "ZECUSDT",
-   "direction": "LONG",
-   "setup_type": "trend_breakout_long",
-   "status": "wait_confirm",
-   "setup_score": 82.8,
-   "risk_score": 0,
-   "liquidity_score": 85,
-   "timing_score": 25,
-   "regime_fit_score": 80.39999999999999,
-   "ai_priority": 51.92999999999999,
-   "reason_codes": [
-    "extreme_compression",
-    "approaching_breakout",
-    "oi_increasing",
-    "taker_strong_buy",
-    "volume_decent",
-    "clear_air_above",
-    "low_timing_watch_only",
-    "shape_trend_breakout",
-    "entry_trigger_near"
-   ],
-   "risk_tags": null,
-   "entry_mode": "breakout_or_pullback",
-   "market_shape": "shape_trend_breakout",
-   "entry_signal": "entry_trigger_near",
-   "execution_quality": "watch_only",
-   "entry_zone": {
-    "lower": 493.8402078330179,
-    "upper": 494.1645277220858
-   },
-   "invalidation": {
-    "price": 491.6760201663982,
-    "reason": "reentry_below_bb_middle"
-   },
-   "targets": [
-    {
-     "price": 497.3140554441715,
-     "reason": "measured_move"
-    },
-    {
-     "price": 499.5144482587881,
-     "reason": "tp1_median_1.5R_atr_structure"
-    },
-    {
-     "price": 508.3337770287661,
-     "reason": "tp2_3xATR1h_regime_mult"
-    },
-    {
-     "price": 512.2387743148895,
-     "reason": "atr_extension"
-    }
-   ],
-   "required_confirmations": [
-    "5m_or_15m_close_through_breakout_level",
-    "oi_or_volume_expands_with_price",
-    "no_failed_breakout_back_inside_range"
-   ],
-   "confirmation_summary": {
-    "passed_hard": true,
-    "passed_review": false,
-    "missing_review": [
-     {
-      "code": "5m_or_15m_close_through_breakout_level",
-      "passed": false,
-      "actual": 493.31,
-      "threshold": 494.1645277220858,
-      "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
-    "stop_distance_pct": 0.3312277946122749,
-    "reward_pct": 3.837095196709877,
-    "rr": 11.584460178535025
-   },
-   "confidence": "B",
-   "risk_level": "LOW",
-   "market_regime": "trend_up",
-   "price_context": {
-    "last": 493.31,
-    "change_1h": 0.08926578888640882,
-    "change_4h": 0.08115071716945838,
-    "change_24h": 3.217,
-    "atr_1h": 3.674720320824171,
-    "atr_4h": 9.464387157444765,
-    "vwap_15m": 483.3833879861355
-   },
-   "derivatives_context": {
-    "oi_value": 249938268.01515,
-    "oi_change_1h": 0.24747635820512578,
-    "oi_change_4h": 0.09989710584929687,
-    "funding_rate": -0.00009146,
-    "lsr_oldest": 0.9513,
-    "lsr_newest": 0.938,
-    "taker_buy_ratio_15m": 0.5787634156998788
-   },
-   "data_freshness": {
-    "snapshot_age_ms": 9,
-    "price_age_ms": 36827,
-    "kline_1m_age_ms": 24953,
-    "snapshot_fetch_ms": 39796,
-    "stale_threshold_ms": 54796
-   },
-   "execution_readiness": {
-    "tier": "WATCH",
-    "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 71.28548296519563,
-    "window_health": 90,
-    "entry_zone_position": 0,
-    "price_deviation_pct": -0.10736424953012426,
-    "data_quality": "complete",
-    "blocked_gate": "confirmation_missing",
-    "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
-    ]
-   },
-   "execution_context": {
-    "data_quality": "complete_for_execution",
-    "timeframes": {
-     "15m": {
-      "timeframe": "15m",
-      "candle_count": 120,
-      "last_close": 493.35,
-      "recent_high3": 494.27,
-      "recent_low3": 492.25,
-      "has_ema20": true,
-      "close_vs_ema20_pct": 0.2702046395167603,
-      "has_atr": true,
-      "atr_pct": 0.3287181377509791,
-      "min_stop_0_8atr_pct": 0.2629745102007833,
-      "has_vwap20": true,
-      "vwap20": 492.35903134963957,
-      "close_vs_vwap20_pct": 0.20126951823023223,
-      "no_new_high": true,
-      "no_new_low": true,
-      "volume_vs_avg5": 0.6788851373506757
-     },
-     "5m": {
-      "timeframe": "5m",
-      "candle_count": 50,
-      "last_close": 493.35,
-      "recent_high3": 493.6,
-      "recent_low3": 492.25,
-      "has_ema20": true,
-      "close_vs_ema20_pct": 0.09860585880905517,
-      "has_atr": true,
-      "atr_pct": 0.18257748141303023,
-      "min_stop_0_8atr_pct": 0.14606198513042418,
-      "has_vwap20": true,
-      "vwap20": 492.9730246737027,
-      "close_vs_vwap20_pct": 0.0764697675997273,
-      "no_new_low": true,
-      "volume_vs_avg5": 0.6852302829591198
-     }
-    }
-   },
-   "quote_volume_24h": 243985220.33,
-   "tp0_price": 499.9303961908825,
-   "tp0_rr": 2.548212650985064,
-   "tp0_time_window": "5m-30m",
-   "tp0_method": "tp0_dynamic",
-   "tp1_price": 499.5144482587881,
-   "tp1_rr": 2.3694139494925825,
-   "tp1_time_window": "1h-4h",
-   "tp1_method": "median_1.5R_atr_structure",
-   "tp2_price": 508.3337770287661,
-   "tp2_rr": 6.160476268680734,
-   "tp2_time_window": "4h-24h",
-   "tp2_method": "3xATR1h_regime_mult",
-   "take_profit_plan": {
-    "tp0_price": 499.9303961908825,
-    "tp0_distance_pct": 1.2000000000000057,
-    "tp0_reduce_pct_min": 30,
-    "tp0_reduce_pct_max": 50,
-    "move_stop_to_breakeven": true,
-    "trailing_stop_mode": "after_tp0_partial",
-    "trailing_basis": [
-     "5m_ema20",
-     "15m_vwap",
-     "0.8-1.2atr15m"
-    ],
-    "trailing_distance_pct_min": 0.8,
-    "trailing_distance_pct_max": 1.2,
-    "stats_bucket": "tp0_tp1_no_sl"
-   }
-  },
-  {
    "signal_id": "0|LDOUSDT|LONG|intraday_scalp_long",
    "symbol": "LDOUSDT",
    "direction": "LONG",
@@ -1419,7 +1419,7 @@
    "ai_priority": 47.920399301785665,
    "reason_codes": [
     "intraday_scalp_entry",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "scalp_backend_geometry_context",
     "entry_no_trade"
    ],
@@ -2503,7 +2503,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -2708,7 +2708,7 @@
     "elevated_funding",
     "heavy_long_crowding",
     "price_flattening",
-    "taker_selling_emerging",
+    "flow_taker_sell_emerging",
     "wait_zone_retest_required",
     "low_timing_watch_only",
     "funding_short_weak_4h_flush_wait",
@@ -2938,7 +2938,7 @@
     "tight_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_adequate",
     "moderate_resistance_distance",
     "low_timing_watch_only",
@@ -3370,7 +3370,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_decent",
     "clear_air_above",
     "low_timing_watch_only",
@@ -5223,7 +5223,7 @@
     "mild_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_adequate",
     "clear_air_above",
     "low_timing_watch_only",
@@ -6443,7 +6443,7 @@
     "amplitude_24h_event",
     "moderate_range_expansion_event",
     "event_directional_followthrough",
-    "taker_sell_aligned",
+    "flow_taker_sell_aligned",
     "range_expansion_needs_retest",
     "entry_open_now"
    ],
@@ -7243,14 +7243,14 @@
    "setup_score": 63.599999999999994,
    "risk_score": 15,
    "liquidity_score": 40,
-   "timing_score": 25,
+   "timing_score": 40,
    "regime_fit_score": 80.39999999999999,
-   "ai_priority": 38.25,
+   "ai_priority": 42,
    "reason_codes": [
     "tight_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_strong_buy",
+    "flow_taker_buy_strong",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -7355,7 +7355,7 @@
    "execution_readiness": {
     "tier": "WATCH",
     "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 63.62653334609128,
+    "ready_score": 66.62653334609128,
     "window_health": 90,
     "entry_zone_position": 0,
     "price_deviation_pct": -0.012148599341351334,
@@ -7452,7 +7452,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_expansion",
     "clear_air_above",
     "low_timing_watch_only",
@@ -8274,7 +8274,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "mms_trend_continuation",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "chase_high_protection",
     "shape_clean_momentum",
     "entry_trigger_near"
@@ -8457,7 +8457,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_moderate_buy",
+    "flow_taker_buy_moderate",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -8656,7 +8656,7 @@
    "ai_priority": 47.920399301785665,
    "reason_codes": [
     "intraday_scalp_entry",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "scalp_backend_geometry_context",
     "entry_no_trade"
    ],
@@ -9431,7 +9431,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "mms_trend_continuation",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -9607,14 +9607,14 @@
    "setup_score": 60,
    "risk_score": 15,
    "liquidity_score": 70,
-   "timing_score": 25,
+   "timing_score": 40,
    "regime_fit_score": 80.39999999999999,
-   "ai_priority": 39.81,
+   "ai_priority": 43.56,
    "reason_codes": [
     "tight_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_strong_buy",
+    "flow_taker_buy_strong",
     "moderate_resistance_distance",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -9720,7 +9720,7 @@
    "execution_readiness": {
     "tier": "WATCH",
     "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 64.91875201204279,
+    "ready_score": 67.91875201204279,
     "window_health": 90,
     "entry_zone_position": 0,
     "price_deviation_pct": -0.7459420060626238,
@@ -10039,14 +10039,14 @@
    "setup_score": 82.8,
    "risk_score": 0,
    "liquidity_score": 85,
-   "timing_score": 25,
+   "timing_score": 40,
    "regime_fit_score": 80.39999999999999,
-   "ai_priority": 51.92999999999999,
+   "ai_priority": 55.67999999999999,
    "reason_codes": [
     "extreme_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_strong_buy",
+    "flow_taker_buy_strong",
     "volume_decent",
     "clear_air_above",
     "low_timing_watch_only",
@@ -10151,7 +10151,7 @@
    "execution_readiness": {
     "tier": "WATCH",
     "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 71.28548296519563,
+    "ready_score": 74.28548296519563,
     "window_health": 90,
     "entry_zone_position": 0,
     "price_deviation_pct": -0.10736424953012426,
@@ -10467,7 +10467,7 @@
     "mild_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_moderate_buy",
+    "flow_taker_buy_moderate",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -10688,7 +10688,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "mms_trend_continuation",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -10869,7 +10869,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_adequate",
     "clear_air_above",
     "low_timing_watch_only",
@@ -11731,7 +11731,7 @@
     "mms_ema25_retest_hold",
     "mms_low_volume_retest",
     "oi_stable",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -12119,7 +12119,7 @@
     "mms_low_volume_retest",
     "mms_trend_continuation",
     "oi_stable",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "chase_high_protection",
     "shape_clean_momentum",
     "entry_trigger_near"
@@ -12306,14 +12306,14 @@
    "setup_score": 76.8,
    "risk_score": 0,
    "liquidity_score": 85,
-   "timing_score": 25,
+   "timing_score": 40,
    "regime_fit_score": 80.39999999999999,
-   "ai_priority": 49.53,
+   "ai_priority": 53.28,
    "reason_codes": [
     "extreme_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_strong_buy",
+    "flow_taker_buy_strong",
     "volume_decent",
     "clear_air_above",
     "low_timing_watch_only",
@@ -12418,7 +12418,7 @@
    "execution_readiness": {
     "tier": "WATCH",
     "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 69.40143428905957,
+    "ready_score": 72.40143428905957,
     "window_health": 90,
     "entry_zone_position": 0,
     "price_deviation_pct": -0.3807604181341086,
@@ -12508,14 +12508,14 @@
    "setup_score": 58.8,
    "risk_score": 15,
    "liquidity_score": 40,
-   "timing_score": 25,
+   "timing_score": 40,
    "regime_fit_score": 80.39999999999999,
-   "ai_priority": 36.33,
+   "ai_priority": 40.08,
    "reason_codes": [
     "moderate_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_strong_buy",
+    "flow_taker_buy_strong",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -12620,7 +12620,7 @@
    "execution_readiness": {
     "tier": "WATCH",
     "reason": "confirmation_missing_5m_or_15m_close_through_breakout_level",
-    "ready_score": 62.5920616221801,
+    "ready_score": 65.5920616221801,
     "window_health": 90,
     "entry_zone_position": 0,
     "price_deviation_pct": -0.6386688084087893,
@@ -13357,7 +13357,7 @@
     "mms_low_volume_retest",
     "mms_trend_continuation",
     "oi_stable",
-    "taker_buy_strong",
+    "flow_taker_buy_strong",
     "shape_clean_momentum",
     "entry_open_now"
    ],
@@ -13540,7 +13540,7 @@
     "extreme_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -13743,7 +13743,7 @@
     "tight_compression",
     "approaching_breakout",
     "oi_stable_breakout",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",
@@ -14185,7 +14185,7 @@
     "mild_compression",
     "strong_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "volume_adequate",
     "moderate_resistance_distance",
     "low_timing_watch_only",
@@ -15030,7 +15030,7 @@
     "tight_compression",
     "approaching_breakout",
     "oi_increasing",
-    "taker_aggressive_buy",
+    "flow_taker_buy_aggressive",
     "clear_air_above",
     "low_timing_watch_only",
     "shape_trend_breakout",

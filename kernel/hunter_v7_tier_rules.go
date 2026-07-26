@@ -158,7 +158,7 @@ var hunterV7BreakoutLongTierSpec = hunterV7SetupTierSpec{
 		{
 			Quality:       "near_confirm",
 			MinAIPriority: 45, MinSetupScore: 50, MinTimingScore: 45, RiskBelow: 35, MinLiquidity: 50,
-			RequireAll: []string{"confirmed_breakout", "taker_aggressive_buy"},
+			RequireAll: []string{"confirmed_breakout", "flow_taker_buy_aggressive"},
 			Reason:     "breakout_reviewable_confirmed_low_risk_floor",
 		},
 		{
@@ -233,7 +233,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			{
 				MinAIPriority: 60, MinSetupScore: 70, MinTimingScore: 50, RiskBelow: 45,
 				ForbidAll:  []string{"chase_high_protection"},
-				RequireAny: [][]string{{"oi_confirms_new_demand", "taker_buy_aggressive", "taker_buy_aligned"}},
+				RequireAny: [][]string{{"oi_confirms_new_demand", "flow_taker_buy_aggressive", "flow_taker_buy_aligned"}},
 			},
 		},
 	},
@@ -327,7 +327,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			{
 				MinAIPriority: 65, MinSetupScore: 70, MinTimingScore: 65, RiskBelow: 45,
 				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
-				ForbidAll: []string{"taker_weak_buy"},
+				ForbidAll: []string{"flow_taker_buy_weak"},
 				Guards: []func(CandidateCoin) bool{
 					func(coin CandidateCoin) bool { return !hunterV7LeaderMomentumUpperChaseWait(coin) },
 				},
@@ -339,14 +339,14 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 				Quality:       "ready",
 				MinAIPriority: 70, MinSetupScore: 75, MinTimingScore: 65, RiskBelow: 40,
 				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.48},
-				ForbidAll: []string{"taker_weak_buy"},
+				ForbidAll: []string{"flow_taker_buy_weak"},
 				Reason:    "momentum_reviewable_strong_but_needs_flow_check",
 			},
 			{
 				Quality:       "ready",
 				MinAIPriority: 75, MinSetupScore: 80, MinTimingScore: 62, RiskBelow: 25, MinLiquidity: 50,
 				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
-				ForbidAll: []string{"taker_weak_buy"},
+				ForbidAll: []string{"flow_taker_buy_weak"},
 				Reason:    "momentum_reviewable_ready_priority_floor",
 			},
 			{
@@ -424,7 +424,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 				MinAIPriority: 45, MinSetupScore: 30, MinTimingScore: 45, RiskBelow: 35, MinLiquidity: 50,
 				RequireAll: []string{"strong_reclaim"},
 				RequireAny: [][]string{
-					{"taker_buy_strong", "taker_buy_aggressive"},
+					{"flow_taker_buy_strong", "flow_taker_buy_aggressive"},
 					{"selling_decelerating", "selling_exhaustion"},
 				},
 				Reason: "panic_reversal_reviewable_capitulation_floor",

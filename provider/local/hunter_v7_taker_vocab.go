@@ -5,18 +5,15 @@ package local
 // Modules historically grew two long-side taker ladders with different
 // spellings for the same ladder positions (taker_aggressive_buy vs
 // taker_buy_aggressive, ...) plus scattered sell-side synonyms. Per the
-// redesign plan §3.9, the canonical vocabulary uses the flow_ domain prefix,
-// and migration runs through an alias period:
+// redesign plan §3.9, the canonical vocabulary uses the flow_ domain prefix.
 //
-//	emission (modules)     — still the historical names (provider golden
-//	                         replay stays byte-identical)
-//	backend matching       — still the historical names (tier rules, guards)
-//	prompt payload         — canonical names via V7CanonicalizeTags; the
-//	                         tag_semantics entries explain both spellings
-//
-// After two live verification cycles the emission flips to canonical names,
-// backend matchers follow, and this alias map plus the historical catalog
-// entries are deleted.
+// Migration state: the EMISSION FLIP is complete (after two live alias-period
+// verification cycles on 2026-07-26) — modules emit canonical names, the tier
+// rules and guards match canonical names, and the historical catalog entries
+// are deleted. The alias map below stays one more session as a safety net at
+// the prompt boundary: any straggler old-name emission still renders
+// canonically to the LLM. Delete it once a post-flip live soak confirms no
+// stragglers.
 
 // v7TakerTagAliases maps every historical taker tag spelling to its canonical
 // flow_ name. Tags absent from this map pass through unchanged.
@@ -27,6 +24,7 @@ var v7TakerTagAliases = map[string]string{
 	"taker_strong_buy":     "flow_taker_buy_strong",
 	"taker_buy_strong":     "flow_taker_buy_strong",
 	"taker_moderate_buy":   "flow_taker_buy_moderate",
+	"taker_sustained_buy":  "flow_taker_buy_sustained",
 	"taker_buy_recovering": "flow_taker_buy_recovering",
 	"taker_buy_neutral":    "flow_taker_buy_neutral",
 	"taker_neutral_buy":    "flow_taker_buy_neutral",
@@ -85,6 +83,7 @@ var v7TakerCanonicalDefs = []HunterV7TagDefinition{
 	tagDef("flow_taker_buy_aggressive", "reason_code", "flow", "bullish", V7TagActionOpenSupport, "Unified taker ladder: aggressive buy-side flow at the module's top band (formerly taker_aggressive_buy / taker_buy_aggressive)."),
 	tagDef("flow_taker_buy_strong", "reason_code", "flow", "bullish", V7TagActionOpenSupport, "Unified taker ladder: strong buy-side flow (formerly taker_strong_buy / taker_buy_strong)."),
 	tagDef("flow_taker_buy_moderate", "reason_code", "flow", "bullish", V7TagActionEvidence, "Unified taker ladder: moderate buy-side flow (formerly taker_moderate_buy)."),
+	tagDef("flow_taker_buy_sustained", "reason_code", "flow", "bullish", V7TagActionOpenSupport, "Unified taker ladder: buy-side aggression sustained through the move (formerly taker_sustained_buy)."),
 	tagDef("flow_taker_buy_recovering", "reason_code", "flow", "bullish", V7TagActionEvidence, "Unified taker ladder: buy-side flow recovering from a flush (formerly taker_buy_recovering)."),
 	tagDef("flow_taker_buy_neutral", "reason_code", "flow", "neutral", V7TagActionEvidence, "Unified taker ladder: near-balanced flow with a slight buy tilt (formerly taker_buy_neutral / taker_neutral_buy); requires other confirmation before opening."),
 	tagDef("flow_taker_buy_aligned", "reason_code", "flow", "bullish", V7TagActionEvidence, "Unified taker ladder: flow aligned with the long direction (formerly taker_buy_aligned)."),

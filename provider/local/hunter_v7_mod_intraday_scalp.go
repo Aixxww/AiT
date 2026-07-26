@@ -141,7 +141,7 @@ func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		s.reason("strong_5m_velocity")
 	}
 	if takerBuy > 0.58 {
-		s.reason("taker_buy_strong")
+		s.reason("flow_taker_buy_strong")
 	}
 
 	return s.sig

@@ -37,7 +37,7 @@ type ResonanceResult struct {
 var HighResonancePatterns = []ResonancePattern{
 	{
 		Name:           "strong_reversal_triple",
-		RequiredCodes:  []string{"strong_reclaim", "taker_buy_strong", "oi_massive_flush"},
+		RequiredCodes:  []string{"strong_reclaim", "flow_taker_buy_strong", "oi_massive_flush"},
 		MinMatchCount:  3,
 		ResonanceBonus: 18.0,
 		Confidence:     "HIGH",
@@ -51,7 +51,7 @@ var HighResonancePatterns = []ResonancePattern{
 	},
 	{
 		Name:           "displacement_breakout",
-		RequiredCodes:  []string{"volume_breakout", "range_expansion", "taker_buy_aggressive", "oi_building"},
+		RequiredCodes:  []string{"volume_breakout", "range_expansion", "flow_taker_buy_aggressive", "oi_building"},
 		MinMatchCount:  3,
 		ResonanceBonus: 14.0,
 		Confidence:     "MEDIUM",

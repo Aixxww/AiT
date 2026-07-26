@@ -144,7 +144,7 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 		s.add(8, "oi_stable")
 	}
 	if ctx.TakerBuy15m >= 0.54 {
-		s.add(8, "taker_buy_strong")
+		s.add(8, "flow_taker_buy_strong")
 	}
 	// Trend-ride longs drift instead of running when the move is dead on both
 	// price frames, or when open interest is leaving on both frames. Either
@@ -212,7 +212,7 @@ func (m *mmsSqueezeEngineLongModule) Score(ctx *V7SymbolContext, regime V7Market
 	s.add(boundedScore(ctx.Snapshot.OIDelta1h, 8, 25, 18))
 	s.add(boundedScore(ctx.Change1h, 2.5, 8, 16))
 	if ctx.TakerBuy15m >= 0.58 {
-		s.add(10, "taker_buy_strong")
+		s.add(10, "flow_taker_buy_strong")
 	}
 	if ctx.VolumeBurst15m >= 1.3 {
 		s.add(8, "volume_expansion")

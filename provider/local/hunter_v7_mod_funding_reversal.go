@@ -214,7 +214,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 		if ctx.TakerBuy15m < 0.42 {
 			s.add(15, "strong_taker_sell_reversal")
 		} else if ctx.TakerBuy15m < 0.46 {
-			s.add(10, "taker_selling_emerging")
+			s.add(10, "flow_taker_sell_emerging")
 		} else if ctx.TakerBuy15m < 0.50 {
 			s.add(5, "taker_neutral")
 		}
@@ -253,7 +253,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	// Funding reversal requires stronger confirmation — penalty if no taker reversal signal
 	hasTakerReversal := false
 	for _, code := range sig.ReasonCodes {
-		if code == "strong_taker_sell_reversal" || code == "taker_selling_emerging" ||
+		if code == "strong_taker_sell_reversal" || code == "flow_taker_sell_emerging" ||
 			code == "strong_taker_buy_reversal" || code == "taker_buying_emerging" {
 			hasTakerReversal = true
 			break

@@ -630,8 +630,8 @@ func isV7ReviewableFloorCandidate(sig V7SignalOutput) bool {
 			sig.TimingScore >= 35 &&
 			sig.RiskScore < 45 &&
 			!strings.EqualFold(sig.Confidence, "C") &&
-			(containsV7String(sig.ReasonCodes, "taker_buy_strong") ||
-				containsV7String(sig.ReasonCodes, "taker_buy_aggressive") ||
+			(containsV7String(sig.ReasonCodes, "flow_taker_buy_strong") ||
+				containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive") ||
 				containsV7String(sig.ReasonCodes, "strong_reclaim"))
 	case V7SetupPullbackLong, V7SetupDistributionShort, V7SetupRangeReversion:
 		return sig.SetupScore >= 70 && sig.TimingScore >= 50

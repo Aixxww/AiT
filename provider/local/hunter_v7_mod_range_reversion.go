@@ -169,13 +169,13 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 	// 4. Taker Confirm (0-10): directional taker flow at the edge
 	if dir == V7DirLong {
 		if ctx.TakerBuy15m > 0.53 {
-			s.add(10, "taker_buy_recovering")
+			s.add(10, "flow_taker_buy_recovering")
 		} else if ctx.TakerBuy15m > 0.50 {
-			s.add(5, "taker_buy_neutral")
+			s.add(5, "flow_taker_buy_neutral")
 		}
 	} else {
 		if ctx.TakerBuy15m < 0.45 {
-			s.add(10, "taker_sell_strong")
+			s.add(10, "flow_taker_sell_strong")
 		} else if ctx.TakerBuy15m < 0.48 {
 			s.add(5, "taker_sell_mild")
 		}

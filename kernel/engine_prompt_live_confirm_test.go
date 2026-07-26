@@ -27,7 +27,7 @@ func hunterV7LiveConfirmMMSCandidate() CandidateCoin {
 		V7EntryZone:        local.V7PriceZone{Lower: 0.70, Upper: 0.72},
 		V7Invalidation:     local.V7InvalidationRule{Price: 0.698},
 		V7Targets:          []local.V7Target{{Price: 0.74, Reason: "trend_continuation"}},
-		V7ReasonCodes:      []string{"mms_trend_ride", "mms_trend_continuation", "taker_buy_strong"},
+		V7ReasonCodes:      []string{"mms_trend_ride", "mms_trend_continuation", "flow_taker_buy_strong"},
 		V7RequiredConfirms: []string{
 			"5m_price_holds_ema20_or_trailing_support",
 			"taker_flow_not_flipping_against_direction",

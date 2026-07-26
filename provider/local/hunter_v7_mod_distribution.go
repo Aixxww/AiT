@@ -115,9 +115,9 @@ func (m *distributionShortModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	// 3. Taker Divergence (0-20): sell pressure emerging.
 	takerSellRatio := 1.0 - ctx.TakerBuy15m
 	if takerSellRatio > 0.60 {
-		s.add(20, "taker_sell_dominant")
+		s.add(20, "flow_taker_sell_dominant")
 	} else if takerSellRatio > 0.55 {
-		s.add(15, "taker_sell_emerging")
+		s.add(15, "flow_taker_sell_emerging")
 	} else if takerSellRatio > 0.50 {
 		s.add(8, "taker_sell_neutral")
 	}
