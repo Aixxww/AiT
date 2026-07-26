@@ -63,13 +63,7 @@ func (m *shortSqueezeLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 	}
 
 	// 2. Taker Momentum (0-25): aggressive buying driving the squeeze.
-	if ctx.TakerBuy15m > 0.65 {
-		s.add(25, "taker_aggressive_buy")
-	} else if ctx.TakerBuy15m > 0.60 {
-		s.add(20, "taker_strong_buy")
-	} else if ctx.TakerBuy15m > 0.55 {
-		s.add(15, "taker_moderate_buy")
-	}
+	s.takerLadder(v7TakerLadders[V7SetupShortSqueezeLong])
 
 	// 3. Volume Expansion (0-20): 24h quote volume as proxy.
 	if snap.QuoteVolume24h > 0 {

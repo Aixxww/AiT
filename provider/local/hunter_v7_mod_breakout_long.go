@@ -92,15 +92,7 @@ func (m *trendBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	}
 
 	// 4. Taker Confirmation (0-15): buy-side aggression.
-	if ctx.TakerBuy15m > 0.60 {
-		s.add(15, "taker_aggressive_buy")
-	} else if ctx.TakerBuy15m > 0.55 {
-		s.add(12, "taker_strong_buy")
-	} else if ctx.TakerBuy15m > 0.52 {
-		s.add(8, "taker_moderate_buy")
-	} else {
-		s.add(3)
-	}
+	s.takerLadder(v7TakerLadders[V7SetupTrendBreakoutLong])
 
 	// 5. Volume Expansion (0-10): breakout needs volume confirmation.
 	if snap != nil && snap.QuoteVolume24h > 0 {

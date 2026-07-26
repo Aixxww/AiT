@@ -102,13 +102,7 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	}
 
 	// 5. Taker flow alignment (0-15)
-	if ctx.TakerBuy15m >= 0.55 {
-		s.add(15, "taker_buy_aggressive")
-	} else if ctx.TakerBuy15m >= 0.52 {
-		s.add(10, "taker_buy_aligned")
-	} else if ctx.TakerBuy15m >= 0.50 {
-		s.add(5, "taker_buy_neutral")
-	}
+	s.takerLadder(v7TakerLadders[V7SetupDisplacementLong])
 
 	sig := s.sig
 

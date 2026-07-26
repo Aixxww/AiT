@@ -97,15 +97,7 @@ func (m *panicReversalLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	}
 
 	// 4. Taker Recovery (0-15): smart money stepping in.
-	if ctx.TakerBuy15m > 0.58 {
-		s.add(15, "taker_buy_aggressive")
-	} else if ctx.TakerBuy15m > 0.54 {
-		s.add(12, "taker_buy_strong")
-	} else if ctx.TakerBuy15m > 0.51 {
-		s.add(8, "taker_buy_recovering")
-	} else if ctx.TakerBuy15m > 0.48 {
-		s.add(3, "taker_buy_neutral")
-	}
+	s.takerLadder(v7TakerLadders[V7SetupPanicReversalLong])
 
 	// 5. Volume Exhaustion (0-10): selling pressure subsiding.
 	if snap != nil {

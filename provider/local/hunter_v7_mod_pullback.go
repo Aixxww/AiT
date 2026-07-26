@@ -98,13 +98,7 @@ func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 	}
 
 	// 4. Taker Recovery (0-20)
-	if ctx.TakerBuy15m > 0.55 {
-		s.add(15, "taker_buy_strong")
-	} else if ctx.TakerBuy15m > 0.52 {
-		s.add(10, "taker_buy_recovering")
-	} else if ctx.TakerBuy15m > 0.50 {
-		s.add(5, "taker_buy_neutral")
-	}
+	s.takerLadder(v7TakerLadders[V7SetupPullbackLong])
 
 	// 5. LSR Reversal (0-10)
 	if snap != nil {

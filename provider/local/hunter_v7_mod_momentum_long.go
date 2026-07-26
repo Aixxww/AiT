@@ -99,15 +99,7 @@ func (m *leaderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRe
 	}
 
 	// 4. Taker Sustain (0-15): buy-side aggression sustaining the move
-	if ctx.TakerBuy15m > 0.60 {
-		s.add(15, "taker_sustained_buy")
-	} else if ctx.TakerBuy15m > 0.55 {
-		s.add(12, "taker_strong_buy")
-	} else if ctx.TakerBuy15m > 0.50 {
-		s.add(8, "taker_neutral_buy")
-	} else {
-		s.add(3, "taker_weak_buy")
-	}
+	s.takerLadder(v7TakerLadders[V7SetupLeaderMomentumLong])
 
 	// 5. Pullback Shallow (0-15): if pulling back, it should be contained
 	if ctx.ATR1h > 0 && ctx.Change1h < 0 {
