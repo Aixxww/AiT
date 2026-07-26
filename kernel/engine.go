@@ -1055,18 +1055,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.Ready)
 	}
 	switch coin.V7SetupType {
-	case "leader_momentum_long":
-		if hunterV7LeaderMomentumUpperChaseWait(coin) {
-			return false, ""
-		}
-		if coin.V7AIPriority >= 65 &&
-			coin.V7SetupScore >= 70 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 45 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) &&
-			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
-			return true, "momentum_ready_strong_flow"
-		}
 	default:
 		if coin.V7AIPriority >= 60 && coin.V7TimingScore >= 60 && coin.V7RiskScore < 55 {
 			return true, "execution_quality_ready"
@@ -1123,69 +1111,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 	}
 	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
 		return hunterV7EvalTierRules(coin, spec.Reviewable)
-	}
-	switch coin.V7SetupType {
-	case "leader_momentum_long":
-		if coin.V7ExecutionQuality == "ready" &&
-			coin.V7AIPriority >= 70 &&
-			coin.V7SetupScore >= 75 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 40 &&
-			hunterV7TakerBuyAtLeast(coin, 0.48) &&
-			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
-			return true, "momentum_reviewable_strong_but_needs_flow_check"
-		}
-		if coin.V7ExecutionQuality == "ready" &&
-			coin.V7AIPriority >= 75 &&
-			coin.V7SetupScore >= 80 &&
-			coin.V7TimingScore >= 62 &&
-			coin.V7RiskScore < 25 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) &&
-			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
-			return true, "momentum_reviewable_ready_priority_floor"
-		}
-		if coin.V7AIPriority >= 72 &&
-			coin.V7SetupScore >= 80 &&
-			coin.V7TimingScore >= 62 &&
-			coin.V7RiskScore < 25 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 80) &&
-			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) &&
-			hunterV7LeaderMomentumHasCleanPullback(coin) {
-			return true, "momentum_reviewable_high_priority_pullback"
-		}
-		if coin.V7ExecutionQuality == "ready" &&
-			coin.V7AIPriority >= 62 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 25 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 60) &&
-			hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) &&
-			hunterV7LeaderMomentumHasCleanPullback(coin) &&
-			hunterV7ConfirmationSummaryReviewPassed(coin) &&
-			containsStringValue(coin.V7ReasonCodes, "strong_symbol_regime_override") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_4h_momentum", "strong_4h_momentum"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_24h_momentum", "strong_24h_momentum"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_healthy_growth", "oi_moderate_growth"}) {
-			return true, "momentum_reviewable_confirmed_relative_strength"
-		}
-		if coin.V7ExecutionQuality == "ready" &&
-			coin.V7AIPriority >= 62 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 25 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 80) &&
-			hunterV7TakerBuyConfirmedAtLeast(coin, 0.50) &&
-			hunterV7LeaderMomentumHasCleanPullback(coin) &&
-			containsStringValue(coin.V7ReasonCodes, "strong_symbol_regime_override") &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_4h_momentum", "strong_4h_momentum"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"solid_24h_momentum", "strong_24h_momentum"}) &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_healthy_growth", "oi_moderate_growth"}) {
-			return true, "momentum_reviewable_relative_strength_floor"
-		}
-		if ok, reason := hunterV7LeaderMomentumFlexibleReviewableReason(coin); ok {
-			return true, reason
-		}
 	}
 	return false, ""
 }

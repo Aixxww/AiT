@@ -49,8 +49,12 @@ type hunterV7TierRule struct {
 	// worth) data-encoding; all must pass.
 	Guards []func(CandidateCoin) bool
 
-	// Reason is the tier reason emitted when the rule matches.
-	Reason string
+	// Reason is the tier reason emitted when the rule matches. Rules whose
+	// reason depends on the candidate set ReasonFunc instead: after the
+	// matchers pass, it decides the final verdict and supplies the reason; a
+	// false verdict falls through to the next rule.
+	Reason     string
+	ReasonFunc func(CandidateCoin) (bool, string)
 }
 
 type hunterV7SetupTierSpec struct {
@@ -310,6 +314,71 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"leader_momentum_long": {
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 65, MinSetupScore: 70, MinTimingScore: 65, RiskBelow: 45,
+				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				ForbidAll: []string{"taker_weak_buy"},
+				Guards: []func(CandidateCoin) bool{
+					func(coin CandidateCoin) bool { return !hunterV7LeaderMomentumUpperChaseWait(coin) },
+				},
+				Reason: "momentum_ready_strong_flow",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				Quality:       "ready",
+				MinAIPriority: 70, MinSetupScore: 75, MinTimingScore: 65, RiskBelow: 40,
+				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.48},
+				ForbidAll: []string{"taker_weak_buy"},
+				Reason:    "momentum_reviewable_strong_but_needs_flow_check",
+			},
+			{
+				Quality:       "ready",
+				MinAIPriority: 75, MinSetupScore: 80, MinTimingScore: 62, RiskBelow: 25, MinLiquidity: 50,
+				Taker:     hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				ForbidAll: []string{"taker_weak_buy"},
+				Reason:    "momentum_reviewable_ready_priority_floor",
+			},
+			{
+				MinAIPriority: 72, MinSetupScore: 80, MinTimingScore: 62, RiskBelow: 25, MinLiquidity: 80,
+				Taker:  hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
+				Guards: []func(CandidateCoin) bool{hunterV7LeaderMomentumHasCleanPullback},
+				Reason: "momentum_reviewable_high_priority_pullback",
+			},
+			{
+				Quality:       "ready",
+				MinAIPriority: 62, MinSetupScore: 55, MinTimingScore: 65, RiskBelow: 25, MinLiquidity: 60,
+				Taker:      hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
+				RequireAll: []string{"strong_symbol_regime_override"},
+				RequireAny: [][]string{
+					{"solid_4h_momentum", "strong_4h_momentum"},
+					{"solid_24h_momentum", "strong_24h_momentum"},
+					{"oi_healthy_growth", "oi_moderate_growth"},
+				},
+				Guards: []func(CandidateCoin) bool{
+					hunterV7LeaderMomentumHasCleanPullback,
+					hunterV7ConfirmationSummaryReviewPassed,
+				},
+				Reason: "momentum_reviewable_confirmed_relative_strength",
+			},
+			{
+				Quality:       "ready",
+				MinAIPriority: 62, MinSetupScore: 55, MinTimingScore: 65, RiskBelow: 25, MinLiquidity: 80,
+				Taker:      hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.50},
+				RequireAll: []string{"strong_symbol_regime_override"},
+				RequireAny: [][]string{
+					{"solid_4h_momentum", "strong_4h_momentum"},
+					{"solid_24h_momentum", "strong_24h_momentum"},
+					{"oi_healthy_growth", "oi_moderate_growth"},
+				},
+				Guards: []func(CandidateCoin) bool{hunterV7LeaderMomentumHasCleanPullback},
+				Reason: "momentum_reviewable_relative_strength_floor",
+			},
+			{ReasonFunc: hunterV7LeaderMomentumFlexibleReviewableReason},
+		},
+	},
 	"panic_reversal_long": {
 		Ready: []hunterV7TierRule{
 			{
@@ -423,9 +492,16 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
 	for i := range rules {
-		if hunterV7TierRuleMatches(coin, &rules[i]) {
-			return true, rules[i].Reason
+		if !hunterV7TierRuleMatches(coin, &rules[i]) {
+			continue
 		}
+		if rules[i].ReasonFunc != nil {
+			if ok, reason := rules[i].ReasonFunc(coin); ok {
+				return true, reason
+			}
+			continue
+		}
+		return true, rules[i].Reason
 	}
 	return false, ""
 }

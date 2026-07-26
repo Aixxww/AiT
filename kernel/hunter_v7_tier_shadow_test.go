@@ -709,8 +709,8 @@ func TestHunterV7TierSpecShape(t *testing.T) {
 			"Ready": spec.Ready, "NearConfirm": spec.NearConfirm, "Reviewable": spec.Reviewable,
 		} {
 			for i, rule := range rules {
-				if rule.Reason == "" {
-					t.Errorf("%s %s rule %d has no reason", setup, listName, i)
+				if rule.Reason == "" && rule.ReasonFunc == nil {
+					t.Errorf("%s %s rule %d has neither reason nor reason func", setup, listName, i)
 				}
 			}
 		}
