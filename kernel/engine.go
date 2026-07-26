@@ -1132,16 +1132,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			hunterV7TakerBuyAtLeast(coin, 0.50) {
 			return true, "long_setup_ready_confirmed"
 		}
-	case "mms_trend_ride_long", "mms_squeeze_engine_long":
-		if coin.V7AIPriority >= 58 &&
-			coin.V7SetupScore >= 60 &&
-			coin.V7TimingScore >= 60 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) &&
-			hunterV7MMSLongExecutableFreshEnough(coin) &&
-			!hunterV7MMSLongExecutableChaseBlock(coin) {
-			return true, "mms_long_ready_confirmed"
-		}
 	case "alt_ladder_momentum_long":
 		if hunterV7AltLadderLongExecutable(coin) {
 			return true, "alt_ladder_long_ready_confirmed"
@@ -1398,14 +1388,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
 			hunterV7TakerBuyAtLeast(coin, 0.48) {
 			return true, "mms_bottom_wake_reviewable_breakout_required"
-		}
-	case "mms_trend_ride_long", "mms_squeeze_engine_long":
-		if coin.V7AIPriority >= 50 &&
-			coin.V7SetupScore >= 55 &&
-			coin.V7TimingScore >= 55 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "mms_long_reviewable_confirmed"
 		}
 	case "alt_ladder_momentum_long":
 		if coin.V7AIPriority >= 50 &&

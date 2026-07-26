@@ -79,7 +79,33 @@ var hunterV7ShortOrReversionTierSpec = hunterV7SetupTierSpec{
 	},
 }
 
+// hunterV7MMSLongTierSpec covers mms_trend_ride_long / mms_squeeze_engine_long
+// (U3.3c). The freshness and chase-block predicates stay as guards: they read
+// data freshness and price-vs-zone geometry, not plain score floors.
+var hunterV7MMSLongTierSpec = hunterV7SetupTierSpec{
+	Ready: []hunterV7TierRule{
+		{
+			MinAIPriority: 58, MinSetupScore: 60, MinTimingScore: 60, RiskBelow: 55,
+			Taker: hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+			Guards: []func(CandidateCoin) bool{
+				hunterV7MMSLongExecutableFreshEnough,
+				func(coin CandidateCoin) bool { return !hunterV7MMSLongExecutableChaseBlock(coin) },
+			},
+			Reason: "mms_long_ready_confirmed",
+		},
+	},
+	Reviewable: []hunterV7TierRule{
+		{
+			MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 55, RiskBelow: 55,
+			Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+			Reason: "mms_long_reviewable_confirmed",
+		},
+	},
+}
+
 var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
+	"mms_trend_ride_long":      hunterV7MMSLongTierSpec,
+	"mms_squeeze_engine_long":  hunterV7MMSLongTierSpec,
 	"distribution_short":       hunterV7ShortOrReversionTierSpec,
 	"long_squeeze_short":       hunterV7ShortOrReversionTierSpec,
 	"breakdown_momentum_short": hunterV7ShortOrReversionTierSpec,
