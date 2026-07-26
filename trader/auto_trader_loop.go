@@ -1045,10 +1045,10 @@ func shouldSkipCandidateForRepeatedWait(coin kernel.CandidateCoin, waitCount int
 	if coin.V7SetupType == "" {
 		return true
 	}
+	// Candidates from the strategy engine always carry the tier verdict
+	// classified with the engine-configured geometry; an empty tier means the
+	// coin never went through construction and falls through to skip.
 	tier := coin.V7ExecutionTier
-	if tier == "" {
-		tier, _ = kernel.ClassifyHunterV7CandidateTierForRuntime(coin)
-	}
 	if tier == "EXECUTABLE" && coin.V7ExecutionQuality == "ready" && coin.V7AIPriority >= 55 {
 		return false
 	}

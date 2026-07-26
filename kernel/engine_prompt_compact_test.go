@@ -750,6 +750,10 @@ func TestFormatHunterV7SignalJSONMarksWatchOnlyAsDoNotOpen(t *testing.T) {
 		},
 	}
 
+	// Serializers read the cached verdict, so classify at construction like
+	// hunterV7SignalsToCandidateCoins does in production.
+	coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTier(coin)
+
 	raw := engine.formatHunterV7SignalJSON(coin)
 	var payload map[string]interface{}
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {

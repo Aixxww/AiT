@@ -1206,9 +1206,9 @@ func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, ite
 }
 
 func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) string {
-	if coin.V7ExecutionTier == "" {
-		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTierWithGeometry(coin, e.hunterV7ExecutionGeometry())
-	}
+	// Tier is classified once at candidate construction (and refreshed after
+	// live confirmations in the tiered prompt path); serializers only read the
+	// cached verdict so no formatting path can re-classify with drifted inputs.
 	type compactSignal struct {
 		Symbol             string                      `json:"symbol"`
 		Direction          string                      `json:"direction"`
@@ -1249,10 +1249,7 @@ func (e *StrategyEngine) formatHunterV7CompactSignalJSON(coin CandidateCoin) str
 }
 
 func (e *StrategyEngine) formatHunterV7SignalJSON(coin CandidateCoin) string {
-	if coin.V7SetupType != "" && coin.V7ExecutionTier == "" {
-		coin.V7ExecutionTier, coin.V7TierReason = classifyHunterV7CandidateTierWithGeometry(coin, e.hunterV7ExecutionGeometry())
-	}
-
+	// Reads the cached tier verdict; see formatHunterV7CompactSignalJSON.
 	type v7SignalForAI struct {
 		SignalID              string                        `json:"signal_id,omitempty"`
 		Symbol                string                        `json:"symbol"`

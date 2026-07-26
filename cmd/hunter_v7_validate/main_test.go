@@ -99,7 +99,7 @@ func TestSignalsToCandidatesPreservesSignalContractFields(t *testing.T) {
 		},
 	}
 
-	candidates := signalsToCandidates(signals)
+	candidates := signalsToCandidates(signals, executionGeometryFromStrategy(nil))
 	if len(candidates) != 1 {
 		t.Fatalf("candidate count = %d, want 1", len(candidates))
 	}
@@ -115,7 +115,7 @@ func TestValidateCoverageClassifiesDisplacementAndRangeExpansionFamilies(t *test
 	coverage := validateCoverage([]local.V7SignalOutput{
 		{Symbol: "AUSDT", Direction: local.V7DirLong, SetupType: local.V7SetupDisplacementLong, MarketRegime: local.V7RegimeTrendUp},
 		{Symbol: "BUSDT", Direction: local.V7DirLong, SetupType: local.V7SetupRangeExpansion, MarketRegime: local.V7RegimeTrendUp},
-	})
+	}, executionGeometryFromStrategy(nil))
 
 	if !coverage.HasMomentum {
 		t.Fatalf("displacement/range expansion should count as momentum family: %+v", coverage)

@@ -212,7 +212,8 @@ func runValidation(opts validationOptions, round int) error {
 		}
 		fmt.Printf("golden fixture: %s (universe=%d regime=%s)\n", opts.dumpUniverse, len(universe), regime)
 	}
-	candidates := signalsToCandidates(signals)
+	geometry := executionGeometryFromStrategy(strategyCfg)
+	candidates := signalsToCandidates(signals, geometry)
 	prompt := buildPrompt(candidates, signals, snap, strategyCfg)
 
 	now := time.Now()
@@ -249,7 +250,7 @@ func runValidation(opts validationOptions, round int) error {
 	}
 	report.FormatCheck, report.Issues = validateFormat(signals)
 	report.AIRecognition = validatePrompt(prompt, len(candidates))
-	report.OpportunityCover = validateCoverage(signals)
+	report.OpportunityCover = validateCoverage(signals, geometry)
 	report.OpportunityCover.PotentialPoolCount = len(v7Result.PotentialPool)
 	for _, candidate := range v7Result.PotentialPool {
 		if !candidate.MatchedModule {
@@ -275,7 +276,23 @@ func runValidation(opts validationOptions, round int) error {
 	return nil
 }
 
-func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin {
+// executionGeometryFromStrategy mirrors the production engine's geometry
+// derivation so validate-side tiering matches what the live kernel would emit.
+func executionGeometryFromStrategy(strategyCfg *store.StrategyConfig) kernel.HunterV7ExecutionGeometry {
+	if strategyCfg == nil {
+		return kernel.HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)
+	}
+	riskControl := strategyCfg.RiskControl
+	return kernel.HunterV7EffectiveExecutionGeometry(
+		riskControl.MaxTakeProfitPriceMovePct,
+		riskControl.MinStopLossPriceMovePct,
+		riskControl.MaxEntryPriceDeviationPct,
+		riskControl.MinRiskRewardRatio,
+		true,
+	)
+}
+
+func signalsToCandidates(signals []local.V7SignalOutput, geometry kernel.HunterV7ExecutionGeometry) []kernel.CandidateCoin {
 	candidates := make([]kernel.CandidateCoin, 0, len(signals))
 	for _, sig := range signals {
 		tags := append([]string{string(sig.SetupType), string(sig.Status)}, sig.ReasonCodes...)
@@ -326,7 +343,7 @@ func signalsToCandidates(signals []local.V7SignalOutput) []kernel.CandidateCoin 
 			V7TPPlan:           sig.TPPlan,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
-		cc.V7ExecutionTier, cc.V7TierReason = kernel.ClassifyHunterV7CandidateTierForRuntime(cc)
+		cc.V7ExecutionTier, cc.V7TierReason = kernel.ClassifyHunterV7CandidateTierForRuntime(cc, geometry)
 		if sig.Direction == local.V7DirLong {
 			cc.LongScore = sig.AIPriority
 			cc.LongTags = tags
@@ -562,7 +579,7 @@ func parsePromptTierCounts(prompt string) map[string]int {
 	return nil
 }
 
-func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
+func validateCoverage(signals []local.V7SignalOutput, geometry kernel.HunterV7ExecutionGeometry) opportunityCoverCheck {
 	c := opportunityCoverCheck{
 		SignalCount:     len(signals),
 		BySetupType:     map[string]int{},
@@ -583,7 +600,7 @@ func validateCoverage(signals []local.V7SignalOutput) opportunityCoverCheck {
 		c.ByStatus[string(sig.Status)]++
 		c.ByRiskLevel[string(sig.RiskLevel)]++
 		c.ByEntryMode[string(sig.EntryMode)]++
-		cc := signalsToCandidates([]local.V7SignalOutput{sig})
+		cc := signalsToCandidates([]local.V7SignalOutput{sig}, geometry)
 		if len(cc) > 0 {
 			tier := cc[0].V7ExecutionTier
 			if tier == "" {

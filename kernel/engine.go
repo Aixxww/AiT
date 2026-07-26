@@ -532,6 +532,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 // CandidateCoin while preserving the rich signal context for the AI prompt.
 func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7SignalOutput, direction string) []CandidateCoin {
 	var candidates []CandidateCoin
+	geometry := e.hunterV7ExecutionGeometry()
 	for _, sig := range signals {
 		if sig.Direction == "" {
 			continue
@@ -602,7 +603,7 @@ func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7Signa
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
-		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTier(cc)
+		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
 
 		if sig.Direction == local.V7DirLong {
 			cc.LongScore = sig.AIPriority
@@ -652,10 +653,6 @@ func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct,
 		geometry.MaxTPMovePct = minFeasibleTPPct
 	}
 	return geometry
-}
-
-func classifyHunterV7CandidateTier(coin CandidateCoin) (string, string) {
-	return classifyHunterV7CandidateTierWithGeometry(coin, HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true))
 }
 
 func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
@@ -974,8 +971,10 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 
 // ClassifyHunterV7CandidateTierForRuntime exposes the same prompt tiering rules
 // to runtime filters so stale WAIT cooling and LLM prompt expansion stay aligned.
-func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin) (string, string) {
-	return classifyHunterV7CandidateTier(coin)
+// Geometry is required so every caller classifies against the same configured
+// execution constraints instead of silently falling back to defaults.
+func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
+	return classifyHunterV7CandidateTierWithGeometry(coin, geometry)
 }
 
 func hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin CandidateCoin, tag string) bool {
