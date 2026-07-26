@@ -952,39 +952,14 @@ func hunterV7TierFromPromptReadiness(coin CandidateCoin, tier, reason string, re
 			return "REVIEWABLE", "prompt_readiness_" + readiness.Reason
 		}
 	}
-	if semanticReason := hunterV7PromptSemanticWaitReason(coin, readiness); semanticReason != "" {
-		if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
-			return "WATCH", semanticReason
+	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok && spec.PromptWait != nil {
+		if semanticReason := spec.PromptWait(coin, readiness); semanticReason != "" {
+			if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+				return "WATCH", semanticReason
+			}
 		}
 	}
 	return tier, reason
-}
-
-func hunterV7PromptSemanticWaitReason(coin CandidateCoin, readiness local.V7ExecutionReadiness) string {
-	if coin.V7SetupType == string(local.V7SetupRangeExpansion) && strings.EqualFold(coin.Direction, "SHORT") {
-		change24h := 0.0
-		if coin.V7PriceContext != nil {
-			change24h = coin.V7PriceContext.Change24h
-		}
-		if change24h <= -12 &&
-			containsAnyStringValue(coin.V7RiskTags, []string{
-				"event_chase_risk",
-				"event_flow_confirmation_needed",
-				"range_expansion_low_volume_followthrough",
-				"short_covering_not_new_long_build",
-			}) {
-			return "range_expansion_short_exhaustion_retest_wait"
-		}
-	}
-	if coin.V7SetupType == string(local.V7SetupWhaleFlow) {
-		if readiness.DataQuality != "complete_for_execution" ||
-			readiness.BlockedGate == "prompt_data_quality" ||
-			len(readiness.MissingHard) > 0 ||
-			len(readiness.MissingExecution) > 0 {
-			return "whale_flow_execution_data_wait"
-		}
-	}
-	return ""
 }
 
 func hunterV7CandidateWithLiveMarketPrice(coin CandidateCoin, data *market.Data) CandidateCoin {

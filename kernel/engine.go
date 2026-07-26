@@ -3037,46 +3037,18 @@ func hunterV7DisplacementReviewOnlyRisk(coin CandidateCoin) bool {
 	})
 }
 
+// hunterV7LeaderMomentumUpperChaseWait consumes the upper-zone chase verdict
+// the provider already voted on at signal time (leaderMomentumUpperZoneChaseRisk,
+// 5 weak-signal votes over RSI/taker, OI, volume burst, VWAP distance and BB
+// proximity). The kernel used to re-run a drifted 3-vote copy of that formula
+// when the tags were absent; the provider verdict is now the single authority
+// (U3.5).
 func hunterV7LeaderMomentumUpperChaseWait(coin CandidateCoin) bool {
 	if coin.V7SetupType != "leader_momentum_long" || !strings.EqualFold(coin.Direction, "LONG") {
 		return false
 	}
-	if containsAnyStringValue(coin.V7RiskTags, []string{"momentum_upper_zone_chase", "do_not_market_chase"}) ||
-		containsStringValue(coin.V7ReasonCodes, "leader_momentum_upper_chase_wait") {
-		return true
-	}
-	if containsAnyStringValue(coin.V7ReasonCodes, []string{"trigger_memory_confirmed", "confirmed_breakout", "strong_breakout", "taker_sustained_buy", "taker_buy_aggressive"}) {
-		return false
-	}
-	if containsAnyStringValue(coin.V7ReasonCodes, []string{"micro_pullback", "shallow_pullback", "shallow_pullback_1h"}) {
-		return false
-	}
-	if !containsStringValue(coin.V7ReasonCodes, "no_pullback_still_running") {
-		return false
-	}
-	if coin.V7PriceContext == nil {
-		return false
-	}
-	pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, coin.V7PriceContext.Last)
-	if !ok || pos < 65 {
-		return false
-	}
-	weakVotes := 0
-	if coin.V7DerivativesCtx != nil {
-		if coin.V7DerivativesCtx.OIChange1h < 0 {
-			weakVotes++
-		}
-		if coin.V7DerivativesCtx.TakerBuy15m > 0 && coin.V7DerivativesCtx.TakerBuy15m < 0.60 {
-			weakVotes++
-		}
-	}
-	if coin.V7PriceContext.VWAP15m > 0 && coin.V7PriceContext.Last > coin.V7PriceContext.VWAP15m {
-		vwapDistancePct := (coin.V7PriceContext.Last - coin.V7PriceContext.VWAP15m) / coin.V7PriceContext.VWAP15m * 100
-		if vwapDistancePct >= 4.0 {
-			weakVotes++
-		}
-	}
-	return weakVotes >= 2
+	return containsAnyStringValue(coin.V7RiskTags, []string{"momentum_upper_zone_chase", "do_not_market_chase"}) ||
+		containsStringValue(coin.V7ReasonCodes, "leader_momentum_upper_chase_wait")
 }
 
 func hunterV7MMSLongExecutableChaseBlock(coin CandidateCoin) bool {

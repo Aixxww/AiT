@@ -3377,6 +3377,9 @@ func TestClassifyHunterV7CandidateTierAllowsRepairedDisplacementOnlyReviewable(t
 }
 
 func TestClassifyHunterV7CandidateTierBlocksLeaderMomentumUpperZoneChase(t *testing.T) {
+	// Since U3.5 the provider's five-vote upper-zone verdict (emitted as the
+	// momentum_upper_zone_chase risk tag at signal time) is the single
+	// authority; the kernel no longer re-votes a drifted copy at prompt time.
 	coin := CandidateCoin{
 		Symbol:             "SKYAIUSDT",
 		Direction:          "LONG",
@@ -3397,6 +3400,7 @@ func TestClassifyHunterV7CandidateTierBlocksLeaderMomentumUpperZoneChase(t *test
 			"taker_strong_buy",
 			"no_pullback_still_running",
 		},
+		V7RiskTags:       []string{"momentum_upper_zone_chase"},
 		V7EntryZone:      local.V7PriceZone{Lower: 0.03549129456896678, Upper: 0.036259514536637456},
 		V7PriceContext:   &local.V7PriceContext{Last: 0.03605, VWAP15m: 0.033929655667319744},
 		V7DerivativesCtx: &local.V7DerivativesContext{OIChange1h: -3.0062172399272358, TakerBuy15m: 0.5845970211937053},
@@ -3406,6 +3410,15 @@ func TestClassifyHunterV7CandidateTierBlocksLeaderMomentumUpperZoneChase(t *test
 
 	if tier != "WATCH" || reason != "momentum_upper_zone_chase_wait" {
 		t.Fatalf("tier = %q (%s), want WATCH momentum_upper_zone_chase_wait", tier, reason)
+	}
+
+	// Without the provider verdict the kernel must not demote on its own —
+	// the same coin (upper zone, weak OI, stretched VWAP) now rides on the
+	// provider having already voted "no chase risk" at signal time.
+	coin.V7RiskTags = nil
+	tier, _ = classifyHunterV7CandidateTier(coin)
+	if tier == "WATCH" {
+		t.Fatalf("kernel re-voted the upper-zone chase demotion without provider tags (tier=%s)", tier)
 	}
 }
 

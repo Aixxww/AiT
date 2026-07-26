@@ -1,6 +1,10 @@
 package kernel
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/Aixxww/AiT/provider/local"
+)
 
 // Hunter v7 tier rules (U3.2)
 //
@@ -67,6 +71,10 @@ type hunterV7SetupTierSpec struct {
 	// OpenRateFloor gates live-reviewable escalation
 	// (hunterV7OpenRateCandidateFloor); nil keeps the shared default floor.
 	OpenRateFloor []hunterV7TierRule
+	// PromptWait is the setup's prompt-time semantic override: after prompt
+	// readiness is computed, a non-empty reason demotes EXECUTABLE/REVIEWABLE
+	// to WATCH. Nil means the setup has no prompt-time override.
+	PromptWait func(CandidateCoin, local.V7ExecutionReadiness) string
 }
 
 // hunterV7SetupTierSpecs is the per-setup rule registry. Populated setup by
@@ -424,6 +432,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 		},
 	},
 	"range_expansion_event": {
+		PromptWait: hunterV7RangeExpansionShortExhaustionPromptWait,
 		Ready: []hunterV7TierRule{
 			{
 				MinAIPriority: 65, MinSetupScore: 65, MinTimingScore: 60, RiskBelow: 35,
@@ -451,6 +460,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 		},
 	},
 	"whale_flow_reversal": {
+		PromptWait: hunterV7WhaleFlowDataPromptWait,
 		// Default ready floor; no reviewable path existed for this setup —
 		// its open-review escalation runs through the open-rate floor below.
 		Ready: []hunterV7TierRule{
@@ -488,6 +498,40 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+}
+
+// hunterV7RangeExpansionShortExhaustionPromptWait parks a deeply-fallen
+// range-expansion SHORT for a retest when the move already looks exhausted.
+func hunterV7RangeExpansionShortExhaustionPromptWait(coin CandidateCoin, _ local.V7ExecutionReadiness) string {
+	if !strings.EqualFold(coin.Direction, "SHORT") {
+		return ""
+	}
+	change24h := 0.0
+	if coin.V7PriceContext != nil {
+		change24h = coin.V7PriceContext.Change24h
+	}
+	if change24h <= -12 &&
+		containsAnyStringValue(coin.V7RiskTags, []string{
+			"event_chase_risk",
+			"event_flow_confirmation_needed",
+			"range_expansion_low_volume_followthrough",
+			"short_covering_not_new_long_build",
+		}) {
+		return "range_expansion_short_exhaustion_retest_wait"
+	}
+	return ""
+}
+
+// hunterV7WhaleFlowDataPromptWait holds whale-flow entries until the prompt
+// window has complete execution data.
+func hunterV7WhaleFlowDataPromptWait(_ CandidateCoin, readiness local.V7ExecutionReadiness) string {
+	if readiness.DataQuality != "complete_for_execution" ||
+		readiness.BlockedGate == "prompt_data_quality" ||
+		len(readiness.MissingHard) > 0 ||
+		len(readiness.MissingExecution) > 0 {
+		return "whale_flow_execution_data_wait"
+	}
+	return ""
 }
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
