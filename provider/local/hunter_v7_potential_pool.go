@@ -1,5 +1,9 @@
 package local
 
+// NOTE: the potential pool is produced on the production path but consumed
+// only by cmd/hunter_v7_validate for MFE/MAE follow-up audits — it does not
+// feed routing, tiering, or trading decisions.
+
 import (
 	"math"
 	"sort"

@@ -92,19 +92,9 @@ func (s *Server) handleHunterV7Outcomes(c *gin.Context) {
 		return
 	}
 
-	engine := local.NewRegimeAdaptiveEngine()
-	rows := make([]local.SetupRegimeStatsInput, 0, len(grouped))
-	for _, row := range grouped {
-		rows = append(rows, local.SetupRegimeStatsInput{
-			Regime:  row.MarketRegime,
-			Setup:   row.SetupType,
-			Samples: row.Total,
-			WinRate: row.WinRate,
-			AvgPnL:  row.AvgPnL,
-		})
-	}
-	engine.RecalculateWeightsFromInput(rows)
-
+	// The dry-run adaptive-weight preview was removed with the
+	// RegimeAdaptiveEngine (U5.4): its output never fed back into routing, so
+	// the endpoint now reports the raw setup/regime outcome stats only.
 	c.JSON(http.StatusOK, gin.H{
 		"from":             from.Format(time.RFC3339),
 		"to":               to.Format(time.RFC3339),
@@ -113,9 +103,6 @@ func (s *Server) handleHunterV7Outcomes(c *gin.Context) {
 		"tp0_30m":          tp0,
 		"tp1_2h":           tp1,
 		"setup_regime":     grouped,
-		"adaptive_report":  engine.GetAdjustmentReport(),
-		"adaptive_rows":    len(rows),
-		"adaptive_dry_run": true,
 		"window_source":    "hunter_v7_signal_records",
 		"report_generated": true,
 	})
@@ -180,7 +167,7 @@ func (s *Server) handleHunterV7Matrix(c *gin.Context) {
 	}
 
 	reportRegime := local.V7MarketRegime(regime)
-	report := local.GenerateMatrixReport(records, reportRegime)
+	report := GenerateMatrixReport(records, reportRegime)
 	c.JSON(http.StatusOK, gin.H{
 		"from":             from.Format(time.RFC3339),
 		"to":               to.Format(time.RFC3339),

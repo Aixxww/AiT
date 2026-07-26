@@ -205,7 +205,7 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 		maxFavorableDelta = 0
 	}
 	isLong := side == "long"
-	stop := local.DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
+	stop := DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
 	floorStop := protectionProfitFloorStop(side, entryPrice, leverage, state.PeakPnLPct)
 	candidateStop := 0.0
 	if isStopOnProtectiveSide(side, stop, markPrice) {

@@ -1,9 +1,11 @@
-package local
+package api
 
 import (
 	"fmt"
 	"sort"
 	"strings"
+
+	local "github.com/Aixxww/AiT/provider/local"
 )
 
 // ============================================================================
@@ -15,8 +17,8 @@ import (
 
 // MatrixCell holds aggregate statistics for a single regime×setup cell.
 type MatrixCell struct {
-	Regime         V7MarketRegime `json:"regime"`
-	SetupType      V7SetupType    `json:"setup_type"`
+	Regime         local.V7MarketRegime `json:"regime"`
+	SetupType      local.V7SetupType    `json:"setup_type"`
 	SignalCount    int            `json:"signal_count"`
 	ExecCount      int            `json:"exec_count"`
 	AvgPriority    float64        `json:"avg_priority"`
@@ -32,7 +34,11 @@ type MatrixReport struct {
 // GenerateMatrixReport builds a per-setup, per-regime report from raw signal
 // records.  Uses V7SignalRecord (router-local type) from the signal recorder
 // callback.
-func GenerateMatrixReport(signals []V7SignalRecord, regime V7MarketRegime) *MatrixReport {
+func GenerateMatrixReport(signals []local.V7SignalRecord, regime local.V7MarketRegime) *MatrixReport {
+	type regimeSetupKey struct {
+		regime local.V7MarketRegime
+		setup  local.V7SetupType
+	}
 	type cellAccum struct {
 		count       int
 		execCount   int

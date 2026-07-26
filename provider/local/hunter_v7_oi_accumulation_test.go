@@ -20,7 +20,7 @@ func TestAssessV7OIAccumulationDetectsInvisibleBuild(t *testing.T) {
 		},
 	}
 
-	ev := AssessV7OIAccumulation(ctx)
+	ev := assessV7OIAccumulation(ctx)
 
 	if !ev.InvisibleAccumulation {
 		t.Fatalf("expected invisible accumulation, got %+v", ev)
@@ -48,7 +48,7 @@ func TestAssessV7OIAccumulationDoesNotFlagCrowdedMarkup(t *testing.T) {
 		},
 	}
 
-	ev := AssessV7OIAccumulation(ctx)
+	ev := assessV7OIAccumulation(ctx)
 
 	if ev.InvisibleAccumulation {
 		t.Fatalf("crowded markup should not be invisible accumulation: %+v", ev)

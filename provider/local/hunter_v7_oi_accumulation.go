@@ -26,7 +26,7 @@ type V7OIAccumulationEvidence struct {
 	LSRBalancedAccumulation bool
 }
 
-func AssessV7OIAccumulation(ctx *V7SymbolContext) V7OIAccumulationEvidence {
+func assessV7OIAccumulation(ctx *V7SymbolContext) V7OIAccumulationEvidence {
 	var ev V7OIAccumulationEvidence
 	if ctx == nil || ctx.Snapshot == nil || ctx.CurrentPrice <= 0 {
 		return ev
@@ -86,7 +86,7 @@ func AssessV7OIAccumulation(ctx *V7SymbolContext) V7OIAccumulationEvidence {
 }
 
 func ApplyV7OIAccumulationEvidence(sig *V7SignalOutput, ctx *V7SymbolContext) V7OIAccumulationEvidence {
-	ev := AssessV7OIAccumulation(ctx)
+	ev := assessV7OIAccumulation(ctx)
 	if sig == nil || ev.Score <= 0 {
 		return ev
 	}

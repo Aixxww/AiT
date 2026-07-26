@@ -1,4 +1,4 @@
-package local
+package trader
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	local "github.com/Aixxww/AiT/provider/local"
 )
 
 // ============================================================================
@@ -524,7 +526,7 @@ func (t *SignalOutcomeTracker) updateDynamicStop(sig *TrackedSignal, currentPric
 	if t.config == nil || !t.config.EnableDynamicStop || t.dynamicStop == nil {
 		return stopUsed
 	}
-	isLong := sig.Direction == string(V7DirLong)
+	isLong := sig.Direction == string(local.V7DirLong)
 	maxFavorableDelta := sig.MaxFavorable / 100 * sig.SignalPrice
 	if maxFavorableDelta < 0 {
 		maxFavorableDelta = 0
@@ -556,9 +558,9 @@ func (t *SignalOutcomeTracker) updateMissedOpportunityAudit(sig *TrackedSignal, 
 	}
 	touched := false
 	switch sig.Direction {
-	case string(V7DirLong):
+	case string(local.V7DirLong):
 		touched = candle.High >= sig.TP0Price
-	case string(V7DirShort):
+	case string(local.V7DirShort):
 		touched = candle.Low <= sig.TP0Price
 	}
 	if !touched {
@@ -585,7 +587,7 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 		return false, 0
 	}
 	switch sig.Direction {
-	case string(V7DirLong):
+	case string(local.V7DirLong):
 		if stopUsed > 0 && candle.Low <= stopUsed {
 			sig.Status = TrackedStop
 			return true, stopUsed
@@ -602,7 +604,7 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 			sig.Status = TrackedWinTP0
 			return true, sig.TP0Price
 		}
-	case string(V7DirShort):
+	case string(local.V7DirShort):
 		if stopUsed > 0 && candle.High >= stopUsed {
 			sig.Status = TrackedStop
 			return true, stopUsed
@@ -779,9 +781,9 @@ func (t *SignalOutcomeTracker) calcPnLPct(sig *TrackedSignal, price float64) flo
 		return 0
 	}
 	switch sig.Direction {
-	case string(V7DirLong):
+	case string(local.V7DirLong):
 		return (price - sig.SignalPrice) / sig.SignalPrice * 100
-	case string(V7DirShort):
+	case string(local.V7DirShort):
 		return (sig.SignalPrice - price) / sig.SignalPrice * 100
 	}
 	return 0
@@ -800,11 +802,11 @@ func (t *SignalOutcomeTracker) calcExcursionsPct(sig *TrackedSignal, candle Trac
 		low = candle.Close
 	}
 	switch sig.Direction {
-	case string(V7DirLong):
+	case string(local.V7DirLong):
 		mfe := (high - sig.SignalPrice) / sig.SignalPrice * 100
 		mae := (low - sig.SignalPrice) / sig.SignalPrice * 100
 		return mfe, mae
-	case string(V7DirShort):
+	case string(local.V7DirShort):
 		mfe := (sig.SignalPrice - low) / sig.SignalPrice * 100
 		mae := (sig.SignalPrice - high) / sig.SignalPrice * 100
 		return mfe, mae

@@ -54,14 +54,16 @@ func TestHandleHunterV7Outcomes(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body["adaptive_dry_run"] != true {
-		t.Fatalf("adaptive_dry_run = %v, want true", body["adaptive_dry_run"])
-	}
 	if _, ok := body["tp0_30m"].(map[string]interface{}); !ok {
 		t.Fatalf("missing tp0_30m: %+v", body)
 	}
-	if rows, ok := body["adaptive_report"].([]interface{}); !ok || len(rows) == 0 {
-		t.Fatalf("missing adaptive_report rows: %+v", body["adaptive_report"])
+	// The adaptive dry-run preview died with the RegimeAdaptiveEngine (U5.4);
+	// the endpoint must expose the raw grouped stats instead.
+	if _, present := body["adaptive_report"]; present {
+		t.Fatalf("adaptive_report should be gone after U5.4: %+v", body["adaptive_report"])
+	}
+	if rows, ok := body["setup_regime"].([]interface{}); !ok || len(rows) == 0 {
+		t.Fatalf("missing setup_regime rows: %+v", body["setup_regime"])
 	}
 }
 

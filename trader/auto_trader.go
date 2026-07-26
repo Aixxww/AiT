@@ -194,7 +194,7 @@ type AutoTrader struct {
 	lastContextBalanceAt   time.Time                // Last successful account balance time
 	lastContextPositions   []map[string]interface{} // Last successful positions response
 	lastContextPositionsAt time.Time
-	v7OutcomeTracker       *local.SignalOutcomeTracker
+	v7OutcomeTracker       *SignalOutcomeTracker
 	v7OutcomeCancel        context.CancelFunc
 }
 
@@ -456,19 +456,19 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	}
 
 	// Set up Hunter v7 signal recorder for funnel attribution
-	var v7OutcomeTracker *local.SignalOutcomeTracker
+	var v7OutcomeTracker *SignalOutcomeTracker
 	if st != nil && coinSrc.SourceType == "hunter_v7" {
-		v7OutcomeTracker = local.NewSignalOutcomeTracker(nil, func(symbol string) float64 {
+		v7OutcomeTracker = NewSignalOutcomeTracker(nil, func(symbol string) float64 {
 			price, err := trader.GetMarketPrice(symbol)
 			if err != nil || price <= 0 {
 				return 0
 			}
 			return price
 		})
-		v7OutcomeTracker.SetCandleSource(func(symbol string) *local.TrackedCandle {
+		v7OutcomeTracker.SetCandleSource(func(symbol string) *TrackedCandle {
 			return latestHunterV7TrackedCandle(snapEngine, symbol)
 		})
-		v7OutcomeTracker.SetCandleHistorySource(func(symbol string, since time.Time) []local.TrackedCandle {
+		v7OutcomeTracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
 			return hunterV7TrackedCandlesSince(snapEngine, symbol, since)
 		})
 		v7BackfillFetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
@@ -477,10 +477,10 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				{Interval: "1m", Limit: 100},
 			},
 		})
-		v7OutcomeTracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []local.TrackedCandle {
+		v7OutcomeTracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []TrackedCandle {
 			return hunterV7BackfillCandles(v7BackfillFetcher, symbol, from, to)
 		})
-		v7OutcomeTracker.SetOutcomeCallback(func(outcome local.TrackedOutcome) {
+		v7OutcomeTracker.SetOutcomeCallback(func(outcome TrackedOutcome) {
 			if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, store.HunterV7SignalTrackUpdate{
 				Status:       string(outcome.Status),
 				CurrentPrice: outcome.CurrentPrice,
@@ -572,7 +572,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					TP2RR:             sig.TP2RR,
 					ResonanceBonus:    sig.ResonanceBonus,
 					BlockedGate:       rec.BlockedGate,
-					TrackStatus:       string(local.TrackedActive),
+					TrackStatus:       string(TrackedActive),
 					RawJSON:           string(rawJSON),
 				})
 			}
@@ -868,7 +868,7 @@ func hunterV7SignalEntryPrice(sig local.V7SignalOutput) float64 {
 	return 0
 }
 
-func latestHunterV7TrackedCandle(snapshotEngine *kernel.SnapshotEngine, symbol string) *local.TrackedCandle {
+func latestHunterV7TrackedCandle(snapshotEngine *kernel.SnapshotEngine, symbol string) *TrackedCandle {
 	candles := hunterV7TrackedCandlesSince(snapshotEngine, symbol, time.Time{})
 	if len(candles) == 0 {
 		return nil
@@ -877,7 +877,7 @@ func latestHunterV7TrackedCandle(snapshotEngine *kernel.SnapshotEngine, symbol s
 	return &last
 }
 
-func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol string, since time.Time) []local.TrackedCandle {
+func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol string, since time.Time) []TrackedCandle {
 	if snapshotEngine == nil || symbol == "" {
 		return nil
 	}
@@ -893,7 +893,7 @@ func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol s
 	if len(klines) == 0 {
 		return nil
 	}
-	out := make([]local.TrackedCandle, 0, len(klines))
+	out := make([]TrackedCandle, 0, len(klines))
 	for _, k := range klines {
 		candleTime := time.UnixMilli(k.CloseTime).UTC()
 		if !since.IsZero() && !candleTime.After(since) {
@@ -906,7 +906,7 @@ func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol s
 		if closePrice <= 0 {
 			continue
 		}
-		out = append(out, local.TrackedCandle{
+		out = append(out, TrackedCandle{
 			T:      candleTime,
 			Open:   k.Open,
 			High:   k.High,
@@ -918,7 +918,7 @@ func hunterV7TrackedCandlesSince(snapshotEngine *kernel.SnapshotEngine, symbol s
 	return out
 }
 
-func hunterV7BackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from, to time.Time) []local.TrackedCandle {
+func hunterV7BackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from, to time.Time) []TrackedCandle {
 	if fetcher == nil || symbol == "" || from.IsZero() {
 		return nil
 	}
@@ -939,7 +939,7 @@ func hunterV7BackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from
 		logger.Warnf("⚠️ Hunter v7 1m backfill failed for %s: %v", symbol, err)
 		return nil
 	}
-	out := make([]local.TrackedCandle, 0, len(klines))
+	out := make([]TrackedCandle, 0, len(klines))
 	for _, k := range klines {
 		candleTime := time.UnixMilli(k.CloseTime).UTC()
 		if candleTime.Before(from) || candleTime.After(to.Add(time.Minute)) {
@@ -948,7 +948,7 @@ func hunterV7BackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from
 		if k.Close <= 0 {
 			continue
 		}
-		out = append(out, local.TrackedCandle{
+		out = append(out, TrackedCandle{
 			T:      candleTime,
 			Open:   k.Open,
 			High:   k.High,
