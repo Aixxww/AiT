@@ -55,16 +55,114 @@ func (r *V7Router) Route(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 }
 
 // RouteDetailed runs all modules and returns both raw and LLM-facing signals.
-func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) V7RouteResult {
-	// Compute BTC/ETH 4h change baseline for strong-symbol override
-	btcETHBaseline4h := computeBTCETHBaseline4h(universe)
+// v7SignalPass is one named enhancement stage applied to every signal a
+// module emits. RouteDetailed's per-signal sequence is the pass slice below —
+// order is data, and adding a stage means adding a row (U6.5).
+type v7SignalPass struct {
+	name  string
+	apply func(sig *V7SignalOutput, ctx *V7SymbolContext)
+}
 
-	// v8 components (created once per route cycle)
+// buildV7SignalPasses assembles the per-cycle pipeline. Cycle-scoped
+// components (boosters, sector rotation, BTC/ETH baseline) are captured once
+// here, exactly as the former inline sequence created them per route call.
+func buildV7SignalPasses(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) []v7SignalPass {
+	btcETHBaseline4h := computeBTCETHBaseline4h(universe)
 	timingBooster := DefaultTimingBooster()
 	panicOverride := DefaultPanicWeightOverride()
 	fundingFastTrack := DefaultFundingFastTrack()
 	resonanceScorer := DefaultResonanceScorer()
 	sectorRotation := NewSectorRotationAnalyzer(universe)
+
+	return []v7SignalPass{
+		{"attach_context", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			sig.ExecutionContext = ctx.ExecutionContext
+			sig.DataFreshness = ctx.DataFreshness
+			// Propagate quote volume for adaptive OI threshold in prompt-data filter
+			if ctx.Snapshot != nil {
+				sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+			}
+			if len(sig.RequiredConfirms) == 0 {
+				sig.RequiredConfirms = defaultV7Confirmations(sig)
+			}
+		}},
+		{"regime_weight", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			weight := regimeModuleWeight(regime, sig.SetupType)
+			sig.SetupScore *= weight
+			sig.SetupScore = clampFloat(sig.SetupScore, 0, 100)
+			sig.RegimeFitScore = weight * 67 // normalize to 0-100 (1.5 * 67 ≈ 100)
+		}},
+		// Liquidity must precede the strong-symbol override: the override
+		// gate reads it and would otherwise see the zero value.
+		{"liquidity", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			sig.LiquidityScore = AssessLiquidityScore(ctx)
+		}},
+		// Strong-symbol override: if this symbol significantly outperforms
+		// BTC/ETH on 4h, prevent regime weight from suppressing it below 0.8
+		{"strong_symbol_override", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			weight := regimeModuleWeight(regime, sig.SetupType)
+			if weight < 0.8 && ctx.Symbol != "BTCUSDT" && ctx.Symbol != "ETHUSDT" {
+				symbolRS := ctx.Change4h - btcETHBaseline4h
+				if symbolRS > 6 && sig.LiquidityScore >= 50 && ctx.TakerBuy15m >= 0.50 {
+					// Re-apply with floor of 0.8
+					sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
+					sig.RegimeFitScore = 0.8 * 67
+					sig.ReasonCodes = append(sig.ReasonCodes, "strong_symbol_regime_override")
+				}
+			}
+		}},
+		{"risk", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			sig.RiskScore = AssessV7Risk(sig, ctx)
+			sig.RiskLevel = ClassifyV7RiskLevel(sig.RiskScore)
+		}},
+		{"multi_tp", ApplyMultiTimeframeTP},
+		{"timing_booster", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			timingBooster.EnhanceTiming(sig, ctx)
+		}},
+		{"funding_fasttrack", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			if fundingFastTrack.ShouldFastTrack(sig, ctx) {
+				fundingFastTrack.ApplyFastTrack(sig)
+			}
+		}},
+		{"sector_rotation", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			sectorRotation.EnhanceSignal(sig, ctx, regime)
+		}},
+		{"resonance", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			resonanceScorer.ApplyToSignal(sig)
+		}},
+		// Translate post-enhancement scores into executable signal quality.
+		// This must run after TP/timing/fast-track/resonance adjustments so
+		// readiness tiers and blocked gates reflect the final signal.
+		{"finalize_execution", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			finalizeV7SignalForExecution(sig, ctx, cfg)
+		}},
+		{"freshness_risk", applyV7FreshnessRisk},
+		// AI priority: the composite ranking score, the panic-combo timing
+		// override and the resonance bonus — the former three scattered
+		// writes — land in one pass.
+		{"ai_priority", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			sig.AIPriority = CalcAIPriority(sig, cfg)
+			sig.AIPriority = panicOverride.AdjustAIPriority(sig.AIPriority, sig.TimingScore, sig.MarketRegime, sig.SetupType)
+			sig.AIPriority = clampFloat(sig.AIPriority+sig.ResonanceBonus, 0, 100)
+		}},
+		{"risk_filter", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			if sig.RiskScore >= 90 {
+				sig.Status = V7StatusFiltered
+				sig.RiskTags = append(sig.RiskTags, "risk_filtered")
+			}
+		}},
+		{"liquidity_filter", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			if sig.LiquidityScore < 30 {
+				sig.Status = V7StatusFiltered
+				sig.RiskTags = append(sig.RiskTags, "liquidity_filtered")
+			}
+		}},
+		{"readiness_refresh", refreshV7ExecutionReadiness},
+	}
+}
+
+func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegime, cfg V7Config) V7RouteResult {
+	passes := buildV7SignalPasses(universe, regime, cfg)
 
 	var allSignals []V7SignalOutput
 
@@ -113,88 +211,9 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 			if sig == nil {
 				continue
 			}
-			sig.ExecutionContext = ctx.ExecutionContext
-			sig.DataFreshness = ctx.DataFreshness
-			// Propagate quote volume for adaptive OI threshold in prompt-data filter
-			if ctx.Snapshot != nil {
-				sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h
+			for i := range passes {
+				passes[i].apply(sig, ctx)
 			}
-			if len(sig.RequiredConfirms) == 0 {
-				sig.RequiredConfirms = defaultV7Confirmations(sig)
-			}
-
-			// Apply regime weight to setup score
-			sig.SetupScore *= weight
-			sig.SetupScore = clampFloat(sig.SetupScore, 0, 100)
-			sig.RegimeFitScore = weight * 67 // normalize to 0-100 (1.5 * 67 ≈ 100)
-
-			// Compute liquidity before strong-symbol override; the override gate
-			// depends on liquidity and would otherwise see the zero-value score.
-			sig.LiquidityScore = AssessLiquidityScore(ctx)
-
-			// Strong-symbol override: if this symbol significantly outperforms
-			// BTC/ETH on 4h, prevent regime weight from suppressing it below 0.8
-			if weight < 0.8 && ctx.Symbol != "BTCUSDT" && ctx.Symbol != "ETHUSDT" {
-				symbolRS := ctx.Change4h - btcETHBaseline4h
-				if symbolRS > 6 && sig.LiquidityScore >= 50 && ctx.TakerBuy15m >= 0.50 {
-					// Re-apply with floor of 0.8
-					sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
-					sig.RegimeFitScore = 0.8 * 67
-					sig.ReasonCodes = append(sig.ReasonCodes, "strong_symbol_regime_override")
-				}
-			}
-
-			// Compute risk score
-			riskScore := AssessV7Risk(sig, ctx)
-			sig.RiskScore = riskScore
-			sig.RiskLevel = ClassifyV7RiskLevel(riskScore)
-
-			// ---- v8 enhancements (Phase 1 P0) ----
-
-			// Multi-timeframe TP targets
-			ApplyMultiTimeframeTP(sig, ctx)
-
-			// Timing booster: chase-high / overbought protection
-			timingBooster.EnhanceTiming(sig, ctx)
-
-			// Funding fast-track: relax zone requirements for extreme funding
-			if fundingFastTrack.ShouldFastTrack(sig, ctx) {
-				fundingFastTrack.ApplyFastTrack(sig)
-			}
-
-			// Sector rotation leadership: small boost for themes with broad relative strength.
-			sectorRotation.EnhanceSignal(sig, ctx, regime)
-
-			// Condition resonance: non-linear co-occurrence bonus/penalty
-			resonanceScorer.ApplyToSignal(sig)
-
-			// Translate post-enhancement scores into executable signal quality.
-			// This must run after TP/timing/fast-track/resonance adjustments so
-			// readiness tiers and blocked gates reflect the final signal.
-			finalizeV7SignalForExecution(sig, ctx, cfg)
-			applyV7FreshnessRisk(sig, ctx)
-
-			// Compute AI Priority (composite ranking score)
-			sig.AIPriority = CalcAIPriority(sig, cfg)
-
-			// Panic weight override: boost timing weight for panic+reversal combos
-			sig.AIPriority = panicOverride.AdjustAIPriority(sig.AIPriority, sig.TimingScore, sig.MarketRegime, sig.SetupType)
-
-			// Resonance bonus placeholder (Phase 2 prep)
-			sig.AIPriority = clampFloat(sig.AIPriority+sig.ResonanceBonus, 0, 100)
-
-			// Filter: risk extreme
-			if riskScore >= 90 {
-				sig.Status = V7StatusFiltered
-				sig.RiskTags = append(sig.RiskTags, "risk_filtered")
-			}
-
-			// Filter: liquidity too low
-			if sig.LiquidityScore < 30 {
-				sig.Status = V7StatusFiltered
-				sig.RiskTags = append(sig.RiskTags, "liquidity_filtered")
-			}
-			refreshV7ExecutionReadiness(sig, ctx)
 
 			allSignals = append(allSignals, *sig)
 		}
