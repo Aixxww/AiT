@@ -36,7 +36,6 @@ import { PublishSettingsEditor } from '../components/strategy/PublishSettingsEdi
 import { defaultGridConfig } from '../components/strategy/gridConfigDefaults'
 import { TokenEstimateBar } from '../components/strategy/TokenEstimateBar'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
-import { AiTSelect } from '../components/ui/select'
 import { t } from '../i18n/translations'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -609,29 +608,12 @@ export function StrategyStudioPage() {
 
   // Get current strategy type (default to ai_trading if not set)
   const currentStrategyType = editingConfig?.strategy_type || 'ai_trading'
-  const currentCoinSourceType = editingConfig?.coin_source?.source_type || 'static'
-  const compactModeValue =
-    editingConfig?.prompt_compact_mode === 'hunter_v7_only'
-      ? 'current_source'
-      : editingConfig?.prompt_compact_mode || 'current_source'
-  const coinSourceLabelMap: Record<string, Record<typeof language, string>> = {
-    static: { en: 'Static List', zh: '静态列表', id: 'Static List' },
-    ai500: { en: 'AI500 Local Snapshot Pool', zh: 'AI500 本地快照池', id: 'Pool Snapshot AI500' },
-    oi_top: { en: 'OI Increase', zh: 'OI 持仓增加', id: 'OI Naik' },
-    oi_low: { en: 'OI Decrease', zh: 'OI 持仓减少', id: 'OI Turun' },
-    square_heat: { en: 'Square Heat', zh: '广场热度', id: 'Square Heat' },
-    hunter: { en: 'Hunter', zh: '猎手选币', id: 'Hunter' },
-    hunter_sniff: { en: 'Hunter Sniff', zh: '庄家嗅探', id: 'Hunter Sniff' },
-    hunter_v7: { en: 'Hunter v7', zh: '猎手 v7', id: 'Hunter v7' },
-    indicator_hub: { en: 'Indicator Hub', zh: '多因子引擎', id: 'Indicator Hub' },
-    mixed: { en: 'Mixed Mode', zh: '混合模式', id: 'Mode Campuran' },
-  }
-  const currentCoinSourceLabel =
-    coinSourceLabelMap[currentCoinSourceType]?.[language] || currentCoinSourceType
-  const currentSourceCompactLabel =
-    currentCoinSourceType === 'hunter_v7'
-      ? tr('promptCompactHunterV7')
-      : tr('promptCompactCurrentSource', { source: currentCoinSourceLabel })
+  // Prompt compaction is boolean on the backend: "off" disables it, any other
+  // stored value (including legacy modes) enables it.
+  const promptCompactEnabled =
+    (editingConfig?.prompt_compact_mode || 'current_source')
+      .trim()
+      .toLowerCase() !== 'off'
 
   const configSections = [
     // Grid Config - only for grid_trading
@@ -709,23 +691,25 @@ export function StrategyStudioPage() {
               <div className="text-sm font-medium text-foreground">{tr('promptCompactMode')}</div>
               <div className="text-xs text-muted-foreground mt-1">{tr('promptCompactModeDesc')}</div>
             </div>
-            <AiTSelect
-              value={compactModeValue}
-              onChange={(value) =>
-                updateConfig(
-                  'prompt_compact_mode',
-                  value as StrategyConfig['prompt_compact_mode']
-                )
-              }
-              disabled={selectedStrategy?.is_default}
-              options={[
-                { value: 'current_source', label: currentSourceCompactLabel },
-                { value: 'auto', label: tr('promptCompactAuto') },
-                { value: 'all_candidates', label: tr('promptCompactAll') },
-                { value: 'off', label: tr('promptCompactOff') },
-              ]}
-              className="w-48 px-3 py-2 rounded bg-background border border-border text-foreground"
-            />
+            <label className="flex items-center gap-2 cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={promptCompactEnabled}
+                onChange={(e) =>
+                  updateConfig(
+                    'prompt_compact_mode',
+                    e.target.checked ? 'current_source' : 'off'
+                  )
+                }
+                disabled={selectedStrategy?.is_default}
+                className="w-5 h-5 rounded accent-primary"
+              />
+              <span className="text-sm text-foreground">
+                {promptCompactEnabled
+                  ? tr('promptCompactOn')
+                  : tr('promptCompactOff')}
+              </span>
+            </label>
           </div>
           <p className="text-xs text-muted-foreground">
             {tr('promptCompactReloadHint')}

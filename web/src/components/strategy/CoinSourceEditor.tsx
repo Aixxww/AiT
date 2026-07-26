@@ -197,7 +197,7 @@ export function CoinSourceEditor({
                       ...(config.hunter_config || {}),
                       v7_max_output: config.hunter_config?.v7_max_output ?? 30,
                       v7_watch_output: config.hunter_config?.v7_watch_output ?? 5,
-                      v7_min_ai_priority: config.hunter_config?.v7_min_ai_priority ?? 50,
+                      v7_min_ai_priority: config.hunter_config?.v7_min_ai_priority ?? 55,
                       v7_aggressive: config.hunter_config?.v7_aggressive ?? true,
                     },
                   })
@@ -917,7 +917,7 @@ export function CoinSourceEditor({
                   {ts(coinSource.v7MinAIPriority, language)}:
                 </span>
                 <AiTSelect
-                  value={String(config.hunter_config?.v7_min_ai_priority ?? 50)}
+                  value={String(config.hunter_config?.v7_min_ai_priority ?? 55)}
                   onChange={(val) =>
                     !disabled &&
                     onChange({
