@@ -18,6 +18,24 @@ package local
 
 var hunterV7TagCatalogExt = map[string]HunterV7TagDefinition{
 	// ---- LSR (long/short ratio) ----
+	// relative_weakness_short vocabulary (2026-07-27).
+	"rs_deep_4h_bleed":            tagDef("rs_deep_4h_bleed", "reason_code", "price", "bearish", V7TagActionEvidence, "Symbol is down more than 8% on 4h while the market holds — deep relative weakness."),
+	"rs_solid_4h_bleed":           tagDef("rs_solid_4h_bleed", "reason_code", "price", "bearish", V7TagActionEvidence, "Symbol is down 5-8% on 4h against a stable market."),
+	"rs_mild_4h_bleed":            tagDef("rs_mild_4h_bleed", "reason_code", "price", "bearish", V7TagActionEvidence, "Symbol is down 3-5% on 4h against a stable market."),
+	"rs_deep_24h_bleed":           tagDef("rs_deep_24h_bleed", "reason_code", "price", "bearish", V7TagActionEvidence, "24h decline exceeds 8%, confirming sustained distribution."),
+	"rs_solid_24h_bleed":          tagDef("rs_solid_24h_bleed", "reason_code", "price", "bearish", V7TagActionEvidence, "24h decline of 4-8% supports the grind-down thesis."),
+	"rs_all_frames_down":          tagDef("rs_all_frames_down", "reason_code", "price", "bearish", V7TagActionEvidence, "1h, 4h and 24h are all negative — the bleed is persistent, not a single dip."),
+	"rs_still_leaking_15m":        tagDef("rs_still_leaking_15m", "reason_code", "price", "bearish", V7TagActionEvidence, "Latest 15m candle continues lower; the grind is active now."),
+	"rs_below_vwap":               tagDef("rs_below_vwap", "reason_code", "price", "bearish", V7TagActionEvidence, "Price trades below 15m VWAP, sellers in control intraday."),
+	"rs_below_ema20_4h":           tagDef("rs_below_ema20_4h", "reason_code", "price", "bearish", V7TagActionEvidence, "Price is below the 4h EMA20 mean — structure favors continuation lower."),
+	"rs_new_shorts_building":      tagDef("rs_new_shorts_building", "reason_code", "oi", "bearish", V7TagActionEvidence, "OI rising while price falls — new shorts building rather than long liquidation only."),
+	"rs_oi_stable_decline":        tagDef("rs_oi_stable_decline", "reason_code", "oi", "bearish", V7TagActionEvidence, "OI roughly flat through the decline; no squeeze fuel building yet."),
+	"rs_crowded_short_funding":    tagDef("rs_crowded_short_funding", "risk_tag", "funding", "mixed", V7TagActionReduceOrWait, "Funding already pays shorts — crowding raises squeeze risk; reduce size and require live flow confirmation."),
+	"reclaim_above_1h_high":       tagDef("reclaim_above_1h_high", "reason_code", "price", "bearish", V7TagActionEvidence, "Invalidation anchor: a reclaim above the 1h high kills the grind-down thesis."),
+	"reclaim_above_grind_channel": tagDef("reclaim_above_grind_channel", "reason_code", "price", "bearish", V7TagActionEvidence, "Invalidation anchor: a push above the grind channel invalidates the short."),
+	"retest_1h_low":               tagDef("retest_1h_low", "reason_code", "price", "bearish", V7TagActionEvidence, "First target: retest of the 1h low."),
+	"atr_extension_lower":         tagDef("atr_extension_lower", "reason_code", "price", "bearish", V7TagActionEvidence, "Extension target measured in 4h ATR below current price."),
+
 	"lsr_bullish":              tagDef("lsr_bullish", "reason_code", "funding", "bullish", V7TagActionEvidence, "Long/short ratio leans long without reaching crowded extremes."),
 	"lsr_bullish_crowded":      tagDef("lsr_bullish_crowded", "reason_code", "funding", "mixed", V7TagActionEvidence, "Long/short ratio is bullish but approaching crowded territory; squeeze fuel for shorts, chase risk for longs."),
 	"lsr_improving":            tagDef("lsr_improving", "reason_code", "funding", "bullish", V7TagActionEvidence, "Long/short ratio is recovering from a short-heavy reading."),
@@ -202,6 +220,7 @@ var hunterV7TagCatalogExt = map[string]HunterV7TagDefinition{
 	"multi_cycle_confirmation":                           tagDef("multi_cycle_confirmation", "reason_code", "state", "bullish", V7TagActionOpenSupport, "Signal persisted and strengthened across multiple polling cycles."),
 	"directional_conflict":                               tagDef("directional_conflict", "risk_tag", "state", "mixed", V7TagActionWaitOnly, "Long and short setups fired on the same symbol; stand aside until resolved."),
 	"strong_symbol_regime_override":                      tagDef("strong_symbol_regime_override", "reason_code", "state", "bullish", V7TagActionEvidence, "Symbol outperforms BTC/ETH enough to override regime down-weighting."),
+	"weak_symbol_regime_override":                        tagDef("weak_symbol_regime_override", "reason_code", "state", "bearish", V7TagActionEvidence, "Symbol underperforms BTC/ETH enough that a short setup overrides regime down-weighting."),
 	"regime_against_direction":                           tagDef("regime_against_direction", "risk_tag", "state", "mixed", V7TagActionReduceOrWait, "Setup trades against the market regime; require stronger confirmation and smaller size."),
 	"remote_target_only_context":                         tagDef("remote_target_only_context", "reason_code", "tier", "neutral", V7TagActionContextOnly, "Targets are far from price; context only, not an execution plan."),
 	"invalid_rr_context_only":                            tagDef("invalid_rr_context_only", "reason_code", "tier", "neutral", V7TagActionContextOnly, "Geometry failed minimum RR; retained as context only."),

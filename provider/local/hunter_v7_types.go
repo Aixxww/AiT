@@ -46,15 +46,18 @@ const (
 	V7SetupAltLadderShort     V7SetupType = "alt_ladder_breakdown_short"
 	V7SetupMMSBottomWakeLong  V7SetupType = "mms_bottom_wake_long"
 	V7SetupMMSTrendRideLong   V7SetupType = "mms_trend_ride_long"
-	V7SetupMMSSqueezeLong     V7SetupType = "mms_squeeze_engine_long"
-	V7SetupRangeReversion     V7SetupType = "range_reversion"
-	V7SetupFundingReversal    V7SetupType = "funding_reversal"
-	V7SetupPreBreakoutWatch   V7SetupType = "pre_breakout_watch"
-	V7SetupPreSqueezeWatch    V7SetupType = "pre_squeeze_watch"
-	V7SetupPreDistribution    V7SetupType = "pre_distribution_watch"
-	V7SetupAccumulationWatch  V7SetupType = "accumulation_watch"
-	V7SetupDisplacementLong   V7SetupType = "displacement_momentum_long"
-	V7SetupRangeExpansion     V7SetupType = "range_expansion_event"
+	// V7SetupRelativeWeaknessShort shorts persistent relative weakness in a
+	// non-crashing tape (added 2026-07-27 from the missed-opportunity audit).
+	V7SetupRelativeWeaknessShort V7SetupType = "relative_weakness_short"
+	V7SetupMMSSqueezeLong        V7SetupType = "mms_squeeze_engine_long"
+	V7SetupRangeReversion        V7SetupType = "range_reversion"
+	V7SetupFundingReversal       V7SetupType = "funding_reversal"
+	V7SetupPreBreakoutWatch      V7SetupType = "pre_breakout_watch"
+	V7SetupPreSqueezeWatch       V7SetupType = "pre_squeeze_watch"
+	V7SetupPreDistribution       V7SetupType = "pre_distribution_watch"
+	V7SetupAccumulationWatch     V7SetupType = "accumulation_watch"
+	V7SetupDisplacementLong      V7SetupType = "displacement_momentum_long"
+	V7SetupRangeExpansion        V7SetupType = "range_expansion_event"
 
 	// v8 new modules (Phase 2 P1-D)
 	V7SetupIntradayScalp     V7SetupType = "intraday_scalp_long"

@@ -45,6 +45,7 @@ func NewV7Router() *V7Router {
 		&mmsBottomWakeLongModule{},
 		&mmsTrendRideLongModule{},
 		&mmsSqueezeEngineLongModule{},
+		&relativeWeaknessShortModule{},
 	}
 	return r
 }
@@ -97,18 +98,30 @@ func buildV7SignalPasses(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 		{"liquidity", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
 			sig.LiquidityScore = AssessLiquidityScore(ctx)
 		}},
-		// Strong-symbol override: if this symbol significantly outperforms
-		// BTC/ETH on 4h, prevent regime weight from suppressing it below 0.8
-		{"strong_symbol_override", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+		// Relative-strength override: an individual symbol strongly out- or
+		// under-performing the BTC/ETH baseline should not have its
+		// direction-aligned setups suppressed below 0.8 by the global regime
+		// weight. The boost is direction-gated (2026-07-27): a LONG earns it
+		// on relative strength with buy flow, a SHORT on relative weakness
+		// with sell flow — previously a SHORT could be boosted for sitting on
+		// a pumping symbol with buy flow, which is backwards, and relative
+		// weakness had no rescue at all (the missed-opportunity audit's
+		// clean-MFE short cluster).
+		{"relative_strength_override", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
 			weight := regimeModuleWeight(regime, sig.SetupType)
-			if weight < 0.8 && ctx.Symbol != "BTCUSDT" && ctx.Symbol != "ETHUSDT" {
-				symbolRS := ctx.Change4h - btcETHBaseline4h
-				if symbolRS > 6 && sig.LiquidityScore >= 50 && ctx.TakerBuy15m >= 0.50 {
-					// Re-apply with floor of 0.8
-					sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
-					sig.RegimeFitScore = 0.8 * 67
-					sig.ReasonCodes = append(sig.ReasonCodes, "strong_symbol_regime_override")
-				}
+			if weight >= 0.8 || ctx.Symbol == "BTCUSDT" || ctx.Symbol == "ETHUSDT" || sig.LiquidityScore < 50 {
+				return
+			}
+			symbolRS := ctx.Change4h - btcETHBaseline4h
+			switch {
+			case sig.Direction == V7DirLong && symbolRS > 6 && ctx.TakerBuy15m >= 0.50:
+				sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
+				sig.RegimeFitScore = 0.8 * 67
+				sig.ReasonCodes = append(sig.ReasonCodes, "strong_symbol_regime_override")
+			case sig.Direction == V7DirShort && symbolRS < -6 && ctx.TakerBuy15m > 0 && ctx.TakerBuy15m <= 0.50:
+				sig.SetupScore = clampFloat(sig.SetupScore/weight*0.8, 0, 100)
+				sig.RegimeFitScore = 0.8 * 67
+				sig.ReasonCodes = append(sig.ReasonCodes, "weak_symbol_regime_override")
 			}
 		}},
 		{"risk", func(sig *V7SignalOutput, ctx *V7SymbolContext) {

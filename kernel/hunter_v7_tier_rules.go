@@ -459,6 +459,25 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"relative_weakness_short": {
+		// Grind-down shorts: strong sell flow is the confirmation leg; the
+		// floors sit slightly above the short/reversion family because this
+		// module deliberately trades counter to up-regimes.
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 58, MinSetupScore: 55, MinTimingScore: 55, RiskBelow: 50,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.45},
+				Reason: "relative_weakness_ready_flow_confirmed",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 50, MinSetupScore: 50, MinTimingScore: 50, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
+				Reason: "relative_weakness_reviewable",
+			},
+		},
+	},
 	"whale_flow_reversal": {
 		PromptWait: hunterV7WhaleFlowDataPromptWait,
 		// Ready mirrors the trader's whale-flow LONG gates (zone position
