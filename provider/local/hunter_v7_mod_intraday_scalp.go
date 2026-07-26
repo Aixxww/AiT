@@ -14,7 +14,7 @@ type intradayScalpLongModule struct{}
 
 func (m *intradayScalpLongModule) Name() string           { return "intraday_scalp_long" }
 func (m *intradayScalpLongModule) SetupType() V7SetupType { return V7SetupIntradayScalp }
-func (m *intradayScalpLongModule) Direction() V7Direction  { return V7DirLong }
+func (m *intradayScalpLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *intradayScalpLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
 	if ctx == nil {
@@ -106,40 +106,28 @@ func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	// Targets: tight scalper
 	risk := ctx.ATR5m * 0.5 // very tight stop
 	stop := price - risk
-	tp0 := price + math.Max(risk*0.8, ctx.ATR5m*1.0)   // ~0.8R or 1×ATR5m
-	tp1 := price + math.Max(risk*1.5, ctx.ATR5m*2.0)   // ~1.5R or 2×ATR5m
-	tp2 := price + math.Max(risk*3.0, ctx.ATR5m*4.0)   // runner
+	tp0 := price + math.Max(risk*0.8, ctx.ATR5m*1.0) // ~0.8R or 1×ATR5m
+	tp1 := price + math.Max(risk*1.5, ctx.ATR5m*2.0) // ~1.5R or 2×ATR5m
+	tp2 := price + math.Max(risk*3.0, ctx.ATR5m*4.0) // runner
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupIntradayScalp,
-		Status:       V7StatusCandidate,
-		SetupScore:   base,
-		TimingScore:  clampFloat(40+takerBuy*60+ctx.Velocity5m*5, 0, 100),
-		EntryMode:    V7EntryFastConfirm,
-		Confidence:   "B",
-		MarketRegime: regime,
-		EntryZone:    V7PriceZone{Lower: price - ctx.ATR5m*0.3, Upper: price + ctx.ATR5m*0.2},
-		Invalidation: V7InvalidationRule{Price: stop, Reason: "0.5xATR5m scalp stop"},
-		Targets: []V7Target{
-			{Price: tp0, Reason: "TP0 scalp"},
-			{Price: tp1, Reason: "TP1 intraday"},
-			{Price: tp2, Reason: "TP2 runner"},
-		},
-		PriceCtx: &V7PriceContext{
-			Last:      price,
-			Change1h:  ctx.Change1h,
-			Change4h:  ctx.Change4h,
-			Change24h: ctx.Change24h,
-			ATR1h:     ctx.ATR1h,
-			ATR4h:     ctx.ATR4h,
-			VWAP15m:   ctx.VWAP15m,
-		},
+	s := newV7Signal(ctx, regime, V7SetupIntradayScalp, V7DirLong, V7EntryFastConfirm, "B")
+	// This module has no score floor and computes its own timing formula; the
+	// header carries the scores directly and the tail stays hand-written.
+	s.sig.SetupScore = base
+	s.sig.TimingScore = clampFloat(40+takerBuy*60+ctx.Velocity5m*5, 0, 100)
+	s.sig.EntryZone = V7PriceZone{Lower: price - ctx.ATR5m*0.3, Upper: price + ctx.ATR5m*0.2}
+	s.sig.Invalidation = V7InvalidationRule{Price: stop, Reason: "0.5xATR5m scalp stop"}
+	s.sig.Targets = []V7Target{
+		{Price: tp0, Reason: "TP0 scalp"},
+		{Price: tp1, Reason: "TP1 intraday"},
+		{Price: tp2, Reason: "TP2 runner"},
 	}
+	s.sig.PriceCtx = buildPriceCtx(ctx)
 
+	// Legacy derivatives snapshot omits the LSR fields and may use the
+	// snapshot taker-buy override, so buildDerivCtx does not apply here.
 	if ctx.Snapshot != nil {
-		sig.DerivativesCtx = &V7DerivativesContext{
+		s.sig.DerivativesCtx = &V7DerivativesContext{
 			OIValue:     ctx.Snapshot.OI,
 			OIChange1h:  ctx.Snapshot.OIDelta1h,
 			OIChange4h:  ctx.Snapshot.OIDelta4h,
@@ -148,13 +136,13 @@ func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		}
 	}
 
-	sig.ReasonCodes = append(sig.ReasonCodes, "intraday_scalp_entry")
+	s.reason("intraday_scalp_entry")
 	if ctx.Velocity5m > 1.5 {
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_5m_velocity")
+		s.reason("strong_5m_velocity")
 	}
 	if takerBuy > 0.58 {
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_buy_strong")
+		s.reason("taker_buy_strong")
 	}
 
-	return sig
+	return s.sig
 }

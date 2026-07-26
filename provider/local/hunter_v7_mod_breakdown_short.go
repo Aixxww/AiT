@@ -77,95 +77,64 @@ func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7Mark
 		return nil
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirShort,
-		SetupType:    V7SetupBreakdownShort,
-		Status:       V7StatusCandidate,
-		EntryMode:    V7EntryFastConfirm,
-		Confidence:   "B",
-		MarketRegime: regime,
-	}
+	s := newV7Signal(ctx, regime, V7SetupBreakdownShort, V7DirShort, V7EntryFastConfirm, "B")
 
-	score := 0.0
 	switch {
 	case ctx.Change1h <= -6:
-		score += 25
-		sig.ReasonCodes = append(sig.ReasonCodes, "strong_1h_downside_momentum")
+		s.add(25, "strong_1h_downside_momentum")
 	case ctx.Change1h <= -3.5:
-		score += 20
-		sig.ReasonCodes = append(sig.ReasonCodes, "solid_1h_downside_momentum")
+		s.add(20, "solid_1h_downside_momentum")
 	case ctx.Change1h <= -2.5:
-		score += 14
-		sig.ReasonCodes = append(sig.ReasonCodes, "early_1h_downside_momentum")
+		s.add(14, "early_1h_downside_momentum")
 	}
 	if ctx.Velocity15m <= -1.5 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "fast_15m_downside_impulse")
+		s.add(10, "fast_15m_downside_impulse")
 	} else if ctx.Velocity15m <= -1.0 {
-		score += 6
-		sig.ReasonCodes = append(sig.ReasonCodes, "15m_downside_impulse")
+		s.add(6, "15m_downside_impulse")
 	}
 
 	if ctx.VWAP15m > 0 && ctx.CurrentPrice < ctx.VWAP15m {
-		score += 12
-		sig.ReasonCodes = append(sig.ReasonCodes, "below_vwap_breakdown")
+		s.add(12, "below_vwap_breakdown")
 	}
 	if ctx.EMA20_1h > 0 && ctx.CurrentPrice < ctx.EMA20_1h {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "below_ema20_1h")
+		s.add(10, "below_ema20_1h")
 	}
 	if ctx.BBMiddle15m > 0 && ctx.CurrentPrice < ctx.BBMiddle15m {
-		score += 6
-		sig.ReasonCodes = append(sig.ReasonCodes, "below_15m_boll_mid")
+		s.add(6, "below_15m_boll_mid")
 	}
 
 	switch {
 	case ctx.TakerBuy15m > 0 && ctx.TakerBuy15m <= 0.42:
-		score += 18
-		sig.ReasonCodes = append(sig.ReasonCodes, "heavy_taker_selling")
+		s.add(18, "heavy_taker_selling")
 	case ctx.TakerBuy15m > 0 && ctx.TakerBuy15m <= 0.46:
-		score += 14
-		sig.ReasonCodes = append(sig.ReasonCodes, "taker_selling")
+		s.add(14, "taker_selling")
 	case ctx.TakerBuy15m > 0 && ctx.TakerBuy15m <= 0.50:
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "mild_taker_selling")
+		s.add(8, "mild_taker_selling")
 	}
 
 	if ctx.Snapshot != nil {
 		if ctx.Snapshot.OIDelta1h > 0.5 {
-			score += 12
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_confirms_new_shorts")
+			s.add(12, "oi_confirms_new_shorts")
 		} else if ctx.Snapshot.OIDelta1h < -2 {
-			score += 8
-			sig.ReasonCodes = append(sig.ReasonCodes, "oi_flush_continuation")
+			s.add(8, "oi_flush_continuation")
 		}
 	}
 	if ctx.VolumeBurst15m >= 1.8 {
-		score += 10
-		sig.ReasonCodes = append(sig.ReasonCodes, "sell_volume_expansion")
+		s.add(10, "sell_volume_expansion")
 	} else if ctx.VolumeBurst15m >= 1.1 {
-		score += 6
-		sig.ReasonCodes = append(sig.ReasonCodes, "sell_volume_confirmed")
+		s.add(6, "sell_volume_confirmed")
 	}
 
 	if ctx.Change4h <= -5 {
-		score += 8
-		sig.ReasonCodes = append(sig.ReasonCodes, "weak_4h_trend")
+		s.add(8, "weak_4h_trend")
 	}
 	if ctx.Change24h < 0 {
-		score += 4
-		sig.ReasonCodes = append(sig.ReasonCodes, "daily_turning_negative")
+		s.add(4, "daily_turning_negative")
 	}
 
-	sig.SetupScore = clampFloat(score, 0, 100)
-	if sig.SetupScore < 45 {
-		return nil
-	}
-
-	sig.PriceCtx = buildPriceCtx(ctx)
-	sig.DerivativesCtx = buildDerivCtx(ctx)
-
+	// Stop above the reclaim level (structure-aware), asymmetric entry pad
+	// below/above price, percent-or-ATR floored targets — module-specific
+	// geometry kept verbatim.
 	stopDist := ctx.CurrentPrice * 0.022
 	if ctx.ATR15m > 0 {
 		stopDist = maxFloat(stopDist, ctx.ATR15m*0.8)
@@ -179,7 +148,7 @@ func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7Mark
 			stopDist = structureStop - ctx.CurrentPrice
 		}
 	}
-	sig.Invalidation = V7InvalidationRule{
+	s.sig.Invalidation = V7InvalidationRule{
 		Price:  ctx.CurrentPrice + stopDist,
 		Reason: "breakdown_momentum_reclaim_stop",
 	}
@@ -188,7 +157,7 @@ func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7Mark
 	if ctx.ATR15m > 0 {
 		zonePad = maxFloat(zonePad, ctx.ATR15m*0.35)
 	}
-	sig.EntryZone = V7PriceZone{
+	s.sig.EntryZone = V7PriceZone{
 		Lower: ctx.CurrentPrice - zonePad*0.45,
 		Upper: ctx.CurrentPrice + zonePad,
 	}
@@ -197,13 +166,12 @@ func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7Mark
 	if ctx.ATR1h > 0 {
 		targetDist = maxFloat(targetDist, ctx.ATR1h*1.15)
 	}
-	sig.Targets = append(sig.Targets, V7Target{Price: ctx.CurrentPrice - targetDist, Reason: "breakdown_momentum_target_1"})
+	s.sig.Targets = append(s.sig.Targets, V7Target{Price: ctx.CurrentPrice - targetDist, Reason: "breakdown_momentum_target_1"})
 	if ctx.ATR4h > 0 {
-		sig.Targets = append(sig.Targets, V7Target{Price: ctx.CurrentPrice - ctx.ATR4h*0.8, Reason: "breakdown_momentum_target_2"})
+		s.sig.Targets = append(s.sig.Targets, V7Target{Price: ctx.CurrentPrice - ctx.ATR4h*0.8, Reason: "breakdown_momentum_target_2"})
 	}
 
-	sig.TimingScore = calcBreakdownMomentumShortTimingScore(ctx)
-	return sig
+	return s.finishWithTiming(45, calcBreakdownMomentumShortTimingScore(ctx))
 }
 
 func calcBreakdownMomentumShortTimingScore(ctx *V7SymbolContext) float64 {

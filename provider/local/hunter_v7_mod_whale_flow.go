@@ -95,8 +95,6 @@ func (m *whaleFlowReversalModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		base -= 8
 	}
 
-	base = clampFloat(base, 0, 100)
-
 	// Standard ATR-based TP/SL
 	risk := ctx.ATR1h * 1.0
 	if risk <= 0 {
@@ -118,39 +116,23 @@ func (m *whaleFlowReversalModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		tp2 = price - risk*3.0
 	}
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    dir,
-		SetupType:    V7SetupWhaleFlow,
-		Status:       V7StatusCandidate,
-		SetupScore:   base,
-		TimingScore:  clampFloat(45+takerBuy*50+math.Min(oiDelta, 20), 0, 100),
-		EntryMode:    V7EntryWaitConfirm,
-		Confidence:   "C", // needs further confirmation
-		MarketRegime: regime,
-		EntryZone:    V7PriceZone{Lower: price - ctx.ATR15m*0.5, Upper: price + ctx.ATR15m*0.3},
-		Invalidation: V7InvalidationRule{Price: stop, Reason: "ATR-based whale flow stop"},
-		Targets: []V7Target{
-			{Price: tp0, Reason: "TP0 quick"},
-			{Price: tp1, Reason: "TP1 swing"},
-			{Price: tp2, Reason: "TP2 extended"},
-		},
-		PriceCtx: &V7PriceContext{
-			Last: price, Change1h: ctx.Change1h, Change4h: ctx.Change4h,
-			Change24h: ctx.Change24h, ATR1h: ctx.ATR1h, ATR4h: ctx.ATR4h, VWAP15m: ctx.VWAP15m,
-		},
-		DerivativesCtx: &V7DerivativesContext{
-			OIValue: snap.OI, OIChange1h: snap.OIDelta1h,
-			OIChange4h: snap.OIDelta4h, FundingRate: snap.FundingRate,
-			LSROldest: snap.LSROldest, LSRNewest: snap.LSR,
-			TakerBuy15m: takerBuy,
-		},
+	s := newV7Signal(ctx, regime, V7SetupWhaleFlow, dir, V7EntryWaitConfirm, "C")
+	s.score = base
+	// Geometry is unconditional in this module (no >0 guards) — kept verbatim.
+	s.sig.EntryZone = V7PriceZone{Lower: price - ctx.ATR15m*0.5, Upper: price + ctx.ATR15m*0.3}
+	s.sig.Invalidation = V7InvalidationRule{Price: stop, Reason: "ATR-based whale flow stop"}
+	s.sig.Targets = []V7Target{
+		{Price: tp0, Reason: "TP0 quick"},
+		{Price: tp1, Reason: "TP1 swing"},
+		{Price: tp2, Reason: "TP2 extended"},
 	}
 
-	sig.ReasonCodes = append(sig.ReasonCodes, "whale_flow_detected")
+	s.reason("whale_flow_detected")
 	if math.Abs(priceChange) < 2 && oiDelta > 5 {
-		sig.ReasonCodes = append(sig.ReasonCodes, "stealth_accumulation_breakout")
+		s.reason("stealth_accumulation_breakout")
 	}
+
+	sig := s.finishWithTiming(0, 45+takerBuy*50+math.Min(oiDelta, 20))
 	ApplyV7OIAccumulationEvidence(sig, ctx)
 
 	return sig

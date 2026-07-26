@@ -56,7 +56,10 @@ func TestHunterV7TagCatalogCoversEmittedTags(t *testing.T) {
 
 func scanEmittedTags(t *testing.T) map[string]bool {
 	t.Helper()
-	emitLine := regexp.MustCompile(`(ReasonCodes|RiskTags|RequiredConfirms|NextConfirm)\b[^\n]*`)
+	// Tag emission sites: direct slice appends on the signal fields, plus the
+	// scaffold evidence helpers (add/reason/riskTag) modules migrated to in
+	// U6.2. invalidate/target reasons are not tags and stay unscanned.
+	emitLine := regexp.MustCompile(`(ReasonCodes|RiskTags|RequiredConfirms|NextConfirm|\.(add|reason|riskTag)\()[^\n]*`)
 	literal := regexp.MustCompile(`"([a-z0-9_]{3,})"`)
 
 	files, err := filepath.Glob("hunter_v7*.go")

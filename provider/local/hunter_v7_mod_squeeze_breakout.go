@@ -121,42 +121,35 @@ func (m *volatilitySqueezeBreakoutModule) Score(ctx *V7SymbolContext, regime V7M
 	tp1 := price + math.Max(risk*1.5, bbWidth*1.0)
 	tp2 := price + math.Max(risk*3.0, bbWidth*2.0)
 
-	sig := &V7SignalOutput{
-		Symbol:       ctx.Symbol,
-		Direction:    V7DirLong,
-		SetupType:    V7SetupVolatilitySqueeze,
-		Status:       V7StatusCandidate,
-		SetupScore:   base,
-		TimingScore:  clampFloat(50+takerBuy*40+oiDelta, 0, 100),
-		EntryMode:    V7EntryBreakout,
-		Confidence:   "B",
-		MarketRegime: regime,
-		EntryZone:    V7PriceZone{Lower: ctx.BBMiddle15m, Upper: ctx.BBUpper15m},
-		Invalidation: V7InvalidationRule{Price: stop, Reason: "BB lower band / structure"},
-		Targets: []V7Target{
-			{Price: tp0, Reason: "TP0 half-BB-width"},
-			{Price: tp1, Reason: "TP1 full-BB-width"},
-			{Price: tp2, Reason: "TP2 double-BB-width"},
-		},
-		PriceCtx: &V7PriceContext{
-			Last: price, Change1h: ctx.Change1h, Change4h: ctx.Change4h,
-			Change24h: ctx.Change24h, ATR1h: ctx.ATR1h, ATR4h: ctx.ATR4h, VWAP15m: ctx.VWAP15m,
-		},
+	s := newV7Signal(ctx, regime, V7SetupVolatilitySqueeze, V7DirLong, V7EntryBreakout, "B")
+	// This module has no score floor and computes its own timing formula; the
+	// header carries the scores directly and the tail stays hand-written.
+	s.sig.SetupScore = base
+	s.sig.TimingScore = clampFloat(50+takerBuy*40+oiDelta, 0, 100)
+	s.sig.EntryZone = V7PriceZone{Lower: ctx.BBMiddle15m, Upper: ctx.BBUpper15m}
+	s.sig.Invalidation = V7InvalidationRule{Price: stop, Reason: "BB lower band / structure"}
+	s.sig.Targets = []V7Target{
+		{Price: tp0, Reason: "TP0 half-BB-width"},
+		{Price: tp1, Reason: "TP1 full-BB-width"},
+		{Price: tp2, Reason: "TP2 double-BB-width"},
 	}
+	s.sig.PriceCtx = buildPriceCtx(ctx)
 
+	// Legacy derivatives snapshot omits the LSR fields, so buildDerivCtx does
+	// not apply here.
 	if ctx.Snapshot != nil {
-		sig.DerivativesCtx = &V7DerivativesContext{
+		s.sig.DerivativesCtx = &V7DerivativesContext{
 			OIValue: ctx.Snapshot.OI, OIChange1h: ctx.Snapshot.OIDelta1h,
 			OIChange4h: ctx.Snapshot.OIDelta4h, FundingRate: ctx.Snapshot.FundingRate,
 			TakerBuy15m: takerBuy,
 		}
 	}
 
-	sig.ReasonCodes = append(sig.ReasonCodes, "volatility_squeeze_detected")
+	s.reason("volatility_squeeze_detected")
 	if oiDelta > 5 {
-		sig.ReasonCodes = append(sig.ReasonCodes, "oi_building")
+		s.reason("oi_building")
 	}
-	ApplyV7OIAccumulationEvidence(sig, ctx)
+	ApplyV7OIAccumulationEvidence(s.sig, ctx)
 
-	return sig
+	return s.sig
 }
