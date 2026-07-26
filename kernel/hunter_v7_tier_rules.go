@@ -219,6 +219,44 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"funding_reversal": {
+		Ready: []hunterV7TierRule{
+			{
+				Direction:     "SHORT",
+				MinAIPriority: 50, MinTimingScore: 60, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
+				Reason: "funding_short_ready_core_ok",
+			},
+			{
+				Direction:     "LONG",
+				MinAIPriority: 65, MinTimingScore: 65, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.52},
+				Reason: "funding_long_ready_strong_confirm",
+			},
+		},
+		NearConfirm: []hunterV7TierRule{
+			{
+				Direction:     "SHORT",
+				MinAIPriority: 55, MinTimingScore: 65, RiskBelow: 45,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.45},
+				Reason: "funding_short_near_confirm_core_ok",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				Direction:     "SHORT",
+				MinAIPriority: 47, MinTimingScore: 55, RiskBelow: 60,
+				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.50},
+				Reason: "funding_short_reviewable_crowding_reversal",
+			},
+			{
+				Direction: "LONG", Quality: "ready",
+				MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.52},
+				Reason: "funding_long_reviewable_strong_only",
+			},
+		},
+	},
 	"panic_reversal_long": {
 		Ready: []hunterV7TierRule{
 			{

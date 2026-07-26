@@ -1062,21 +1062,6 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.Ready)
 	}
 	switch coin.V7SetupType {
-	case "funding_reversal":
-		if strings.EqualFold(coin.Direction, "SHORT") &&
-			coin.V7AIPriority >= 50 &&
-			coin.V7TimingScore >= 60 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtMost(coin, 0.48) {
-			return true, "funding_short_ready_core_ok"
-		}
-		if strings.EqualFold(coin.Direction, "LONG") &&
-			coin.V7AIPriority >= 65 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.52) {
-			return true, "funding_long_ready_strong_confirm"
-		}
 	case "leader_momentum_long":
 		if hunterV7LeaderMomentumUpperChaseWait(coin) {
 			return false, ""
@@ -1110,14 +1095,6 @@ func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.NearConfirm)
 	}
 	switch coin.V7SetupType {
-	case "funding_reversal":
-		if strings.EqualFold(coin.Direction, "SHORT") &&
-			coin.V7AIPriority >= 55 &&
-			coin.V7TimingScore >= 65 &&
-			coin.V7RiskScore < 45 &&
-			hunterV7TakerBuyAtMost(coin, 0.45) {
-			return true, "funding_short_near_confirm_core_ok"
-		}
 	}
 	return false, ""
 }
@@ -1163,22 +1140,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		return hunterV7EvalTierRules(coin, spec.Reviewable)
 	}
 	switch coin.V7SetupType {
-	case "funding_reversal":
-		if strings.EqualFold(coin.Direction, "SHORT") &&
-			coin.V7AIPriority >= 47 &&
-			coin.V7TimingScore >= 55 &&
-			coin.V7RiskScore < 60 &&
-			hunterV7TakerBuyAtMost(coin, 0.50) {
-			return true, "funding_short_reviewable_crowding_reversal"
-		}
-		if strings.EqualFold(coin.Direction, "LONG") &&
-			coin.V7ExecutionQuality == "ready" &&
-			coin.V7AIPriority >= 60 &&
-			coin.V7TimingScore >= 60 &&
-			coin.V7RiskScore < 55 &&
-			hunterV7TakerBuyAtLeast(coin, 0.52) {
-			return true, "funding_long_reviewable_strong_only"
-		}
 	case "leader_momentum_long":
 		if coin.V7ExecutionQuality == "ready" &&
 			coin.V7AIPriority >= 70 &&
