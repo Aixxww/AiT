@@ -17,10 +17,15 @@ func ResolveV7Conflicts(signals []V7SignalOutput) []V7SignalOutput {
 	}
 
 	groups := make(map[string]*symbolSignals)
+	// Preserve first-seen symbol order: map iteration would make the result
+	// order vary run to run, which poisons golden-replay comparisons and makes
+	// diagnostics needlessly non-reproducible.
+	order := make([]string, 0, len(signals))
 	for i := range signals {
 		s := &signals[i]
 		if groups[s.Symbol] == nil {
 			groups[s.Symbol] = &symbolSignals{}
+			order = append(order, s.Symbol)
 		}
 		if s.Direction == V7DirLong {
 			groups[s.Symbol].longs = append(groups[s.Symbol].longs, s)
@@ -31,8 +36,8 @@ func ResolveV7Conflicts(signals []V7SignalOutput) []V7SignalOutput {
 
 	var result []V7SignalOutput
 
-	for sym, grp := range groups {
-		_ = sym
+	for _, sym := range order {
+		grp := groups[sym]
 		bestLong := bestSignal(grp.longs)
 		bestShort := bestSignal(grp.shorts)
 

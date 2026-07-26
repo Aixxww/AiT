@@ -106,6 +106,7 @@ type validationOptions struct {
 	outDir        string
 	rounds        int
 	roundInterval time.Duration
+	dumpUniverse  string
 }
 
 func main() {
@@ -118,6 +119,7 @@ func main() {
 	strategyID := flag.String("strategy-id", "", "strategy ID to load from data/data.db for prompt simulation")
 	dbPath := flag.String("db", "data/data.db", "SQLite database path")
 	outDir := flag.String("out-dir", "reports", "output directory")
+	dumpUniverse := flag.String("dump-universe", "", "write a golden-replay fixture (universe+regime+config JSON) to this path")
 	rounds := flag.Int("rounds", 1, "number of validation rounds to run")
 	roundInterval := flag.Duration("round-interval", 120*time.Second, "sleep interval between validation rounds")
 	flag.Parse()
@@ -132,6 +134,7 @@ func main() {
 		strategyID:    *strategyID,
 		dbPath:        *dbPath,
 		outDir:        *outDir,
+		dumpUniverse:  *dumpUniverse,
 		rounds:        *rounds,
 		roundInterval: *roundInterval,
 	}
@@ -201,6 +204,14 @@ func runValidation(opts validationOptions, round int) error {
 	universe := v7Result.Universe
 	regime := v7Result.Regime
 	signals := v7Result.Signals
+	if opts.dumpUniverse != "" {
+		// Golden-replay capture: freeze this cycle's routing inputs so the
+		// refactor safety net can replay RouteDetailed deterministically.
+		if err := local.DumpV7GoldenFixture(opts.dumpUniverse, universe, regime, cfg); err != nil {
+			return fmt.Errorf("dump golden fixture failed: %w", err)
+		}
+		fmt.Printf("golden fixture: %s (universe=%d regime=%s)\n", opts.dumpUniverse, len(universe), regime)
+	}
 	candidates := signalsToCandidates(signals)
 	prompt := buildPrompt(candidates, signals, snap, strategyCfg)
 
