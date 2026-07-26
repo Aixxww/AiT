@@ -158,6 +158,28 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"pullback_reversal_long": {
+		Ready: []hunterV7TierRule{
+			{
+				MinAIPriority: 60, MinSetupScore: 60, MinTimingScore: 60, RiskBelow: 55,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				Reason: "long_setup_ready_confirmed",
+			},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 48, MinSetupScore: 70, MinTimingScore: 55, RiskBelow: 45, MinLiquidity: 50,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+				Reason: "pullback_reviewable_strong_structure",
+			},
+		},
+		OpenRateFloor: []hunterV7TierRule{
+			{
+				MinAIPriority: 48, MinSetupScore: 60, MinTimingScore: 50, RiskBelow: 45,
+				RequireAny: [][]string{{"healthy_pullback", "near_4h_support", "strong_reclaim"}},
+			},
+		},
+	},
 	"mms_trend_ride_long":      hunterV7MMSLongTierSpec,
 	"mms_squeeze_engine_long":  hunterV7MMSLongTierSpec,
 	"distribution_short":       hunterV7ShortOrReversionTierSpec,

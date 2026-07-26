@@ -945,12 +945,6 @@ func hunterV7OpenRateCandidateFloor(coin CandidateCoin) bool {
 			coin.V7RiskScore < 45 &&
 			containsStringValue(coin.V7ReasonCodes, "whale_flow_detected") &&
 			containsAnyStringValue(coin.V7ReasonCodes, []string{"oi_1h_confirming_accumulation", "stealth_accumulation_breakout", "funding_not_crowded"})
-	case "pullback_reversal_long":
-		return coin.V7AIPriority >= 48 &&
-			coin.V7SetupScore >= 60 &&
-			coin.V7TimingScore >= 50 &&
-			coin.V7RiskScore < 45 &&
-			containsAnyStringValue(coin.V7ReasonCodes, []string{"healthy_pullback", "near_4h_support", "strong_reclaim"})
 	case "range_expansion_event":
 		return coin.V7AIPriority >= 58 &&
 			coin.V7SetupScore >= 58 &&
@@ -1117,7 +1111,7 @@ func hunterV7ReadyExecutableReason(coin CandidateCoin) (bool, string) {
 			!containsStringValue(coin.V7ReasonCodes, "taker_weak_buy") {
 			return true, "momentum_ready_strong_flow"
 		}
-	case "trend_breakout_long", "accumulation_breakout_long", "pullback_reversal_long", "short_squeeze_long":
+	case "trend_breakout_long", "accumulation_breakout_long", "short_squeeze_long":
 		if coin.V7AIPriority >= 60 &&
 			coin.V7SetupScore >= 60 &&
 			coin.V7TimingScore >= 60 &&
@@ -1319,15 +1313,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		}
 		if ok, reason := hunterV7LeaderMomentumFlexibleReviewableReason(coin); ok {
 			return true, reason
-		}
-	case "pullback_reversal_long":
-		if coin.V7AIPriority >= 48 &&
-			coin.V7SetupScore >= 70 &&
-			coin.V7TimingScore >= 55 &&
-			coin.V7RiskScore < 45 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyAtLeast(coin, 0.50) {
-			return true, "pullback_reviewable_strong_structure"
 		}
 	case "trend_breakout_long", "accumulation_breakout_long":
 		if coin.V7AIPriority >= 55 &&
