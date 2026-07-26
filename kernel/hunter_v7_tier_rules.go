@@ -144,6 +144,20 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			},
 		},
 	},
+	"mms_bottom_wake_long": {
+		// This setup had no dedicated ready branch: it fell through to the
+		// generic default, which the first row reproduces explicitly.
+		Ready: []hunterV7TierRule{
+			{MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55, Reason: "execution_quality_ready"},
+		},
+		Reviewable: []hunterV7TierRule{
+			{
+				MinAIPriority: 45, MinSetupScore: 48, RiskBelow: 45, MinLiquidity: 50,
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.48},
+				Reason: "mms_bottom_wake_reviewable_breakout_required",
+			},
+		},
+	},
 	"mms_trend_ride_long":      hunterV7MMSLongTierSpec,
 	"mms_squeeze_engine_long":  hunterV7MMSLongTierSpec,
 	"distribution_short":       hunterV7ShortOrReversionTierSpec,

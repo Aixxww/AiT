@@ -1362,14 +1362,6 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		if hunterV7TrendBreakoutStrongFlowReviewable(coin) {
 			return true, "breakout_watch_strong_flow_reviewable"
 		}
-	case "mms_bottom_wake_long":
-		if coin.V7AIPriority >= 45 &&
-			coin.V7SetupScore >= 48 &&
-			coin.V7RiskScore < 45 &&
-			(coin.V7LiquidityScore == 0 || coin.V7LiquidityScore >= 50) &&
-			hunterV7TakerBuyAtLeast(coin, 0.48) {
-			return true, "mms_bottom_wake_reviewable_breakout_required"
-		}
 	case "pre_breakout_watch", "pre_squeeze_watch", "pre_distribution_watch", "accumulation_watch":
 		if hunterV7WatchUpgradedReviewable(coin) {
 			return true, "watch_state_upgraded_reviewable"
