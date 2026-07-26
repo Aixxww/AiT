@@ -89,7 +89,7 @@ export default function TerminalHero() {
   }, [])
 
   return (
-    <section className="relative w-full min-h-screen bg-ait-bg text-ait-text overflow-hidden flex flex-col pt-20">
+    <section className="relative w-full min-h-screen bg-background text-foreground overflow-hidden flex flex-col pt-20">
       {/* BACKGROUND LAYERS */}
       {/* 1. Grid */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light pointer-events-none"></div>
@@ -104,21 +104,21 @@ export default function TerminalHero() {
 
       {/* 2. World Map / Data Viz Background (Abstract) */}
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-        <div className="w-[80vw] h-[80vw] rounded-full border border-ait-gold/20 animate-pulse-slow"></div>
-        <div className="absolute w-[60vw] h-[60vw] rounded-full border border-dashed border-ait-accent/20 animate-[spin_60s_linear_infinite]"></div>
+        <div className="w-[80vw] h-[80vw] rounded-full border border-primary/20 animate-pulse-slow"></div>
+        <div className="absolute w-[60vw] h-[60vw] rounded-full border border-dashed border-accent/20 animate-[spin_60s_linear_infinite]"></div>
       </div>
 
       {/* 3. Gradient Spots - Intensified for Mobile */}
       <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-primary/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-ait-accent/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-accent/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
       {/* Mobile Bottom Fade */}
-      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-ait-bg to-transparent z-20 pointer-events-none md:hidden" />
+      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-background to-transparent z-20 pointer-events-none md:hidden" />
 
       {/* Mobile Floating HUD */}
       <div className="md:hidden absolute top-24 right-4 z-0 opacity-30 pointer-events-none">
-        <div className="w-20 h-20 border border-dashed border-ait-gold/30 rounded-full animate-spin-slow flex items-center justify-center">
-          <div className="w-12 h-12 border border-ait-accent/30 rounded-full"></div>
+        <div className="w-20 h-20 border border-dashed border-primary/30 rounded-full animate-spin-slow flex items-center justify-center">
+          <div className="w-12 h-12 border border-accent/30 rounded-full"></div>
         </div>
       </div>
 
@@ -135,10 +135,10 @@ export default function TerminalHero() {
               <div className="space-y-3 font-mono text-[10px] text-muted-foreground">
                 <div className="flex justify-between items-center">
                   <span>KERNEL_LATENCY</span>
-                  <span className="text-ait-accent">12ms</span>
+                  <span className="text-accent">12ms</span>
                 </div>
                 <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
-                  <div className="w-[90%] h-full bg-ait-accent/50"></div>
+                  <div className="w-[90%] h-full bg-accent/50"></div>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -146,7 +146,7 @@ export default function TerminalHero() {
                   <span className="text-profit">100%</span>
                 </div>
                 <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
-                  <div className="w-full h-full bg-ait-success/50"></div>
+                  <div className="w-full h-full bg-profit/50"></div>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -190,7 +190,7 @@ export default function TerminalHero() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 inline-flex items-center gap-3 px-4 py-2 rounded-full border border-ait-gold/20 bg-primary/5 backdrop-blur-md"
+            className="mb-8 inline-flex items-center gap-3 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-md"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -207,7 +207,7 @@ export default function TerminalHero() {
             <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.9] md:leading-[0.8] mb-6 select-none bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-zinc-600 drop-shadow-2xl">
               AGENTIC
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold via-white to-ait-gold animate-shimmer bg-[length:200%_auto] tracking-tight filter drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary animate-shimmer bg-[length:200%_auto] tracking-tight filter drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
                 TRADING
               </span>
             </h1>
@@ -223,17 +223,17 @@ export default function TerminalHero() {
           <div className="flex flex-col gap-4 mb-14">
             <div className="text-primary/80 font-mono text-xs tracking-[0.3em] uppercase flex items-center gap-2 ml-1">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ait-success opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-ait-success"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-profit opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-profit"></span>
               </span>
               Live Data Feeds Active
             </div>
             <div className="flex flex-wrap gap-4 font-mono">
               {['CRYPTO', 'US STOCKS', 'FOREX', 'METALS'].map((market) => (
                 <div key={market} className="relative group cursor-default">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-ait-gold/20 to-blue-600/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                  <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-surface/80 border border-border hover:border-ait-gold/50 transition-all duration-300 backdrop-blur-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-ait-success shadow-[0_0_8px_rgba(74,222,128,0.6)] animate-pulse"></div>
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-blue-600/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                  <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-surface/80 border border-border hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
+                    <div className="w-1.5 h-1.5 rounded-full bg-profit shadow-[0_0_8px_rgba(74,222,128,0.6)] animate-pulse"></div>
                     <span className="text-lg md:text-xl font-bold text-foreground tracking-wider group-hover:text-primary transition-colors">
                       {market}
                     </span>
@@ -245,7 +245,7 @@ export default function TerminalHero() {
 
           {/* Command Line Input Simulation */}
           <div
-            className="w-full max-w-lg h-12 bg-black/50 border border-border rounded flex items-center px-4 mb-10 font-mono text-sm shadow-2xl backdrop-blur-sm group hover:border-ait-gold/50 transition-colors cursor-text"
+            className="w-full max-w-lg h-12 bg-black/50 border border-border rounded flex items-center px-4 mb-10 font-mono text-sm shadow-2xl backdrop-blur-sm group hover:border-primary/50 transition-colors cursor-text"
             onClick={() =>
               document
                 .getElementById('market-scanner')
@@ -253,7 +253,7 @@ export default function TerminalHero() {
             }
           >
             <span className="text-profit mr-2">➜</span>
-            <span className="text-ait-accent mr-2">~</span>
+            <span className="text-accent mr-2">~</span>
             <span className="text-muted-foreground">
               deploy agent --strategy=hft
             </span>
@@ -289,7 +289,7 @@ export default function TerminalHero() {
       {/* RIGHT COLUMN: Agent Terminal - Desktop Only */}
       <div className="absolute top-0 right-0 h-full w-[50vw] hidden lg:flex flex-col items-end justify-end pr-8 pb-20 z-10">
         {/* Subtle gradient orb */}
-        <div className="absolute top-1/2 right-[10%] -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-ait-gold/10 via-ait-gold/5 to-transparent blur-[100px] pointer-events-none"></div>
+        <div className="absolute top-1/2 right-[10%] -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent blur-[100px] pointer-events-none"></div>
 
         {/* Subtle grid fade */}
         <div
@@ -334,8 +334,8 @@ export default function TerminalHero() {
           ))}
 
           <span className="flex items-center gap-2">
-            <CircuitBoard className="w-3 h-3 text-ait-accent" /> AI MODEL:
-            Claude Opus 4.6
+            <CircuitBoard className="w-3 h-3 text-accent" /> AI MODEL: Claude
+            Opus 4.6
           </span>
 
           {/* Duplicate sequence for seamless loop effect (basic set) */}
@@ -404,7 +404,7 @@ function CommunityStats() {
           href={stat.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center p-3 rounded bg-black/40 border border-border/50 backdrop-blur-sm group hover:border-ait-gold/30 transition-all cursor-pointer hover:bg-white/5"
+          className="flex flex-col items-center justify-center p-3 rounded bg-black/40 border border-border/50 backdrop-blur-sm group hover:border-primary/30 transition-all cursor-pointer hover:bg-white/5"
         >
           <div className="flex items-center gap-2 mb-1">
             <stat.icon className={`w-4 h-4 ${stat.color}`} />

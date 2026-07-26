@@ -126,7 +126,7 @@ export function TokenEstimateBar({
         </span>
         <div className="relative group">
           <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-          <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 rounded-lg text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 bg-ait-bg-lighter border border-ait-border text-muted-foreground shadow-lg">
+          <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 rounded-lg text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 bg-surface border border-ait-border text-muted-foreground shadow-lg">
             {tr('tokenTooltip')} (~{estimate.total.toLocaleString()} / 200K)
           </div>
         </div>

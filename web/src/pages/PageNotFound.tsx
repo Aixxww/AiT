@@ -4,26 +4,26 @@ import { AlertCircle, Home } from 'lucide-react'
 export function PageNotFound() {
   return (
     <DeepVoidBackground className="flex items-center justify-center text-center p-4">
-      <div className="bg-ait-bg border border-ait-gold/20 p-8 rounded-lg max-w-md w-full relative overflow-hidden group">
+      <div className="bg-background border border-primary/20 p-8 rounded-lg max-w-md w-full relative overflow-hidden group">
         {/* Background Grid inside Card */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="relative">
             <div className="absolute inset-0 bg-red-500/20 blur-xl animate-pulse"></div>
-            <AlertCircle size={64} className="text-ait-danger relative z-10" />
+            <AlertCircle size={64} className="text-loss relative z-10" />
           </div>
 
           <div className="space-y-2">
             <h1 className="text-4xl font-bold font-mono tracking-tighter text-white">
               404
             </h1>
-            <div className="text-xs uppercase tracking-[0.3em] text-ait-danger font-mono border-b border-ait-danger/30 pb-2 inline-block">
+            <div className="text-xs uppercase tracking-[0.3em] text-loss font-mono border-b border-loss/30 pb-2 inline-block">
               SIGNAL_LOST
             </div>
           </div>
 
-          <p className="text-sm text-ait-text-muted font-mono leading-relaxed">
+          <p className="text-sm text-muted-foreground font-mono leading-relaxed">
             The requested coordinates do not exist in the current sector. The
             page may have been moved, deleted, or never existed in this
             timeline.
@@ -31,7 +31,7 @@ export function PageNotFound() {
 
           <a
             href="/"
-            className="flex items-center gap-2 px-6 py-3 bg-ait-gold text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-yellow-400 transition-all group mt-4"
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-yellow-400 transition-all group mt-4"
           >
             <Home size={16} />
             <span>RETURN_BASE</span>

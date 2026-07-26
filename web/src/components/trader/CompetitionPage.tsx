@@ -78,13 +78,13 @@ export function CompetitionPage() {
           {/* Competition Header - 精简版 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-ait-gold/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
                 <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
               </div>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2 text-foreground">
                   {t('aiCompetition', language)}
-                  <span className="text-xs font-normal px-2 py-1 rounded bg-primary-dim text-primary border border-ait-gold/20">
+                  <span className="text-xs font-normal px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20">
                     0 {t('traders', language)}
                   </span>
                 </h1>
@@ -124,13 +124,13 @@ export function CompetitionPage() {
         {/* Competition Header - 精简版 */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
           <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-ait-gold/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
               <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2 text-foreground">
                 {t('aiCompetition', language)}
-                <span className="text-xs font-normal px-2 py-1 rounded bg-primary-dim text-primary border border-ait-gold/20">
+                <span className="text-xs font-normal px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20">
                   {competition.count} {t('traders', language)}
                 </span>
               </h1>
@@ -188,7 +188,7 @@ export function CompetitionPage() {
               <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
                 {t('leaderboard', language)}
               </h2>
-              <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-ait-gold/20 shadow-[0_0_8px_rgba(240,185,11,0.1)]">
+              <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 shadow-[0_0_8px_rgba(240,185,11,0.1)]">
                 {t('live', language)}
               </div>
             </div>

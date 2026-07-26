@@ -35,7 +35,7 @@ export function LandingPage() {
         onLogout={logout}
         onLoginRequired={handleLoginRequired}
       />
-      <div className="min-h-screen bg-ait-bg text-ait-text font-sans selection:bg-ait-gold selection:text-black">
+      <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-black">
         <TerminalHero />
 
         <LiveFeed />

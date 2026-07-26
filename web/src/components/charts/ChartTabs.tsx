@@ -199,8 +199,8 @@ export function ChartTabs({
             onClick={() => setActiveTab('equity')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${
               activeTab === 'equity'
-                ? 'bg-primary-dim text-primary border border-ait-gold/20'
-                : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
+                ? 'bg-primary-dim text-primary border border-primary/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -214,8 +214,8 @@ export function ChartTabs({
             onClick={() => setActiveTab('kline')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${
               activeTab === 'kline'
-                ? 'bg-primary-dim text-primary border border-ait-gold/20'
-                : 'text-muted-foreground hover:text-ait-text-main hover:bg-white/5'
+                ? 'bg-primary-dim text-primary border border-primary/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
             }`}
           >
             <CandlestickChart className="w-3.5 h-3.5" />
@@ -238,7 +238,7 @@ export function ChartTabs({
                     className={`px-2.5 py-1 text-[10px] font-medium rounded transition-all border ${
                       isActive
                         ? 'bg-white/10 text-foreground border-white/20'
-                        : 'text-muted-foreground border-transparent hover:text-ait-text-main hover:bg-white/5'
+                        : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-white/5'
                     }`}
                   >
                     <span className="mr-1 opacity-70">{config.icon}</span>
@@ -259,7 +259,7 @@ export function ChartTabs({
                 <>
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-ait-text-main hover:border-ait-gold/30 hover:text-primary transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-foreground hover:border-primary/30 hover:text-primary transition-all"
                   >
                     <span>{chartSymbol}</span>
                     <ChevronDown
@@ -269,7 +269,7 @@ export function ChartTabs({
                   {showDropdown && (
                     <div className="absolute top-full right-0 mt-2 w-64 bg-background border border-white/10 rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden ait-glass ring-1 ring-white/5">
                       <div className="p-2 border-b border-white/5">
-                        <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-white/10 focus-within:border-ait-gold/50 transition-colors">
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-white/10 focus-within:border-primary/50 transition-colors">
                           <Search className="w-3.5 h-3.5 text-muted-foreground" />
                           <input
                             type="text"
@@ -325,7 +325,7 @@ export function ChartTabs({
                   )}
                 </>
               ) : (
-                <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-ait-text-main font-mono">
+                <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-bold text-foreground font-mono">
                   {chartSymbol}
                 </span>
               )}
@@ -358,7 +358,7 @@ export function ChartTabs({
                 value={symbolInput}
                 onChange={(e) => setSymbolInput(e.target.value)}
                 placeholder="Sym"
-                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-foreground placeholder-gray-600 focus:outline-none focus:border-ait-gold/50 font-mono transition-colors"
+                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-foreground placeholder-gray-600 focus:outline-none focus:border-primary/50 font-mono transition-colors"
               />
               <button
                 type="submit"

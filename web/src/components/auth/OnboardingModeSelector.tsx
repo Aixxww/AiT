@@ -51,7 +51,7 @@ export function OnboardingModeSelector({
               onClick={() => onChange(option.id)}
               className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
                 selected
-                  ? 'border-ait-gold/60 bg-primary-dim shadow-[0_0_0_1px_rgba(240,185,11,0.15)]'
+                  ? 'border-primary/60 bg-primary-dim shadow-[0_0_0_1px_rgba(240,185,11,0.15)]'
                   : 'border-border bg-zinc-950/60 hover:border-border'
               }`}
             >

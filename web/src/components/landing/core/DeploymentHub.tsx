@@ -36,7 +36,7 @@ export default function DeploymentHub() {
 
             <h2 className="text-4xl md:text-6xl font-black text-foreground leading-tight">
               DEPLOY{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold to-white">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-white">
                 INSTANTLY
               </span>
             </h2>
@@ -62,7 +62,7 @@ export default function DeploymentHub() {
               ].map((item, i) => (
                 <div
                   key={i}
-                  className="flex gap-4 items-start p-4 rounded bg-surface/50 border border-border hover:border-ait-gold/30 transition-colors group"
+                  className="flex gap-4 items-start p-4 rounded bg-surface/50 border border-border hover:border-primary/30 transition-colors group"
                 >
                   <div className="p-2 rounded bg-black border border-border text-primary group-hover:bg-primary-dim transition-colors">
                     <item.icon className="w-5 h-5" />
@@ -86,7 +86,7 @@ export default function DeploymentHub() {
             className="relative"
           >
             {/* Glow effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-ait-gold/20 to-blue-500/20 rounded-xl blur-xl opacity-50"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-xl blur-xl opacity-50"></div>
 
             <div className="relative rounded-xl overflow-hidden bg-[#0a0a0a] border border-border shadow-2xl">
               {/* Terminal Header */}
@@ -108,7 +108,7 @@ export default function DeploymentHub() {
                   # Initialize AiT Core Protocol
                 </div>
                 <div
-                  className="group relative flex items-start gap-3 p-4 rounded-lg bg-surface/50 border border-border hover:border-ait-gold/50 cursor-pointer transition-all hover:bg-surface/80"
+                  className="group relative flex items-start gap-3 p-4 rounded-lg bg-surface/50 border border-border hover:border-primary/50 cursor-pointer transition-all hover:bg-surface/80"
                   onClick={handleCopy}
                 >
                   <span className="text-primary mt-1">

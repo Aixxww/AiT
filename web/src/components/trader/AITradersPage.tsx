@@ -648,14 +648,14 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
           <div className="flex items-center gap-4">
             <div className="relative group">
               <div className="absolute -inset-1 bg-primary/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-black border border-ait-gold/30 text-primary relative z-10 shadow-[0_0_15px_rgba(240,185,11,0.1)]">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-black border border-primary/30 text-primary relative z-10 shadow-[0_0_15px_rgba(240,185,11,0.1)]">
                 <Bot className="w-6 h-6 md:w-7 md:h-7" />
               </div>
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-mono tracking-tight text-foreground flex items-center gap-3 uppercase">
                 {t('aiTraders', language)}
-                <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-primary-dim text-primary border border-ait-gold/20 tracking-wider">
+                <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-primary-dim text-primary border border-primary/20 tracking-wider">
                   {traders?.length || 0} ACTIVE_NODES
                 </span>
               </h1>

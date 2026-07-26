@@ -817,22 +817,24 @@ export function StrategyStudioPage() {
   )
 
   return (
-    <DeepVoidBackground className="h-[calc(100vh-64px)] flex flex-col bg-ait-bg relative overflow-hidden">
+    <DeepVoidBackground className="h-[calc(100vh-64px)] flex flex-col bg-background relative overflow-hidden">
       {/* Header */}
       {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-ait-gold/20 bg-ait-bg/60 backdrop-blur-md z-10">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-primary/20 bg-background/60 backdrop-blur-md z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-ait-gold to-yellow-500">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-yellow-500">
               <Sparkles className="w-5 h-5 text-black" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-ait-text">{tr('title')}</h1>
-              <p className="text-xs text-ait-text-muted">{tr('subtitle')}</p>
+              <h1 className="text-lg font-bold text-foreground">
+                {tr('title')}
+              </h1>
+              <p className="text-xs text-muted-foreground">{tr('subtitle')}</p>
             </div>
           </div>
           {error && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-ait-danger/10 text-ait-danger">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-loss/10 text-loss">
               {error}
               <button
                 onClick={() => setError(null)}
@@ -848,16 +850,16 @@ export function StrategyStudioPage() {
       {/* Main Content - Three Columns */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column - Strategy List */}
-        <div className="w-48 flex-shrink-0 border-r border-ait-gold/20 overflow-y-auto bg-ait-bg/30 backdrop-blur-sm z-10">
+        <div className="w-48 flex-shrink-0 border-r border-primary/20 overflow-y-auto bg-background/30 backdrop-blur-sm z-10">
           <div className="p-2">
             <div className="flex items-center justify-between mb-2 px-2">
-              <span className="text-xs font-medium text-ait-text-muted">
+              <span className="text-xs font-medium text-muted-foreground">
                 {tr('strategies')}
               </span>
               <div className="flex items-center gap-1">
                 {/* Import button with hidden file input */}
                 <label
-                  className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-ait-text-muted hover:text-foreground"
+                  className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
                   title={tr('importStrategy')}
                 >
                   <Upload className="w-4 h-4" />
@@ -890,13 +892,13 @@ export function StrategyStudioPage() {
                   }}
                   className={`group px-2 py-2 rounded-lg cursor-pointer transition-all ${
                     selectedStrategy?.id === strategy.id
-                      ? 'ring-1 ring-ait-gold/50 bg-primary-dim'
-                      : 'hover:bg-ait-bg-lighter/60 ring-1 ring-white/10 hover:ring-ait-gold/20 bg-transparent'
+                      ? 'ring-1 ring-primary/50 bg-primary-dim'
+                      : 'hover:bg-surface/60 ring-1 ring-white/10 hover:ring-primary/20 bg-transparent'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <span
-                      className={`line-clamp-2 text-ait-text ${language === 'zh' ? 'text-sm' : 'text-xs'}`}
+                      className={`line-clamp-2 text-foreground ${language === 'zh' ? 'text-sm' : 'text-xs'}`}
                     >
                       {strategy.name}
                     </span>
@@ -906,7 +908,7 @@ export function StrategyStudioPage() {
                           e.stopPropagation()
                           handleExportStrategy(strategy)
                         }}
-                        className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-foreground"
+                        className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
                         title={tr('export')}
                       >
                         <Download className="w-3 h-3" />
@@ -918,7 +920,7 @@ export function StrategyStudioPage() {
                               e.stopPropagation()
                               handleDuplicateStrategy(strategy.id)
                             }}
-                            className="p-1 rounded hover:bg-white/10 text-ait-text-muted hover:text-foreground"
+                            className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
                             title={tr('duplicate')}
                           >
                             <Copy className="w-3 h-3" />
@@ -929,7 +931,7 @@ export function StrategyStudioPage() {
                               handleDeleteStrategy(strategy.id)
                             }}
                             disabled={strategy.is_active}
-                            className="p-1 rounded hover:bg-ait-danger/20 text-ait-danger disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            className="p-1 rounded hover:bg-loss/20 text-loss disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             title={
                               strategy.is_active
                                 ? tr('cannotDeleteActiveStrategy')
@@ -944,7 +946,7 @@ export function StrategyStudioPage() {
                   </div>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     {strategy.is_active && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-ait-success/15 text-ait-success">
+                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-profit/15 text-profit">
                         {tr('active')}
                       </span>
                     )}
@@ -967,7 +969,7 @@ export function StrategyStudioPage() {
         </div>
 
         {/* Middle Column - Config Editor */}
-        <div className="flex-1 min-w-0 overflow-y-auto border-r border-ait-gold/20">
+        <div className="flex-1 min-w-0 overflow-y-auto border-r border-primary/20">
           {selectedStrategy && editingConfig ? (
             <div className="p-4">
               {/* Strategy Name & Actions */}
@@ -984,7 +986,7 @@ export function StrategyStudioPage() {
                       setHasChanges(true)
                     }}
                     disabled={selectedStrategy.is_default}
-                    className="text-lg font-bold bg-transparent border-none outline-none w-full text-ait-text placeholder-ait-text-muted"
+                    className="text-lg font-bold bg-transparent border-none outline-none w-full text-foreground placeholder-muted-foreground"
                   />
                   <input
                     type="text"
@@ -998,7 +1000,7 @@ export function StrategyStudioPage() {
                     }}
                     disabled={selectedStrategy.is_default}
                     placeholder={tr('addDescription')}
-                    className="text-xs bg-transparent border-none outline-none w-full text-ait-text-muted placeholder-ait-text-muted/50 mt-1"
+                    className="text-xs bg-transparent border-none outline-none w-full text-muted-foreground placeholder-muted-foreground/50 mt-1"
                   />
                   {hasChanges && (
                     <span className="text-xs text-primary">
@@ -1012,7 +1014,7 @@ export function StrategyStudioPage() {
                       onClick={() =>
                         handleActivateStrategy(selectedStrategy.id)
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-colors bg-ait-success/10 border border-ait-success/30 text-ait-success hover:bg-ait-success/20"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-colors bg-profit/10 border border-profit/30 text-profit hover:bg-profit/20"
                     >
                       <Check className="w-3 h-3" />
                       {tr('activate')}
@@ -1023,7 +1025,7 @@ export function StrategyStudioPage() {
                       onClick={handleSaveStrategy}
                       disabled={isSaving || !hasChanges}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50
-                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-yellow-500' : 'bg-ait-bg-lighter text-ait-text-muted cursor-not-allowed'}`}
+                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-yellow-500' : 'bg-surface text-muted-foreground cursor-not-allowed'}`}
                     >
                       <Save className="w-3 h-3" />
                       {isSaving ? tr('saving') : tr('save')}
@@ -1045,13 +1047,13 @@ export function StrategyStudioPage() {
 
               {/* Strategy Type Selector */}
               {editingConfig && (
-                <div className="mb-4 p-4 rounded-lg bg-ait-bg-lighter border border-ait-gold/20">
+                <div className="mb-4 p-4 rounded-lg bg-surface border border-primary/20">
                   <div className="flex items-center gap-2 mb-3">
                     <Zap
                       className="w-4 h-4"
                       style={{ color: 'var(--color-primary)' }}
                     />
-                    <span className="text-sm font-medium text-ait-text">
+                    <span className="text-sm font-medium text-foreground">
                       {tr('strategyType')}
                     </span>
                   </div>
@@ -1062,8 +1064,8 @@ export function StrategyStudioPage() {
                       className={`p-3 rounded-lg border transition-all ${
                         !editingConfig.strategy_type ||
                         editingConfig.strategy_type === 'ai_trading'
-                          ? 'border-ait-gold bg-primary-dim'
-                          : 'border-ait-border hover:border-ait-gold/50'
+                          ? 'border-primary bg-primary-dim'
+                          : 'border-ait-border hover:border-primary/50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -1071,11 +1073,11 @@ export function StrategyStudioPage() {
                           className="w-4 h-4"
                           style={{ color: 'var(--color-primary)' }}
                         />
-                        <span className="text-sm font-medium text-ait-text">
+                        <span className="text-sm font-medium text-foreground">
                           {tr('aiTrading')}
                         </span>
                       </div>
-                      <p className="text-xs text-ait-text-muted text-left">
+                      <p className="text-xs text-muted-foreground text-left">
                         {tr('aiTradingDesc')}
                       </p>
                     </button>
@@ -1084,8 +1086,8 @@ export function StrategyStudioPage() {
                       disabled={selectedStrategy?.is_default}
                       className={`p-3 rounded-lg border transition-all ${
                         editingConfig.strategy_type === 'grid_trading'
-                          ? 'border-ait-gold bg-primary-dim'
-                          : 'border-ait-border hover:border-ait-gold/50'
+                          ? 'border-primary bg-primary-dim'
+                          : 'border-ait-border hover:border-primary/50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -1093,11 +1095,11 @@ export function StrategyStudioPage() {
                           className="w-4 h-4"
                           style={{ color: 'var(--color-profit)' }}
                         />
-                        <span className="text-sm font-medium text-ait-text">
+                        <span className="text-sm font-medium text-foreground">
                           {tr('gridTrading')}
                         </span>
                       </div>
-                      <p className="text-xs text-ait-text-muted text-left">
+                      <p className="text-xs text-muted-foreground text-left">
                         {tr('gridTradingDesc')}
                       </p>
                     </button>
@@ -1111,7 +1113,7 @@ export function StrategyStudioPage() {
                   ({ key, icon: Icon, color, title, content }) => (
                     <div
                       key={key}
-                      className="rounded-lg overflow-hidden bg-ait-bg-lighter border border-ait-gold/20"
+                      className="rounded-lg overflow-hidden bg-surface border border-primary/20"
                     >
                       <button
                         onClick={() => toggleSection(key)}
@@ -1119,14 +1121,14 @@ export function StrategyStudioPage() {
                       >
                         <div className="flex items-center gap-2">
                           <Icon className="w-4 h-4" style={{ color }} />
-                          <span className="text-sm font-medium text-ait-text">
+                          <span className="text-sm font-medium text-foreground">
                             {title}
                           </span>
                         </div>
                         {expandedSections[key] ? (
-                          <ChevronDown className="w-4 h-4 text-ait-text-muted" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-ait-text-muted" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
                       </button>
                       {expandedSections[key] && (
@@ -1148,8 +1150,8 @@ export function StrategyStudioPage() {
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Activity className="w-12 h-12 mx-auto mb-2 opacity-30 text-ait-text-muted" />
-                <p className="text-sm text-ait-text-muted">
+                <Activity className="w-12 h-12 mx-auto mb-2 opacity-30 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
                   {tr('selectOrCreate')}
                 </p>
               </div>
@@ -1160,13 +1162,13 @@ export function StrategyStudioPage() {
         {/* Right Column - Prompt Preview & AI Test */}
         <div className="w-[420px] flex-shrink-0 flex flex-col overflow-hidden">
           {/* Tabs */}
-          <div className="flex-shrink-0 flex border-b border-ait-gold/20">
+          <div className="flex-shrink-0 flex border-b border-primary/20">
             <button
               onClick={() => setActiveRightTab('prompt')}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeRightTab === 'prompt'
                   ? 'border-b-2 border-accent text-accent'
-                  : 'opacity-60 hover:opacity-100 text-ait-text-muted'
+                  : 'opacity-60 hover:opacity-100 text-muted-foreground'
               }`}
             >
               <Eye className="w-4 h-4" />
@@ -1177,7 +1179,7 @@ export function StrategyStudioPage() {
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeRightTab === 'test'
                   ? 'border-b-2 border-profit text-profit'
-                  : 'opacity-60 hover:opacity-100 text-ait-text-muted'
+                  : 'opacity-60 hover:opacity-100 text-muted-foreground'
               }`}
             >
               <Play className="w-4 h-4" />
@@ -1195,7 +1197,7 @@ export function StrategyStudioPage() {
                   <select
                     value={selectedVariant}
                     onChange={(e) => setSelectedVariant(e.target.value)}
-                    className="px-2 py-1.5 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text outline-none focus:border-ait-gold"
+                    className="px-2 py-1.5 rounded text-xs bg-background border border-primary/20 text-foreground outline-none focus:border-primary"
                   >
                     <option value="balanced">{tr('balanced')}</option>
                     <option value="aggressive">{tr('aggressive')}</option>
@@ -1218,7 +1220,7 @@ export function StrategyStudioPage() {
                 {promptPreview ? (
                   <>
                     {/* Config Summary */}
-                    <div className="p-2 rounded-lg bg-ait-bg border border-ait-gold/20">
+                    <div className="p-2 rounded-lg bg-background border border-primary/20">
                       <div className="flex items-center gap-1.5 mb-2">
                         <Code className="w-3 h-3 text-accent" />
                         <span className="text-xs font-medium text-accent">
@@ -1229,10 +1231,10 @@ export function StrategyStudioPage() {
                         {Object.entries(promptPreview.config_summary || {}).map(
                           ([key, value]) => (
                             <div key={key}>
-                              <div className="text-ait-text-muted">
+                              <div className="text-muted-foreground">
                                 {key.replace(/_/g, ' ')}
                               </div>
-                              <div className="text-ait-text">
+                              <div className="text-foreground">
                                 {String(value)}
                               </div>
                             </div>
@@ -1246,17 +1248,17 @@ export function StrategyStudioPage() {
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-1.5">
                           <FileText className="w-3 h-3 text-accent" />
-                          <span className="text-xs font-medium text-ait-text">
+                          <span className="text-xs font-medium text-foreground">
                             {tr('systemPrompt')}
                           </span>
                         </div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-ait-bg-lighter text-ait-text-muted">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-muted-foreground">
                           {promptPreview.system_prompt.length.toLocaleString()}{' '}
                           chars
                         </span>
                       </div>
                       <pre
-                        className="p-2 rounded-lg text-[11px] font-mono overflow-auto bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="p-2 rounded-lg text-[11px] font-mono overflow-auto bg-background border border-primary/20 text-foreground"
                         style={{ maxHeight: '400px' }}
                       >
                         {promptPreview.system_prompt}
@@ -1264,7 +1266,7 @@ export function StrategyStudioPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-ait-text-muted">
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Eye className="w-10 h-10 mb-2 opacity-30" />
                     <p className="text-sm">{tr('generatePromptPreview')}</p>
                   </div>
@@ -1277,7 +1279,7 @@ export function StrategyStudioPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Bot className="w-4 h-4 text-profit" />
-                    <span className="text-xs font-medium text-ait-text">
+                    <span className="text-xs font-medium text-foreground">
                       {tr('selectModel')}
                     </span>
                   </div>
@@ -1285,7 +1287,7 @@ export function StrategyStudioPage() {
                     <select
                       value={selectedModelId}
                       onChange={(e) => setSelectedModelId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-sm bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-primary/20 text-foreground"
                     >
                       {aiModels.map((model) => (
                         <option key={model.id} value={model.id}>
@@ -1294,7 +1296,7 @@ export function StrategyStudioPage() {
                       ))}
                     </select>
                   ) : (
-                    <div className="px-3 py-2 rounded-lg text-sm bg-ait-danger/10 text-ait-danger">
+                    <div className="px-3 py-2 rounded-lg text-sm bg-loss/10 text-loss">
                       {tr('noModel')}
                     </div>
                   )}
@@ -1303,7 +1305,7 @@ export function StrategyStudioPage() {
                     <select
                       value={selectedVariant}
                       onChange={(e) => setSelectedVariant(e.target.value)}
-                      className="px-2 py-1.5 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1.5 rounded text-xs bg-background border border-primary/20 text-foreground"
                     >
                       <option value="balanced">{tr('balanced')}</option>
                       <option value="aggressive">{tr('aggressive')}</option>
@@ -1329,7 +1331,7 @@ export function StrategyStudioPage() {
                       )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-ait-text-muted">
+                  <p className="text-[10px] text-muted-foreground">
                     {tr('testNote')}
                   </p>
                 </div>
@@ -1338,8 +1340,8 @@ export function StrategyStudioPage() {
                 {aiTestResult ? (
                   <div className="space-y-3">
                     {aiTestResult.error ? (
-                      <div className="p-3 rounded-lg bg-ait-danger/10 border border-ait-danger/30">
-                        <p className="text-sm text-ait-danger">
+                      <div className="p-3 rounded-lg bg-loss/10 border border-loss/30">
+                        <p className="text-sm text-loss">
                           {aiTestResult.error}
                         </p>
                       </div>
@@ -1347,8 +1349,8 @@ export function StrategyStudioPage() {
                       <>
                         {aiTestResult.duration_ms && (
                           <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-ait-text-muted" />
-                            <span className="text-xs text-ait-text-muted">
+                            <Clock className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
                               {tr('duration')}:{' '}
                               {(aiTestResult.duration_ms / 1000).toFixed(2)}s
                             </span>
@@ -1360,12 +1362,12 @@ export function StrategyStudioPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <Terminal className="w-3 h-3 text-accent" />
-                              <span className="text-xs font-medium text-ait-text">
+                              <span className="text-xs font-medium text-foreground">
                                 {tr('userPrompt')} (Input)
                               </span>
                             </div>
                             <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-ait-bg border border-ait-gold/20 text-ait-text"
+                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-background border border-primary/20 text-foreground"
                               style={{ maxHeight: '200px' }}
                             >
                               {aiTestResult.user_prompt}
@@ -1378,12 +1380,12 @@ export function StrategyStudioPage() {
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <Sparkles className="w-3 h-3 text-primary" />
-                              <span className="text-xs font-medium text-ait-text">
+                              <span className="text-xs font-medium text-foreground">
                                 {tr('reasoning')}
                               </span>
                             </div>
                             <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-ait-bg border border-ait-gold/30 text-ait-text"
+                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-background border border-primary/30 text-foreground"
                               style={{ maxHeight: '200px' }}
                             >
                               {aiTestResult.reasoning}
@@ -1397,12 +1399,12 @@ export function StrategyStudioPage() {
                             <div>
                               <div className="flex items-center gap-1.5 mb-1.5">
                                 <Activity className="w-3 h-3 text-profit" />
-                                <span className="text-xs font-medium text-ait-text">
+                                <span className="text-xs font-medium text-foreground">
                                   {tr('decisions')}
                                 </span>
                               </div>
                               <pre
-                                className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-ait-bg border border-profit/30 text-ait-text"
+                                className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-background border border-profit/30 text-foreground"
                                 style={{ maxHeight: '200px' }}
                               >
                                 {JSON.stringify(
@@ -1418,13 +1420,13 @@ export function StrategyStudioPage() {
                         {aiTestResult.ai_response && (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
-                              <FileText className="w-3 h-3 text-ait-text-muted" />
-                              <span className="text-xs font-medium text-ait-text">
+                              <FileText className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs font-medium text-foreground">
                                 {tr('aiOutput')} (Raw)
                               </span>
                             </div>
                             <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-ait-bg border border-ait-gold/20 text-ait-text"
+                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-background border border-primary/20 text-foreground"
                               style={{ maxHeight: '300px' }}
                             >
                               {aiTestResult.ai_response}
@@ -1435,7 +1437,7 @@ export function StrategyStudioPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-ait-text-muted">
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Play className="w-10 h-10 mb-2 opacity-30" />
                     <p className="text-sm">{tr('runAiTestHint')}</p>
                   </div>

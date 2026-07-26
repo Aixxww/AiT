@@ -92,7 +92,7 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                  className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                   placeholder="you@example.com"
                   required
                   autoFocus
@@ -118,7 +118,7 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                    className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                     placeholder="••••••••"
                     required
                   />

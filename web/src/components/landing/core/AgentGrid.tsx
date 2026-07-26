@@ -14,7 +14,7 @@ const agents = [
     winRate: '68%',
     risk: 'HIGH',
     color: 'text-primary',
-    border: 'border-ait-gold/50',
+    border: 'border-primary/50',
     bg_glow: 'shadow-[0_0_30px_rgba(240,185,11,0.1)]',
     icon: Zap,
   },
@@ -59,7 +59,7 @@ export default function AgentGrid() {
   return (
     <section
       id="market-scanner"
-      className="py-16 md:py-24 bg-ait-bg relative overflow-hidden"
+      className="py-16 md:py-24 bg-background relative overflow-hidden"
     >
       {/* Background Details */}
       <div className="absolute top-0 right-0 p-10 opacity-20 pointer-events-none">
@@ -74,7 +74,7 @@ export default function AgentGrid() {
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-foreground uppercase tracking-tighter">
               STRATEGY{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ait-gold to-white">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-white">
                 UNITS
               </span>
             </h2>
@@ -120,7 +120,7 @@ export default function AgentGrid() {
                   </div>
 
                   {/* Name & Desc */}
-                  <h3 className="text-3xl font-bold text-foreground mb-2 tracking-tight group-hover:text-ait-accent transition-colors">
+                  <h3 className="text-3xl font-bold text-foreground mb-2 tracking-tight group-hover:text-accent transition-colors">
                     {agent.name}
                   </h3>
                   <p className="text-muted-foreground text-sm mb-8 leading-relaxed h-10">
@@ -158,7 +158,7 @@ export default function AgentGrid() {
                   {/* Action Btn */}
                   <button
                     onClick={handleInitialize}
-                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-border hover:border-${agent.color === 'text-primary' ? 'ait-gold' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-foreground cursor-pointer`}
+                    className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-border hover:border-${agent.color === 'text-primary' ? 'primary' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-foreground cursor-pointer`}
                   >
                     <span className={agent.color}>[</span> INITIALIZE{' '}
                     <span className={agent.color}>]</span>

@@ -51,7 +51,7 @@ export default function AgentTerminal() {
               Portfolio PnL
             </span>
             <div className="flex gap-1">
-              <button className="px-2 py-0.5 bg-primary/20 border border-ait-gold/30 rounded text-[10px] text-primary font-mono">
+              <button className="px-2 py-0.5 bg-primary/20 border border-primary/30 rounded text-[10px] text-primary font-mono">
                 24H
               </button>
               <button className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors">

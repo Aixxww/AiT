@@ -189,7 +189,7 @@ export function RegisterPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-ait-gold focus:ring-1 focus:ring-ait-gold/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono"
+                  className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono"
                   placeholder="user@ait.os"
                   required
                 />
@@ -205,7 +205,7 @@ export function RegisterPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-ait-gold focus:ring-1 focus:ring-ait-gold/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono pr-10"
+                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono pr-10"
                       placeholder="••••••••"
                       required
                     />
@@ -228,7 +228,7 @@ export function RegisterPage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-ait-gold focus:ring-1 focus:ring-ait-gold/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono pr-10"
+                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono pr-10"
                       placeholder="••••••••"
                       required
                     />
@@ -295,7 +295,7 @@ export function RegisterPage() {
                         e.target.value.replace(/[^a-z0-9]/gi, '').toLowerCase()
                       )
                     }
-                    className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-ait-gold focus:ring-1 focus:ring-ait-gold/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono tracking-widest"
+                    className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-zinc-800 text-foreground font-mono tracking-widest"
                     placeholder="XXXXXX"
                     maxLength={6}
                     required={betaMode}

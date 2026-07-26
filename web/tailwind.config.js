@@ -55,26 +55,8 @@ export default {
           border: 'var(--color-header-border)',
         },
 
-        // ── 向后兼容别名 ──
-        'ait-gold': {
-          DEFAULT: 'var(--color-primary)',
-          dim: 'var(--color-primary-dim)',
-          glow: 'var(--color-primary-glow)',
-          highlight: '#FFD700',
-        },
-        'ait-bg': {
-          DEFAULT: 'var(--color-background)',
-          deeper: '#020304',
-          lighter: 'var(--color-surface)',
-        },
-        'ait-accent': 'var(--color-accent)',
-        'ait-text': {
-          DEFAULT: 'var(--color-foreground)',
-          main: 'var(--color-foreground)',
-          muted: 'var(--color-muted-fg)',
-        },
-        'ait-success': 'var(--color-profit)',
-        'ait-danger': 'var(--color-loss)',
+        // 受控分类色（非语义、非涨跌）：折叠区标题、源类型图标等
+        'accent-purple': { DEFAULT: 'var(--color-purple)' },
       },
       fontFamily: {
         sans: [

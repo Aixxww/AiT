@@ -63,7 +63,7 @@ export function FAQContent({
           {/* Category Header */}
           <div className="flex items-center gap-3 mb-6 pb-3 border-b border-white/10">
             <category.icon className="w-7 h-7 text-primary" />
-            <h2 className="text-2xl font-bold text-ait-text-main">
+            <h2 className="text-2xl font-bold text-foreground">
               {t(category.titleKey, language)}
             </h2>
           </div>
@@ -79,7 +79,7 @@ export function FAQContent({
                 className="scroll-mt-24"
               >
                 {/* Question */}
-                <h3 className="text-xl font-semibold mb-3 text-ait-text-main">
+                <h3 className="text-xl font-semibold mb-3 text-foreground">
                   {t(item.questionKey, language)}
                 </h3>
 
@@ -380,7 +380,7 @@ export function FAQContent({
                         )}
                       </ol>
 
-                      <div className="rounded p-3 mt-3 bg-primary-dim border border-ait-gold/25">
+                      <div className="rounded p-3 mt-3 bg-primary-dim border border-primary/25">
                         {language === 'zh' ? (
                           <div className="text-sm">
                             <strong className="text-primary">Note:</strong>{' '}

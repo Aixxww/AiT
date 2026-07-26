@@ -233,7 +233,7 @@ export function CoinSourceEditor({
     <div className="space-y-6">
       {/* Source Type Selector */}
       <div>
-        <label className="block text-sm font-medium mb-3 text-ait-text">
+        <label className="block text-sm font-medium mb-3 text-foreground">
           {ts(coinSource.sourceType, language)}
         </label>
         <div className="grid grid-cols-4 gap-2">
@@ -268,12 +268,12 @@ export function CoinSourceEditor({
               disabled={disabled}
               className={`p-4 rounded-lg border transition-all ${
                 config.source_type === value
-                  ? 'ring-2 ring-ait-gold bg-primary-dim'
-                  : 'hover:bg-white/5 bg-ait-bg'
-              } border-ait-gold/20`}
+                  ? 'ring-2 ring-primary bg-primary-dim'
+                  : 'hover:bg-white/5 bg-background'
+              } border-primary/20`}
             >
               <Icon className="w-6 h-6 mx-auto mb-2" style={{ color }} />
-              <div className="text-sm font-medium text-ait-text">
+              <div className="text-sm font-medium text-foreground">
                 {ts(coinSource[value as keyof typeof coinSource], language)}
               </div>
               <div className="text-xs mt-1 text-muted-foreground">
@@ -290,14 +290,14 @@ export function CoinSourceEditor({
       {/* Static Coins - only for static mode */}
       {config.source_type === 'static' && (
         <div>
-          <label className="block text-sm font-medium mb-3 text-ait-text">
+          <label className="block text-sm font-medium mb-3 text-foreground">
             {ts(coinSource.staticCoins, language)}
           </label>
           <div className="flex flex-wrap gap-2 mb-3">
             {(config.static_coins || []).map((coin) => (
               <span
                 key={coin}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-ait-bg-lighter text-ait-text"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-surface text-foreground"
               >
                 {coin}
                 {!disabled && (
@@ -319,7 +319,7 @@ export function CoinSourceEditor({
                 onChange={(e) => setNewCoin(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCoin()}
                 placeholder="BTC, ETH, SOL..."
-                className="flex-1 px-4 py-2 rounded-lg bg-ait-bg border border-ait-gold/20 text-ait-text"
+                className="flex-1 px-4 py-2 rounded-lg bg-background border border-primary/20 text-foreground"
               />
               <button
                 onClick={handleAddCoin}
@@ -337,7 +337,7 @@ export function CoinSourceEditor({
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Ban className="w-4 h-4 text-loss" />
-          <label className="text-sm font-medium text-ait-text">
+          <label className="text-sm font-medium text-foreground">
             {ts(coinSource.excludedCoins, language)}
           </label>
         </div>
@@ -348,7 +348,7 @@ export function CoinSourceEditor({
           {(config.excluded_coins || []).map((coin) => (
             <span
               key={coin}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-ait-danger/15 text-loss"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-loss/15 text-loss"
             >
               {coin}
               {!disabled && (
@@ -375,11 +375,11 @@ export function CoinSourceEditor({
               onChange={(e) => setNewExcludedCoin(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddExcludedCoin()}
               placeholder="BTC, ETH, DOGE..."
-              className="flex-1 px-4 py-2 rounded-lg text-sm bg-ait-bg border border-ait-gold/20 text-ait-text"
+              className="flex-1 px-4 py-2 rounded-lg text-sm bg-background border border-primary/20 text-foreground"
             />
             <button
               onClick={handleAddExcludedCoin}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-ait-danger text-foreground hover:bg-red-600"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-loss text-foreground hover:bg-red-600"
             >
               <Ban className="w-4 h-4" />
               {ts(coinSource.addExcludedCoin, language)}
@@ -390,11 +390,11 @@ export function CoinSourceEditor({
 
       {/* AI500 Options - only for ai500 mode */}
       {config.source_type === 'ai500' && (
-        <div className="p-4 rounded-lg bg-primary/5 border border-ait-gold/20">
+        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 AI500 {ts(coinSource.dataSourceConfig, language)}
               </span>
               <BinanceBadge />
@@ -411,9 +411,9 @@ export function CoinSourceEditor({
                   onChange({ ...config, use_ai500: e.target.checked })
                 }
                 disabled={disabled}
-                className="w-5 h-5 rounded accent-ait-gold"
+                className="w-5 h-5 rounded accent-primary"
               />
-              <span className="text-ait-text">
+              <span className="text-foreground">
                 {ts(coinSource.useAI500, language)}
               </span>
             </label>
@@ -434,7 +434,7 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
             )}
@@ -448,11 +448,11 @@ export function CoinSourceEditor({
 
       {/* OI Top Options - only for oi_top mode */}
       {config.source_type === 'oi_top' && (
-        <div className="p-4 rounded-lg bg-ait-success/5 border border-ait-success/20">
+        <div className="p-4 rounded-lg bg-profit/5 border border-profit/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-profit" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.oiIncreaseTitle, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
               </span>
@@ -470,9 +470,9 @@ export function CoinSourceEditor({
                   onChange({ ...config, use_oi_top: e.target.checked })
                 }
                 disabled={disabled}
-                className="w-5 h-5 rounded accent-ait-success"
+                className="w-5 h-5 rounded accent-profit"
               />
-              <span className="text-ait-text">
+              <span className="text-foreground">
                 {ts(coinSource.useOITop, language)}
               </span>
             </label>
@@ -493,7 +493,7 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
             )}
@@ -507,11 +507,11 @@ export function CoinSourceEditor({
 
       {/* OI Low Options - only for oi_low mode */}
       {config.source_type === 'oi_low' && (
-        <div className="p-4 rounded-lg bg-ait-danger/5 border border-ait-danger/20">
+        <div className="p-4 rounded-lg bg-loss/5 border border-loss/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-loss" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.oiDecreaseTitle, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
               </span>
@@ -531,7 +531,7 @@ export function CoinSourceEditor({
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-red-500"
               />
-              <span className="text-ait-text">
+              <span className="text-foreground">
                 {ts(coinSource.useOILow, language)}
               </span>
             </label>
@@ -552,7 +552,7 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
             )}
@@ -570,7 +570,7 @@ export function CoinSourceEditor({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Crosshair className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
               </span>
@@ -590,7 +590,7 @@ export function CoinSourceEditor({
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-purple-500"
               />
-              <span className="text-ait-text">
+              <span className="text-foreground">
                 {ts(coinSource.useHunter, language)}
               </span>
             </label>
@@ -611,7 +611,7 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
             )}
@@ -643,7 +643,7 @@ export function CoinSourceEditor({
                       config.hunter_direction === 'LONG' ||
                       config.hunter_direction === 'BOTH'
                         ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                        : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-green-500/30'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-green-500/30'
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
@@ -668,7 +668,7 @@ export function CoinSourceEditor({
                       config.hunter_direction === 'SHORT' ||
                       config.hunter_direction === 'BOTH'
                         ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-red-500/30'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-red-500/30'
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
@@ -679,10 +679,10 @@ export function CoinSourceEditor({
 
             {config.use_hunter && (
               <details className="pl-8 mt-2">
-                <summary className="text-xs cursor-pointer text-muted-foreground hover:text-ait-text select-none">
+                <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground select-none">
                   {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
                 </summary>
-                <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-ait-bg border border-ait-border">
+                <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-background border border-ait-border">
                   {/* Strategy Mode Toggle */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs text-muted-foreground">
@@ -705,7 +705,7 @@ export function CoinSourceEditor({
                           (config.hunter_config?.strategy_mode || 'default') ===
                           'default'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                            : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-blue-500/30'
+                            : 'bg-background text-muted-foreground border border-ait-border hover:border-blue-500/30'
                         }`}
                       >
                         {language === 'zh' ? '🎯 默认模式' : '🎯 Default'}
@@ -725,7 +725,7 @@ export function CoinSourceEditor({
                         className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                           config.hunter_config?.strategy_mode === 'breakout'
                             ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50'
-                            : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-orange-500/30'
+                            : 'bg-background text-muted-foreground border border-ait-border hover:border-orange-500/30'
                         }`}
                       >
                         {language === 'zh' ? '🔥 妖币猎杀' : '🔥 Breakout'}
@@ -788,7 +788,7 @@ export function CoinSourceEditor({
                         { value: '10000000', label: '$10M' },
                         { value: '15000000', label: '$15M' },
                       ]}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
 
@@ -816,7 +816,7 @@ export function CoinSourceEditor({
                         value: String(n),
                         label: String(n),
                       }))}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
 
@@ -844,7 +844,7 @@ export function CoinSourceEditor({
                         value: String(n),
                         label: String(n),
                       }))}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
 
@@ -869,7 +869,7 @@ export function CoinSourceEditor({
                       disabled={disabled}
                       className="w-4 h-4 rounded accent-purple-500"
                     />
-                    <span className="text-xs text-ait-text">
+                    <span className="text-xs text-foreground">
                       {language === 'zh'
                         ? '资金费率信号'
                         : 'Funding Rate Signal'}
@@ -904,7 +904,7 @@ export function CoinSourceEditor({
                         { value: '50', label: '50%' },
                         { value: '100', label: '100%' },
                       ]}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
 
@@ -945,7 +945,7 @@ export function CoinSourceEditor({
                           label: language === 'zh' ? '高' : 'High',
                         },
                       ]}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
 
@@ -967,7 +967,7 @@ export function CoinSourceEditor({
                       disabled={disabled}
                       className="w-4 h-4 rounded accent-purple-500"
                     />
-                    <span className="text-xs text-ait-text">
+                    <span className="text-xs text-foreground">
                       {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
                     </span>
                   </label>
@@ -998,7 +998,7 @@ export function CoinSourceEditor({
                         { value: '10000', label: '10K' },
                         { value: '50000', label: '50K' },
                       ]}
-                      className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                      className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                     />
                   </div>
                 </div>
@@ -1018,7 +1018,7 @@ export function CoinSourceEditor({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter_v7, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
               </span>
@@ -1042,7 +1042,7 @@ export function CoinSourceEditor({
                   value: n,
                   label: String(n),
                 }))}
-                className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
               />
             </div>
 
@@ -1074,7 +1074,7 @@ export function CoinSourceEditor({
                     label: ts(coinSource.hunterDirectionShort, language),
                   },
                 ]}
-                className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
               />
             </div>
 
@@ -1100,7 +1100,7 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
 
@@ -1126,7 +1126,7 @@ export function CoinSourceEditor({
                     value: String(n),
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
 
@@ -1151,7 +1151,7 @@ export function CoinSourceEditor({
                     value: String(n),
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
                 />
               </div>
             </div>
@@ -1173,7 +1173,7 @@ export function CoinSourceEditor({
                 disabled={disabled}
                 className="w-5 h-5 rounded accent-cyan-500"
               />
-              <span className="text-sm text-ait-text">
+              <span className="text-sm text-foreground">
                 {ts(coinSource.v7Aggressive, language)}
               </span>
               <span className="text-xs text-muted-foreground">
@@ -1194,7 +1194,7 @@ export function CoinSourceEditor({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Radar className="w-4 h-4 text-fuchsia-400" />
-              <span className="text-sm font-medium text-ait-text">
+              <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter_sniff, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
               </span>
@@ -1219,7 +1219,7 @@ export function CoinSourceEditor({
                   value: n,
                   label: String(n),
                 }))}
-                className="px-3 py-1.5 rounded bg-ait-bg border border-ait-gold/20 text-ait-text"
+                className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
               />
             </div>
 
@@ -1273,7 +1273,7 @@ export function CoinSourceEditor({
         <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
           <div className="flex items-center gap-2 mb-4">
             <Shuffle className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-medium text-ait-text">
+            <span className="text-sm font-medium text-foreground">
               {ts(coinSource.mixedConfig, language)}
             </span>
           </div>
@@ -1284,8 +1284,8 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_ai500
-                  ? 'bg-primary-dim border-ait-gold/50'
-                  : 'bg-ait-bg border-ait-border hover:border-ait-gold/30'
+                  ? 'bg-primary-dim border-primary/50'
+                  : 'bg-background border-ait-border hover:border-primary/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1301,11 +1301,13 @@ export function CoinSourceEditor({
                     onChange({ ...config, use_ai500: e.target.checked })
                   }
                   disabled={disabled}
-                  className="w-4 h-4 rounded accent-ait-gold"
+                  className="w-4 h-4 rounded accent-primary"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <Database className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-ait-text">AI500</span>
+                <span className="text-sm font-medium text-foreground">
+                  AI500
+                </span>
                 <BinanceBadge />
               </div>
               {config.use_ai500 && (
@@ -1322,7 +1324,7 @@ export function CoinSourceEditor({
                       value: n,
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                 </div>
               )}
@@ -1332,8 +1334,8 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_oi_top
-                  ? 'bg-ait-success/10 border-ait-success/50'
-                  : 'bg-ait-bg border-ait-border hover:border-ait-success/30'
+                  ? 'bg-profit/10 border-profit/50'
+                  : 'bg-background border-ait-border hover:border-profit/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1349,11 +1351,11 @@ export function CoinSourceEditor({
                     onChange({ ...config, use_oi_top: e.target.checked })
                   }
                   disabled={disabled}
-                  className="w-4 h-4 rounded accent-ait-success"
+                  className="w-4 h-4 rounded accent-profit"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <TrendingUp className="w-4 h-4 text-profit" />
-                <span className="text-sm font-medium text-ait-text">
+                <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.oiIncreaseLabel, language)}
                 </span>
               </div>
@@ -1374,7 +1376,7 @@ export function CoinSourceEditor({
                       value: n,
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                 </div>
               )}
@@ -1384,8 +1386,8 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_oi_low
-                  ? 'bg-ait-danger/10 border-ait-danger/50'
-                  : 'bg-ait-bg border-ait-border hover:border-ait-danger/30'
+                  ? 'bg-loss/10 border-loss/50'
+                  : 'bg-background border-ait-border hover:border-loss/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1405,7 +1407,7 @@ export function CoinSourceEditor({
                   onClick={(e) => e.stopPropagation()}
                 />
                 <TrendingDown className="w-4 h-4 text-loss" />
-                <span className="text-sm font-medium text-ait-text">
+                <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.oiDecreaseLabel, language)}
                 </span>
               </div>
@@ -1426,7 +1428,7 @@ export function CoinSourceEditor({
                       value: n,
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                 </div>
               )}
@@ -1437,7 +1439,7 @@ export function CoinSourceEditor({
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_square_heat
                   ? 'bg-orange-500/10 border-orange-500/50'
-                  : 'bg-ait-bg border-ait-border hover:border-orange-500/30'
+                  : 'bg-background border-ait-border hover:border-orange-500/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1460,7 +1462,7 @@ export function CoinSourceEditor({
                   onClick={(e) => e.stopPropagation()}
                 />
                 <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium text-ait-text">
+                <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.square_heat, language)}
                 </span>
               </div>
@@ -1484,7 +1486,7 @@ export function CoinSourceEditor({
                       value: n,
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                   <span className="text-xs text-muted-foreground">
                     Min Score:
@@ -1503,7 +1505,7 @@ export function CoinSourceEditor({
                       value: String(n),
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                 </div>
               )}
@@ -1514,7 +1516,7 @@ export function CoinSourceEditor({
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_hunter
                   ? 'bg-purple-500/10 border-purple-500/50'
-                  : 'bg-ait-bg border-ait-border hover:border-purple-500/30'
+                  : 'bg-background border-ait-border hover:border-purple-500/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1534,7 +1536,7 @@ export function CoinSourceEditor({
                   onClick={(e) => e.stopPropagation()}
                 />
                 <Crosshair className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-medium text-ait-text">
+                <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.hunter, language)}
                 </span>
               </div>
@@ -1555,7 +1557,7 @@ export function CoinSourceEditor({
                       value: n,
                       label: String(n),
                     }))}
-                    className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                 </div>
               )}
@@ -1585,7 +1587,7 @@ export function CoinSourceEditor({
                       config.hunter_direction === 'LONG' ||
                       config.hunter_direction === 'BOTH'
                         ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                        : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-green-500/30'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-green-500/30'
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
@@ -1611,7 +1613,7 @@ export function CoinSourceEditor({
                       config.hunter_direction === 'SHORT' ||
                       config.hunter_direction === 'BOTH'
                         ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-ait-bg text-muted-foreground border border-ait-border hover:border-red-500/30'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-red-500/30'
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
@@ -1620,10 +1622,10 @@ export function CoinSourceEditor({
               )}
               {config.use_hunter && (
                 <details className="pl-8 mt-2">
-                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-ait-text select-none">
+                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground select-none">
                     {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
                   </summary>
-                  <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-ait-bg border border-ait-border">
+                  <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-background border border-ait-border">
                     {/* Min OI Value */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
@@ -1650,7 +1652,7 @@ export function CoinSourceEditor({
                           { value: '10000000', label: '$10M' },
                           { value: '15000000', label: '$15M' },
                         ]}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
 
@@ -1678,7 +1680,7 @@ export function CoinSourceEditor({
                           value: String(n),
                           label: String(n),
                         }))}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
 
@@ -1706,7 +1708,7 @@ export function CoinSourceEditor({
                           value: String(n),
                           label: String(n),
                         }))}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
 
@@ -1731,7 +1733,7 @@ export function CoinSourceEditor({
                         disabled={disabled}
                         className="w-4 h-4 rounded accent-purple-500"
                       />
-                      <span className="text-xs text-ait-text">
+                      <span className="text-xs text-foreground">
                         {language === 'zh'
                           ? '资金费率信号'
                           : 'Funding Rate Signal'}
@@ -1768,7 +1770,7 @@ export function CoinSourceEditor({
                           { value: '50', label: '50%' },
                           { value: '100', label: '100%' },
                         ]}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
 
@@ -1810,7 +1812,7 @@ export function CoinSourceEditor({
                             label: language === 'zh' ? '高' : 'High',
                           },
                         ]}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
 
@@ -1834,7 +1836,7 @@ export function CoinSourceEditor({
                         disabled={disabled}
                         className="w-4 h-4 rounded accent-purple-500"
                       />
-                      <span className="text-xs text-ait-text">
+                      <span className="text-xs text-foreground">
                         {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
                       </span>
                     </label>
@@ -1865,7 +1867,7 @@ export function CoinSourceEditor({
                           { value: '10000', label: '10K' },
                           { value: '50000', label: '50K' },
                         ]}
-                        className="px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                        className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                       />
                     </div>
                   </div>
@@ -1878,12 +1880,12 @@ export function CoinSourceEditor({
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 (config.static_coins || []).length > 0
                   ? 'bg-gray-500/10 border-gray-500/50'
-                  : 'bg-ait-bg border-ait-border hover:border-gray-500/30'
+                  : 'bg-background border-ait-border hover:border-gray-500/30'
               }`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <List className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-ait-text">
+                <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.custom, language)}
                 </span>
                 {(config.static_coins || []).length > 0 && (
@@ -1896,7 +1898,7 @@ export function CoinSourceEditor({
                 {(config.static_coins || []).slice(0, 3).map((coin) => (
                   <span
                     key={coin}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-ait-bg-lighter text-ait-text"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-surface text-foreground"
                   >
                     {coin}
                     {!disabled && (
@@ -1930,7 +1932,7 @@ export function CoinSourceEditor({
                     }}
                     onClick={(e) => e.stopPropagation()}
                     placeholder="BTC, ETH..."
-                    className="flex-1 px-2 py-1 rounded text-xs bg-ait-bg border border-ait-gold/20 text-ait-text"
+                    className="flex-1 px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                   <button
                     onClick={(e) => {
@@ -1951,12 +1953,12 @@ export function CoinSourceEditor({
             const { sources, totalLimit } = getMixedSummary()
             if (sources.length === 0) return null
             return (
-              <div className="p-2 rounded bg-ait-bg border border-ait-border">
+              <div className="p-2 rounded bg-background border border-ait-border">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     {ts(coinSource.mixedSummary, language)}:
                   </span>
-                  <span className="text-ait-text font-medium">
+                  <span className="text-foreground font-medium">
                     {sources.join(' + ')}
                   </span>
                 </div>

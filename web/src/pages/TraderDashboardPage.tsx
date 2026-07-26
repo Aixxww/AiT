@@ -295,7 +295,7 @@ export function TraderDashboardPage({
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-ait-gold/30 text-primary hover:bg-primary-dim"
+            className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-primary/30 text-primary hover:bg-primary-dim"
           >
             {t('traderDashboard.retry', language)}
           </button>
@@ -338,7 +338,7 @@ export function TraderDashboardPage({
           </p>
           <button
             onClick={onNavigateToTraders}
-            className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-ait-gold/30 text-primary hover:bg-primary-dim"
+            className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-primary/30 text-primary hover:bg-primary-dim"
           >
             {t('goToTradersPage', language)}
           </button>
@@ -352,24 +352,24 @@ export function TraderDashboardPage({
     return (
       <div className="space-y-6 relative z-10">
         <div className="ait-glass p-6 animate-pulse">
-          <div className="h-8 w-48 mb-3 bg-ait-bg/50 rounded"></div>
+          <div className="h-8 w-48 mb-3 bg-background/50 rounded"></div>
           <div className="flex gap-4">
-            <div className="h-4 w-32 bg-ait-bg/50 rounded"></div>
-            <div className="h-4 w-24 bg-ait-bg/50 rounded"></div>
-            <div className="h-4 w-28 bg-ait-bg/50 rounded"></div>
+            <div className="h-4 w-32 bg-background/50 rounded"></div>
+            <div className="h-4 w-24 bg-background/50 rounded"></div>
+            <div className="h-4 w-28 bg-background/50 rounded"></div>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="ait-glass p-5 animate-pulse">
-              <div className="h-4 w-24 mb-3 bg-ait-bg/50 rounded"></div>
-              <div className="h-8 w-32 bg-ait-bg/50 rounded"></div>
+              <div className="h-4 w-24 mb-3 bg-background/50 rounded"></div>
+              <div className="h-8 w-32 bg-background/50 rounded"></div>
             </div>
           ))}
         </div>
         <div className="ait-glass p-6 animate-pulse">
-          <div className="h-6 w-40 mb-4 bg-ait-bg/50 rounded"></div>
-          <div className="h-64 w-full bg-ait-bg/50 rounded"></div>
+          <div className="h-6 w-40 mb-4 bg-background/50 rounded"></div>
+          <div className="h-64 w-full bg-background/50 rounded"></div>
         </div>
       </div>
     )
@@ -395,9 +395,9 @@ export function TraderDashboardPage({
                     selectedTrader.trader_name
                   )}
                   size={56}
-                  className="rounded-xl border-2 border-ait-gold/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]"
+                  className="rounded-xl border-2 border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]"
                 />
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-ait-green rounded-full border-2 border-background shadow-[0_0_8px_rgba(14,203,129,0.8)] animate-pulse" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-profit rounded-full border-2 border-background shadow-[0_0_8px_rgba(14,203,129,0.8)] animate-pulse" />
               </div>
               <div className="flex flex-col">
                 <span className="text-3xl tracking-tight text-foreground font-semibold">
@@ -428,7 +428,7 @@ export function TraderDashboardPage({
 
               {/* Wallet Address Display for Perp-DEX */}
               {exchanges && isPerpDex && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg ait-glass border border-ait-gold/20">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg ait-glass border border-primary/20">
                   {walletAddress ? (
                     <>
                       <span className="text-xs font-mono text-primary">
@@ -459,7 +459,7 @@ export function TraderDashboardPage({
                         title={t('traderDashboard.copyAddress', language)}
                       >
                         {copiedAddress ? (
-                          <Check className="w-3.5 h-3.5 text-ait-green" />
+                          <Check className="w-3.5 h-3.5 text-profit" />
                         ) : (
                           <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
@@ -670,7 +670,7 @@ export function TraderDashboardPage({
                   {t('currentPositions', language)}
                 </h2>
                 {positions && positions.length > 0 && (
-                  <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-ait-gold/20 font-mono shadow-[0_0_10px_rgba(240,185,11,0.1)]">
+                  <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 font-mono shadow-[0_0_10px_rgba(240,185,11,0.1)]">
                     {positions.length} {t('active', language)}
                   </div>
                 )}
@@ -761,7 +761,7 @@ export function TraderDashboardPage({
                             </td>
                             <td className="px-1 py-3 whitespace-nowrap text-center">
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${pos.side === 'long' ? 'bg-ait-green/10 text-ait-green shadow-[0_0_8px_rgba(14,203,129,0.2)]' : 'bg-ait-red/10 text-ait-red shadow-[0_0_8px_rgba(246,70,93,0.2)]'}`}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${pos.side === 'long' ? 'bg-profit/10 text-profit shadow-[0_0_8px_rgba(14,203,129,0.2)]' : 'bg-loss/10 text-loss shadow-[0_0_8px_rgba(246,70,93,0.2)]'}`}
                               >
                                 {t(
                                   pos.side === 'long' ? 'long' : 'short',
@@ -780,7 +780,7 @@ export function TraderDashboardPage({
                                   )
                                 }}
                                 disabled={closingPosition === pos.symbol}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed mx-auto bg-ait-red/10 text-ait-red border border-ait-red/30 hover:bg-ait-red/20"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed mx-auto bg-loss/10 text-loss border border-loss/30 hover:bg-loss/20"
                                 title={t(
                                   'traderDashboard.closePosition',
                                   language
@@ -821,7 +821,7 @@ export function TraderDashboardPage({
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right">
                               <span
-                                className={`font-bold ${pos.unrealized_pnl >= 0 ? 'text-ait-green shadow-ait-green' : 'text-ait-red shadow-ait-red'}`}
+                                className={`font-bold ${pos.unrealized_pnl >= 0 ? 'text-profit shadow-profit' : 'text-loss shadow-loss'}`}
                                 style={{
                                   textShadow:
                                     pos.unrealized_pnl >= 0
@@ -1001,7 +1001,7 @@ export function TraderDashboardPage({
                   { value: 50, label: '50' },
                   { value: 100, label: '100' },
                 ]}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all bg-black/40 text-foreground border border-white/10 hover:border-ait-accent"
+                className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all bg-black/40 text-foreground border border-white/10 hover:border-accent"
               />
             </div>
 
@@ -1088,7 +1088,7 @@ function StatCard({
   loading?: boolean
 }) {
   return (
-    <div className="group ait-glass p-5 rounded-lg transition-all duration-300 hover:bg-white/5 hover:translate-y-[-2px] border border-white/5 hover:border-ait-gold/20 relative overflow-hidden">
+    <div className="group ait-glass p-5 rounded-lg transition-all duration-300 hover:bg-white/5 hover:translate-y-[-2px] border border-white/5 hover:border-primary/20 relative overflow-hidden">
       <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity text-4xl grayscale group-hover:grayscale-0">
         {icon}
       </div>
@@ -1115,7 +1115,7 @@ function StatCard({
           {change !== undefined && (
             <div className="flex items-center gap-1">
               <div
-                className={`text-sm mono font-bold flex items-center gap-1 ${positive ? 'text-ait-green' : 'text-ait-red'}`}
+                className={`text-sm mono font-bold flex items-center gap-1 ${positive ? 'text-profit' : 'text-loss'}`}
               >
                 <span>{positive ? '▲' : '▼'}</span>
                 <span>

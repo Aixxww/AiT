@@ -20,8 +20,8 @@ function getTrendIcon(trend: string): string {
 
 function getChangeColor(val?: number): string {
   if (val == null) return 'text-muted-foreground'
-  if (val > 0) return 'text-ait-green'
-  if (val < 0) return 'text-ait-red'
+  if (val > 0) return 'text-profit'
+  if (val < 0) return 'text-loss'
   return 'text-muted-foreground'
 }
 
@@ -100,7 +100,7 @@ export function SquareHeatPanel({
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4 relative z-10">
-        <h2 className="text-lg font-bold flex items-center gap-2 text-ait-text-main uppercase tracking-wide">
+        <h2 className="text-lg font-bold flex items-center gap-2 text-foreground uppercase tracking-wide">
           <span className="text-orange-500">
             <Flame size={20} />
           </span>
@@ -193,7 +193,7 @@ export function SquareHeatPanel({
               {/* Token info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-xs text-ait-text-main truncate">
+                  <span className="font-mono font-bold text-xs text-foreground truncate">
                     {item.symbol}
                   </span>
                   {item.direction && (
@@ -201,10 +201,10 @@ export function SquareHeatPanel({
                       className={`text-[9px] px-1.5 py-0.5 rounded ${
                         item.direction.includes('多') ||
                         item.direction.includes('↑')
-                          ? 'bg-ait-green/10 text-ait-green'
+                          ? 'bg-profit/10 text-profit'
                           : item.direction.includes('空') ||
                               item.direction.includes('↓')
-                            ? 'bg-ait-red/10 text-ait-red'
+                            ? 'bg-loss/10 text-loss'
                             : 'bg-white/5 text-muted-foreground'
                       }`}
                     >
@@ -232,7 +232,7 @@ export function SquareHeatPanel({
               {/* Price + Change */}
               <div className="text-right min-w-[65px]">
                 {item.mark_price != null && (
-                  <div className="font-mono text-xs text-ait-text-main">
+                  <div className="font-mono text-xs text-foreground">
                     $
                     {item.mark_price < 1
                       ? item.mark_price.toPrecision(4)

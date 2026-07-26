@@ -63,11 +63,11 @@ export function FAQLayout({ language }: FAQLayoutProps) {
         {/* Page Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-ait-gold to-[var(--color-primary)] shadow-[0_8px_24px_color-mix(in_srgb,var(--color-primary)_40%,transparent)]">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-[var(--color-primary)] shadow-[0_8px_24px_color-mix(in_srgb,var(--color-primary)_40%,transparent)]">
               <HelpCircle className="w-8 h-8 text-background" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold mb-4 text-ait-text-main">
+          <h1 className="text-4xl font-bold mb-4 text-foreground">
             {t('faqTitle', language)}
           </h1>
           <p className="text-lg mb-8 text-muted-foreground">

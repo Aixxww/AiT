@@ -13,7 +13,7 @@ export function DataPage() {
     <div className="w-full min-h-[calc(100vh-64px)] flex flex-col">
       {/* Header */}
       <div className="px-4 sm:px-6 py-4 border-b border-white/5 flex items-center gap-4 flex-wrap">
-        <h2 className="text-lg font-bold text-ait-text-main">
+        <h2 className="text-lg font-bold text-foreground">
           {t('dataCenter', language)}
         </h2>
         <div className="flex items-center gap-2">
@@ -38,7 +38,7 @@ export function DataPage() {
                 onClick={() => setActiveWidget(item.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                   activeWidget === item.key
-                    ? 'bg-primary-dim text-primary border-ait-gold/20'
+                    ? 'bg-primary-dim text-primary border-primary/20'
                     : 'text-muted-foreground border-transparent hover:text-white hover:bg-white/5'
                 }`}
               >

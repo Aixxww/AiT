@@ -37,7 +37,7 @@ export function LoginRequiredOverlay({
           className="fixed inset-0 z-50"
         >
           <DeepVoidBackground
-            className="w-full h-full bg-ait-bg/95 backdrop-blur-md flex items-center justify-center p-4 text-ait-text"
+            className="w-full h-full bg-background/95 backdrop-blur-md flex items-center justify-center p-4 text-foreground"
             onClick={onClose}
           >
             <motion.div
@@ -45,11 +45,11 @@ export function LoginRequiredOverlay({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-              className="relative max-w-md w-full overflow-hidden bg-ait-bg border border-ait-gold/30 rounded-sm group font-mono"
+              className="relative max-w-md w-full overflow-hidden bg-background border border-primary/30 rounded-sm group font-mono"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Terminal Window Header */}
-              <div className="flex items-center justify-between px-3 py-2 bg-ait-bg-lighter border-b border-ait-gold/20">
+              <div className="flex items-center justify-between px-3 py-2 bg-surface border-b border-primary/20">
                 <div className="flex items-center gap-2">
                   <Terminal size={12} className="text-primary" />
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -74,7 +74,7 @@ export function LoginRequiredOverlay({
                   <div className="flex justify-center mb-6">
                     <div className="relative">
                       <div className="absolute inset-0 bg-red-500/20 blur-xl animate-pulse"></div>
-                      <div className="bg-ait-bg border border-red-500/50 text-red-500 px-4 py-2 flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                      <div className="bg-background border border-red-500/50 text-red-500 px-4 py-2 flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
                         <AlertTriangle size={18} className="animate-pulse" />
                         <span className="font-bold tracking-widest text-sm uppercase">
                           {tr('accessDenied')}
@@ -89,12 +89,12 @@ export function LoginRequiredOverlay({
                       <h2 className="text-xl font-bold text-foreground uppercase tracking-wider mb-2">
                         {tr('title')}
                       </h2>
-                      <p className="text-primary text-xs uppercase tracking-widest border-b border-ait-gold/20 pb-4 inline-block">
+                      <p className="text-primary text-xs uppercase tracking-widest border-b border-primary/20 pb-4 inline-block">
                         {subtitle}
                       </p>
                     </div>
 
-                    <div className="bg-ait-bg-lighter border-l-2 border-ait-gold/20 p-3 my-4">
+                    <div className="bg-surface border-l-2 border-primary/20 p-3 my-4">
                       <p className="text-xs text-muted-foreground leading-relaxed font-mono">
                         <span className="text-green-500 mr-2">$</span>
                         {tr('description')}
@@ -128,7 +128,7 @@ export function LoginRequiredOverlay({
 
                     <Link
                       to="/register"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-transparent border border-ait-gold/20 text-muted-foreground hover:text-foreground hover:border-ait-gold font-bold text-xs uppercase tracking-widest transition-all hover:bg-primary-dim"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-transparent border border-primary/20 text-muted-foreground hover:text-foreground hover:border-primary font-bold text-xs uppercase tracking-widest transition-all hover:bg-primary-dim"
                     >
                       <UserPlus size={14} />
                       <span>{tr('registerButton')}</span>
@@ -147,8 +147,8 @@ export function LoginRequiredOverlay({
               </div>
 
               {/* Corner Accents */}
-              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-ait-gold"></div>
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-ait-gold"></div>
+              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-primary"></div>
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-primary"></div>
             </motion.div>
           </DeepVoidBackground>
         </motion.div>

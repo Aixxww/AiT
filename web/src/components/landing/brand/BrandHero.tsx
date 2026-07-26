@@ -13,7 +13,7 @@ export default function BrandHero() {
   }
 
   return (
-    <section className="relative w-full min-h-screen bg-ait-bg text-ait-text overflow-hidden flex flex-col pt-16">
+    <section className="relative w-full min-h-screen bg-background text-foreground overflow-hidden flex flex-col pt-16">
       {/* Top Marquee */}
       <div className="w-full bg-primary text-primary-foreground font-bold py-2 border-y border-black z-20">
         <Marquee speed={40}>
@@ -46,7 +46,7 @@ export default function BrandHero() {
               Autonomous trading agents. High-frequency execution.
               <br />
               Institutional-grade strategies for the
-              <span className="text-foreground font-bold ml-2 bg-ait-accent px-2 py-0.5">
+              <span className="text-foreground font-bold ml-2 bg-accent px-2 py-0.5">
                 DEGENERATES
               </span>
               .
@@ -77,7 +77,7 @@ export default function BrandHero() {
                 SYSTEM ONLINE
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-ait-accent rounded-full" />
+                <div className="w-2 h-2 bg-accent rounded-full" />
                 VP v2.4.0
               </div>
             </div>
@@ -87,8 +87,8 @@ export default function BrandHero() {
         {/* Right Visual - Agent Terminal */}
         <div className="flex-1 relative overflow-visible flex items-center justify-center py-8 lg:py-0 min-h-[600px]">
           {/* Background gradient orbs */}
-          <div className="absolute top-1/2 right-[15%] -translate-y-1/2 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-ait-gold/20 via-ait-gold/5 to-transparent blur-[80px]" />
-          <div className="absolute top-[25%] right-[35%] w-[250px] h-[250px] rounded-full bg-ait-accent/10 blur-[60px]" />
+          <div className="absolute top-1/2 right-[15%] -translate-y-1/2 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-primary/20 via-primary/5 to-transparent blur-[80px]" />
+          <div className="absolute top-[25%] right-[35%] w-[250px] h-[250px] rounded-full bg-accent/10 blur-[60px]" />
 
           {/* Subtle dot grid */}
           <div

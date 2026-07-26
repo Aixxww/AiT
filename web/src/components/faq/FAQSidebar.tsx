@@ -46,8 +46,8 @@ export function FAQSidebar({
                       onClick={() => onItemClick(category.id, item.id)}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all border-l-[3px] ${
                         isActive
-                          ? 'bg-primary-dim text-primary border-ait-gold pl-[9px]'
-                          : 'bg-transparent text-muted-foreground border-transparent pl-3 hover:bg-primary/5 hover:text-ait-text-main'
+                          ? 'bg-primary-dim text-primary border-primary pl-[9px]'
+                          : 'bg-transparent text-muted-foreground border-transparent pl-3 hover:bg-primary/5 hover:text-foreground'
                       }`}
                     >
                       {t(item.questionKey, language)}

@@ -171,7 +171,7 @@ export function SetupPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                   placeholder={l.emailPlaceholder}
                   required
                   autoFocus
@@ -188,7 +188,7 @@ export function SetupPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-ait-gold/60 focus:ring-1 focus:ring-ait-gold/30 transition-all"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                     placeholder={l.passwordPlaceholder}
                     required
                   />
