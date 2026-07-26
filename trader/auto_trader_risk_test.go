@@ -1014,6 +1014,38 @@ func TestHunterV7ExecutionGuardRejectsWhaleFlowLongAboveZoneLimit(t *testing.T) 
 	}
 }
 
+// Pins the whale-flow LONG entry doctrine after the contradictory mid-price
+// gate was removed: low-in-zone entries with strong buy flow must pass, the
+// 45% zone cap and the 0.56 taker floor must each still block on their own.
+// Before the fix the three gates jointly excluded every price, so the passing
+// case here is the regression sentinel.
+func TestHunterV7WhaleFlowGuardAcceptsLowZoneStrongFlow(t *testing.T) {
+	candidate := &kernel.CandidateCoin{
+		Symbol:      "WHALEUSDT",
+		Direction:   "LONG",
+		V7SetupType: "whale_flow_reversal",
+		V7EntryZone: local.V7PriceZone{Lower: 1.00, Upper: 1.10},
+		V7DerivativesCtx: &local.V7DerivativesContext{
+			TakerBuy15m: 0.58,
+		},
+	}
+	decision := &kernel.Decision{Symbol: "WHALEUSDT", Action: "open_long"}
+
+	// Zone position 30%, strong taker: the doctrine-conform entry must pass.
+	if err := validateHunterV7WhaleFlowGuard(candidate, decision, 1.03); err != nil {
+		t.Fatalf("low-zone strong-flow whale long should pass, got: %v", err)
+	}
+	// Zone position 80%: capped.
+	if err := validateHunterV7WhaleFlowGuard(candidate, decision, 1.08); err == nil || !strings.Contains(err.Error(), "exceeds 45") {
+		t.Fatalf("expected zone cap rejection, got: %v", err)
+	}
+	// Weak taker at a valid zone position: flow floor blocks.
+	candidate.V7DerivativesCtx.TakerBuy15m = 0.52
+	if err := validateHunterV7WhaleFlowGuard(candidate, decision, 1.03); err == nil || !strings.Contains(err.Error(), "below 0.560") {
+		t.Fatalf("expected taker floor rejection, got: %v", err)
+	}
+}
+
 func TestHunterV7LiveOpenGuardRejectsShortReasoningDirectionConflict(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"

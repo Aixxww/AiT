@@ -1997,6 +1997,17 @@ func applyHunterV7RiskSizingPolicy(candidate *kernel.CandidateCoin, decision *ke
 	}
 }
 
+// validateHunterV7WhaleFlowGuard enforces the whale-flow LONG entry doctrine:
+// buy the accumulation zone low (position <= 45%) with strong buy flow
+// (taker_buy_15m >= 0.56) as the confirmation leg.
+//
+// A third gate ("price must be above the zone mid") shipped alongside these
+// two in 4f8c797 and jointly excluded the entire price range — with valid
+// zone data a whale LONG could never open (<=45% implies below mid; >=50%
+// trips the 45% cap). The 2026-07-27 six-round live trial confirmed the
+// contradiction in production, and the mid gate was removed in favor of the
+// accumulation-entry doctrine the module, the tier rules and prompt policy #8
+// all encode.
 func validateHunterV7WhaleFlowGuard(candidate *kernel.CandidateCoin, decision *kernel.Decision, price float64) error {
 	if candidate == nil || decision == nil || candidate.V7SetupType != "whale_flow_reversal" || decision.Action != "open_long" {
 		return nil
@@ -2009,11 +2020,6 @@ func validateHunterV7WhaleFlowGuard(candidate *kernel.CandidateCoin, decision *k
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: taker_buy_15m %.3f below 0.560",
 			decision.Symbol, taker)
 	}
-	mid := hunterV7EntryZoneMidPrice(candidate)
-	if mid > 0 && price < mid {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: price %.8f below entry-zone mid %.8f",
-			decision.Symbol, price, mid)
-	}
 	return nil
 }
 
@@ -2025,13 +2031,6 @@ func hunterV7CandidateTakerBuy15m(candidate *kernel.CandidateCoin) float64 {
 		return candidate.V7DerivativesCtx.TakerBuy15m
 	}
 	return 0
-}
-
-func hunterV7EntryZoneMidPrice(candidate *kernel.CandidateCoin) float64 {
-	if candidate == nil || candidate.V7EntryZone.Lower <= 0 || candidate.V7EntryZone.Upper <= candidate.V7EntryZone.Lower {
-		return 0
-	}
-	return (candidate.V7EntryZone.Lower + candidate.V7EntryZone.Upper) / 2
 }
 
 func containsStringValue(values []string, want string) bool {
