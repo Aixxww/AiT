@@ -226,9 +226,11 @@ export function CompetitionPage() {
                               index === 0
                                 ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)'
                                 : index === 1
-                                  ? 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 100%)'
+                                  ? // eslint-disable-next-line no-restricted-syntax -- silver medal gradient, decorative constant
+                                    'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 100%)'
                                   : index === 2
-                                    ? 'linear-gradient(135deg, #CD7F32 0%, #E8A64C 100%)'
+                                    ? // eslint-disable-next-line no-restricted-syntax -- bronze medal gradient, decorative constant
+                                      'linear-gradient(135deg, #CD7F32 0%, #E8A64C 100%)'
                                     : 'var(--color-border)',
                             color:
                               index < 3

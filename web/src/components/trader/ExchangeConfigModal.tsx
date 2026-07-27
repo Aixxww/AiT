@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { getExchangeIcon } from '../common/ExchangeIcons'
 
 // Hyperliquid brand identity color (third-party brand, exempt from the token system)
+// eslint-disable-next-line no-restricted-syntax -- third-party brand color, not a theme color
 const HYPERLIQUID_MINT = '#7FE7CC'
 import {
   TwoStageKeyModal,

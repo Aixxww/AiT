@@ -78,12 +78,92 @@ export default [
       'react/no-unescaped-entities': 'off',
 
       // 可视情况关闭依赖数组校验（如需严格可改为 'warn'）
-      'react-hooks/exhaustive-deps': 'off'
+      'react-hooks/exhaustive-deps': 'off',
+
+      // ------------------------------------------------------------------
+      // Design-token guard (frontend-design-overhaul-proposal-20260727 §P2.5)
+      // Blocks new hardcoded hex colors, raw Tailwind palette classes and
+      // legacy ait-* alias classes so the P0 token cleanup cannot regress.
+      // Whitelisted palette/branding files are exempted in the override
+      // block below; one-off third-party brand colors use inline disables.
+      // ------------------------------------------------------------------
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Literal[value=/#(?!(?:[fF]{6}|0{6})\\b)[0-9a-fA-F]{6}\\b/]',
+          message:
+            'Hardcoded hex color. Use a semantic token (var(--color-*) or a semantic Tailwind class). Palette data files are whitelisted in eslint.config.js.'
+        },
+        {
+          selector: 'Literal[value=/#[0-9a-fA-F]{8}\\b/]',
+          message:
+            'Hardcoded hex color with alpha. Use a semantic token, e.g. color-mix(in srgb, var(--color-*) N%, transparent).'
+        },
+        {
+          selector: 'Literal[value=/^#(?![fF]{3}$|0{3}$)[0-9a-fA-F]{3,4}$/]',
+          message:
+            'Hardcoded short hex color. Use a semantic token (var(--color-*)).'
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/#(?!(?:[fF]{6}|0{6})\\b)[0-9a-fA-F]{6}\\b/]',
+          message:
+            'Hardcoded hex color in template literal. Use a semantic token (var(--color-*)).'
+        },
+        {
+          selector: 'TemplateElement[value.raw=/#[0-9a-fA-F]{8}\\b/]',
+          message:
+            'Hardcoded hex color with alpha in template literal. Use a semantic token.'
+        },
+        {
+          selector:
+            'Literal[value=/(?:text|bg|border|ring|from|to|via|shadow|fill|stroke|divide|outline|decoration|accent|caret|placeholder)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}(?![0-9])/]',
+          message:
+            'Raw Tailwind palette class. Use the semantic scale instead (profit/loss/warning/info/primary/muted/surface/panel/...).'
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/(?:text|bg|border|ring|from|to|via|shadow|fill|stroke|divide|outline|decoration|accent|caret|placeholder)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}(?![0-9])/]',
+          message:
+            'Raw Tailwind palette class in template literal. Use the semantic scale instead.'
+        },
+        {
+          selector:
+            'Literal[value=/\\bait-(?:gold|bg|accent|text|success|danger)/]',
+          message:
+            'Legacy ait-* alias class. The compatibility aliases were removed in P0.3a; use the semantic token class directly.'
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/\\bait-(?:gold|bg|accent|text|success|danger)/]',
+          message:
+            'Legacy ait-* alias class in template literal. Use the semantic token class directly.'
+        }
+      ]
     },
     settings: {
       react: {
         version: 'detect'
       }
+    }
+  },
+  {
+    // Design-token guard whitelist (proposal §P0.3 口径): these files carry
+    // programmatic palettes or brand/marketing colors that are data, not UI
+    // theme styling. The landing page keeps its fixed dark mockup styling.
+    files: [
+      'src/utils/chartTheme.ts',
+      'src/utils/traderColors.ts',
+      'src/components/common/PunkAvatar.tsx',
+      'src/components/common/ModelIcons.tsx',
+      'src/components/common/ExchangeIcons.tsx',
+      'src/components/charts/AdvancedChart.tsx',
+      'src/pages/SettingsPage.tsx',
+      'src/components/landing/**/*'
+    ],
+    rules: {
+      'no-restricted-syntax': 'off'
     }
   }
 ]
