@@ -1171,6 +1171,28 @@ export const translations = {
       all: 'All',
     },
 
+    // Hunter v7 signal panel
+    v7Signals: {
+      title: 'V7 Signals',
+      cycle: 'Cycle',
+      refresh: 'Refresh',
+      loading: 'Loading signals...',
+      loadFailed: 'Failed to load signals',
+      loadFailedHint: 'The backend may be offline',
+      empty: 'No signals in the latest cycle',
+      emptyHint: 'Signals appear after the next Hunter v7 scan',
+      rejectedCount: '{count} rejected',
+      scoreAiPriority: 'AI PRI',
+      scoreSetup: 'SETUP',
+      scoreTiming: 'TIMING',
+      scoreRisk: 'RISK',
+      entryZone: 'Entry Zone',
+      zonePosition: 'zone',
+      invalidation: 'INVALID',
+      hardConfirms: 'HARD',
+      reviewConfirms: 'REVIEW',
+    },
+
     // TraderDashboardPage
     traderDashboard: {
       connectionFailed: 'Connection Failed',
@@ -2548,6 +2570,28 @@ export const translations = {
       all: '全部',
     },
 
+    // Hunter v7 信号面板
+    v7Signals: {
+      title: 'V7 信号',
+      cycle: '轮次',
+      refresh: '刷新',
+      loading: '正在加载信号...',
+      loadFailed: '信号加载失败',
+      loadFailedHint: '后端服务可能未启动',
+      empty: '最新一轮没有信号',
+      emptyHint: '信号将在下一轮 Hunter v7 扫描后出现',
+      rejectedCount: '{count} 个已否决',
+      scoreAiPriority: 'AI优先级',
+      scoreSetup: '形态',
+      scoreTiming: '时机',
+      scoreRisk: '风险',
+      entryZone: '入场区间',
+      zonePosition: '区间位置',
+      invalidation: '失效价',
+      hardConfirms: '硬确认',
+      reviewConfirms: '复核确认',
+    },
+
     traderDashboard: {
       connectionFailed: '无法连接到服务器',
       connectionFailedDesc: '请确认后端服务已启动。',
@@ -3865,6 +3909,28 @@ export const translations = {
       '7d': '7H',
       '30d': '30H',
       all: 'Semua',
+    },
+
+    // Panel sinyal Hunter v7
+    v7Signals: {
+      title: 'Sinyal V7',
+      cycle: 'Siklus',
+      refresh: 'Segarkan',
+      loading: 'Memuat sinyal...',
+      loadFailed: 'Gagal memuat sinyal',
+      loadFailedHint: 'Backend mungkin sedang offline',
+      empty: 'Tidak ada sinyal pada siklus terbaru',
+      emptyHint: 'Sinyal akan muncul setelah pemindaian Hunter v7 berikutnya',
+      rejectedCount: '{count} ditolak',
+      scoreAiPriority: 'PRI AI',
+      scoreSetup: 'SETUP',
+      scoreTiming: 'TIMING',
+      scoreRisk: 'RISIKO',
+      entryZone: 'Zona Masuk',
+      zonePosition: 'zona',
+      invalidation: 'INVALID',
+      hardConfirms: 'HARD',
+      reviewConfirms: 'REVIEW',
     },
 
     traderDashboard: {

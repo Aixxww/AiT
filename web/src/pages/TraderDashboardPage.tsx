@@ -36,6 +36,11 @@ const SquareHeatPanel = lazy(() =>
     default: m.SquareHeatPanel,
   }))
 )
+const SignalPanel = lazy(() =>
+  import('../components/hunter/SignalPanel').then((m) => ({
+    default: m.SignalPanel,
+  }))
+)
 
 // --- Helper Functions ---
 
@@ -1034,6 +1039,16 @@ export function TraderDashboardPage({
             </div>
           </div>
         </div>
+
+        {/* Hunter v7 Signal Panel — own collapsible tier, below the
+            positions/decisions main view so it never squeezes them */}
+        {mountDeferredPanels && (
+          <div className="mb-6 animate-slide-in">
+            <Suspense fallback={null}>
+              <SignalPanel language={language} refreshInterval={60000} />
+            </Suspense>
+          </div>
+        )}
 
         {/* Position History Section */}
         {selectedTraderId && mountDeferredPanels && (
