@@ -5,6 +5,7 @@ import { DecisionCard } from '../components/trader/DecisionCard'
 import { PunkAvatar, getTraderAvatar } from '../components/common/PunkAvatar'
 import { confirmToast, notify } from '../lib/notify'
 import { formatPrice, formatQuantity } from '../utils/format'
+import { useFlashOnChange, flashClass } from '../hooks/useFlashOnChange'
 import { t, type Language } from '../i18n/translations'
 import { LogOut, Loader2, Eye, EyeOff, Copy, Check } from 'lucide-react'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
@@ -824,12 +825,7 @@ export function TraderDashboardPage({
                               {pos.leverage}x
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right">
-                              <span
-                                className={`font-bold ${pos.unrealized_pnl >= 0 ? 'text-profit' : 'text-loss'}`}
-                              >
-                                {pos.unrealized_pnl >= 0 ? '+' : ''}
-                                {pos.unrealized_pnl.toFixed(2)}
-                              </span>
+                              <PnLCell value={pos.unrealized_pnl} />
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-muted-foreground hidden md:table-cell">
                               {formatPrice(pos.liquidation_price)}
@@ -1066,6 +1062,20 @@ export function TraderDashboardPage({
 }
 
 // Stat Card Component - Deep Void Style
+// Live PnL cell: flashes its background on value change (the sanctioned
+// data-driven motion), semantic color on the number itself.
+function PnLCell({ value }: { value: number }) {
+  const flash = useFlashOnChange(value)
+  return (
+    <span
+      className={`inline-block rounded px-1 font-bold ${value >= 0 ? 'text-profit' : 'text-loss'} ${flashClass(flash)}`}
+    >
+      {value >= 0 ? '+' : ''}
+      {value.toFixed(2)}
+    </span>
+  )
+}
+
 // Account overview stat. The anchor number of the console: static surface,
 // no hover motion, no watermark — label / value / delta three-level
 // hierarchy, semantic color on the PnL delta only.

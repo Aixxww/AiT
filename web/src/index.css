@@ -242,6 +242,36 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Flash-on-change: background pulse that decays — the only sanctioned
+   data-driven motion for live numbers */
+@keyframes flash-up {
+  0% {
+    background-color: color-mix(in srgb, var(--color-profit) 18%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-down {
+  0% {
+    background-color: color-mix(in srgb, var(--color-loss) 18%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-up {
+  animation: flash-up 0.4s ease-out;
+}
+
+.flash-down {
+  animation: flash-down 0.4s ease-out;
+}
+
 /* Buttons: no decorative motion — feedback comes from color/border only */
 button {
   transition:
