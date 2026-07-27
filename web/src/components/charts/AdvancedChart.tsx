@@ -19,7 +19,7 @@ import {
   calculateBollingerBands,
   type Kline,
 } from '../../utils/indicators'
-import { Settings, BarChart2 } from 'lucide-react'
+import { Settings, BarChart2, AlertTriangle } from 'lucide-react'
 
 // Order marker interface
 interface OrderMarker {
@@ -247,7 +247,7 @@ export function AdvancedChart({
       if (time > 1000000000000) {
         const seconds = Math.floor(time / 1000)
         console.log(
-          '[AdvancedChart] ✅ Unix timestamp (ms→s):',
+          '[AdvancedChart] Unix timestamp (ms→s):',
           time,
           '→',
           seconds,
@@ -258,7 +258,7 @@ export function AdvancedChart({
         return seconds
       }
       console.log(
-        '[AdvancedChart] ✅ Unix timestamp (s):',
+        '[AdvancedChart] Unix timestamp (s):',
         time,
         '(',
         new Date(time * 1000).toISOString(),
@@ -275,7 +275,7 @@ export function AdvancedChart({
     if (!isNaN(isoTime) && isoTime > 0) {
       const timestamp = Math.floor(isoTime / 1000)
       console.log(
-        '[AdvancedChart] ✅ Parsed as ISO:',
+        '[AdvancedChart] Parsed as ISO:',
         timeStr,
         '→',
         timestamp,
@@ -302,7 +302,7 @@ export function AdvancedChart({
       )
       const timestamp = Math.floor(date.getTime() / 1000)
       console.log(
-        '[AdvancedChart] ✅ Parsed as custom format:',
+        '[AdvancedChart] Parsed as custom format:',
         timeStr,
         '→',
         timestamp,
@@ -313,7 +313,7 @@ export function AdvancedChart({
       return timestamp
     }
 
-    console.error('[AdvancedChart] ❌ Failed to parse time:', timeStr)
+    console.error('[AdvancedChart] Failed to parse time:', timeStr)
     return 0
   }
 
@@ -776,7 +776,7 @@ export function AdvancedChart({
 
               if (candleTime === null) {
                 console.warn(
-                  '[AdvancedChart] ⚠️ Skipping order outside kline range:',
+                  '[AdvancedChart] Skipping order outside kline range:',
                   order.time,
                   '(',
                   new Date(order.time * 1000).toISOString(),
@@ -870,13 +870,13 @@ export function AdvancedChart({
                 )
               }
               console.log(
-                '[AdvancedChart] ✅ Markers updated! Count:',
+                '[AdvancedChart] Markers updated! Count:',
                 markersToShow.length,
                 'Visible:',
                 showOrderMarkers
               )
             } catch (err) {
-              console.error('[AdvancedChart] ❌ Failed to set markers:', err)
+              console.error('[AdvancedChart] Failed to set markers:', err)
             }
           } else {
             console.log('[AdvancedChart] No orders found, clearing markers')
@@ -982,7 +982,7 @@ export function AdvancedChart({
             }
           })
           console.log(
-            '[AdvancedChart] ✅ Created',
+            '[AdvancedChart] Created',
             priceLinesRef.current.length,
             'price lines for pending orders'
           )
@@ -1014,13 +1014,13 @@ export function AdvancedChart({
         : []
       seriesMarkersRef.current.setMarkers(markersToShow)
       console.log(
-        '[AdvancedChart] 🔄 Toggled markers visibility:',
+        '[AdvancedChart] Toggled markers visibility:',
         showOrderMarkers,
         'Count:',
         markersToShow.length
       )
     } catch (err) {
-      console.error('[AdvancedChart] ❌ Failed to toggle markers:', err)
+      console.error('[AdvancedChart] Failed to toggle markers:', err)
     }
   }, [showOrderMarkers])
 
@@ -1472,7 +1472,7 @@ export function AdvancedChart({
           style={{ background: 'var(--color-background)' }}
         >
           <div className="text-center">
-            <div className="text-2xl mb-2">⚠️</div>
+            <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-warning" />
             <div style={{ color: 'var(--color-loss)' }}>{error}</div>
           </div>
         </div>

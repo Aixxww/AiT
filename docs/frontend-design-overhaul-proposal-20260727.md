@@ -334,7 +334,13 @@ P0 全量 + P1 部分已实施（分 9 个提交）。验收快照：
 | 含 emoji 的 tsx | 27 | 17（DecisionCard/StatCard 等结构性图标已 lucide 化；其余为 P1.7 存量） |
 | 构建/测试/lint | 116 tests | 116 tests 全绿、lint 0 warning |
 
-已实施的 P1 项：P1.1 tier token + `SignalTierBadge`/`VetoChip`（设计合同）、P1.3 StatCard 重做、P1.4 核心（DecisionCard 置信度灰阶/成败图标化/嵌套 button 修复/emoji 清除）、P1.5 持仓表排版、P1.6 flash-on-change（uPnL）。未实施：P1.2 信号面板骨架（等 v7 后端字段契约）、StatCard stale 态（需接数据新鲜度信号）、P1.7 剩余 17 文件 emoji、P2 全部。
+已实施的 P1 项：P1.1 tier token + `SignalTierBadge`/`VetoChip`（设计合同）、P1.3 StatCard 重做、P1.4 核心（DecisionCard 置信度灰阶/成败图标化/嵌套 button 修复/emoji 清除）、P1.5 持仓表排版、P1.6 flash-on-change（uPnL）。未实施：P2 全部。
+
+**P1 收尾（2026-07-27 第二批）**：
+- **P1.2 信号面板** ✅：后端新增只读 `GET /api/hunter/v7/signals?limit=N`（store `RecentSignals` + RawJSON 重水合完整 `V7SignalOutput`，无快照的存量行由平铺列回建契约形状）；前端 `components/hunter/SignalPanel.tsx` 挂入看板主视区下方独立折叠区——最新 cycle 按 tier 分组：EXECUTABLE/REVIEWABLE 展开卡片（分数四联、zone 位置条、确认状态 + RR、taker 阶梯 chips、risk_tags）、WATCH 低亮度单行摘要、REJECTED 折叠为计数 + 聚合 veto chips（可展开）；空态/加载态/后端未启动态齐备，60s 轮询 + 手动刷新；tier 严格金/青/灰/暗灰，方向徽章独立绿红。
+- **StatCard stale 态** ✅：AppRoutes 在 account SWR `onSuccess` 记录取数时刻（deep-equal 时引用不变也会触发），看板 15s ticker 判定 >60s 未成功取数 → 数值灰化 + warning 边框 + STALE 标签（PnL delta 同灰）。
+- **P1.7 emoji 清零** ✅：`web/src` tsx 内 emoji 命中 0（此前 26 文件 ~158 处）。结构性图标全部 lucide 化；终端 mockup `➜`→`$`、`✓`→`[OK]`；console.log 前缀 emoji 删除；LLM prompt 模板/选币摘要串中的 emoji 一并去除；AgentChatPage 的 `🗺️` 协议前缀改为 `🗺` 转义（解析契约保留、源码无字面 emoji）。
+- 门禁：go build + go test ./api/ ./store/ 全绿；web build + lint 0 warning + 130 tests（116 → 新增 SignalPanel 12 + StatCard stale 2）全绿。
 
 ## 附录 B：本次审阅精读文件清单
 

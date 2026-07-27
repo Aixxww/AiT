@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import type { TraderConfigData } from '../../types'
 import { t } from '../../i18n/translations'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -97,7 +98,7 @@ export function TraderConfigViewModal({
               onClick={onClose}
               className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -107,7 +108,7 @@ export function TraderConfigViewModal({
           {/* Basic Info */}
           <div className="bg-background border border-[var(--color-border)] rounded-lg p-5">
             <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              {'🤖 ' + t('traderConfigView.basicInfo', language)}
+              {t('traderConfigView.basicInfo', language)}
             </h3>
             <div className="space-y-3">
               <InfoRow
@@ -147,7 +148,7 @@ export function TraderConfigViewModal({
           {traderData.strategy_id && (
             <div className="bg-background border border-[var(--color-border)] rounded-lg p-5">
               <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                {'📋 ' + t('traderConfigView.strategyUsed', language)}
+                {t('traderConfigView.strategyUsed', language)}
               </h3>
               <div className="space-y-3">
                 <InfoRow

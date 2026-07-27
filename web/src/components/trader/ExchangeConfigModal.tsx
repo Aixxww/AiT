@@ -26,6 +26,8 @@ import {
   Check,
   Copy,
   ArrowRight,
+  X,
+  Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Tooltip } from './Tooltip'
@@ -607,7 +609,7 @@ export function ExchangeConfigModal({
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1027,7 +1029,7 @@ export function ExchangeConfigModal({
                     }}
                   >
                     <div className="flex items-start gap-2">
-                      <span style={{ fontSize: '16px' }}>🔐</span>
+                      <Lock className="w-4 h-4 shrink-0" />
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"
@@ -1127,7 +1129,7 @@ export function ExchangeConfigModal({
                     }}
                   >
                     <div className="flex items-start gap-2">
-                      <span style={{ fontSize: '16px' }}>🔐</span>
+                      <Lock className="w-4 h-4 shrink-0" />
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"
@@ -1210,7 +1212,7 @@ export function ExchangeConfigModal({
                     }}
                   >
                     <div className="flex items-start gap-2">
-                      <span style={{ fontSize: '16px' }}>🔐</span>
+                      <Lock className="w-4 h-4 shrink-0" />
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"

@@ -482,7 +482,7 @@ export function GridConfigEditor({
                 className="text-xs font-medium mb-2"
                 style={{ color: 'var(--color-primary)' }}
               >
-                📊 {ts(gridConfig.directionModes, language)}
+                {ts(gridConfig.directionModes, language)}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div>• {ts(gridConfig.modeNeutral, language)}</div>
@@ -512,7 +512,7 @@ export function GridConfigEditor({
                 </div>
               </div>
               <p className="text-xs mt-3 pt-2 border-t border-border text-muted-foreground">
-                💡 {ts(gridConfig.directionExplain, language)}
+                {ts(gridConfig.directionExplain, language)}
               </p>
             </div>
 

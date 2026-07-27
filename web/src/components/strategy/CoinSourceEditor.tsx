@@ -74,7 +74,7 @@ export function CoinSourceEditor({
       totalLimit += config.static_coins?.length || 0
     }
     if (config.use_square_heat) {
-      sources.push(`🔥SQ(${config.square_heat_limit || 10})`)
+      sources.push(`SQ(${config.square_heat_limit || 10})`)
       totalLimit += config.square_heat_limit || 10
     }
     if (config.use_hunter) {
@@ -84,7 +84,7 @@ export function CoinSourceEditor({
           : config.hunter_direction === 'SHORT'
             ? '↓'
             : ''
-      sources.push(`🎯HN${dirBadge}(${config.hunter_limit || 10})`)
+      sources.push(`HN${dirBadge}(${config.hunter_limit || 10})`)
       totalLimit += config.hunter_limit || 10
     }
 
@@ -708,7 +708,7 @@ export function CoinSourceEditor({
                             : 'bg-background text-muted-foreground border border-ait-border hover:border-info/30'
                         }`}
                       >
-                        {language === 'zh' ? '🎯 默认模式' : '🎯 Default'}
+                        {language === 'zh' ? '默认模式' : 'Default'}
                       </button>
                       <button
                         onClick={() =>
@@ -728,7 +728,7 @@ export function CoinSourceEditor({
                             : 'bg-background text-muted-foreground border border-ait-border hover:border-warning/30'
                         }`}
                       >
-                        {language === 'zh' ? '🔥 妖币猎杀' : '🔥 Breakout'}
+                        {language === 'zh' ? '妖币猎杀' : 'Breakout'}
                       </button>
                     </div>
                   </div>

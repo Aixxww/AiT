@@ -105,7 +105,7 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
             fontSize: 24,
           }}
         >
-          ⚡
+          <Zap className="w-6 h-6 text-primary" />
         </div>
         <h1
           style={{

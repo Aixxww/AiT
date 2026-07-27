@@ -27,7 +27,7 @@ const defaultSections: PromptSectionsConfig = {
 - 单笔持仓时间≥30-60分钟
 如果你发现自己每个周期都在交易 → 标准过低；若持仓<30分钟就平仓 → 过于急躁。`,
 
-  entry_standards: `# 🎯 开仓标准（严格）
+  entry_standards: `# 开仓标准（严格）
 
 只在多重信号共振时开仓：
 - 趋势方向明确（EMA排列、价格位置）
@@ -37,7 +37,7 @@ const defaultSections: PromptSectionsConfig = {
 
 避免：单一指标、信号矛盾、横盘震荡、刚平仓即重启。`,
 
-  decision_process: `# 📋 决策流程
+  decision_process: `# 决策流程
 
 1. 检查持仓 → 是否该止盈/止损
 2. 扫描候选币 + 多时间框 → 是否存在强信号

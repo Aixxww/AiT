@@ -273,7 +273,7 @@ export function CandlestickChartComponent({
                 pnl >= 0
                   ? `+$${pnl.toFixed(2)}`
                   : `-$${Math.abs(pnl).toFixed(2)}`
-              text = `✕ ${pnlStr}`
+              text = `× ${pnlStr}`
               color = pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
             }
 
@@ -432,7 +432,7 @@ export function CandlestickChartComponent({
           <span>{t('backtestChart.lossClose', language)}</span>
         </div>
         <span style={{ color: 'var(--color-muted-fg)' }}>|</span>
-        <span>▲ Long · ▼ Short · ✕ {t('backtestChart.close', language)}</span>
+        <span>▲ Long · ▼ Short · × {t('backtestChart.close', language)}</span>
       </div>
     </div>
   )

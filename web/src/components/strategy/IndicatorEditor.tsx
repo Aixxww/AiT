@@ -852,7 +852,7 @@ export function IndicatorEditor({
                             >
                               {tf.label}
                               {isPrimary && (
-                                <span className="ml-0.5 text-[8px]">★</span>
+                                <span className="ml-0.5 text-[8px]">*</span>
                               )}
                             </button>
                           )

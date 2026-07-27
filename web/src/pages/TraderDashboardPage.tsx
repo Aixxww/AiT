@@ -7,7 +7,18 @@ import { confirmToast, notify } from '../lib/notify'
 import { formatPrice, formatQuantity } from '../utils/format'
 import { useFlashOnChange, flashClass } from '../hooks/useFlashOnChange'
 import { t, type Language } from '../i18n/translations'
-import { LogOut, Loader2, Eye, EyeOff, Copy, Check } from 'lucide-react'
+import {
+  LogOut,
+  Loader2,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  AlertTriangle,
+  BarChart3,
+  Brain,
+  ScrollText,
+} from 'lucide-react'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { AiTSelect } from '../components/ui/select'
 import { GridRiskPanel } from '../components/strategy/GridRiskPanel'
@@ -962,14 +973,14 @@ export function TraderDashboardPage({
                 </div>
               ) : positionsFailed ? (
                 <div className="text-center py-16 text-muted-foreground">
-                  <div className="text-4xl mb-4">⚠️</div>
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-warning" />
                   <div className="text-lg font-semibold mb-2">
                     {t('traderDashboard.positionsFetchFailed', language)}
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-16 text-muted-foreground">
-                  <div className="text-6xl mb-4 opacity-50 grayscale">📊</div>
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <div className="text-lg font-semibold mb-2">
                     {t('noPositions', language)}
                   </div>
@@ -1002,7 +1013,7 @@ export function TraderDashboardPage({
                     'linear-gradient(135deg, var(--color-info) 0%, var(--color-purple) 100%)',
                 }}
               >
-                🧠
+                <Brain className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold text-foreground">
@@ -1045,14 +1056,14 @@ export function TraderDashboardPage({
                 ))
               ) : decisionsFailed ? (
                 <div className="py-16 text-center text-muted-foreground">
-                  <div className="text-4xl mb-4">⚠️</div>
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-warning" />
                   <div className="text-lg font-semibold mb-2">
                     {t('traderDashboard.decisionsFetchFailed', language)}
                   </div>
                 </div>
               ) : (
                 <div className="py-16 text-center text-muted-foreground">
-                  <div className="text-6xl mb-4 opacity-30 grayscale">🧠</div>
+                  <Brain className="w-12 h-12 mx-auto mb-4 opacity-30" />
                   <div className="text-lg font-semibold mb-2 text-foreground">
                     {t('noDecisionsYet', language)}
                   </div>
@@ -1083,7 +1094,7 @@ export function TraderDashboardPage({
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
-                <span className="text-2xl">📜</span>
+                <ScrollText className="w-5 h-5 text-primary" />
                 {t('positionHistory.title', language)}
               </h2>
             </div>

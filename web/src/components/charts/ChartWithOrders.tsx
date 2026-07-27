@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, TrendingUp } from 'lucide-react'
 import {
   createChart,
   IChartApi,
@@ -70,7 +71,7 @@ export function ChartWithOrders({
       if (time > 1000000000000) {
         const seconds = Math.floor(time / 1000)
         console.log(
-          '[ChartWithOrders] ✅ Unix timestamp (ms→s):',
+          '[ChartWithOrders] Unix timestamp (ms→s):',
           time,
           '→',
           seconds,
@@ -81,7 +82,7 @@ export function ChartWithOrders({
         return seconds
       }
       console.log(
-        '[ChartWithOrders] ✅ Unix timestamp (s):',
+        '[ChartWithOrders] Unix timestamp (s):',
         time,
         '(',
         new Date(time * 1000).toISOString(),
@@ -98,7 +99,7 @@ export function ChartWithOrders({
     if (!isNaN(isoTime) && isoTime > 0) {
       const timestamp = Math.floor(isoTime / 1000)
       console.log(
-        '[ChartWithOrders] ✅ Parsed as ISO:',
+        '[ChartWithOrders] Parsed as ISO:',
         timeStr,
         '→',
         timestamp,
@@ -125,7 +126,7 @@ export function ChartWithOrders({
       )
       const timestamp = Math.floor(date.getTime() / 1000)
       console.log(
-        '[ChartWithOrders] ✅ Parsed as custom format:',
+        '[ChartWithOrders] Parsed as custom format:',
         timeStr,
         '→',
         timestamp,
@@ -136,7 +137,7 @@ export function ChartWithOrders({
       return timestamp
     }
 
-    console.error('[ChartWithOrders] ❌ Failed to parse time:', timeStr)
+    console.error('[ChartWithOrders] Failed to parse time:', timeStr)
     return 0
   }
 
@@ -451,7 +452,7 @@ export function ChartWithOrders({
             // Check if aligned time exists in kline data
             if (!klineTimeSet.has(alignedTime)) {
               console.warn(
-                '[ChartWithOrders] ⚠️ Skipping order - no matching kline:',
+                '[ChartWithOrders] Skipping order - no matching kline:',
                 order.time,
                 '→',
                 alignedTime,
@@ -499,9 +500,9 @@ export function ChartWithOrders({
                 markers
               )
             }
-            console.log('[ChartWithOrders] ✅ Markers set successfully!')
+            console.log('[ChartWithOrders] Markers set successfully!')
           } catch (err) {
-            console.error('[ChartWithOrders] ❌ Failed to set markers:', err)
+            console.error('[ChartWithOrders] Failed to set markers:', err)
           }
         }
 
@@ -543,7 +544,7 @@ export function ChartWithOrders({
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-xl">📈</span>
+          <TrendingUp className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-bold text-foreground">
             {symbol} {interval}
           </h3>
@@ -651,7 +652,7 @@ export function ChartWithOrders({
           }}
         >
           <div className="text-center">
-            <div className="text-2xl mb-2">⚠️</div>
+            <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-warning" />
             <div style={{ color: 'var(--color-loss)' }}>{error}</div>
           </div>
         </div>

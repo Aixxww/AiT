@@ -251,7 +251,7 @@ export default function TerminalHero() {
                 ?.scrollIntoView({ behavior: 'smooth' })
             }
           >
-            <span className="text-profit mr-2">➜</span>
+            <span className="text-profit mr-2">$</span>
             <span className="text-accent mr-2">~</span>
             <span className="text-muted-foreground">
               deploy agent --strategy=hft

@@ -1,4 +1,17 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import {
+  Activity,
+  ArrowDownRight,
+  Banknote,
+  BarChart3,
+  Coins,
+  Medal,
+  Scale,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+} from 'lucide-react'
 import { api } from '../../lib/api'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t, type Language } from '../../i18n/translations'
@@ -66,7 +79,7 @@ function StatCard({
   value: string | number
   suffix?: string
   color?: string
-  icon: string
+  icon: ReactNode
   subtitle?: string
   metricKey?: string
   language?: string
@@ -81,7 +94,7 @@ function StatCard({
       }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-lg">{icon}</span>
+        <span className="text-muted-foreground">{icon}</span>
         <span className="text-xs text-muted-foreground">{title}</span>
         {metricKey && (
           <MetricTooltip metricKey={metricKey} language={language} size={12} />
@@ -177,7 +190,13 @@ function DirectionStatsCard({
       }}
     >
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">{isLong ? '📈' : '📉'}</span>
+        <span style={{ color: iconColor }}>
+          {isLong ? (
+            <TrendingUp className="w-5 h-5" />
+          ) : (
+            <TrendingDown className="w-5 h-5" />
+          )}
+        </span>
         <span className="font-bold uppercase" style={{ color: iconColor }}>
           {stat.side || 'Unknown'}
         </span>
@@ -520,7 +539,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           border: '1px solid var(--color-border)',
         }}
       >
-        <div className="text-4xl mb-4">📊</div>
+        <BarChart3 className="w-10 h-10 mx-auto mb-4 opacity-40" />
         <div className="text-lg font-semibold mb-2 text-foreground">
           {t('positionHistory.noHistory', language)}
         </div>
@@ -537,7 +556,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <StatCard
-            icon="📊"
+            icon={<BarChart3 className="w-4 h-4" />}
             title={t('positionHistory.totalTrades', language)}
             value={stats.total_trades || 0}
             subtitle={t('positionHistory.winLoss', language, {
@@ -547,7 +566,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="🎯"
+            icon={<Target className="w-4 h-4" />}
             title={t('positionHistory.winRate', language)}
             value={(stats.win_rate || 0).toFixed(1)}
             suffix="%"
@@ -562,7 +581,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="💰"
+            icon={<Coins className="w-4 h-4" />}
             title={t('positionHistory.totalPnL', language)}
             value={
               ((stats.total_pnl || 0) >= 0 ? '+' : '') +
@@ -578,7 +597,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="📈"
+            icon={<TrendingUp className="w-4 h-4" />}
             title={t('positionHistory.profitFactor', language)}
             value={(stats.profit_factor || 0).toFixed(2)}
             color={
@@ -593,7 +612,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="⚖️"
+            icon={<Scale className="w-4 h-4" />}
             title={t('positionHistory.plRatio', language)}
             value={
               profitLossRatio === Infinity ? '∞' : profitLossRatio.toFixed(2)
@@ -616,7 +635,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <StatCard
-            icon="📉"
+            icon={<Activity className="w-4 h-4" />}
             title={t('positionHistory.sharpeRatio', language)}
             value={(stats.sharpe_ratio || 0).toFixed(2)}
             color={
@@ -631,7 +650,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="🔻"
+            icon={<TrendingDown className="w-4 h-4" />}
             title={t('positionHistory.maxDrawdown', language)}
             value={(stats.max_drawdown_pct || 0).toFixed(1)}
             suffix="%"
@@ -646,7 +665,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="🏆"
+            icon={<Trophy className="w-4 h-4" />}
             title={t('positionHistory.avgWin', language)}
             value={'+' + formatNumber(stats.avg_win || 0)}
             color="var(--color-profit)"
@@ -654,14 +673,14 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             language={language}
           />
           <StatCard
-            icon="💸"
+            icon={<ArrowDownRight className="w-4 h-4" />}
             title={t('positionHistory.avgLoss', language)}
             value={'-' + formatNumber(stats.avg_loss || 0)}
             color="var(--color-loss)"
             language={language}
           />
           <StatCard
-            icon="💵"
+            icon={<Banknote className="w-4 h-4" />}
             title={t('positionHistory.netPnL', language)}
             value={
               ((stats.total_pnl || 0) - (stats.total_fee || 0) >= 0
@@ -703,7 +722,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           }}
         >
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">🏅</span>
+            <Medal className="w-4 h-4 text-primary" />
             <span className="font-semibold text-foreground">
               {t('positionHistory.symbolPerformance', language)}
             </span>

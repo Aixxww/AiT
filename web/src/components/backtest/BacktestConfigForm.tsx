@@ -208,7 +208,7 @@ export function BacktestConfigForm({
                   <option value="">{tr('form.selectAiModel')}</option>
                   {aiModels?.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.provider}) {!m.enabled && '⚠️'}
+                      {m.name} ({m.provider}) {!m.enabled && '(off)'}
                     </option>
                   ))}
                 </select>
@@ -253,7 +253,8 @@ export function BacktestConfigForm({
                   </option>
                   {strategies?.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} {s.is_active && '✓'} {s.is_default && '⭐'}
+                      {s.name} {s.is_active && '(active)'}{' '}
+                      {s.is_default && '(default)'}
                     </option>
                   ))}
                 </select>

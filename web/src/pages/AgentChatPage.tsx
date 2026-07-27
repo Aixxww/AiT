@@ -50,7 +50,9 @@ function appendStep(
 }
 
 function parsePlanSteps(data: string): AgentStep[] {
-  const text = data.replace(/^🗺️\s*(Plan|计划):\s*/i, '').trim()
+  const text = data
+    .replace(/^\uD83D\uDDFA\uFE0F?\s*(Plan|计划):\s*/i, '')
+    .trim()
   if (!text) return []
   return text.split(/\s*->\s*/).map((part, index) => {
     const cleaned = part.replace(/^\d+\./, '').trim()
@@ -439,7 +441,7 @@ export function AgentChatPage() {
             m.id === botId
               ? {
                   ...m,
-                  text: '⚠️ Error: ' + e.message,
+                  text: 'Error: ' + e.message,
                   time: new Date().toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -458,18 +460,18 @@ export function AgentChatPage() {
   const quickActions =
     language === 'zh'
       ? [
-          { label: '💼 持仓', cmd: '/positions' },
-          { label: '💰 余额', cmd: '/balance' },
-          { label: '📋 Traders', cmd: '/traders' },
-          { label: '🧹 清除记忆', cmd: '/clear' },
-          { label: '❓ 帮助', cmd: '/help' },
+          { label: '持仓', cmd: '/positions' },
+          { label: '余额', cmd: '/balance' },
+          { label: 'Traders', cmd: '/traders' },
+          { label: '清除记忆', cmd: '/clear' },
+          { label: '帮助', cmd: '/help' },
         ]
       : [
-          { label: '💼 Positions', cmd: '/positions' },
-          { label: '💰 Balance', cmd: '/balance' },
-          { label: '📋 Traders', cmd: '/traders' },
-          { label: '🧹 Clear', cmd: '/clear' },
-          { label: '❓ Help', cmd: '/help' },
+          { label: 'Positions', cmd: '/positions' },
+          { label: 'Balance', cmd: '/balance' },
+          { label: 'Traders', cmd: '/traders' },
+          { label: 'Clear', cmd: '/clear' },
+          { label: 'Help', cmd: '/help' },
         ]
 
   const sidebarSections = [

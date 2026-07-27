@@ -1,4 +1,5 @@
 import { forwardRef } from 'react'
+import { User, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { AgentStepPanel } from './AgentStepPanel'
 import { renderMessageContent } from './MessageRenderer'
@@ -67,7 +68,11 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     : 'color-mix(in srgb, var(--color-primary) 10%, transparent)'),
               }}
             >
-              {m.role === 'user' ? '👤' : '⚡'}
+              {m.role === 'user' ? (
+                <User className="w-4 h-4" />
+              ) : (
+                <Zap className="w-4 h-4" />
+              )}
             </div>
 
             {/* Message content */}

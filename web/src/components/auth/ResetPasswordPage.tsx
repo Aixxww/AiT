@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { Header } from '../common/Header'
-import { ArrowLeft, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, KeyRound, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import PasswordChecklist from 'react-password-checklist'
 import { Input } from '../ui/input'
 import { toast } from 'sonner'
@@ -104,7 +104,7 @@ export function ResetPasswordPage() {
           >
             {success ? (
               <div className="text-center py-8">
-                <div className="text-5xl mb-4">✅</div>
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-foreground" />
                 <p className="text-lg font-semibold mb-2 text-foreground">
                   {t('resetPasswordSuccess', language)}
                 </p>

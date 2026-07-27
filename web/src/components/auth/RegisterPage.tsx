@@ -162,20 +162,20 @@ export function RegisterPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-profit/50"></div>
             </div>
             <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
-              <span className="text-profit">➜</span> setup_account.sh
+              <span className="text-profit">$</span> setup_account.sh
             </div>
           </div>
 
           <div className="p-6 md:p-8 relative">
             <div className="mb-6 font-mono text-xs space-y-1 text-muted-foreground border-b border-border/50 pb-4">
               <div className="flex gap-2">
-                <span className="text-profit">➜</span>
+                <span className="text-profit">$</span>
                 <span>
                   System Check: <span className="text-profit">READY</span>
                 </span>
               </div>
               <div className="flex gap-2">
-                <span className="text-profit">➜</span>
+                <span className="text-profit">$</span>
                 <span>Mode: {betaMode ? 'CLOSED_BETA CA1' : 'PUBLIC'}</span>
               </div>
             </div>

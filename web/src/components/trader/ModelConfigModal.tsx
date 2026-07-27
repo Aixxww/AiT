@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Trash2, Brain, ExternalLink } from 'lucide-react'
+import {
+  Trash2,
+  Brain,
+  ExternalLink,
+  X,
+  Link2,
+  Check,
+  XCircle,
+  Lock,
+  Coins,
+  Copy,
+  AlertTriangle,
+} from 'lucide-react'
 import type { AIModel } from '../../types'
 import type { Language } from '../../i18n/translations'
 import { t } from '../../i18n/translations'
@@ -162,7 +174,7 @@ export function ModelConfigModal({
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -328,7 +340,7 @@ function ModelSelectionStep({
                   color: 'white',
                 }}
               >
-                {'🔥 ' + t('modelConfig.recommended', language)}
+                {t('modelConfig.recommended', language)}
               </div>
             </div>
           </div>
@@ -672,7 +684,7 @@ function Claw402ConfigForm({
               color: 'var(--color-info)',
             }}
           >
-            <span>🔗</span>
+            <Link2 className="w-3.5 h-3.5" />
             {testing
               ? t('modelConfig.testingConnection', language)
               : t('modelConfig.testConnection', language)}
@@ -765,7 +777,7 @@ function Claw402ConfigForm({
                     className="text-[10px] mt-1"
                     style={{ color: 'var(--color-info)' }}
                   >
-                    ✓
+                    <Check className="w-3 h-3" />
                   </span>
                 )}
               </button>
@@ -923,7 +935,7 @@ function Claw402ConfigForm({
                   cursor: 'pointer',
                 }}
               >
-                {language === 'zh' ? '🔑 创建钱包' : '🔑 Create Wallet'}
+                {language === 'zh' ? '创建钱包' : 'Create Wallet'}
               </button>
             )}
           </div>
@@ -943,7 +955,6 @@ function Claw402ConfigForm({
                 className="text-xs font-bold mb-2"
                 style={{ color: 'var(--color-loss)' }}
               >
-                🚨{' '}
                 {language === 'zh'
                   ? '重要：请立即备份私钥！'
                   : 'Important: Backup your private key NOW!'}
@@ -982,24 +993,24 @@ function Claw402ConfigForm({
                     cursor: 'pointer',
                   }}
                 >
-                  {copiedAddr ? '✅ Copied' : '📋 Copy Key'}
+                  {copiedAddr ? 'Copied' : 'Copy Key'}
                 </button>
               </div>
               <div className="text-[10px] space-y-1 text-muted-foreground">
                 <div>
-                  ✅{' '}
+                  •{' '}
                   {language === 'zh'
                     ? '建议保存到密码管理器（1Password / Bitwarden）'
                     : 'Save to a password manager (1Password / Bitwarden)'}
                 </div>
                 <div>
-                  ✅{' '}
+                  •{' '}
                   {language === 'zh'
                     ? '或抄在纸上放安全的地方'
                     : 'Or write it down and store it safely'}
                 </div>
                 <div>
-                  ❌{' '}
+                  •{' '}
                   {language === 'zh'
                     ? '不要截图发给别人'
                     : 'Do NOT screenshot or share with anyone'}
@@ -1009,7 +1020,7 @@ function Claw402ConfigForm({
           )}
 
           <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <span className="mt-px">🔒</span>
+            <Lock className="w-3 h-3 mt-px shrink-0" />
             <span>{t('modelConfig.privateKeyNote', language)}</span>
           </div>
         </div>
@@ -1034,7 +1045,7 @@ function Claw402ConfigForm({
                 className="flex items-center gap-2 text-xs"
                 style={{ color: 'var(--color-loss)' }}
               >
-                <span>❌</span>
+                <XCircle className="w-3.5 h-3.5 shrink-0" />
                 {keyError}
               </div>
             )}
@@ -1074,7 +1085,11 @@ function Claw402ConfigForm({
                         cursor: 'pointer',
                       }}
                     >
-                      {copiedAddr ? '✅' : '📋'}
+                      {copiedAddr ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
                     </button>
                   </div>
                   <code
@@ -1087,7 +1102,6 @@ function Claw402ConfigForm({
                     className="text-[10px] mt-1.5"
                     style={{ color: 'var(--color-warning)' }}
                   >
-                    ⚠️{' '}
                     {language === 'zh'
                       ? '请确认这是你的钱包地址（可在 MetaMask 中核对）'
                       : 'Please confirm this is your wallet address (verify in MetaMask)'}
@@ -1095,7 +1109,7 @@ function Claw402ConfigForm({
                 </div>
                 {usdcBalance !== null && (
                   <div className="flex items-center gap-2 text-xs">
-                    <span>💰</span>
+                    <Coins className="w-3.5 h-3.5" />
                     <span
                       style={{
                         color:
@@ -1124,8 +1138,8 @@ function Claw402ConfigForm({
                           ? '收起'
                           : 'Hide'
                         : language === 'zh'
-                          ? '💳 充值'
-                          : '💳 Deposit'}
+                          ? '充值'
+                          : 'Deposit'}
                     </button>
                   </div>
                 )}
@@ -1143,7 +1157,6 @@ function Claw402ConfigForm({
                       className="text-xs font-semibold mb-2"
                       style={{ color: 'var(--color-profit)' }}
                     >
-                      💳{' '}
                       {language === 'zh'
                         ? '充值 USDC (Base 链)'
                         : 'Deposit USDC (Base Chain)'}
@@ -1190,13 +1203,13 @@ function Claw402ConfigForm({
                             cursor: 'pointer',
                           }}
                         >
-                          {copiedAddr ? '✅ Copied' : '📋 Copy Address'}
+                          {copiedAddr ? 'Copied' : 'Copy Address'}
                         </button>
                       </div>
                     </div>
                     <div className="text-[10px] space-y-1 text-muted-foreground">
                       <div>
-                        📱{' '}
+                        •{' '}
                         {language === 'zh'
                           ? '用交易所 App 扫描二维码直接转账'
                           : 'Scan QR with exchange app to transfer'}
@@ -1238,7 +1251,10 @@ function Claw402ConfigForm({
                           : 'var(--color-loss)',
                     }}
                   >
-                    <span>{claw402Status === 'ok' ? '🟢' : '🔴'}</span>
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{ background: 'currentColor' }}
+                    />
                     {claw402Status === 'ok'
                       ? t('modelConfig.claw402Connected', language)
                       : t('modelConfig.claw402Unreachable', language)}
@@ -1262,7 +1278,7 @@ function Claw402ConfigForm({
                   color: 'var(--color-info)',
                 }}
               >
-                <span>🔗</span>
+                <Link2 className="w-3.5 h-3.5" />
                 {testing
                   ? t('modelConfig.testingConnection', language)
                   : t('modelConfig.testConnection', language)}
@@ -1280,7 +1296,11 @@ function Claw402ConfigForm({
                       : 'var(--color-loss)',
                 }}
               >
-                <span>{testResult.status === 'ok' ? '✅' : '❌'}</span>
+                {testResult.status === 'ok' ? (
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 shrink-0" />
+                )}
                 {testResult.message}
               </div>
             )}
@@ -1301,7 +1321,7 @@ function Claw402ConfigForm({
           className="text-sm font-semibold mb-2 flex items-center gap-2"
           style={{ color: 'var(--color-profit)' }}
         >
-          {'💰 ' + t('modelConfig.howToFundUsdc', language)}
+          {t('modelConfig.howToFundUsdc', language)}
         </div>
         <div className="text-xs space-y-1.5 text-muted-foreground">
           <div className="flex items-start gap-2">
@@ -1361,7 +1381,7 @@ function Claw402ConfigForm({
             color: 'white',
           }}
         >
-          {'🚀 ' + t('modelConfig.startTrading', language)}
+          {t('modelConfig.startTrading', language)}
         </button>
       </div>
     </form>
@@ -1467,7 +1487,10 @@ function StandardProviderConfigForm({
           }}
         >
           <div className="flex items-start gap-2">
-            <span style={{ fontSize: '16px' }}>⚠️</span>
+            <AlertTriangle
+              className="w-4 h-4 shrink-0"
+              style={{ color: 'var(--color-loss)' }}
+            />
             <div className="text-sm" style={{ color: 'var(--color-loss)' }}>
               {t('kimiApiNote', language)}
             </div>

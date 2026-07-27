@@ -31,7 +31,7 @@ const MARKET_CONFIG = {
   hyperliquid: {
     exchange: 'hyperliquid',
     defaultSymbol: 'BTC',
-    icon: '🔷',
+    icon: '◆',
     labelKey: 'hyperliquid' as const,
     color: 'cyan',
     hasDropdown: true,

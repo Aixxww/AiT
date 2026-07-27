@@ -2,20 +2,36 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../lib/api'
 import type { SquareHeatResponse } from '../../lib/api/data'
 import { t, type Language } from '../../i18n/translations'
-import { Flame, RefreshCw, Power } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowRight,
+  Flame,
+  Power,
+  RadioTower,
+  RefreshCw,
+  Rocket,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react'
 
 interface SquareHeatPanelProps {
   language: Language
   refreshInterval?: number
 }
 
-function getTrendIcon(trend: string): string {
-  if (trend.includes('↑↑')) return '🚀'
-  if (trend.includes('↑')) return '📈'
-  if (trend.includes('↓↓')) return '🔻'
-  if (trend.includes('↓')) return '📉'
-  if (trend.includes('🆕')) return '🌟'
-  return '➡️'
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend.includes('↑↑'))
+    return <Rocket className="w-3.5 h-3.5 text-profit" />
+  if (trend.includes('↑'))
+    return <TrendingUp className="w-3.5 h-3.5 text-profit" />
+  if (trend.includes('↓↓'))
+    return <ArrowDown className="w-3.5 h-3.5 text-loss" />
+  if (trend.includes('↓'))
+    return <TrendingDown className="w-3.5 h-3.5 text-loss" />
+  if (trend.includes('\u{1F195}'))
+    return <Sparkles className="w-3.5 h-3.5 text-primary" />
+  return <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
 }
 
 function getChangeColor(val?: number): string {
@@ -152,7 +168,7 @@ export function SquareHeatPanel({
       {/* Error state */}
       {error && !loading && (
         <div className="text-center py-8 text-muted-foreground opacity-60 relative z-10">
-          <div className="text-3xl mb-2">📡</div>
+          <RadioTower className="w-6 h-6 mx-auto mb-2 opacity-60" />
           <div className="text-xs">{error}</div>
         </div>
       )}
@@ -168,7 +184,7 @@ export function SquareHeatPanel({
       {/* Empty state */}
       {!loading && !error && items.length === 0 && (
         <div className="text-center py-8 text-muted-foreground opacity-60 relative z-10">
-          <div className="text-3xl mb-2">🔥</div>
+          <Flame className="w-6 h-6 mx-auto mb-2 opacity-60" />
           <div className="text-xs">No heat signals</div>
           <div className="text-[10px] mt-1">Square Monitor may be offline</div>
         </div>
@@ -187,7 +203,7 @@ export function SquareHeatPanel({
                 <span className="text-[10px] text-muted-foreground font-mono w-4 text-right">
                   {i + 1}
                 </span>
-                <span className="text-sm">{getTrendIcon(item.trend)}</span>
+                <TrendIcon trend={item.trend} />
               </div>
 
               {/* Token info */}

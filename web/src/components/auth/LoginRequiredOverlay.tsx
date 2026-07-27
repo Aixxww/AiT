@@ -1,5 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { LogIn, UserPlus, X, AlertTriangle, Terminal } from 'lucide-react'
+import {
+  LogIn,
+  UserPlus,
+  X,
+  AlertTriangle,
+  Terminal,
+  Check,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -107,7 +114,8 @@ export function LoginRequiredOverlay({
                           key={i}
                           className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wide"
                         >
-                          <span className="text-primary">✓</span> {benefit}
+                          <Check className="w-3 h-3 text-primary shrink-0" />{' '}
+                          {benefit}
                         </div>
                       ))}
                     </div>

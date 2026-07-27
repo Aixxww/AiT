@@ -6,6 +6,10 @@ import {
   MessageCircle,
   Unlink,
   ArrowRight,
+  X,
+  Bot,
+  Smartphone,
+  PartyPopper,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../../lib/api'
@@ -243,7 +247,7 @@ export function TelegramConfigModal({
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -271,7 +275,10 @@ export function TelegramConfigModal({
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">🤖</span>
+                      <Bot
+                        className="w-6 h-6 shrink-0"
+                        style={{ color: TELEGRAM_BLUE }}
+                      />
                       <div>
                         <div
                           className="font-semibold mb-1"
@@ -367,7 +374,7 @@ export function TelegramConfigModal({
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">📱</span>
+                      <Smartphone className="w-6 h-6 shrink-0 text-profit" />
                       <div>
                         <div
                           className="font-semibold mb-1"
@@ -478,7 +485,7 @@ export function TelegramConfigModal({
                         '1px solid color-mix(in srgb, var(--color-profit) 30%, transparent)',
                     }}
                   >
-                    <div className="text-4xl">🎉</div>
+                    <PartyPopper className="w-8 h-8 mx-auto text-primary" />
                     <div
                       className="font-bold text-lg"
                       style={{ color: 'var(--color-profit)' }}

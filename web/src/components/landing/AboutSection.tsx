@@ -177,13 +177,13 @@ export default function AboutSection({ language }: AboutSectionProps) {
                   $ ./start.sh start --build
                 </div>
                 <div className="pt-2" style={{ color: 'var(--color-primary)' }}>
-                  ✓ {t('startupMessages1', language)}
+                  [OK] {t('startupMessages1', language)}
                 </div>
                 <div style={{ color: 'var(--color-profit)' }}>
-                  ✓ {t('startupMessages2', language)}
+                  [OK] {t('startupMessages2', language)}
                 </div>
                 <div style={{ color: 'var(--color-profit)' }}>
-                  ✓ {t('startupMessages3', language)}
+                  [OK] {t('startupMessages3', language)}
                 </div>
                 <motion.div
                   className="flex items-center gap-2 pt-2"

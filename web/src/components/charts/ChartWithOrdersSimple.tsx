@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlertTriangle, TrendingUp } from 'lucide-react'
 import { httpClient } from '../../lib/httpClient'
 
 interface ChartWithOrdersSimpleProps {
@@ -93,7 +94,7 @@ export function ChartWithOrdersSimple({
       {/* 标题栏 */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <span className="text-xl">📈</span>
+          <TrendingUp className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-bold text-foreground">
             {symbol} {interval} (测试模式)
           </h3>
@@ -107,7 +108,7 @@ export function ChartWithOrdersSimple({
       <div className="p-8 space-y-4">
         {error ? (
           <div className="text-center">
-            <div className="text-2xl mb-2">⚠️</div>
+            <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-warning" />
             <div className="text-loss">{error}</div>
           </div>
         ) : (
@@ -135,7 +136,7 @@ export function ChartWithOrdersSimple({
             <div className="p-4 rounded bg-panel border border-border">
               <div className="text-sm mb-2 text-muted-foreground">状态</div>
               <div className="text-lg text-foreground">
-                ✅ 数据获取正常，图表组件开发中
+                数据获取正常，图表组件开发中
               </div>
             </div>
           </>

@@ -77,7 +77,7 @@ export function TwoStageKeyModal({
   }, [isOpen, stage])
 
   const handleStage1Next = async () => {
-    // ✅ Normalize input (remove possible 0x prefix) before validating length
+    // Normalize input (remove possible 0x prefix) before validating length
     const normalized1 = part1.startsWith('0x') ? part1.slice(2) : part1
     if (normalized1.length < expectedPart1Length) {
       setError(
@@ -134,7 +134,7 @@ export function TwoStageKeyModal({
   }
 
   const handleStage2Complete = () => {
-    // ✅ Normalize input (remove possible 0x prefix) before validating length
+    // Normalize input (remove possible 0x prefix) before validating length
     const normalized2 = part2.startsWith('0x') ? part2.slice(2) : part2
     if (normalized2.length < expectedPart2Length) {
       setError(
@@ -145,7 +145,7 @@ export function TwoStageKeyModal({
       return
     }
 
-    // ✅ Concatenate after removing 0x prefix from both parts
+    // Concatenate after removing 0x prefix from both parts
     const normalized1 = part1.startsWith('0x') ? part1.slice(2) : part1
     const fullKey = normalized1 + normalized2
     if (!validatePrivateKeyFormat(fullKey, expectedLength)) {
@@ -182,7 +182,7 @@ export function TwoStageKeyModal({
         <div className="bg-surface p-8 rounded-xl max-w-lg w-full mx-4 border border-border">
           <div className="text-center mb-6">
             <h2 className="text-xl font-bold text-foreground mb-2">
-              🔐 {t('twoStageKey.title', language)}
+              {t('twoStageKey.title', language)}
               {contextLabel && (
                 <span className="text-muted-foreground text-base font-normal ml-2">
                   ({contextLabel})
@@ -309,7 +309,7 @@ export function TwoStageKeyModal({
                   }
                   className="flex-1 bg-profit hover:bg-profit disabled:bg-muted text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
                 >
-                  🔒 {t('twoStageKey.encryptButton', language)}
+                  {t('twoStageKey.encryptButton', language)}
                 </button>
                 <button
                   onClick={handleReset}
