@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -105,6 +106,108 @@ func (s *Server) handleHunterV7Outcomes(c *gin.Context) {
 		"setup_regime":     grouped,
 		"window_source":    "hunter_v7_signal_records",
 		"report_generated": true,
+	})
+}
+
+// hunterV7SignalRow is one row of the read-only signal list endpoint. The
+// full V7SignalOutput is re-hydrated from the persisted raw JSON snapshot so
+// the frontend receives the complete field contract (targets, confirmation
+// summary, execution readiness, reason codes, ...).
+type hunterV7SignalRow struct {
+	ID            int64           `json:"id"`
+	CycleNumber   int             `json:"cycle_number"`
+	Timestamp     time.Time       `json:"timestamp"`
+	ExecutionTier string          `json:"execution_tier"`
+	TierReason    string          `json:"tier_reason"`
+	BlockedGate   string          `json:"blocked_gate,omitempty"`
+	TrackStatus   string          `json:"track_status,omitempty"`
+	TrackPnLPct   float64         `json:"track_pnl_pct"`
+	Signal        json.RawMessage `json:"signal"`
+}
+
+// handleHunterV7Signals returns the most recent persisted v7 signal records
+// (newest first) for the dashboard signal panel. Read-only.
+func (s *Server) handleHunterV7Signals(c *gin.Context) {
+	if s.store == nil {
+		SafeInternalError(c, "Hunter v7 signal list", fmt.Errorf("store not initialized"))
+		return
+	}
+
+	limit := 50
+	if v := c.Query("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	signalStore := s.store.HunterV7Signal()
+	if signalStore == nil {
+		SafeInternalError(c, "Hunter v7 signal list", fmt.Errorf("signal store not initialized"))
+		return
+	}
+
+	rows, err := signalStore.RecentSignals(limit)
+	if err != nil {
+		SafeInternalError(c, "Hunter v7 signal list", err)
+		return
+	}
+
+	out := make([]hunterV7SignalRow, 0, len(rows))
+	for _, row := range rows {
+		var sig json.RawMessage
+		if row.RawJSON != "" && json.Valid([]byte(row.RawJSON)) {
+			sig = json.RawMessage(row.RawJSON)
+		} else {
+			// Fallback for legacy rows without a raw snapshot: rebuild the
+			// signal from the flat columns so the contract shape holds.
+			fallback := local.V7SignalOutput{
+				Symbol:         row.Symbol,
+				Direction:      local.V7Direction(row.Direction),
+				SetupType:      local.V7SetupType(row.SetupType),
+				Status:         local.V7SignalStatus(row.Status),
+				SetupScore:     row.SetupScore,
+				RiskScore:      row.RiskScore,
+				LiquidityScore: row.LiquidityScore,
+				TimingScore:    row.TimingScore,
+				RegimeFitScore: row.RegimeFitScore,
+				AIPriority:     row.AIPriority,
+				MarketRegime:   local.V7MarketRegime(row.MarketRegime),
+				EntryZone:      local.V7PriceZone{Lower: row.EntryZoneLower, Upper: row.EntryZoneUpper},
+				Invalidation:   local.V7InvalidationRule{Price: row.InvalidationPrice},
+				TP0Price:       row.TP0Price,
+				TP0RR:          row.TP0RR,
+				TP1Price:       row.TP1Price,
+				TP1RR:          row.TP1RR,
+				TP2Price:       row.TP2Price,
+				TP2RR:          row.TP2RR,
+				ResonanceBonus: row.ResonanceBonus,
+			}
+			b, marshalErr := json.Marshal(fallback)
+			if marshalErr != nil {
+				continue
+			}
+			sig = b
+		}
+		out = append(out, hunterV7SignalRow{
+			ID:            row.ID,
+			CycleNumber:   row.CycleNumber,
+			Timestamp:     row.Timestamp,
+			ExecutionTier: row.ExecutionTier,
+			TierReason:    row.TierReason,
+			BlockedGate:   row.BlockedGate,
+			TrackStatus:   row.TrackStatus,
+			TrackPnLPct:   row.TrackPnLPct,
+			Signal:        sig,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count":         len(out),
+		"signals":       out,
+		"window_source": "hunter_v7_signal_records",
 	})
 }
 

@@ -175,6 +175,7 @@ func (s *Server) setupRoutes() {
 		s.route(api, "GET", "/hunter/coins", "Hunter scored coin list (?limit=)", s.handleHunterCoins)
 		s.route(api, "GET", "/hunter/v7/outcomes", "Hunter v7 outcome win-rate and adaptive dry-run report (?days=7&min_samples=5)", s.handleHunterV7Outcomes)
 		s.route(api, "GET", "/hunter/v7/matrix", "Hunter v7 regime/setup diagnostic matrix (?days=7&regime=)", s.handleHunterV7Matrix)
+		s.route(api, "GET", "/hunter/v7/signals", "Hunter v7 recent signal records, newest first (?limit=50)", s.handleHunterV7Signals)
 
 		// Public strategy market (no authentication required)
 		s.route(api, "GET", "/strategies/public", "Public strategy market", s.handlePublicStrategies)

@@ -275,6 +275,17 @@ func (s *HunterV7SignalStore) QueryByCycle(cycleNumber int) ([]HunterV7SignalRec
 	return records, err
 }
 
+// RecentSignals returns the newest signal records in insertion order
+// (id DESC). It backs the read-only dashboard signal panel.
+func (s *HunterV7SignalStore) RecentSignals(limit int) ([]HunterV7SignalRecord, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var records []HunterV7SignalRecord
+	err := s.db.Order("id DESC").Limit(limit).Find(&records).Error
+	return records, err
+}
+
 // QueryByDateRange returns all signal records within a date range.
 func (s *HunterV7SignalStore) QueryByDateRange(from, to time.Time) ([]HunterV7SignalRecord, error) {
 	var records []HunterV7SignalRecord
