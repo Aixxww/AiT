@@ -92,7 +92,7 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
+                  className="w-full bg-background/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                   placeholder="you@example.com"
                   required
                   autoFocus
@@ -118,7 +118,7 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-zinc-950/80 border border-border/80 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
+                    className="w-full bg-background/80 border border-border/80 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                     placeholder="••••••••"
                     required
                   />
@@ -134,7 +134,7 @@ export function LoginPage() {
 
               {/* Error */}
               {error && (
-                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <p className="text-xs text-loss bg-loss/10 border border-loss/20 rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -143,7 +143,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading
                   ? t('loggingIn', language) || 'Signing in...'

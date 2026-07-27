@@ -42,7 +42,7 @@ const features = [
 
 export default function BrandFeatures() {
   return (
-    <section id="features" className="py-24 bg-zinc-950 relative">
+    <section id="features" className="py-24 bg-background relative">
       <div className="max-w-[1920px] mx-auto px-6 lg:px-16">
         <div className="mb-16 border-l-4 border-primary pl-6">
           <h2 className="text-4xl md:text-5xl font-black text-foreground uppercase tracking-tighter mb-4">

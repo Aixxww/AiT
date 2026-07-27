@@ -96,8 +96,9 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
             height: 56,
             borderRadius: 16,
             background:
-              'linear-gradient(135deg, rgba(240,185,11,0.12), rgba(0,229,160,0.06))',
-            border: '1px solid rgba(240,185,11,0.15)',
+              'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, transparent), color-mix(in srgb, var(--color-profit) 6%, transparent))',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 15%, transparent)',
             display: 'grid',
             placeItems: 'center',
             margin: '0 auto 16px',
@@ -110,7 +111,7 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
           style={{
             fontSize: 22,
             fontWeight: 700,
-            color: '#f0f0f8',
+            color: 'var(--color-foreground)',
             margin: '0 0 8px',
             letterSpacing: '-0.02em',
           }}
@@ -120,7 +121,7 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
         <p
           style={{
             fontSize: 13.5,
-            color: '#5c5c72',
+            color: 'var(--color-muted-fg)',
             margin: 0,
             lineHeight: 1.5,
           }}
@@ -164,19 +165,21 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
               transition: 'all 0.2s ease',
             }}
           >
-            <div style={{ color: '#F0B90B', opacity: 0.7 }}>{s.icon}</div>
+            <div style={{ color: 'var(--color-primary)', opacity: 0.7 }}>
+              {s.icon}
+            </div>
             <div>
               <div
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: '#d0d0e0',
+                  color: 'var(--color-foreground)',
                   marginBottom: 2,
                 }}
               >
                 {s.title}
               </div>
-              <div style={{ fontSize: 11.5, color: '#5c5c72' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--color-muted-fg)' }}>
                 {s.subtitle}
               </div>
             </div>

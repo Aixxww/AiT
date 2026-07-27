@@ -13,6 +13,9 @@ import type { TelegramConfig, AIModel } from '../../types'
 import { t, type Language } from '../../i18n/translations'
 import { AiTSelect } from '../ui/select'
 
+// Telegram brand identity color (third-party brand, exempt from the token system)
+const TELEGRAM_BLUE = '#2AABEE'
+
 // Step indicator (reused pattern from ExchangeConfigModal)
 function StepIndicator({
   currentStep,
@@ -33,7 +36,7 @@ function StepIndicator({
                   index < currentStep
                     ? 'var(--color-profit)'
                     : index === currentStep
-                      ? '#2AABEE'
+                      ? TELEGRAM_BLUE
                       : 'var(--color-border)',
                 color:
                   index <= currentStep
@@ -226,7 +229,10 @@ export function TelegramConfigModal({
               </button>
             )}
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-6 h-6" style={{ color: '#2AABEE' }} />
+              <MessageCircle
+                className="w-6 h-6"
+                style={{ color: TELEGRAM_BLUE }}
+              />
               <h3 className="text-xl font-bold text-foreground">
                 {t('telegram.botSetup', language)}
               </h3>
@@ -260,10 +266,8 @@ export function TelegramConfigModal({
                   <div
                     className="p-4 rounded-xl space-y-3"
                     style={{
-                      background:
-                        'color-mix(in srgb, #2AABEE 10%, transparent)',
-                      border:
-                        '1px solid color-mix(in srgb, #2AABEE 30%, transparent)',
+                      background: `color-mix(in srgb, ${TELEGRAM_BLUE} 10%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${TELEGRAM_BLUE} 30%, transparent)`,
                     }}
                   >
                     <div className="flex items-start gap-3">
@@ -271,18 +275,18 @@ export function TelegramConfigModal({
                       <div>
                         <div
                           className="font-semibold mb-1"
-                          style={{ color: '#2AABEE' }}
+                          style={{ color: TELEGRAM_BLUE }}
                         >
                           {t('telegram.step1Title', language)}
                         </div>
                         <div className="text-xs space-y-1 text-muted-foreground">
                           <div>
                             1. {t('telegram.step1Desc1', language)}{' '}
-                            <code className="text-blue-400">@BotFather</code>
+                            <code className="text-info">@BotFather</code>
                           </div>
                           <div>
                             2. {t('telegram.step1Desc2', language)}{' '}
-                            <code className="text-blue-400">/newbot</code>{' '}
+                            <code className="text-info">/newbot</code>{' '}
                             {t('telegram.step1Desc2Suffix', language)}
                           </div>
                           <div>3. {t('telegram.step1Desc3', language)}</div>
@@ -298,7 +302,7 @@ export function TelegramConfigModal({
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all hover:scale-[1.02]"
                     style={{
-                      background: '#2AABEE',
+                      background: TELEGRAM_BLUE,
                       color: 'var(--color-primary-fg)',
                     }}
                   >
@@ -334,7 +338,7 @@ export function TelegramConfigModal({
                     disabled={isSaving || !token.trim()}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      background: '#2AABEE',
+                      background: TELEGRAM_BLUE,
                       color: 'var(--color-primary-fg)',
                     }}
                   >
@@ -375,7 +379,7 @@ export function TelegramConfigModal({
                           <div>1. {t('telegram.step2Desc1', language)}</div>
                           <div>
                             2. {t('telegram.step2Desc2', language)}{' '}
-                            <code className="text-green-400">/start</code>
+                            <code className="text-profit">/start</code>
                           </div>
                           <div>3. {t('telegram.step2Desc3', language)}</div>
                         </div>
@@ -391,7 +395,7 @@ export function TelegramConfigModal({
                         border: '1px solid var(--color-border)',
                       }}
                     >
-                      <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-warning animate-pulse flex-shrink-0" />
                       <div>
                         <div className="text-xs font-mono text-muted-foreground">
                           {t('telegram.currentToken', language)}
@@ -494,7 +498,7 @@ export function TelegramConfigModal({
                         border: '1px solid var(--color-border)',
                       }}
                     >
-                      <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-profit flex-shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-mono text-muted-foreground">
                           Bot Token
@@ -553,7 +557,7 @@ export function TelegramConfigModal({
                           className="font-mono px-1.5 py-0.5 rounded flex-shrink-0"
                           style={{
                             background: 'var(--color-panel)',
-                            color: '#2AABEE',
+                            color: TELEGRAM_BLUE,
                           }}
                         >
                           {item.cmd}
@@ -587,7 +591,7 @@ export function TelegramConfigModal({
                       onClick={onClose}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
                       style={{
-                        background: '#2AABEE',
+                        background: TELEGRAM_BLUE,
                         color: 'var(--color-primary-fg)',
                       }}
                     >

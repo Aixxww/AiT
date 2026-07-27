@@ -73,7 +73,7 @@ export default function BrandHero() {
 
             <div className="mt-12 flex items-center gap-8 text-muted-foreground font-mono text-xs md:text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-profit rounded-full animate-pulse" />
                 SYSTEM ONLINE
               </div>
               <div className="flex items-center gap-2">

@@ -21,7 +21,7 @@ const generateLog = (id: number): LogEntry => {
   switch (type) {
     case 'EXE':
       msg = `BOT-${Math.floor(Math.random() * 99)} ${actions[Math.floor(Math.random() * 4)]} ${pairs[Math.floor(Math.random() * 4)]} @ ${Math.floor(Math.random() * 60000)}`
-      color = 'text-green-500'
+      color = 'text-profit'
       break
     case 'ARB':
       msg = `Spread detected: BINANCE <> BYBIT (${Math.random().toFixed(3)}%)`
@@ -29,7 +29,7 @@ const generateLog = (id: number): LogEntry => {
       break
     case 'LIQ':
       msg = `Liquidation Alert: ${pairs[Math.floor(Math.random() * 4)]} $${Math.floor(Math.random() * 100)}k REKT`
-      color = 'text-red-500'
+      color = 'text-loss'
       break
     case 'NET':
       msg = `Block propagation latency < ${Math.floor(Math.random() * 10)}ms`
@@ -37,7 +37,7 @@ const generateLog = (id: number): LogEntry => {
       break
     default:
       msg = `System optimization cycle complete. Allocating resources.`
-      color = 'text-blue-400'
+      color = 'text-info'
   }
 
   return {
@@ -76,9 +76,9 @@ export default function LiveFeed() {
 
       <div className="max-w-[1920px] mx-auto px-4 flex flex-col md:flex-row gap-0 md:gap-8 items-stretch h-[240px] md:h-12 text-xs font-mono">
         {/* Left Status Bar (Static) */}
-        <div className="hidden md:flex items-center gap-6 text-muted-foreground border-r border-zinc-900 pr-6 shrink-0">
+        <div className="hidden md:flex items-center gap-6 text-muted-foreground border-r border-border pr-6 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+            <div className="w-1.5 h-1.5 bg-profit rounded-full animate-pulse"></div>
             <span className="font-bold text-muted-foreground">
               WS_CONN: STABLE
             </span>
@@ -103,11 +103,11 @@ export default function LiveFeed() {
                 <span
                   className={`font-bold w-10 ${
                     log.type === 'LIQ'
-                      ? 'text-red-500 bg-red-500/10 px-1 rounded'
+                      ? 'text-loss bg-loss/10 px-1 rounded'
                       : log.type === 'ARB'
                         ? 'text-primary bg-primary-dim px-1 rounded'
                         : log.type === 'EXE'
-                          ? 'text-green-500'
+                          ? 'text-profit'
                           : 'text-muted-foreground'
                   }`}
                 >
@@ -123,15 +123,15 @@ export default function LiveFeed() {
             {logs.map((log) => (
               <div
                 key={log.id}
-                className="flex gap-2 w-full truncate border-b border-zinc-900/50 pb-1 last:border-0"
+                className="flex gap-2 w-full truncate border-b border-border/50 pb-1 last:border-0"
               >
-                <span className="text-zinc-700 w-16 shrink-0">
+                <span className="text-muted-foreground/50 w-16 shrink-0">
                   {log.time.split('.')[0]}
                 </span>
                 <span
                   className={`font-bold w-8 shrink-0 ${
                     log.type === 'LIQ'
-                      ? 'text-red-500'
+                      ? 'text-loss'
                       : log.type === 'ARB'
                         ? 'text-primary'
                         : 'text-muted-foreground'

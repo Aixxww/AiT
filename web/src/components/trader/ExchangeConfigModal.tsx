@@ -3,6 +3,9 @@ import type { Exchange } from '../../types'
 import { t, type Language } from '../../i18n/translations'
 import { api } from '../../lib/api'
 import { getExchangeIcon } from '../common/ExchangeIcons'
+
+// Hyperliquid brand identity color (third-party brand, exempt from the token system)
+const HYPERLIQUID_MINT = '#7FE7CC'
 import {
   TwoStageKeyModal,
   type TwoStageKeyModalResult,
@@ -174,8 +177,11 @@ function ExchangeCard({
           background:
             template.type === 'cex'
               ? 'color-mix(in srgb, var(--color-primary) 20%, transparent)'
-              : 'rgba(139, 92, 246, 0.2)',
-          color: template.type === 'cex' ? 'var(--color-primary)' : '#A78BFA',
+              : 'color-mix(in srgb, var(--color-purple) 20%, transparent)',
+          color:
+            template.type === 'cex'
+              ? 'var(--color-primary)'
+              : 'var(--color-purple)',
         }}
       >
         {template.type.toUpperCase()}
@@ -590,7 +596,7 @@ export function ExchangeConfigModal({
               <button
                 type="button"
                 onClick={() => onDelete(editingExchangeId)}
-                className="p-2 rounded-lg hover:bg-red-500/20 transition-colors"
+                className="p-2 rounded-lg hover:bg-loss/20 transition-colors"
                 style={{ color: 'var(--color-loss)' }}
               >
                 <Trash2 className="w-4 h-4" />
@@ -672,7 +678,7 @@ export function ExchangeConfigModal({
                 <div className="space-y-3">
                   <div
                     className="text-xs font-medium uppercase tracking-wide"
-                    style={{ color: '#A78BFA' }}
+                    style={{ color: 'var(--color-purple)' }}
                   >
                     {t('exchangeConfig.decentralizedExchanges', language)}
                   </div>
@@ -804,19 +810,20 @@ export function ExchangeConfigModal({
                     <div
                       className="p-4 rounded-xl cursor-pointer transition-colors"
                       style={{
-                        background: '#1a3a52',
-                        border: '1px solid #2b5278',
+                        background: 'var(--color-info-bg)',
+                        border:
+                          '1px solid color-mix(in srgb, var(--color-info) 30%, transparent)',
                       }}
                       onClick={() => setShowBinanceGuide(!showBinanceGuide)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span style={{ color: '#58a6ff' }}>ℹ️</span>
+                          <span style={{ color: 'var(--color-info)' }}>ℹ️</span>
                           <span className="text-sm font-medium text-foreground">
                             {t('exchangeConfig.useBinanceFuturesApi', language)}
                           </span>
                         </div>
-                        <span style={{ color: '#8b949e' }}>
+                        <span style={{ color: 'var(--color-muted-fg)' }}>
                           {showBinanceGuide ? '▲' : '▼'}
                         </span>
                       </div>
@@ -824,8 +831,9 @@ export function ExchangeConfigModal({
                         <div
                           className="mt-3 pt-3 text-sm"
                           style={{
-                            borderTop: '1px solid #2b5278',
-                            color: '#c9d1d9',
+                            borderTop:
+                              '1px solid color-mix(in srgb, var(--color-info) 30%, transparent)',
+                            color: 'var(--color-foreground)',
                           }}
                         >
                           <a
@@ -833,7 +841,7 @@ export function ExchangeConfigModal({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 hover:underline"
-                            style={{ color: '#58a6ff' }}
+                            style={{ color: 'var(--color-info)' }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             {t('exchangeConfig.viewTutorial', language)}{' '}
@@ -852,7 +860,7 @@ export function ExchangeConfigModal({
                           'color-mix(in srgb, var(--color-profit) 8%, transparent)',
                         border:
                           '1px solid color-mix(in srgb, var(--color-profit) 20%, transparent)',
-                        color: '#9FE8C5',
+                        color: 'var(--color-profit)',
                       }}
                     >
                       已保存的凭证状态： API Key{' '}
@@ -1012,8 +1020,10 @@ export function ExchangeConfigModal({
                   <div
                     className="p-4 rounded-xl"
                     style={{
-                      background: 'rgba(139, 92, 246, 0.1)',
-                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                      background:
+                        'color-mix(in srgb, var(--color-purple) 10%, transparent)',
+                      border:
+                        '1px solid color-mix(in srgb, var(--color-purple) 30%, transparent)',
                     }}
                   >
                     <div className="flex items-start gap-2">
@@ -1021,7 +1031,7 @@ export function ExchangeConfigModal({
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"
-                          style={{ color: '#A78BFA' }}
+                          style={{ color: 'var(--color-purple)' }}
                         >
                           {t('asterApiProTitle', language)}
                         </div>
@@ -1037,7 +1047,7 @@ export function ExchangeConfigModal({
                       <Tooltip content={t('asterUserDesc', language)}>
                         <HelpCircle
                           className="w-4 h-4 cursor-help"
-                          style={{ color: '#A78BFA' }}
+                          style={{ color: 'var(--color-purple)' }}
                         />
                       </Tooltip>
                     </label>
@@ -1061,7 +1071,7 @@ export function ExchangeConfigModal({
                       <Tooltip content={t('asterSignerDesc', language)}>
                         <HelpCircle
                           className="w-4 h-4 cursor-help"
-                          style={{ color: '#A78BFA' }}
+                          style={{ color: 'var(--color-purple)' }}
                         />
                       </Tooltip>
                     </label>
@@ -1085,7 +1095,7 @@ export function ExchangeConfigModal({
                       <Tooltip content={t('asterPrivateKeyDesc', language)}>
                         <HelpCircle
                           className="w-4 h-4 cursor-help"
-                          style={{ color: '#A78BFA' }}
+                          style={{ color: 'var(--color-purple)' }}
                         />
                       </Tooltip>
                     </label>
@@ -1112,8 +1122,8 @@ export function ExchangeConfigModal({
                   <div
                     className="p-4 rounded-xl"
                     style={{
-                      background: 'rgba(127, 231, 204, 0.1)',
-                      border: '1px solid rgba(127, 231, 204, 0.3)',
+                      background: `color-mix(in srgb, ${HYPERLIQUID_MINT} 10%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${HYPERLIQUID_MINT} 30%, transparent)`,
                     }}
                   >
                     <div className="flex items-start gap-2">
@@ -1121,7 +1131,7 @@ export function ExchangeConfigModal({
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"
-                          style={{ color: '#7FE7CC' }}
+                          style={{ color: HYPERLIQUID_MINT }}
                         >
                           {t('hyperliquidAgentWalletTitle', language)}
                         </div>
@@ -1155,7 +1165,7 @@ export function ExchangeConfigModal({
                         type="button"
                         onClick={() => setSecureInputTarget('hyperliquid')}
                         className="px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
-                        style={{ background: '#7FE7CC', color: '#000' }}
+                        style={{ background: HYPERLIQUID_MINT, color: '#000' }}
                       >
                         {apiKey
                           ? t('secureInputReenter', language)
@@ -1193,8 +1203,10 @@ export function ExchangeConfigModal({
                   <div
                     className="p-4 rounded-xl"
                     style={{
-                      background: 'rgba(59, 130, 246, 0.1)',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      background:
+                        'color-mix(in srgb, var(--color-info) 10%, transparent)',
+                      border:
+                        '1px solid color-mix(in srgb, var(--color-info) 30%, transparent)',
                     }}
                   >
                     <div className="flex items-start gap-2">
@@ -1202,7 +1214,7 @@ export function ExchangeConfigModal({
                       <div>
                         <div
                           className="text-sm font-semibold mb-1"
-                          style={{ color: '#3B82F6' }}
+                          style={{ color: 'var(--color-info)' }}
                         >
                           {t('exchangeConfig.lighterApiKeySetup', language)}
                         </div>
@@ -1237,7 +1249,7 @@ export function ExchangeConfigModal({
                         type="button"
                         onClick={() => setSecureInputTarget('lighter')}
                         className="text-xs underline"
-                        style={{ color: '#3B82F6' }}
+                        style={{ color: 'var(--color-info)' }}
                       >
                         {t('secureInputButton', language)}
                       </button>
@@ -1269,7 +1281,7 @@ export function ExchangeConfigModal({
                       >
                         <HelpCircle
                           className="w-4 h-4 cursor-help"
-                          style={{ color: '#3B82F6' }}
+                          style={{ color: 'var(--color-info)' }}
                         />
                       </Tooltip>
                     </label>

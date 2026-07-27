@@ -51,8 +51,8 @@ export function OnboardingModeSelector({
               onClick={() => onChange(option.id)}
               className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
                 selected
-                  ? 'border-primary/60 bg-primary-dim shadow-[0_0_0_1px_rgba(240,185,11,0.15)]'
-                  : 'border-border bg-zinc-950/60 hover:border-border'
+                  ? 'border-primary/60 bg-primary-dim ring-1 ring-primary/15'
+                  : 'border-border bg-background/60 hover:border-border'
               }`}
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">

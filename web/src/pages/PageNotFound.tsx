@@ -10,7 +10,7 @@ export function PageNotFound() {
 
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="relative">
-            <div className="absolute inset-0 bg-red-500/20 blur-xl animate-pulse"></div>
+            <div className="absolute inset-0 bg-loss/20 blur-xl animate-pulse"></div>
             <AlertCircle size={64} className="text-loss relative z-10" />
           </div>
 
@@ -31,7 +31,7 @@ export function PageNotFound() {
 
           <a
             href="/"
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-yellow-400 transition-all group mt-4"
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-primary/90 transition-all group mt-4"
           >
             <Home size={16} />
             <span>RETURN_BASE</span>

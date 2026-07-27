@@ -62,7 +62,7 @@ export function ConfigStatusGrid({
       case 'ok':
         return {
           label: state.display_balance || '0',
-          className: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10',
+          className: 'text-profit border-profit/20 bg-profit/10',
         }
       case 'disabled':
         return {
@@ -72,22 +72,22 @@ export function ConfigStatusGrid({
       case 'missing_credentials':
         return {
           label: language === 'zh' ? '配置不完整' : 'INCOMPLETE',
-          className: 'text-amber-300 border-amber-500/20 bg-amber-500/10',
+          className: 'text-warning border-warning/20 bg-warning/10',
         }
       case 'invalid_credentials':
         return {
           label: language === 'zh' ? '密钥无效' : 'INVALID KEYS',
-          className: 'text-rose-300 border-rose-500/20 bg-rose-500/10',
+          className: 'text-loss border-loss/20 bg-loss/10',
         }
       case 'permission_denied':
         return {
           label: language === 'zh' ? '无余额权限' : 'NO PERMISSION',
-          className: 'text-orange-300 border-orange-500/20 bg-orange-500/10',
+          className: 'text-warning border-warning/20 bg-warning/10',
         }
       default:
         return {
           label: language === 'zh' ? '暂时无法获取' : 'UNAVAILABLE',
-          className: 'text-foreground border-zinc-600/60 bg-surface-alt',
+          className: 'text-foreground border-border bg-surface-alt',
         }
     }
   }
@@ -119,13 +119,13 @@ export function ConfigStatusGrid({
               >
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-sm group-hover:bg-indigo-500/30 transition-all"></div>
+                    <div className="absolute inset-0 bg-info/20 rounded-full blur-sm group-hover:bg-info/30 transition-all"></div>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center bg-black border border-white/10 relative z-10">
                       {getModelIcon(model.provider || model.id, {
                         width: 20,
                         height: 20,
                       }) || (
-                        <span className="text-xs font-bold text-indigo-400">
+                        <span className="text-xs font-bold text-info">
                           {getShortName(model.name)[0]}
                         </span>
                       )}
@@ -133,7 +133,7 @@ export function ConfigStatusGrid({
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-mono text-sm text-zinc-200 group-hover:text-primary transition-colors">
+                    <div className="font-mono text-sm text-foreground group-hover:text-primary transition-colors">
                       {getShortName(model.name)}
                     </div>
                     <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
@@ -145,12 +145,12 @@ export function ConfigStatusGrid({
                     (model.balanceUsdc || model.walletAddress) ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-mono">
                         {model.balanceUsdc ? (
-                          <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400">
+                          <span className="rounded border border-profit/20 bg-profit/10 px-1.5 py-0.5 text-profit">
                             {model.balanceUsdc} USDC
                           </span>
                         ) : null}
                         {model.walletAddress ? (
-                          <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-sky-400">
+                          <span className="rounded border border-info/20 bg-info/10 px-1.5 py-0.5 text-info">
                             {truncateAddress(model.walletAddress)}
                           </span>
                         ) : null}
@@ -164,8 +164,8 @@ export function ConfigStatusGrid({
                     <span
                       className={`text-[10px] font-mono px-2 py-1 rounded border ${
                         usageInfo.runningCount > 0
-                          ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                          : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                          ? 'bg-profit/10 border-profit/30 text-profit'
+                          : 'bg-warning/10 border-warning/30 text-warning'
                       }`}
                     >
                       {usageInfo.runningCount}/{usageInfo.totalCount} ACTIVE
@@ -182,7 +182,7 @@ export function ConfigStatusGrid({
 
           {configuredModels.length === 0 && (
             <div className="text-center py-10 border border-dashed border-border rounded-lg bg-black/20">
-              <Brain className="w-8 h-8 mx-auto mb-3 text-zinc-700" />
+              <Brain className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
               <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
                 {t('noModelsConfigured', language)}
               </div>
@@ -218,7 +218,7 @@ export function ConfigStatusGrid({
               >
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-yellow-500/20 rounded-full blur-sm group-hover:bg-yellow-500/30 transition-all"></div>
+                    <div className="absolute inset-0 bg-warning/20 rounded-full blur-sm group-hover:bg-warning/30 transition-all"></div>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center bg-black border border-white/10 relative z-10">
                       {getExchangeIcon(exchange.exchange_type || exchange.id, {
                         width: 20,
@@ -228,7 +228,7 @@ export function ConfigStatusGrid({
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-mono text-sm text-zinc-200 group-hover:text-primary transition-colors truncate">
+                    <div className="font-mono text-sm text-foreground group-hover:text-primary transition-colors truncate">
                       {exchange.exchange_type?.toUpperCase() ||
                         getShortName(exchange.name)}
                       <span className="text-[10px] text-muted-foreground ml-2 border border-border px-1 rounded">
@@ -293,7 +293,7 @@ export function ConfigStatusGrid({
                           className="text-muted-foreground hover:text-primary"
                         >
                           {isCopied ? (
-                            <Check size={10} className="text-green-500" />
+                            <Check size={10} className="text-profit" />
                           ) : (
                             <Copy size={10} />
                           )}
@@ -306,8 +306,8 @@ export function ConfigStatusGrid({
                     <span
                       className={`text-[10px] font-mono px-2 py-1 rounded border ${
                         usageInfo.runningCount > 0
-                          ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                          : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                          ? 'bg-profit/10 border-profit/30 text-profit'
+                          : 'bg-warning/10 border-warning/30 text-warning'
                       }`}
                     >
                       {usageInfo.runningCount}/{usageInfo.totalCount} ACTIVE
@@ -323,7 +323,7 @@ export function ConfigStatusGrid({
           })}
           {configuredExchanges.length === 0 && (
             <div className="text-center py-10 border border-dashed border-border rounded-lg bg-black/20">
-              <Landmark className="w-8 h-8 mx-auto mb-3 text-zinc-700" />
+              <Landmark className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
               <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
                 {t('noExchangesConfigured', language)}
               </div>

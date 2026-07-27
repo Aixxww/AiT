@@ -29,7 +29,7 @@ function configBadge(label: string, active: boolean) {
     <span
       className={`text-[11px] px-2 py-0.5 rounded-full ${
         active
-          ? 'bg-emerald-500/10 text-emerald-300'
+          ? 'bg-profit/10 text-profit'
           : 'bg-surface-alt text-muted-foreground'
       }`}
     >
@@ -42,36 +42,39 @@ function AppearanceTab() {
   const { mode, setMode, isDark } = useTheme()
 
   const themeOptions = [
+    // Swatch values are per-theme preview data: they must render each
+    // theme's own palette regardless of the active theme, so they stay
+    // literal (kept in sync with the token blocks in index.css).
     {
       mode: 'pro-dark' as const,
-      label: 'Cyber Dark',
-      description: 'Neon night',
-      preview: { bg: '#08111B', surface: '#0E1A28', accent: '#35E6FF' },
+      label: 'Professional Dark',
+      description: 'Flat terminal',
+      preview: { bg: '#0A0D10', surface: '#171C24', accent: '#F0B90B' },
     },
     {
       mode: 'pro-light' as const,
-      label: 'Cyber Light',
-      description: 'Daylight grid',
-      preview: { bg: '#EDF7FB', surface: '#FFFFFF', accent: '#007EA7' },
+      label: 'Professional Light',
+      description: 'Daylight terminal',
+      preview: { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#D4A00A' },
     },
     {
       mode: 'glass-dark' as const,
       label: 'Glass Dark',
-      description: 'Neon glass',
+      description: 'Liquid glass',
       preview: {
-        bg: '#08111B',
-        surface: 'rgba(17,33,52,0.72)',
-        accent: '#FF4FD8',
+        bg: '#0A0C12',
+        surface: 'rgba(18,22,34,0.72)',
+        accent: '#22D3EE',
       },
     },
     {
       mode: 'glass-light' as const,
       label: 'Glass Light',
-      description: 'Frosted cyber',
+      description: 'Frosted glass',
       preview: {
-        bg: '#EDF7FB',
+        bg: '#F0F2F5',
         surface: 'rgba(255,255,255,0.72)',
-        accent: '#D92FBF',
+        accent: '#0891B2',
       },
     },
     {
@@ -142,8 +145,8 @@ function AppearanceTab() {
         ) : (
           <>
             {mode.startsWith('glass')
-              ? 'Cyber glass with translucent panels and neon depth.'
-              : 'High-density cyber interface with adaptive day/night contrast.'}
+              ? 'Liquid glass with translucent panels.'
+              : 'High-density professional terminal with adaptive contrast.'}
           </>
         )}
       </div>
@@ -484,7 +487,7 @@ export function SettingsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
+                        className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                         placeholder="At least 8 characters"
                         required
                       />
@@ -572,7 +575,7 @@ export function SettingsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${model.enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted text-muted-foreground'}`}
+                          className={`text-xs px-2 py-0.5 rounded-full ${model.enabled ? 'bg-profit/10 text-profit' : 'bg-muted text-muted-foreground'}`}
                         >
                           {model.enabled ? 'Active' : 'Inactive'}
                         </span>

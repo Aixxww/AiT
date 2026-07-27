@@ -204,7 +204,7 @@ export default function TerminalHero() {
           {/* Main Title - Massive & Impactful */}
           {/* Main Title - Massive & Impactful */}
           <div className="relative z-20 mix-blend-hard-light md:mix-blend-normal">
-            <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.9] md:leading-[0.8] mb-6 select-none bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-zinc-600 drop-shadow-2xl">
+            <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.9] md:leading-[0.8] mb-6 select-none bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-muted-foreground drop-shadow-2xl">
               AGENTIC
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary animate-shimmer bg-[length:200%_auto] tracking-tight filter drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
@@ -212,7 +212,7 @@ export default function TerminalHero() {
               </span>
             </h1>
 
-            <p className="max-w-xl text-zinc-200 md:text-muted-foreground text-lg mb-6 font-light leading-relaxed drop-shadow-md">
+            <p className="max-w-xl text-foreground md:text-muted-foreground text-lg mb-6 font-light leading-relaxed drop-shadow-md">
               The World's First Open-Source Agentic Trading OS. Deploy
               autonomous high-frequency trading agents powered by advanced LLMs.
             </p>
@@ -231,7 +231,7 @@ export default function TerminalHero() {
             <div className="flex flex-wrap gap-4 font-mono">
               {['CRYPTO', 'US STOCKS', 'FOREX', 'METALS'].map((market) => (
                 <div key={market} className="relative group cursor-default">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-blue-600/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-info/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
                   <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-surface/80 border border-border hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-profit shadow-[0_0_8px_rgba(74,222,128,0.6)] animate-pulse"></div>
                     <span className="text-lg md:text-xl font-bold text-foreground tracking-wider group-hover:text-primary transition-colors">
@@ -322,7 +322,7 @@ export default function TerminalHero() {
             <Zap className="w-3 h-3" /> FLASH LOANS ENABLED
           </span>
           <span className="flex items-center gap-2">
-            <Wifi className="w-3 h-3 text-green-500" /> LOW LATENCY LINK: 12ms
+            <Wifi className="w-3 h-3 text-profit" /> LOW LATENCY LINK: 12ms
           </span>
 
           {/* Dynamic Coins */}
@@ -370,28 +370,28 @@ function CommunityStats() {
       label: 'GITHUB STARS',
       value: isLoading ? '...' : error ? '10,500+' : stars.toLocaleString(),
       icon: Star,
-      color: 'text-yellow-400',
+      color: 'text-primary',
       href: OFFICIAL_LINKS.github,
     },
     {
       label: 'FORKS',
       value: isLoading ? '...' : error ? '2,800+' : forks.toLocaleString(),
       icon: GitFork,
-      color: 'text-blue-400',
+      color: 'text-info',
       href: `${OFFICIAL_LINKS.github}/fork`,
     },
     {
       label: 'CONTRIBUTORS',
       value: isLoading ? '...' : contributors > 0 ? contributors : '50+',
       icon: Users,
-      color: 'text-green-400',
+      color: 'text-profit',
       href: `${OFFICIAL_LINKS.github}/graphs/contributors`,
     },
     {
       label: 'DEV COMMUNITY',
       value: '6,600+',
       icon: MessageCircle,
-      color: 'text-blue-500',
+      color: 'text-info',
       href: OFFICIAL_LINKS.telegram,
     },
   ]

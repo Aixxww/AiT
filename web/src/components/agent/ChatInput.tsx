@@ -71,7 +71,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
         style={{
           padding: '12px 16px 20px',
           borderTop: '1px solid rgba(255,255,255,0.04)',
-          background: 'linear-gradient(to top, #09090b 80%, transparent)',
+          background:
+            'linear-gradient(to top, var(--color-background) 80%, transparent)',
         }}
       >
         <div
@@ -111,7 +112,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               flex: 1,
               background: 'none',
               border: 'none',
-              color: '#eaeaf0',
+              color: 'var(--color-foreground)',
               fontSize: 13.5,
               outline: 'none',
               padding: '10px 0',
@@ -132,8 +133,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               background:
                 loading || !input.trim()
                   ? 'rgba(255,255,255,0.04)'
-                  : 'linear-gradient(135deg, #F0B90B, #d4a30a)',
-              color: loading || !input.trim() ? '#3c3c52' : '#000',
+                  : 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 85%, black))',
+              color:
+                loading || !input.trim() ? 'var(--color-disabled-fg)' : '#000',
               cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
               display: 'grid',
               placeItems: 'center',
@@ -150,7 +152,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             margin: '6px auto 0',
             textAlign: 'center',
             fontSize: 10,
-            color: '#1e1e32',
+            color: 'var(--color-disabled-fg)',
           }}
         >
           AiTi may make mistakes. Always verify trading decisions.

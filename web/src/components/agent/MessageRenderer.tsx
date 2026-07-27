@@ -19,13 +19,15 @@ export function renderInline(text: string): (string | JSX.Element)[] {
         <code
           key={i}
           style={{
-            background: 'rgba(240,185,11,0.08)',
+            background:
+              'color-mix(in srgb, var(--color-primary) 8%, transparent)',
             padding: '2px 6px',
             borderRadius: 5,
             fontSize: '0.88em',
             fontFamily: '"IBM Plex Mono", monospace',
-            color: '#F0B90B',
-            border: '1px solid rgba(240,185,11,0.12)',
+            color: 'var(--color-primary)',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 12%, transparent)',
           }}
         >
           {part.slice(1, -1)}
@@ -33,7 +35,10 @@ export function renderInline(text: string): (string | JSX.Element)[] {
       )
     } else if (part.startsWith('**') && part.endsWith('**')) {
       result.push(
-        <strong key={i} style={{ fontWeight: 600, color: '#f0f0f8' }}>
+        <strong
+          key={i}
+          style={{ fontWeight: 600, color: 'var(--color-foreground)' }}
+        >
           {part.slice(2, -2)}
         </strong>
       )
@@ -43,7 +48,10 @@ export function renderInline(text: string): (string | JSX.Element)[] {
       !part.startsWith('**')
     ) {
       result.push(
-        <em key={i} style={{ fontStyle: 'italic', color: '#d0d0e0' }}>
+        <em
+          key={i}
+          style={{ fontStyle: 'italic', color: 'var(--color-foreground)' }}
+        >
           {part.slice(1, -1)}
         </em>
       )
@@ -60,7 +68,7 @@ export function renderInline(text: string): (string | JSX.Element)[] {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: '#F0B90B',
+              color: 'var(--color-primary)',
               textDecoration: 'underline',
               textUnderlineOffset: 2,
             }}
@@ -94,7 +102,7 @@ export function renderMessageContent(text: string) {
           <pre
             key={`code-${i}`}
             style={{
-              background: '#0a0a12',
+              background: 'var(--color-background)',
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 10,
               padding: '12px 14px',
@@ -102,7 +110,7 @@ export function renderMessageContent(text: string) {
               overflowX: 'auto',
               margin: '8px 0',
               fontFamily: '"IBM Plex Mono", monospace',
-              color: '#c0c0d0',
+              color: 'var(--color-foreground)',
               lineHeight: 1.6,
             }}
           >
@@ -130,7 +138,7 @@ export function renderMessageContent(text: string) {
           style={{
             fontSize: 14,
             fontWeight: 700,
-            color: '#f0f0f8',
+            color: 'var(--color-foreground)',
             margin: '12px 0 6px',
             letterSpacing: '-0.01em',
           }}
@@ -147,7 +155,7 @@ export function renderMessageContent(text: string) {
           style={{
             fontSize: 15,
             fontWeight: 700,
-            color: '#f0f0f8',
+            color: 'var(--color-foreground)',
             margin: '14px 0 6px',
             letterSpacing: '-0.01em',
           }}
@@ -164,7 +172,7 @@ export function renderMessageContent(text: string) {
           style={{
             fontSize: 16,
             fontWeight: 700,
-            color: '#f0f0f8',
+            color: 'var(--color-foreground)',
             margin: '16px 0 8px',
             letterSpacing: '-0.02em',
           }}
@@ -189,7 +197,7 @@ export function renderMessageContent(text: string) {
         >
           <span
             style={{
-              color: '#F0B90B',
+              color: 'var(--color-primary)',
               flexShrink: 0,
               fontSize: 8,
               marginTop: 7,
@@ -218,7 +226,7 @@ export function renderMessageContent(text: string) {
         >
           <span
             style={{
-              color: '#8a8aa0',
+              color: 'var(--color-muted-fg)',
               flexShrink: 0,
               fontSize: 12,
               fontWeight: 600,

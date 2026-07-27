@@ -727,7 +727,9 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
         </div>
         <div
           className="p-3 rounded-lg text-center"
-          style={{ background: 'rgba(96, 165, 250, 0.05)' }}
+          style={{
+            background: 'color-mix(in srgb, var(--color-info) 5%, transparent)',
+          }}
         >
           <div className="text-[10px] uppercase tracking-wider mb-1 text-muted-foreground">
             {t('currentGap', language)}

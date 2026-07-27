@@ -26,10 +26,10 @@ export function PublishSettingsEditor({
         style={{
           background: isPublic
             ? 'linear-gradient(135deg, rgba(14, 203, 129, 0.15) 0%, rgba(14, 203, 129, 0.05) 100%)'
-            : 'linear-gradient(135deg, #1E2329 0%, var(--color-background) 100%)',
+            : 'linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%)',
           border: isPublic
             ? '1px solid rgba(14, 203, 129, 0.4)'
-            : '1px solid #2B3139',
+            : '1px solid var(--color-border)',
           boxShadow: isPublic ? '0 0 20px rgba(14, 203, 129, 0.1)' : 'none',
         }}
         onClick={() => !disabled && onIsPublicChange(!isPublic)}
@@ -39,8 +39,8 @@ export function PublishSettingsEditor({
           className="absolute top-0 left-0 w-full h-[1px] transition-opacity duration-300"
           style={{
             background: isPublic
-              ? 'linear-gradient(90deg, transparent, #0ECB81, transparent)'
-              : 'linear-gradient(90deg, transparent, #2B3139, transparent)',
+              ? 'linear-gradient(90deg, transparent, var(--color-profit), transparent)'
+              : 'linear-gradient(90deg, transparent, var(--color-border), transparent)',
             opacity: isPublic ? 1 : 0.5,
           }}
         />
@@ -55,11 +55,14 @@ export function PublishSettingsEditor({
                   : 'var(--color-background)',
                 border: isPublic
                   ? '1px solid rgba(14, 203, 129, 0.3)'
-                  : '1px solid #2B3139',
+                  : '1px solid var(--color-border)',
               }}
             >
               {isPublic ? (
-                <Globe className="w-5 h-5" style={{ color: '#0ECB81' }} />
+                <Globe
+                  className="w-5 h-5"
+                  style={{ color: 'var(--color-profit)' }}
+                />
               ) : (
                 <Lock className="w-5 h-5 text-muted-foreground" />
               )}
@@ -78,7 +81,11 @@ export function PublishSettingsEditor({
           <div className="flex items-center gap-3">
             <span
               className="text-[10px] font-mono font-bold tracking-wider"
-              style={{ color: isPublic ? '#0ECB81' : 'var(--color-muted-fg)' }}
+              style={{
+                color: isPublic
+                  ? 'var(--color-profit)'
+                  : 'var(--color-muted-fg)',
+              }}
             >
               {isPublic
                 ? ts(publishSettings.public, language)
@@ -88,8 +95,8 @@ export function PublishSettingsEditor({
               className="relative w-12 h-6 rounded-full transition-all duration-300"
               style={{
                 background: isPublic
-                  ? 'linear-gradient(90deg, #0ECB81, #4ade80)'
-                  : '#2B3139',
+                  ? 'var(--color-profit)'
+                  : 'var(--color-border)',
                 boxShadow: isPublic
                   ? '0 0 10px rgba(14, 203, 129, 0.4)'
                   : 'none',
@@ -115,10 +122,10 @@ export function PublishSettingsEditor({
           style={{
             background: configVisible
               ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)'
-              : 'linear-gradient(135deg, #1E2329 0%, var(--color-background) 100%)',
+              : 'linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%)',
             border: configVisible
               ? '1px solid rgba(168, 85, 247, 0.4)'
-              : '1px solid #2B3139',
+              : '1px solid var(--color-border)',
             boxShadow: configVisible
               ? '0 0 20px rgba(168, 85, 247, 0.1)'
               : 'none',
@@ -130,8 +137,8 @@ export function PublishSettingsEditor({
             className="absolute top-0 left-0 w-full h-[1px] transition-opacity duration-300"
             style={{
               background: configVisible
-                ? 'linear-gradient(90deg, transparent, #a855f7, transparent)'
-                : 'linear-gradient(90deg, transparent, #2B3139, transparent)',
+                ? 'linear-gradient(90deg, transparent, var(--color-purple), transparent)'
+                : 'linear-gradient(90deg, transparent, var(--color-border), transparent)',
               opacity: configVisible ? 1 : 0.5,
             }}
           />
@@ -146,11 +153,14 @@ export function PublishSettingsEditor({
                     : 'var(--color-background)',
                   border: configVisible
                     ? '1px solid rgba(168, 85, 247, 0.3)'
-                    : '1px solid #2B3139',
+                    : '1px solid var(--color-border)',
                 }}
               >
                 {configVisible ? (
-                  <Eye className="w-5 h-5" style={{ color: '#a855f7' }} />
+                  <Eye
+                    className="w-5 h-5"
+                    style={{ color: 'var(--color-purple)' }}
+                  />
                 ) : (
                   <EyeOff className="w-5 h-5 text-muted-foreground" />
                 )}
@@ -170,7 +180,9 @@ export function PublishSettingsEditor({
               <span
                 className="text-[10px] font-mono font-bold tracking-wider"
                 style={{
-                  color: configVisible ? '#a855f7' : 'var(--color-muted-fg)',
+                  color: configVisible
+                    ? 'var(--color-purple)'
+                    : 'var(--color-muted-fg)',
                 }}
               >
                 {configVisible
@@ -181,8 +193,8 @@ export function PublishSettingsEditor({
                 className="relative w-12 h-6 rounded-full transition-all duration-300"
                 style={{
                   background: configVisible
-                    ? 'linear-gradient(90deg, #a855f7, #c084fc)'
-                    : '#2B3139',
+                    ? 'var(--color-purple)'
+                    : 'var(--color-border)',
                   boxShadow: configVisible
                     ? '0 0 10px rgba(168, 85, 247, 0.4)'
                     : 'none',

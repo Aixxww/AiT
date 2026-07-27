@@ -73,15 +73,17 @@ export function WebCryptoEnvironmentCheck({
 
   const isCompact = variant === 'compact'
   const containerClass = isCompact
-    ? 'p-3 rounded border border-gray-700 bg-gray-900 space-y-3'
-    : 'p-4 rounded border border-[#2B3139] bg-background space-y-4'
+    ? 'p-3 rounded border border-border bg-surface space-y-3'
+    : 'p-4 rounded border border-border bg-background space-y-4'
 
-  const descriptionColor = isCompact ? '#CBD5F5' : '#A1AEC8'
+  const descriptionColor = isCompact
+    ? 'var(--color-foreground)'
+    : 'var(--color-muted-fg)'
   const showInfo = status !== 'idle'
 
   const statusRendererMap: Record<WebCryptoCheckStatus, () => ReactNode> = {
     secure: () => (
-      <div className="flex items-start gap-2 text-green-400 text-xs">
+      <div className="flex items-start gap-2 text-profit text-xs">
         <ShieldCheck className="w-4 h-4 flex-shrink-0" />
         <div>
           <div className="font-semibold">
@@ -92,7 +94,7 @@ export function WebCryptoEnvironmentCheck({
       </div>
     ),
     insecure: () => (
-      <div className="text-xs" style={{ color: '#F59E0B' }}>
+      <div className="text-xs" style={{ color: 'var(--color-warning)' }}>
         <div className="flex items-start gap-2 mb-1">
           <ShieldAlert className="w-4 h-4 flex-shrink-0" />
           <div className="font-semibold">
@@ -111,7 +113,7 @@ export function WebCryptoEnvironmentCheck({
       </div>
     ),
     unsupported: () => (
-      <div className="text-xs" style={{ color: '#F87171' }}>
+      <div className="text-xs" style={{ color: 'var(--color-loss)' }}>
         <div className="flex items-start gap-2 mb-1">
           <ShieldAlert className="w-4 h-4 flex-shrink-0" />
           <div className="font-semibold">
@@ -122,7 +124,7 @@ export function WebCryptoEnvironmentCheck({
       </div>
     ),
     disabled: () => (
-      <div className="flex items-start gap-2 text-gray-400 text-xs">
+      <div className="flex items-start gap-2 text-muted-foreground text-xs">
         <ShieldMinus className="w-4 h-4 flex-shrink-0" />
         <div>
           <div className="font-semibold">

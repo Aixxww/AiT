@@ -95,13 +95,13 @@ export function SquareHeatPanel({
       style={{ animationDelay: '0.18s' }}
     >
       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-        <div className="w-20 h-20 rounded-full bg-orange-500 blur-3xl" />
+        <div className="w-20 h-20 rounded-full bg-warning blur-3xl" />
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4 relative z-10">
         <h2 className="text-lg font-bold flex items-center gap-2 text-foreground uppercase tracking-wide">
-          <span className="text-orange-500">
+          <span className="text-warning">
             <Flame size={20} />
           </span>
           Square Heat
@@ -112,7 +112,7 @@ export function SquareHeatPanel({
             disabled={workerToggling}
             className={`p-1.5 rounded-lg transition-all ${
               workerRunning
-                ? 'text-green-400 hover:bg-green-500/20'
+                ? 'text-profit hover:bg-profit/20'
                 : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'
             } ${workerToggling ? 'opacity-50' : ''}`}
             title={workerRunning ? 'Stop Worker' : 'Start Worker'}

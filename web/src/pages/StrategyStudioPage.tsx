@@ -823,7 +823,7 @@ export function StrategyStudioPage() {
       <div className="flex-shrink-0 px-4 py-3 border-b border-primary/20 bg-background/60 backdrop-blur-md z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-yellow-500">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/70">
               <Sparkles className="w-5 h-5 text-black" />
             </div>
             <div>
@@ -1025,7 +1025,7 @@ export function StrategyStudioPage() {
                       onClick={handleSaveStrategy}
                       disabled={isSaving || !hasChanges}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50
-                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-yellow-500' : 'bg-surface text-muted-foreground cursor-not-allowed'}`}
+                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-surface text-muted-foreground cursor-not-allowed'}`}
                     >
                       <Save className="w-3 h-3" />
                       {isSaving ? tr('saving') : tr('save')}

@@ -152,7 +152,7 @@ function TradersEmptyState({
         {t('createFirstTrader', language)}
       </div>
       {(configuredModelsCount === 0 || configuredExchangesCount === 0) && (
-        <div className="text-xs md:text-sm text-yellow-500">
+        <div className="text-xs md:text-sm text-warning">
           {configuredModelsCount === 0 && configuredExchangesCount === 0
             ? t('configureModelsAndExchangesFirst', language)
             : configuredModelsCount === 0
@@ -225,8 +225,8 @@ function TraderRow({
             className="text-xs md:text-sm truncate"
             style={{
               color: trader.ai_model.includes('deepseek')
-                ? '#60a5fa'
-                : '#c084fc',
+                ? 'var(--color-info)'
+                : 'var(--color-purple)',
             }}
           >
             {getModelDisplayName(
@@ -261,7 +261,7 @@ function TraderRow({
                 e.stopPropagation()
                 onToggleTraderAddress(trader.trader_id)
               }}
-              className="p-0.5 rounded hover:bg-gray-700 transition-colors"
+              className="p-0.5 rounded hover:bg-panel-hover transition-colors"
               title={
                 isVisible
                   ? language === 'zh'
@@ -284,7 +284,7 @@ function TraderRow({
                 e.stopPropagation()
                 onCopyAddress(trader.trader_id, walletAddr)
               }}
-              className="p-0.5 rounded hover:bg-gray-700 transition-colors"
+              className="p-0.5 rounded hover:bg-panel-hover transition-colors"
               title={language === 'zh' ? '复制' : 'Copy'}
             >
               {isCopied ? (
@@ -302,9 +302,7 @@ function TraderRow({
         <div className="text-center">
           <div
             className={`px-2 md:px-3 py-1 rounded text-xs font-bold ${
-              trader.is_running
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
+              trader.is_running ? 'bg-profit text-profit' : 'bg-loss text-loss'
             }`}
             style={
               trader.is_running
@@ -339,8 +337,9 @@ function TraderRow({
             }}
             className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 flex items-center gap-1 whitespace-nowrap"
             style={{
-              background: 'rgba(99, 102, 241, 0.1)',
-              color: '#6366F1',
+              background:
+                'color-mix(in srgb, var(--color-info) 10%, transparent)',
+              color: 'var(--color-info)',
             }}
           >
             <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
@@ -353,10 +352,11 @@ function TraderRow({
             className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
             style={{
               background: trader.is_running
-                ? 'rgba(132, 142, 156, 0.1)'
-                : 'rgba(255, 193, 7, 0.1)',
-              color: trader.is_running ? 'var(--color-muted-fg)' : '#FFC107',
-              // Note: #FFC107 is not in the color mapping
+                ? 'color-mix(in srgb, var(--color-muted-fg) 10%, transparent)'
+                : 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+              color: trader.is_running
+                ? 'var(--color-muted-fg)'
+                : 'var(--color-warning)',
             }}
           >
             <Pencil className="w-3 h-3 md:w-4 md:h-4" />
@@ -401,7 +401,8 @@ function TraderRow({
                     color: 'var(--color-profit)',
                   }
                 : {
-                    background: 'rgba(132, 142, 156, 0.1)',
+                    background:
+                      'color-mix(in srgb, var(--color-muted-fg) 10%, transparent)',
                     color: 'var(--color-muted-fg)',
                   }
             }

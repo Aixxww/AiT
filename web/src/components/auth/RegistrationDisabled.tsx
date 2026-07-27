@@ -21,7 +21,7 @@ export function RegistrationDisabled() {
         <h1 className="text-2xl font-semibold mb-3">
           {t('registrationClosed', language)}
         </h1>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           {t('registrationClosedMessage', language)}
         </p>
         <button

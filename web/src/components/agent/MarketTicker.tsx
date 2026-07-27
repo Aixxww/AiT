@@ -109,12 +109,16 @@ export function MarketTicker() {
         const pct = parseFloat(t.priceChangePercent)
         const isUp = pct > 0
         const isDown = pct < 0
-        const color = isUp ? '#00e5a0' : isDown ? '#F6465D' : '#6c6c82'
-        const bgColor = isUp
-          ? 'rgba(0,229,160,0.06)'
+        const color = isUp
+          ? 'var(--color-profit)'
           : isDown
-            ? 'rgba(246,70,93,0.06)'
-            : 'rgba(108,108,130,0.06)'
+            ? 'var(--color-loss)'
+            : 'var(--color-muted-fg)'
+        const bgColor = isUp
+          ? 'color-mix(in srgb, var(--color-profit) 6%, transparent)'
+          : isDown
+            ? 'color-mix(in srgb, var(--color-loss) 6%, transparent)'
+            : 'color-mix(in srgb, var(--color-muted-fg) 6%, transparent)'
         const label = sym.replace('USDT', '')
         const icon = SYMBOL_ICONS[label] || label[0]
 
@@ -163,13 +167,15 @@ export function MarketTicker() {
                   style={{
                     fontSize: 12.5,
                     fontWeight: 600,
-                    color: '#e0e0ec',
+                    color: 'var(--color-foreground)',
                     letterSpacing: '-0.01em',
                   }}
                 >
                   {label}
                 </div>
-                <div style={{ fontSize: 10, color: '#4c4c62' }}>
+                <div
+                  style={{ fontSize: 10, color: 'var(--color-disabled-fg)' }}
+                >
                   Vol {formatVolume(t.volume)}
                 </div>
               </div>
@@ -179,7 +185,7 @@ export function MarketTicker() {
                 style={{
                   fontSize: 12.5,
                   fontWeight: 600,
-                  color: '#e0e0ec',
+                  color: 'var(--color-foreground)',
                   fontFamily: '"IBM Plex Mono", monospace',
                   letterSpacing: '-0.02em',
                 }}

@@ -19,7 +19,7 @@ export function TraderStatusPanel() {
         style={{
           padding: '20px 14px',
           textAlign: 'center',
-          color: '#5c5c72',
+          color: 'var(--color-muted-fg)',
           fontSize: 12,
         }}
       >
@@ -35,7 +35,7 @@ export function TraderStatusPanel() {
         style={{
           padding: '16px 14px',
           textAlign: 'center',
-          color: '#5c5c72',
+          color: 'var(--color-muted-fg)',
           fontSize: 12,
         }}
       >
@@ -54,9 +54,9 @@ export function TraderStatusPanel() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '10px 12px',
-            background: '#0d0d15',
+            background: 'var(--color-surface)',
             borderRadius: 10,
-            border: '1px solid #1a1a28',
+            border: '1px solid var(--color-border)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -66,23 +66,29 @@ export function TraderStatusPanel() {
                 height: 28,
                 borderRadius: 7,
                 background: trader.is_running
-                  ? 'rgba(0,229,160,0.08)'
-                  : 'rgba(92,92,114,0.08)',
+                  ? 'color-mix(in srgb, var(--color-profit) 8%, transparent)'
+                  : 'color-mix(in srgb, var(--color-muted-fg) 8%, transparent)',
                 display: 'grid',
                 placeItems: 'center',
               }}
             >
               {trader.is_running ? (
-                <Activity size={14} color="#00e5a0" />
+                <Activity size={14} color="var(--color-profit)" />
               ) : (
-                <CircleOff size={14} color="#5c5c72" />
+                <CircleOff size={14} color="var(--color-muted-fg)" />
               )}
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#eaeaf0' }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--color-foreground)',
+                }}
+              >
                 {trader.trader_name}
               </div>
-              <div style={{ fontSize: 10, color: '#5c5c72' }}>
+              <div style={{ fontSize: 10, color: 'var(--color-muted-fg)' }}>
                 {trader.trader_id.slice(0, 8)}...
               </div>
             </div>
@@ -94,9 +100,11 @@ export function TraderStatusPanel() {
               padding: '3px 8px',
               borderRadius: 6,
               background: trader.is_running
-                ? 'rgba(0,229,160,0.12)'
-                : 'rgba(92,92,114,0.12)',
-              color: trader.is_running ? '#00e5a0' : '#5c5c72',
+                ? 'color-mix(in srgb, var(--color-profit) 12%, transparent)'
+                : 'color-mix(in srgb, var(--color-muted-fg) 12%, transparent)',
+              color: trader.is_running
+                ? 'var(--color-profit)'
+                : 'var(--color-muted-fg)',
             }}
           >
             {trader.is_running ? 'RUNNING' : 'STOPPED'}

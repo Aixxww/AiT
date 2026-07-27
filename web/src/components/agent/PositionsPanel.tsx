@@ -29,7 +29,7 @@ export function PositionsPanel() {
         style={{
           padding: '20px 14px',
           textAlign: 'center',
-          color: '#5c5c72',
+          color: 'var(--color-muted-fg)',
           fontSize: 12,
         }}
       >
@@ -47,7 +47,7 @@ export function PositionsPanel() {
         style={{
           padding: '16px 14px',
           textAlign: 'center',
-          color: '#5c5c72',
+          color: 'var(--color-muted-fg)',
           fontSize: 12,
         }}
       >
@@ -61,7 +61,7 @@ export function PositionsPanel() {
       {openPositions.map((pos, i) => {
         const pnl = pos.unrealized_pnl
         const isProfit = pnl >= 0
-        const color = isProfit ? '#00e5a0' : '#F6465D'
+        const color = isProfit ? 'var(--color-profit)' : 'var(--color-loss)'
         const side =
           pos.side?.toUpperCase() || (pos.quantity > 0 ? 'LONG' : 'SHORT')
         const rawSymbol = pos.symbol || ''
@@ -82,9 +82,9 @@ export function PositionsPanel() {
             key={i}
             style={{
               padding: '10px 12px',
-              background: '#0d0d15',
+              background: 'var(--color-surface)',
               borderRadius: 10,
-              border: '1px solid #1a1a28',
+              border: '1px solid var(--color-border)',
             }}
           >
             <div
@@ -100,13 +100,17 @@ export function PositionsPanel() {
                   style={{
                     fontSize: 13,
                     fontWeight: 600,
-                    color: '#eaeaf0',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   {symbol}
                 </span>
                 {isStock && (
-                  <span style={{ fontSize: 10, color: '#8b8ba0' }}>🇺🇸</span>
+                  <span
+                    style={{ fontSize: 10, color: 'var(--color-muted-fg)' }}
+                  >
+                    🇺🇸
+                  </span>
                 )}
                 <span
                   style={{
@@ -116,9 +120,12 @@ export function PositionsPanel() {
                     borderRadius: 4,
                     background:
                       side === 'LONG'
-                        ? 'rgba(0,229,160,0.12)'
-                        : 'rgba(246,70,93,0.12)',
-                    color: side === 'LONG' ? '#00e5a0' : '#F6465D',
+                        ? 'color-mix(in srgb, var(--color-profit) 12%, transparent)'
+                        : 'color-mix(in srgb, var(--color-loss) 12%, transparent)',
+                    color:
+                      side === 'LONG'
+                        ? 'var(--color-profit)'
+                        : 'var(--color-loss)',
                   }}
                 >
                   {isStock ? (side === 'LONG' ? 'HOLD' : 'SHORT') : side}
@@ -149,7 +156,7 @@ export function PositionsPanel() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: 11,
-                color: '#5c5c72',
+                color: 'var(--color-muted-fg)',
               }}
             >
               <span>
@@ -165,7 +172,7 @@ export function PositionsPanel() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: 11,
-                color: '#5c5c72',
+                color: 'var(--color-muted-fg)',
                 marginTop: 3,
               }}
             >

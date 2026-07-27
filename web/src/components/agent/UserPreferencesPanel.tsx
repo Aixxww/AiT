@@ -123,12 +123,18 @@ export function UserPreferencesPanel({ token, language }: Props) {
       }}
     >
       <div style={{ marginBottom: 8 }}>
-        <div style={{ color: '#d7d7e0', fontSize: 12, fontWeight: 600 }}>
+        <div
+          style={{
+            color: 'var(--color-foreground)',
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
           {language === 'zh' ? '长期偏好' : 'Persistent Preferences'}
         </div>
         <div
           style={{
-            color: '#77778d',
+            color: 'var(--color-muted-fg)',
             fontSize: 11,
             lineHeight: 1.5,
             marginTop: 4,
@@ -157,7 +163,7 @@ export function UserPreferencesPanel({ token, language }: Props) {
             flex: 1,
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.08)',
-            color: '#e8e8f0',
+            color: 'var(--color-foreground)',
             borderRadius: 8,
             padding: '8px 10px',
             fontSize: 12,
@@ -170,10 +176,14 @@ export function UserPreferencesPanel({ token, language }: Props) {
           style={{
             background:
               draft.trim() && !saving
-                ? 'rgba(240,185,11,0.12)'
+                ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
                 : 'rgba(255,255,255,0.04)',
-            color: draft.trim() && !saving ? '#F0B90B' : '#6d6d82',
-            border: '1px solid rgba(240,185,11,0.14)',
+            color:
+              draft.trim() && !saving
+                ? 'var(--color-primary)'
+                : 'var(--color-muted-fg)',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 14%, transparent)',
             borderRadius: 8,
             padding: '0 10px',
             fontSize: 12,
@@ -185,18 +195,26 @@ export function UserPreferencesPanel({ token, language }: Props) {
       </div>
 
       {error && (
-        <div style={{ color: '#f08a8a', fontSize: 11, marginBottom: 8 }}>
+        <div
+          style={{ color: 'var(--color-loss)', fontSize: 11, marginBottom: 8 }}
+        >
           {error}
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {loading ? (
-          <div style={{ color: '#77778d', fontSize: 11 }}>
+          <div style={{ color: 'var(--color-muted-fg)', fontSize: 11 }}>
             {language === 'zh' ? '加载中...' : 'Loading...'}
           </div>
         ) : preferences.length === 0 ? (
-          <div style={{ color: '#77778d', fontSize: 11, lineHeight: 1.5 }}>
+          <div
+            style={{
+              color: 'var(--color-muted-fg)',
+              fontSize: 11,
+              lineHeight: 1.5,
+            }}
+          >
             {language === 'zh'
               ? '还没有长期偏好。你可以把关注标的、风险倾向、回答习惯放在这里。'
               : 'No persistent preferences yet. Add watchlists, risk preferences, or response habits here.'}
@@ -218,7 +236,7 @@ export function UserPreferencesPanel({ token, language }: Props) {
               <div
                 style={{
                   flex: 1,
-                  color: '#d7d7e0',
+                  color: 'var(--color-foreground)',
                   fontSize: 12,
                   lineHeight: 1.5,
                 }}
@@ -231,7 +249,7 @@ export function UserPreferencesPanel({ token, language }: Props) {
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#8b8ba0',
+                  color: 'var(--color-muted-fg)',
                   fontSize: 11,
                   cursor: saving ? 'default' : 'pointer',
                   padding: 0,

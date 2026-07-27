@@ -63,11 +63,11 @@ export function GridRiskPanel({
       case 'standard':
         return 'var(--color-primary)'
       case 'wide':
-        return '#F7931A'
+        return 'var(--color-warning)'
       case 'volatile':
         return 'var(--color-loss)'
       case 'trending':
-        return '#8B5CF6'
+        return 'var(--color-purple)'
       default:
         return 'var(--color-muted-fg)'
     }
@@ -80,7 +80,7 @@ export function GridRiskPanel({
       case 'short':
         return 'var(--color-primary)'
       case 'mid':
-        return '#F7931A'
+        return 'var(--color-warning)'
       case 'long':
         return 'var(--color-loss)'
       default:
@@ -111,7 +111,7 @@ export function GridRiskPanel({
 
   const cardStyle = {
     background: 'var(--color-background)',
-    border: '1px solid #2B3139',
+    border: '1px solid var(--color-border)',
   }
 
   if (loading) {

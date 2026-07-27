@@ -261,9 +261,9 @@ export function TraderConfigModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-panel)] to-[#252B35] sticky top-0 z-10 rounded-t-xl">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover sticky top-0 z-10 rounded-t-xl">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[#E1A706] flex items-center justify-center text-black">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/85 flex items-center justify-center text-black">
               {isEditMode ? (
                 <Pencil className="w-5 h-5" />
               ) : (
@@ -285,7 +285,7 @@ export function TraderConfigModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[var(--color-border)] transition-colors flex items-center justify-center"
+            className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
           >
             <IconX className="w-4 h-4" />
           </button>
@@ -431,7 +431,7 @@ export function TraderConfigModal({
                       {t('strategyDetails', language)}
                     </span>
                     {selectedStrategy.is_active && (
-                      <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
+                      <span className="px-2 py-0.5 bg-profit/20 text-profit text-xs rounded">
                         {t('activating', language)}
                       </span>
                     )}
@@ -533,7 +533,7 @@ export function TraderConfigModal({
                     max="60"
                     step="1"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {t('scanIntervalRecommend', language)}
                   </p>
                 </div>
@@ -619,7 +619,7 @@ export function TraderConfigModal({
                     {t('balanceUpdateHint', language)}
                   </p>
                   {balanceFetchError && (
-                    <p className="text-xs text-red-500 mt-1">
+                    <p className="text-xs text-loss mt-1">
                       {balanceFetchError}
                     </p>
                   )}
@@ -653,10 +653,10 @@ export function TraderConfigModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-[var(--color-panel)] to-[#252B35] sticky bottom-0 z-10 rounded-b-xl">
+        <div className="flex justify-end gap-3 p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover sticky bottom-0 z-10 rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-6 py-3 bg-[var(--color-border)] text-foreground rounded-lg hover:bg-[#404750] transition-all duration-200 border border-[#404750]"
+            className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-all duration-200 border border-border"
           >
             {t('cancel', language)}
           </button>
@@ -669,7 +669,7 @@ export function TraderConfigModal({
                 !formData.ai_model ||
                 !formData.exchange_id
               }
-              className="px-8 py-3 bg-gradient-to-r from-[var(--color-primary)] to-[#E1A706] text-black rounded-lg hover:from-[#E1A706] hover:to-[#D4951E] transition-all duration-200 disabled:bg-muted disabled:cursor-not-allowed font-medium shadow-lg"
+              className="px-8 py-3 bg-gradient-to-r from-primary to-primary/85 text-black rounded-lg hover:opacity-90 transition-all duration-200 disabled:bg-muted disabled:cursor-not-allowed font-medium shadow-lg"
             >
               {isSaving
                 ? t('saving', language)

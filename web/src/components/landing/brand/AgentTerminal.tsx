@@ -36,9 +36,9 @@ export default function AgentTerminal() {
             </span>
           </div>
           {/* Live indicator */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-green-500/10 border border-green-500/20">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-green-400 text-[10px] font-mono uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-profit/10 border border-profit/20">
+            <div className="w-1.5 h-1.5 bg-profit rounded-full animate-pulse" />
+            <span className="text-profit text-[10px] font-mono uppercase tracking-wider">
               Live
             </span>
           </div>
@@ -63,10 +63,10 @@ export default function AgentTerminal() {
             </div>
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-green-400 font-mono tracking-tight">
+            <span className="text-3xl font-bold text-profit font-mono tracking-tight">
               +$12,847.50
             </span>
-            <span className="text-green-500/80 text-sm font-mono">+8.42%</span>
+            <span className="text-profit/80 text-sm font-mono">+8.42%</span>
           </div>
 
           {/* Chart Area */}
@@ -84,8 +84,16 @@ export default function AgentTerminal() {
                   x2="0%"
                   y2="100%"
                 >
-                  <stop offset="0%" stopColor="#22C55E" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
+                  <stop
+                    offset="0%"
+                    stopColor="var(--color-profit)"
+                    stopOpacity="0.2"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="var(--color-profit)"
+                    stopOpacity="0"
+                  />
                 </linearGradient>
               </defs>
               <path
@@ -95,7 +103,7 @@ export default function AgentTerminal() {
               <path
                 d="M0,56 C40,52 80,48 120,40 C160,32 200,28 240,24 C280,20 320,16 360,12 L400,8"
                 fill="none"
-                stroke="#22C55E"
+                stroke="var(--color-profit)"
                 strokeWidth="1.5"
               />
             </svg>
@@ -103,19 +111,19 @@ export default function AgentTerminal() {
         </div>
 
         {/* Metrics Row */}
-        <div className="grid grid-cols-3 divide-x divide-zinc-800/40 border-b border-border/40">
+        <div className="grid grid-cols-3 divide-x divide-border/60 border-b border-border/40">
           <div className="p-3 text-center">
             <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider mb-1">
               OI
             </div>
             <div className="text-foreground font-bold font-mono">$847M</div>
-            <div className="text-green-500 text-[10px] font-mono">↑ 2.1%</div>
+            <div className="text-profit text-[10px] font-mono">↑ 2.1%</div>
           </div>
           <div className="p-3 text-center">
             <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider mb-1">
               Netflow
             </div>
-            <div className="text-green-400 font-bold font-mono">+$124M</div>
+            <div className="text-profit font-bold font-mono">+$124M</div>
             <div className="text-muted-foreground text-[10px] font-mono">
               24h inflow
             </div>
@@ -126,8 +134,8 @@ export default function AgentTerminal() {
             </div>
             <div className="text-foreground font-bold font-mono">1.24</div>
             <div className="flex gap-0.5 mt-1 px-2">
-              <div className="h-1 bg-green-500/60 rounded-l flex-[55]" />
-              <div className="h-1 bg-red-500/60 rounded-r flex-[45]" />
+              <div className="h-1 bg-profit/60 rounded-l flex-[55]" />
+              <div className="h-1 bg-loss/60 rounded-r flex-[45]" />
             </div>
           </div>
         </div>
@@ -155,10 +163,10 @@ export default function AgentTerminal() {
                   className="relative flex justify-between text-[11px] py-1 px-1.5 rounded"
                 >
                   <div
-                    className="absolute inset-0 bg-red-500/10 rounded-sm"
+                    className="absolute inset-0 bg-loss/10 rounded-sm"
                     style={{ width: `${ask.depth}%` }}
                   />
-                  <span className="relative text-red-400 font-mono">
+                  <span className="relative text-loss font-mono">
                     {ask.price}
                   </span>
                   <span className="relative text-muted-foreground font-mono">
@@ -179,10 +187,10 @@ export default function AgentTerminal() {
                   className="relative flex justify-between text-[11px] py-1 px-1.5 rounded"
                 >
                   <div
-                    className="absolute inset-0 bg-green-500/10 rounded-sm"
+                    className="absolute inset-0 bg-profit/10 rounded-sm"
                     style={{ width: `${bid.depth}%` }}
                   />
-                  <span className="relative text-green-400 font-mono">
+                  <span className="relative text-profit font-mono">
                     {bid.price}
                   </span>
                   <span className="relative text-muted-foreground font-mono">
@@ -200,7 +208,7 @@ export default function AgentTerminal() {
             <span className="text-muted-foreground text-xs font-mono uppercase tracking-wider">
               Positions
             </span>
-            <span className="text-green-400 text-xs font-mono font-medium">
+            <span className="text-profit text-xs font-mono font-medium">
               +$12,847
             </span>
           </div>
@@ -251,7 +259,7 @@ export default function AgentTerminal() {
                       {pos.name}
                     </div>
                     <div className="flex items-center gap-2 text-[10px]">
-                      <span className="text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded font-mono">
+                      <span className="text-profit bg-profit/10 px-1.5 py-0.5 rounded font-mono">
                         LONG
                       </span>
                       <span className="text-muted-foreground font-mono">
@@ -261,10 +269,10 @@ export default function AgentTerminal() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-green-400 font-mono font-medium">
+                  <div className="text-profit font-mono font-medium">
                     {pos.profit}
                   </div>
-                  <div className="text-green-500/70 text-[10px] font-mono">
+                  <div className="text-profit/70 text-[10px] font-mono">
                     {pos.percent}
                   </div>
                 </div>
@@ -277,7 +285,7 @@ export default function AgentTerminal() {
         <div className="px-4 py-2 bg-[#0D1117] border-t border-border/60 flex items-center justify-between">
           <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
             <span className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              <div className="w-1.5 h-1.5 bg-profit rounded-full" />
               Connected
             </span>
             <span>Latency: 12ms</span>

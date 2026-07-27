@@ -634,7 +634,7 @@ export default function HeaderBar({
                         onLogout?.()
                         setMobileMenuOpen(false)
                       }}
-                      className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg font-bold text-sm hover:bg-red-500/20 transition-colors"
+                      className="bg-loss/10 border border-loss/20 text-loss rounded-lg font-bold text-sm hover:bg-loss/20 transition-colors"
                     >
                       {t('exitLogin', language)}
                     </button>

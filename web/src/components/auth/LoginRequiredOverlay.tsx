@@ -73,8 +73,8 @@ export function LoginRequiredOverlay({
                   {/* Flashing Access Denied */}
                   <div className="flex justify-center mb-6">
                     <div className="relative">
-                      <div className="absolute inset-0 bg-red-500/20 blur-xl animate-pulse"></div>
-                      <div className="bg-background border border-red-500/50 text-red-500 px-4 py-2 flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                      <div className="absolute inset-0 bg-loss/20 blur-xl animate-pulse"></div>
+                      <div className="bg-background border border-loss/50 text-loss px-4 py-2 flex items-center gap-3">
                         <AlertTriangle size={18} className="animate-pulse" />
                         <span className="font-bold tracking-widest text-sm uppercase">
                           {tr('accessDenied')}
@@ -96,7 +96,7 @@ export function LoginRequiredOverlay({
 
                     <div className="bg-surface border-l-2 border-primary/20 p-3 my-4">
                       <p className="text-xs text-muted-foreground leading-relaxed font-mono">
-                        <span className="text-green-500 mr-2">$</span>
+                        <span className="text-profit mr-2">$</span>
                         {tr('description')}
                       </p>
                     </div>
@@ -117,7 +117,7 @@ export function LoginRequiredOverlay({
                   <div className="space-y-3">
                     <Link
                       to="/login"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all group"
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-all group"
                     >
                       <LogIn size={14} />
                       <span>{tr('loginButton')}</span>
@@ -138,7 +138,7 @@ export function LoginRequiredOverlay({
                   <div className="mt-4 text-center">
                     <button
                       onClick={onClose}
-                      className="text-[10px] text-muted-foreground hover:text-loss uppercase tracking-widest hover:underline decoration-red-500/30"
+                      className="text-[10px] text-muted-foreground hover:text-loss uppercase tracking-widest hover:underline decoration-loss/30"
                     >
                       [ {tr('abort')} ]
                     </button>

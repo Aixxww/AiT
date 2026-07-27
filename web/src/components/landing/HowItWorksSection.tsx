@@ -55,7 +55,7 @@ export default function HowItWorksSection({
         className="absolute left-0 top-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl opacity-20"
         style={{
           background:
-            'radial-gradient(circle, rgba(240, 185, 11, 0.15) 0%, transparent 70%)',
+            'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 15%, transparent) 0%, transparent 70%)',
         }}
       />
 
@@ -82,7 +82,7 @@ export default function HowItWorksSection({
             className="absolute left-[39px] top-0 bottom-0 w-px hidden lg:block"
             style={{
               background:
-                'linear-gradient(to bottom, transparent, rgba(240, 185, 11, 0.3), transparent)',
+                'linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-primary) 30%, transparent), transparent)',
             }}
           />
 
@@ -109,8 +109,9 @@ export default function HowItWorksSection({
                       className="w-20 h-20 rounded-2xl flex items-center justify-center"
                       style={{
                         background:
-                          'linear-gradient(135deg, rgba(240, 185, 11, 0.2) 0%, rgba(240, 185, 11, 0.05) 100%)',
-                        border: '1px solid rgba(240, 185, 11, 0.3)',
+                          'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent) 0%, color-mix(in srgb, var(--color-primary) 5%, transparent) 100%)',
+                        border:
+                          '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
                       }}
                       whileHover={{ scale: 1.1 }}
                     >
@@ -158,8 +159,10 @@ export default function HowItWorksSection({
         <motion.div
           className="mt-12 p-6 rounded-2xl flex items-start gap-4"
           style={{
-            background: 'rgba(240, 185, 11, 0.05)',
-            border: '1px solid rgba(240, 185, 11, 0.15)',
+            background:
+              'color-mix(in srgb, var(--color-primary) 5%, transparent)',
+            border:
+              '1px solid color-mix(in srgb, var(--color-primary) 15%, transparent)',
           }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -167,7 +170,10 @@ export default function HowItWorksSection({
         >
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(240, 185, 11, 0.1)' }}
+            style={{
+              background:
+                'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+            }}
           >
             <AlertTriangle
               className="w-6 h-6"

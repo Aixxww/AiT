@@ -35,7 +35,8 @@ function TweetCard({
       transition={{ delay }}
       whileHover={{
         y: -4,
-        borderColor: 'rgba(240, 185, 11, 0.3)',
+        borderColor:
+          'color-mix(in srgb, var(--color-primary) 30%, transparent)',
       }}
     >
       {/* Header */}

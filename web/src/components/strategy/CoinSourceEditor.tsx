@@ -36,14 +36,14 @@ export function CoinSourceEditor({
 
   const sourceTypes = [
     { value: 'static', icon: List, color: 'var(--color-muted-fg)' },
-    { value: 'ai500', icon: Database, color: '#F0B90B' },
-    { value: 'oi_top', icon: TrendingUp, color: '#0ECB81' },
-    { value: 'oi_low', icon: TrendingDown, color: '#F6465D' },
-    { value: 'square_heat', icon: Flame, color: '#FF6A00' },
-    { value: 'hunter', icon: Crosshair, color: '#A855F7' },
-    { value: 'hunter_sniff', icon: Radar, color: '#E879F9' },
-    { value: 'hunter_v7', icon: Zap, color: '#22D3EE' },
-    { value: 'indicator_hub', icon: Activity, color: '#3B82F6' },
+    { value: 'ai500', icon: Database, color: 'var(--color-primary)' },
+    { value: 'oi_top', icon: TrendingUp, color: 'var(--color-profit)' },
+    { value: 'oi_low', icon: TrendingDown, color: 'var(--color-loss)' },
+    { value: 'square_heat', icon: Flame, color: 'var(--color-warning)' },
+    { value: 'hunter', icon: Crosshair, color: 'var(--color-purple)' },
+    { value: 'hunter_sniff', icon: Radar, color: 'var(--color-purple)' },
+    { value: 'hunter_v7', icon: Zap, color: 'var(--color-accent)' },
+    { value: 'indicator_hub', icon: Activity, color: 'var(--color-info)' },
   ] as const
 
   // Calculate mixed mode summary
@@ -142,7 +142,7 @@ export function CoinSourceEditor({
     toast.textContent = msg
     toast.className =
       'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm z-50 shadow-lg'
-    toast.style.cssText = 'background:#F6465D;color:#fff;'
+    toast.style.cssText = 'background:var(--color-loss);color:#fff;'
     document.body.appendChild(toast)
     setTimeout(() => toast.remove(), 2000)
   }
@@ -224,7 +224,7 @@ export function CoinSourceEditor({
 
   // Binance data source badge component
   const BinanceBadge = () => (
-    <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+    <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-accent-purple/20 text-accent-purple border border-accent-purple/30">
       Binance
     </span>
   )
@@ -303,7 +303,7 @@ export function CoinSourceEditor({
                 {!disabled && (
                   <button
                     onClick={() => handleRemoveCoin(coin)}
-                    className="ml-1 hover:text-red-400 transition-colors"
+                    className="ml-1 hover:text-loss transition-colors"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -323,7 +323,7 @@ export function CoinSourceEditor({
               />
               <button
                 onClick={handleAddCoin}
-                className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors bg-primary text-primary-foreground hover:bg-yellow-500"
+                className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors bg-primary text-primary-foreground hover:bg-primary"
               >
                 <Plus className="w-4 h-4" />
                 {ts(coinSource.addCoin, language)}
@@ -379,7 +379,7 @@ export function CoinSourceEditor({
             />
             <button
               onClick={handleAddExcludedCoin}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-loss text-foreground hover:bg-red-600"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-loss text-foreground hover:bg-loss"
             >
               <Ban className="w-4 h-4" />
               {ts(coinSource.addExcludedCoin, language)}
@@ -529,7 +529,7 @@ export function CoinSourceEditor({
                   onChange({ ...config, use_oi_low: e.target.checked })
                 }
                 disabled={disabled}
-                className="w-5 h-5 rounded accent-red-500"
+                className="w-5 h-5 rounded accent-loss"
               />
               <span className="text-foreground">
                 {ts(coinSource.useOILow, language)}
@@ -566,10 +566,10 @@ export function CoinSourceEditor({
 
       {/* Hunter Options - only for hunter mode */}
       {config.source_type === 'hunter' && (
-        <div className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20">
+        <div className="p-4 rounded-lg bg-accent-purple/5 border border-accent-purple/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Crosshair className="w-4 h-4 text-purple-400" />
+              <Crosshair className="w-4 h-4 text-accent-purple" />
               <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
@@ -588,7 +588,7 @@ export function CoinSourceEditor({
                   onChange({ ...config, use_hunter: e.target.checked })
                 }
                 disabled={disabled}
-                className="w-5 h-5 rounded accent-purple-500"
+                className="w-5 h-5 rounded accent-accent-purple"
               />
               <span className="text-foreground">
                 {ts(coinSource.useHunter, language)}
@@ -642,8 +642,8 @@ export function CoinSourceEditor({
                     className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                       config.hunter_direction === 'LONG' ||
                       config.hunter_direction === 'BOTH'
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                        : 'bg-background text-muted-foreground border border-ait-border hover:border-green-500/30'
+                        ? 'bg-profit/20 text-profit border border-profit/50'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-profit/30'
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
@@ -667,8 +667,8 @@ export function CoinSourceEditor({
                     className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                       config.hunter_direction === 'SHORT' ||
                       config.hunter_direction === 'BOTH'
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-background text-muted-foreground border border-ait-border hover:border-red-500/30'
+                        ? 'bg-loss/20 text-loss border border-loss/50'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-loss/30'
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
@@ -704,8 +704,8 @@ export function CoinSourceEditor({
                         className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                           (config.hunter_config?.strategy_mode || 'default') ===
                           'default'
-                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                            : 'bg-background text-muted-foreground border border-ait-border hover:border-blue-500/30'
+                            ? 'bg-info/20 text-info border border-info/50'
+                            : 'bg-background text-muted-foreground border border-ait-border hover:border-info/30'
                         }`}
                       >
                         {language === 'zh' ? '🎯 默认模式' : '🎯 Default'}
@@ -724,8 +724,8 @@ export function CoinSourceEditor({
                         disabled={disabled}
                         className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                           config.hunter_config?.strategy_mode === 'breakout'
-                            ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50'
-                            : 'bg-background text-muted-foreground border border-ait-border hover:border-orange-500/30'
+                            ? 'bg-warning/20 text-warning border border-warning/50'
+                            : 'bg-background text-muted-foreground border border-ait-border hover:border-warning/30'
                         }`}
                       >
                         {language === 'zh' ? '🔥 妖币猎杀' : '🔥 Breakout'}
@@ -735,7 +735,7 @@ export function CoinSourceEditor({
 
                   {/* Breakout mode info box */}
                   {config.hunter_config?.strategy_mode === 'breakout' && (
-                    <div className="p-2 rounded bg-orange-500/5 border border-orange-500/20 text-xs text-orange-300/80 space-y-0.5">
+                    <div className="p-2 rounded bg-warning/5 border border-warning/20 text-xs text-warning/80 space-y-0.5">
                       {language === 'zh' ? (
                         <>
                           <div>
@@ -867,7 +867,7 @@ export function CoinSourceEditor({
                         })
                       }
                       disabled={disabled}
-                      className="w-4 h-4 rounded accent-purple-500"
+                      className="w-4 h-4 rounded accent-accent-purple"
                     />
                     <span className="text-xs text-foreground">
                       {language === 'zh'
@@ -965,7 +965,7 @@ export function CoinSourceEditor({
                         })
                       }
                       disabled={disabled}
-                      className="w-4 h-4 rounded accent-purple-500"
+                      className="w-4 h-4 rounded accent-accent-purple"
                     />
                     <span className="text-xs text-foreground">
                       {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
@@ -1014,10 +1014,10 @@ export function CoinSourceEditor({
 
       {/* Hunter v7 Options - only for hunter_v7 mode */}
       {config.source_type === 'hunter_v7' && (
-        <div className="p-4 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
+        <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-cyan-400" />
+              <Zap className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter_v7, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
@@ -1171,7 +1171,7 @@ export function CoinSourceEditor({
                   })
                 }
                 disabled={disabled}
-                className="w-5 h-5 rounded accent-cyan-500"
+                className="w-5 h-5 rounded accent-accent"
               />
               <span className="text-sm text-foreground">
                 {ts(coinSource.v7Aggressive, language)}
@@ -1190,10 +1190,10 @@ export function CoinSourceEditor({
 
       {/* Hunter Sniff Options - only for hunter_sniff mode */}
       {config.source_type === 'hunter_sniff' && (
-        <div className="p-4 rounded-lg bg-fuchsia-500/5 border border-fuchsia-500/20">
+        <div className="p-4 rounded-lg bg-accent-purple/5 border border-accent-purple/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Radar className="w-4 h-4 text-fuchsia-400" />
+              <Radar className="w-4 h-4 text-accent-purple" />
               <span className="text-sm font-medium text-foreground">
                 {ts(coinSource.hunter_sniff, language)}{' '}
                 {ts(coinSource.dataSourceConfig, language)}
@@ -1224,7 +1224,7 @@ export function CoinSourceEditor({
             </div>
 
             {/* Sniff mode info box */}
-            <div className="p-3 rounded bg-fuchsia-500/5 border border-fuchsia-500/20 text-xs text-fuchsia-300/80 space-y-0.5">
+            <div className="p-3 rounded bg-accent-purple/5 border border-accent-purple/20 text-xs text-accent-purple/80 space-y-0.5">
               {language === 'zh' ? (
                 <>
                   <div className="font-medium mb-1">3条件共振过滤器：</div>
@@ -1232,7 +1232,7 @@ export function CoinSourceEditor({
                   <div>▸ 庄家足迹信号 (OI累积/主力买入/LSR反转) — 任一</div>
                   <div>▸ 反墙过滤 (无对立支撑/阻力) — 必须通过</div>
                   <div>▸ 反洗盘过滤 (无 wash_micro_trades) — 必须通过</div>
-                  <div className="mt-1.5 text-fuchsia-400/60">
+                  <div className="mt-1.5 text-accent-purple/60">
                     输出: LONG_AMBUSH (做多埋伏) + SHORT_DISTRIBUTION (做空派发)
                   </div>
                 </>
@@ -1252,7 +1252,7 @@ export function CoinSourceEditor({
                   <div>
                     ▸ Anti-wash filter (no wash_micro_trades) — must pass
                   </div>
-                  <div className="mt-1.5 text-fuchsia-400/60">
+                  <div className="mt-1.5 text-accent-purple/60">
                     Output: LONG_AMBUSH + SHORT_DISTRIBUTION
                   </div>
                 </>
@@ -1270,9 +1270,9 @@ export function CoinSourceEditor({
 
       {/* Mixed Mode - Unified Card Selector */}
       {config.source_type === 'mixed' && (
-        <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
+        <div className="p-4 rounded-lg bg-info/5 border border-info/20">
           <div className="flex items-center gap-2 mb-4">
-            <Shuffle className="w-4 h-4 text-blue-400" />
+            <Shuffle className="w-4 h-4 text-info" />
             <span className="text-sm font-medium text-foreground">
               {ts(coinSource.mixedConfig, language)}
             </span>
@@ -1403,7 +1403,7 @@ export function CoinSourceEditor({
                     onChange({ ...config, use_oi_low: e.target.checked })
                   }
                   disabled={disabled}
-                  className="w-4 h-4 rounded accent-red-500"
+                  className="w-4 h-4 rounded accent-loss"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <TrendingDown className="w-4 h-4 text-loss" />
@@ -1438,8 +1438,8 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_square_heat
-                  ? 'bg-orange-500/10 border-orange-500/50'
-                  : 'bg-background border-ait-border hover:border-orange-500/30'
+                  ? 'bg-warning/10 border-warning/50'
+                  : 'bg-background border-ait-border hover:border-warning/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1458,10 +1458,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, use_square_heat: e.target.checked })
                   }
                   disabled={disabled}
-                  className="w-4 h-4 rounded accent-orange-500"
+                  className="w-4 h-4 rounded accent-warning"
                   onClick={(e) => e.stopPropagation()}
                 />
-                <Flame className="w-4 h-4 text-orange-500" />
+                <Flame className="w-4 h-4 text-warning" />
                 <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.square_heat, language)}
                 </span>
@@ -1515,8 +1515,8 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 config.use_hunter
-                  ? 'bg-purple-500/10 border-purple-500/50'
-                  : 'bg-background border-ait-border hover:border-purple-500/30'
+                  ? 'bg-accent-purple/10 border-accent-purple/50'
+                  : 'bg-background border-ait-border hover:border-accent-purple/30'
               }`}
               onClick={() =>
                 !disabled &&
@@ -1532,10 +1532,10 @@ export function CoinSourceEditor({
                     onChange({ ...config, use_hunter: e.target.checked })
                   }
                   disabled={disabled}
-                  className="w-4 h-4 rounded accent-purple-500"
+                  className="w-4 h-4 rounded accent-accent-purple"
                   onClick={(e) => e.stopPropagation()}
                 />
-                <Crosshair className="w-4 h-4 text-purple-400" />
+                <Crosshair className="w-4 h-4 text-accent-purple" />
                 <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.hunter, language)}
                 </span>
@@ -1586,8 +1586,8 @@ export function CoinSourceEditor({
                     className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
                       config.hunter_direction === 'LONG' ||
                       config.hunter_direction === 'BOTH'
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                        : 'bg-background text-muted-foreground border border-ait-border hover:border-green-500/30'
+                        ? 'bg-profit/20 text-profit border border-profit/50'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-profit/30'
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
@@ -1612,8 +1612,8 @@ export function CoinSourceEditor({
                     className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
                       config.hunter_direction === 'SHORT' ||
                       config.hunter_direction === 'BOTH'
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-background text-muted-foreground border border-ait-border hover:border-red-500/30'
+                        ? 'bg-loss/20 text-loss border border-loss/50'
+                        : 'bg-background text-muted-foreground border border-ait-border hover:border-loss/30'
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
@@ -1731,7 +1731,7 @@ export function CoinSourceEditor({
                           })
                         }
                         disabled={disabled}
-                        className="w-4 h-4 rounded accent-purple-500"
+                        className="w-4 h-4 rounded accent-accent-purple"
                       />
                       <span className="text-xs text-foreground">
                         {language === 'zh'
@@ -1834,7 +1834,7 @@ export function CoinSourceEditor({
                           })
                         }
                         disabled={disabled}
-                        className="w-4 h-4 rounded accent-purple-500"
+                        className="w-4 h-4 rounded accent-accent-purple"
                       />
                       <span className="text-xs text-foreground">
                         {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
@@ -1879,17 +1879,17 @@ export function CoinSourceEditor({
             <div
               className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 (config.static_coins || []).length > 0
-                  ? 'bg-gray-500/10 border-gray-500/50'
-                  : 'bg-background border-ait-border hover:border-gray-500/30'
+                  ? 'bg-muted-foreground/10 border-muted-foreground/50'
+                  : 'bg-background border-ait-border hover:border-muted-foreground/30'
               }`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <List className="w-4 h-4 text-gray-400" />
+                <List className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">
                   {ts(coinSource.custom, language)}
                 </span>
                 {(config.static_coins || []).length > 0 && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground">
                     {config.static_coins?.length}
                   </span>
                 )}
@@ -1907,7 +1907,7 @@ export function CoinSourceEditor({
                           e.stopPropagation()
                           handleRemoveCoin(coin)
                         }}
-                        className="hover:text-red-400 transition-colors"
+                        className="hover:text-loss transition-colors"
                       >
                         <X className="w-2.5 h-2.5" />
                       </button>
@@ -1939,7 +1939,7 @@ export function CoinSourceEditor({
                       e.stopPropagation()
                       handleAddCoin()
                     }}
-                    className="px-2 py-1 rounded text-xs bg-primary text-primary-foreground hover:bg-yellow-500"
+                    className="px-2 py-1 rounded text-xs bg-primary text-primary-foreground hover:bg-primary"
                   >
                     <Plus className="w-3 h-3" />
                   </button>

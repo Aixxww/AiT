@@ -15,7 +15,7 @@ const agents = [
     risk: 'HIGH',
     color: 'text-primary',
     border: 'border-primary/50',
-    bg_glow: 'shadow-[0_0_30px_rgba(240,185,11,0.1)]',
+    bg_glow: 'shadow-lg shadow-primary/10',
     icon: Zap,
   },
   {
@@ -25,9 +25,9 @@ const agents = [
     apy: '89%',
     winRate: '55%',
     risk: 'MED',
-    color: 'text-blue-400',
-    border: 'border-blue-400/30',
-    bg_glow: 'shadow-[0_0_30px_rgba(96,165,250,0.1)]',
+    color: 'text-info',
+    border: 'border-info/30',
+    bg_glow: 'shadow-lg shadow-info/10',
     icon: TrendingUp,
   },
   {
@@ -37,9 +37,9 @@ const agents = [
     apy: '24%',
     winRate: '99%',
     risk: 'LOW',
-    color: 'text-purple-400',
-    border: 'border-purple-400/30',
-    bg_glow: 'shadow-[0_0_30px_rgba(192,132,252,0.1)]',
+    color: 'text-accent-purple',
+    border: 'border-accent-purple/30',
+    bg_glow: 'shadow-lg shadow-accent-purple/10',
     icon: Layers,
   },
 ]
@@ -63,7 +63,7 @@ export default function AgentGrid() {
     >
       {/* Background Details */}
       <div className="absolute top-0 right-0 p-10 opacity-20 pointer-events-none">
-        <Hexagon className="w-64 h-64 text-zinc-800" strokeWidth={0.5} />
+        <Hexagon className="w-64 h-64 text-muted" strokeWidth={0.5} />
       </div>
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -133,9 +133,7 @@ export default function AgentGrid() {
                       <div className="text-[10px] text-muted-foreground uppercase font-mono mb-1">
                         APY
                       </div>
-                      <div className="text-green-400 font-bold">
-                        {agent.apy}
-                      </div>
+                      <div className="text-profit font-bold">{agent.apy}</div>
                     </div>
                     <div className="bg-black/60 p-3 text-center group-hover:bg-surface/60 transition-colors">
                       <div className="text-[10px] text-muted-foreground uppercase font-mono mb-1">

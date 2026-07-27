@@ -86,15 +86,15 @@ export default function DeploymentHub() {
             className="relative"
           >
             {/* Glow effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-xl blur-xl opacity-50"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-info/20 rounded-xl blur-xl opacity-50"></div>
 
             <div className="relative rounded-xl overflow-hidden bg-[#0a0a0a] border border-border shadow-2xl">
               {/* Terminal Header */}
               <div className="flex items-center justify-between px-4 py-3 bg-surface/80 border-b border-border">
                 <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-loss/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-warning/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-profit/80"></div>
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5">
                   <Terminal className="w-3 h-3" />
@@ -114,7 +114,7 @@ export default function DeploymentHub() {
                   <span className="text-primary mt-1">
                     <ChevronRight className="w-4 h-4" />
                   </span>
-                  <code className="text-zinc-100 flex-1 break-all">
+                  <code className="text-foreground flex-1 break-all">
                     {installCmd}
                   </code>
 
@@ -125,7 +125,7 @@ export default function DeploymentHub() {
                           initial={{ scale: 0.5, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.5, opacity: 0 }}
-                          className="flex items-center gap-1 text-green-400 bg-green-400/10 px-2 py-1 rounded text-xs font-bold"
+                          className="flex items-center gap-1 text-profit bg-profit/10 px-2 py-1 rounded text-xs font-bold"
                         >
                           <Check className="w-3 h-3" />
                         </motion.div>

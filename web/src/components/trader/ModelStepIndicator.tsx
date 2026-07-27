@@ -22,7 +22,7 @@ export function ModelStepIndicator({
                   index < currentStep
                     ? 'var(--color-profit)'
                     : index === currentStep
-                      ? '#8B5CF6'
+                      ? 'var(--color-purple)'
                       : 'var(--color-border)',
                 color:
                   index <= currentStep

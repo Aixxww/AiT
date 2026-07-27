@@ -23,10 +23,10 @@ export function ModelCard({
       className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-105"
       style={{
         background: selected
-          ? 'rgba(139, 92, 246, 0.15)'
+          ? 'color-mix(in srgb, var(--color-purple) 15%, transparent)'
           : 'var(--color-background)',
         border: selected
-          ? '2px solid #8B5CF6'
+          ? '2px solid var(--color-purple)'
           : '2px solid var(--color-border)',
       }}
     >
@@ -36,7 +36,10 @@ export function ModelCard({
             width: 32,
             height: 32,
           }) || (
-            <span className="text-lg font-bold" style={{ color: '#A78BFA' }}>
+            <span
+              className="text-lg font-bold"
+              style={{ color: 'var(--color-purple)' }}
+            >
               {model.name[0]}
             </span>
           )}
@@ -63,7 +66,11 @@ export function ModelCard({
       </span>
       <span
         className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide"
-        style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#A78BFA' }}
+        style={{
+          background:
+            'color-mix(in srgb, var(--color-purple) 20%, transparent)',
+          color: 'var(--color-purple)',
+        }}
       >
         {model.provider}
       </span>

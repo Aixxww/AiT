@@ -33,7 +33,7 @@ export function GridConfigEditor({
 
   const sectionStyle = {
     background: 'var(--color-background)',
-    border: '1px solid #2B3139',
+    border: '1px solid var(--color-border)',
   }
 
   return (
@@ -41,7 +41,10 @@ export function GridConfigEditor({
       {/* Trading Setup */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <DollarSign className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <DollarSign
+            className="w-5 h-5"
+            style={{ color: 'var(--color-primary)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(gridConfig.tradingPair, language)}
           </h3>
@@ -131,7 +134,7 @@ export function GridConfigEditor({
       {/* Grid Parameters */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Grid className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <Grid className="w-5 h-5" style={{ color: 'var(--color-primary)' }} />
           <h3 className="font-medium text-foreground">
             {ts(gridConfig.gridParameters, language)}
           </h3>
@@ -195,7 +198,10 @@ export function GridConfigEditor({
       {/* Price Bounds */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <TrendingUp
+            className="w-5 h-5"
+            style={{ color: 'var(--color-primary)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(gridConfig.priceBounds, language)}
           </h3>
@@ -222,7 +228,7 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
@@ -307,7 +313,10 @@ export function GridConfigEditor({
       {/* Risk Control */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <Shield
+            className="w-5 h-5"
+            style={{ color: 'var(--color-primary)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(gridConfig.riskControl, language)}
           </h3>
@@ -414,7 +423,7 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
@@ -423,7 +432,10 @@ export function GridConfigEditor({
       {/* Direction Auto-Adjust */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Compass className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <Compass
+            className="w-5 h-5"
+            style={{ color: 'var(--color-primary)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(gridConfig.directionAdjust, language)}
           </h3>
@@ -450,7 +462,7 @@ export function GridConfigEditor({
                 disabled={disabled}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
         </div>
@@ -460,11 +472,15 @@ export function GridConfigEditor({
             {/* Direction Modes Explanation */}
             <div
               className="p-4 rounded-lg mb-4"
-              style={{ background: '#1E2329', border: '1px solid #F0B90B33' }}
+              style={{
+                background: 'var(--color-panel)',
+                border:
+                  '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
+              }}
             >
               <p
                 className="text-xs font-medium mb-2"
-                style={{ color: '#F0B90B' }}
+                style={{ color: 'var(--color-primary)' }}
               >
                 📊 {ts(gridConfig.directionModes, language)}
               </p>
@@ -472,25 +488,25 @@ export function GridConfigEditor({
                 <div>• {ts(gridConfig.modeNeutral, language)}</div>
                 <div>
                   •{' '}
-                  <span style={{ color: '#0ECB81' }}>
+                  <span style={{ color: 'var(--color-profit)' }}>
                     {ts(gridConfig.modeLongBias, language)}
                   </span>
                 </div>
                 <div>
                   •{' '}
-                  <span style={{ color: '#0ECB81' }}>
+                  <span style={{ color: 'var(--color-profit)' }}>
                     {ts(gridConfig.modeLong, language)}
                   </span>
                 </div>
                 <div>
                   •{' '}
-                  <span style={{ color: '#F6465D' }}>
+                  <span style={{ color: 'var(--color-loss)' }}>
                     {ts(gridConfig.modeShortBias, language)}
                   </span>
                 </div>
                 <div>
                   •{' '}
-                  <span style={{ color: '#F6465D' }}>
+                  <span style={{ color: 'var(--color-loss)' }}>
                     {ts(gridConfig.modeShort, language)}
                   </span>
                 </div>
@@ -508,7 +524,10 @@ export function GridConfigEditor({
               <p className="text-xs mb-1 text-muted-foreground">
                 {ts(gridConfig.directionBiasRatioDesc, language)}
               </p>
-              <p className="text-xs mb-3" style={{ color: '#F0B90B' }}>
+              <p
+                className="text-xs mb-3"
+                style={{ color: 'var(--color-primary)' }}
+              >
                 {ts(gridConfig.directionBiasExplain, language)}
               </p>
               <div className="flex items-center gap-3">
@@ -526,11 +545,11 @@ export function GridConfigEditor({
                   max={90}
                   step={5}
                   className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-                  style={{ background: '#2B3139' }}
+                  style={{ background: 'var(--color-border)' }}
                 />
                 <span
                   className="text-sm font-mono w-20 text-right"
-                  style={{ color: '#F0B90B' }}
+                  style={{ color: 'var(--color-primary)' }}
                 >
                   X = {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}%
                 </span>
@@ -539,11 +558,13 @@ export function GridConfigEditor({
                 <div
                   className="p-2 rounded"
                   style={{
-                    background: '#0ECB8115',
-                    border: '1px solid #0ECB8130',
+                    background: 'var(--color-profit-bg)',
+                    border: '1px solid var(--color-profit-border)',
                   }}
                 >
-                  <span style={{ color: '#0ECB81' }}>Long Bias: </span>
+                  <span style={{ color: 'var(--color-profit)' }}>
+                    Long Bias:{' '}
+                  </span>
                   <span className="text-foreground">
                     {Math.round((config.direction_bias_ratio ?? 0.7) * 100)}%{' '}
                     {ts(gridConfig.buy, language)} +{' '}
@@ -556,11 +577,13 @@ export function GridConfigEditor({
                 <div
                   className="p-2 rounded"
                   style={{
-                    background: '#F6465D15',
-                    border: '1px solid #F6465D30',
+                    background: 'var(--color-loss-bg)',
+                    border: '1px solid var(--color-loss-border)',
                   }}
                 >
-                  <span style={{ color: '#F6465D' }}>Short Bias: </span>
+                  <span style={{ color: 'var(--color-loss)' }}>
+                    Short Bias:{' '}
+                  </span>
                   <span className="text-foreground">
                     {Math.round(
                       (1 - (config.direction_bias_ratio ?? 0.7)) * 100

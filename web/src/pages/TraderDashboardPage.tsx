@@ -269,8 +269,10 @@ export function TraderDashboardPage({
           <div
             className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ait-glass"
             style={{
-              background: 'rgba(240, 185, 11, 0.1)',
-              borderColor: 'rgba(240, 185, 11, 0.3)',
+              background:
+                'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+              borderColor:
+                'color-mix(in srgb, var(--color-primary) 30%, transparent)',
             }}
           >
             <svg
@@ -312,8 +314,10 @@ export function TraderDashboardPage({
           <div
             className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ait-glass"
             style={{
-              background: 'rgba(240, 185, 11, 0.1)',
-              borderColor: 'rgba(240, 185, 11, 0.3)',
+              background:
+                'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+              borderColor:
+                'color-mix(in srgb, var(--color-primary) 30%, transparent)',
             }}
           >
             <svg
@@ -395,9 +399,9 @@ export function TraderDashboardPage({
                     selectedTrader.trader_name
                   )}
                   size={56}
-                  className="rounded-xl border-2 border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]"
+                  className="rounded-xl border-2 border-primary/30"
                 />
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-profit rounded-full border-2 border-background shadow-[0_0_8px_rgba(14,203,129,0.8)] animate-pulse" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-profit rounded-full border-2 border-background animate-pulse" />
               </div>
               <div className="flex flex-col">
                 <span className="text-3xl tracking-tight text-foreground font-semibold">
@@ -481,12 +485,16 @@ export function TraderDashboardPage({
                 className="font-bold px-2 py-0.5 rounded text-xs tracking-wide"
                 style={{
                   background: selectedTrader.ai_model.includes('qwen')
-                    ? 'rgba(192, 132, 252, 0.15)'
-                    : 'rgba(96, 165, 250, 0.15)',
+                    ? 'color-mix(in srgb, var(--color-purple) 15%, transparent)'
+                    : 'color-mix(in srgb, var(--color-info) 15%, transparent)',
                   color: selectedTrader.ai_model.includes('qwen')
-                    ? '#c084fc'
-                    : '#60a5fa',
-                  border: `1px solid ${selectedTrader.ai_model.includes('qwen') ? '#c084fc' : '#60a5fa'}40`,
+                    ? 'var(--color-purple)'
+                    : 'var(--color-info)',
+                  border: `1px solid color-mix(in srgb, ${
+                    selectedTrader.ai_model.includes('qwen')
+                      ? 'var(--color-purple)'
+                      : 'var(--color-info)'
+                  } 25%, transparent)`,
                 }}
               >
                 {getModelDisplayName(
@@ -662,15 +670,15 @@ export function TraderDashboardPage({
               style={{ animationDelay: '0.15s' }}
             >
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                <div className="w-24 h-24 rounded-full bg-blue-500 blur-3xl" />
+                <div className="w-24 h-24 rounded-full bg-info blur-3xl" />
               </div>
               <div className="flex items-center justify-between mb-5 relative z-10">
                 <h2 className="text-lg font-bold flex items-center gap-2 text-foreground uppercase tracking-wide">
-                  <span className="text-blue-500">◈</span>{' '}
+                  <span className="text-info">◈</span>{' '}
                   {t('currentPositions', language)}
                 </h2>
                 {positions && positions.length > 0 && (
-                  <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 font-mono shadow-[0_0_10px_rgba(240,185,11,0.1)]">
+                  <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 font-mono">
                     {positions.length} {t('active', language)}
                   </div>
                 )}
@@ -761,7 +769,7 @@ export function TraderDashboardPage({
                             </td>
                             <td className="px-1 py-3 whitespace-nowrap text-center">
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${pos.side === 'long' ? 'bg-profit/10 text-profit shadow-[0_0_8px_rgba(14,203,129,0.2)]' : 'bg-loss/10 text-loss shadow-[0_0_8px_rgba(246,70,93,0.2)]'}`}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${pos.side === 'long' ? 'bg-profit/10 text-profit' : 'bg-loss/10 text-loss'}`}
                               >
                                 {t(
                                   pos.side === 'long' ? 'long' : 'short',
@@ -825,8 +833,8 @@ export function TraderDashboardPage({
                                 style={{
                                   textShadow:
                                     pos.unrealized_pnl >= 0
-                                      ? '0 0 10px rgba(14,203,129,0.3)'
-                                      : '0 0 10px rgba(246,70,93,0.3)',
+                                      ? '0 0 10px color-mix(in srgb, var(--color-profit) 30%, transparent)'
+                                      : '0 0 10px color-mix(in srgb, var(--color-loss) 30%, transparent)',
                                 }}
                               >
                                 {pos.unrealized_pnl >= 0 ? '+' : ''}
@@ -972,10 +980,10 @@ export function TraderDashboardPage({
             {/* Header */}
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/5 shrink-0">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-[0_4px_14px_rgba(99,102,241,0.4)]"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
                 style={{
                   background:
-                    'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                    'linear-gradient(135deg, var(--color-info) 0%, var(--color-purple) 100%)',
                 }}
               >
                 🧠

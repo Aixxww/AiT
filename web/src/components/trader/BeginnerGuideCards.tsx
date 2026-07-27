@@ -136,7 +136,7 @@ export function BeginnerGuideCards({
   ]
 
   return (
-    <section className="space-y-4 rounded-[28px] border border-white/10 bg-zinc-950/60 p-5 backdrop-blur-xl">
+    <section className="space-y-4 rounded-[28px] border border-white/10 bg-background/60 p-5 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.3em] text-primary/80">
@@ -168,7 +168,7 @@ export function BeginnerGuideCards({
                 <span
                   className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${
                     card.ready
-                      ? 'bg-emerald-500/15 text-emerald-300'
+                      ? 'bg-profit/15 text-profit'
                       : 'bg-surface-alt text-muted-foreground'
                   }`}
                 >
@@ -199,7 +199,7 @@ export function BeginnerGuideCards({
                 className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                   card.disabled
                     ? 'cursor-not-allowed bg-surface text-muted-foreground'
-                    : 'bg-primary text-primary-foreground hover:bg-yellow-400'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
                 {card.actionLabel}

@@ -108,7 +108,10 @@ export function PromptSectionsEditor({
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2 mb-4">
-        <FileText className="w-5 h-5 mt-0.5" style={{ color: '#a855f7' }} />
+        <FileText
+          className="w-5 h-5 mt-0.5"
+          style={{ color: 'var(--color-purple)' }}
+        />
         <div>
           <h3 className="font-medium text-foreground">
             {ts(promptSectionsI18n.promptSections, language)}
@@ -134,7 +137,7 @@ export function PromptSectionsEditor({
               className="rounded-lg overflow-hidden"
               style={{
                 background: 'var(--color-background)',
-                border: '1px solid #2B3139',
+                border: '1px solid var(--color-border)',
               }}
             >
               <button
@@ -155,7 +158,7 @@ export function PromptSectionsEditor({
                       className="px-1.5 py-0.5 text-[10px] rounded"
                       style={{
                         background: 'rgba(168, 85, 247, 0.15)',
-                        color: '#a855f7',
+                        color: 'var(--color-purple)',
                       }}
                     >
                       {ts(promptSectionsI18n.modified, language)}

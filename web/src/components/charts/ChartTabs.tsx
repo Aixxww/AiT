@@ -276,7 +276,7 @@ export function ChartTabs({
                             value={searchFilter}
                             onChange={(e) => setSearchFilter(e.target.value)}
                             placeholder="Search symbol..."
-                            className="flex-1 bg-transparent text-[11px] text-foreground placeholder-gray-600 focus:outline-none font-mono"
+                            className="flex-1 bg-transparent text-[11px] text-foreground placeholder-muted-foreground/60 focus:outline-none font-mono"
                             autoFocus
                           />
                         </div>
@@ -358,7 +358,7 @@ export function ChartTabs({
                 value={symbolInput}
                 onChange={(e) => setSymbolInput(e.target.value)}
                 placeholder="Sym"
-                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-foreground placeholder-gray-600 focus:outline-none focus:border-primary/50 font-mono transition-colors"
+                className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-l text-[10px] text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/50 font-mono transition-colors"
               />
               <button
                 type="submit"

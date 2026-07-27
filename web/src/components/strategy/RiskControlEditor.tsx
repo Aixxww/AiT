@@ -29,7 +29,10 @@ export function RiskControlEditor({
       {/* Position Limits */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5" style={{ color: '#F0B90B' }} />
+          <Shield
+            className="w-5 h-5"
+            style={{ color: 'var(--color-primary)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(riskControl.positionLimits, language)}
           </h3>
@@ -40,7 +43,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -73,7 +76,10 @@ export function RiskControlEditor({
 
         {/* Trading Leverage (Exchange) */}
         <div className="mb-2">
-          <p className="text-xs font-medium mb-2" style={{ color: '#F0B90B' }}>
+          <p
+            className="text-xs font-medium mb-2"
+            style={{ color: 'var(--color-primary)' }}
+          >
             {ts(riskControl.tradingLeverage, language)}
           </p>
         </div>
@@ -82,7 +88,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -101,11 +107,11 @@ export function RiskControlEditor({
                 disabled={disabled}
                 min={1}
                 max={20}
-                className="flex-1 accent-yellow-500"
+                className="flex-1 accent-primary"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#F0B90B' }}
+                style={{ color: 'var(--color-primary)' }}
               >
                 {config.btc_eth_max_leverage ?? 5}x
               </span>
@@ -116,7 +122,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -135,11 +141,11 @@ export function RiskControlEditor({
                 disabled={disabled}
                 min={1}
                 max={20}
-                className="flex-1 accent-yellow-500"
+                className="flex-1 accent-primary"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#F0B90B' }}
+                style={{ color: 'var(--color-primary)' }}
               >
                 {config.altcoin_max_leverage ?? 5}x
               </span>
@@ -149,7 +155,10 @@ export function RiskControlEditor({
 
         {/* Position Value Ratio (Risk Control - CODE ENFORCED) */}
         <div className="mb-2">
-          <p className="text-xs font-medium" style={{ color: '#0ECB81' }}>
+          <p
+            className="text-xs font-medium"
+            style={{ color: 'var(--color-profit)' }}
+          >
             {ts(riskControl.positionValueRatio, language)}
           </p>
           <p className="text-xs mt-1 text-muted-foreground">
@@ -161,7 +170,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #0ECB81',
+              border: '1px solid var(--color-profit)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -184,11 +193,11 @@ export function RiskControlEditor({
                 min={0.5}
                 max={10}
                 step={0.5}
-                className="flex-1 accent-green-500"
+                className="flex-1 accent-profit"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#0ECB81' }}
+                style={{ color: 'var(--color-profit)' }}
               >
                 {config.btc_eth_max_position_value_ratio ?? 5}x
               </span>
@@ -199,7 +208,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #0ECB81',
+              border: '1px solid var(--color-profit)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -222,11 +231,11 @@ export function RiskControlEditor({
                 min={0.5}
                 max={10}
                 step={0.5}
-                className="flex-1 accent-green-500"
+                className="flex-1 accent-profit"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#0ECB81' }}
+                style={{ color: 'var(--color-profit)' }}
               >
                 {config.altcoin_max_position_value_ratio ?? 1}x
               </span>
@@ -238,7 +247,10 @@ export function RiskControlEditor({
       {/* Risk Parameters */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <AlertTriangle className="w-5 h-5" style={{ color: '#F6465D' }} />
+          <AlertTriangle
+            className="w-5 h-5"
+            style={{ color: 'var(--color-loss)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(riskControl.riskParameters, language)}
           </h3>
@@ -249,7 +261,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -290,7 +302,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -313,11 +325,11 @@ export function RiskControlEditor({
                 min={0.1}
                 max={2}
                 step={0.1}
-                className="flex-1 accent-yellow-500"
+                className="flex-1 accent-primary"
               />
               <span
                 className="w-14 text-center font-mono"
-                style={{ color: '#F0B90B' }}
+                style={{ color: 'var(--color-primary)' }}
               >
                 {(config.max_entry_price_deviation_pct ?? 0.5).toFixed(1)}%
               </span>
@@ -328,7 +340,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #0ECB81',
+              border: '1px solid var(--color-profit)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -350,11 +362,11 @@ export function RiskControlEditor({
                 disabled={disabled}
                 min={10}
                 max={100}
-                className="flex-1 accent-green-500"
+                className="flex-1 accent-profit"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#0ECB81' }}
+                style={{ color: 'var(--color-profit)' }}
               >
                 {Math.round((config.max_margin_usage ?? 0.9) * 100)}%
               </span>
@@ -366,7 +378,10 @@ export function RiskControlEditor({
       {/* Entry Requirements */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5" style={{ color: '#0ECB81' }} />
+          <Shield
+            className="w-5 h-5"
+            style={{ color: 'var(--color-profit)' }}
+          />
           <h3 className="font-medium text-foreground">
             {ts(riskControl.entryRequirements, language)}
           </h3>
@@ -377,7 +392,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -417,7 +432,7 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid #2B3139',
+              border: '1px solid var(--color-border)',
             }}
           >
             <label className="block text-sm mb-1 text-foreground">
@@ -436,11 +451,11 @@ export function RiskControlEditor({
                 disabled={disabled}
                 min={50}
                 max={100}
-                className="flex-1 accent-green-500"
+                className="flex-1 accent-profit"
               />
               <span
                 className="w-12 text-center font-mono"
-                style={{ color: '#0ECB81' }}
+                style={{ color: 'var(--color-profit)' }}
               >
                 {config.min_confidence ?? 75}
               </span>

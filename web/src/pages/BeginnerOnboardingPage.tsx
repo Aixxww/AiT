@@ -87,7 +87,7 @@ export function BeginnerOnboardingPage() {
         <button
           type="button"
           onClick={handleContinue}
-          className="absolute right-6 top-6 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+          className="absolute right-6 top-6 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground transition hover:border-white/20 hover:bg-white/10 hover:text-white"
           aria-label={isZh ? '跳过' : 'Skip'}
         >
           <X className="h-5 w-5" />
@@ -95,7 +95,7 @@ export function BeginnerOnboardingPage() {
         <div className="w-full max-w-[1120px]">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/8 text-primary shadow-[0_0_30px_rgba(240,185,11,0.12)]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/8 text-primary shadow-lg shadow-primary/10">
                 <Shield className="h-6 w-6" />
               </div>
               <div>
@@ -121,20 +121,21 @@ export function BeginnerOnboardingPage() {
             </div>
 
             <div
-              className={`pb-2 text-zinc-500 lg:text-right ${
+              className={`pb-2 text-muted-foreground lg:text-right ${
                 isZh
                   ? 'text-sm tracking-[0.18em] lg:whitespace-nowrap'
                   : 'text-[13px] tracking-[0.12em] lg:whitespace-nowrap'
               }`}
             >
-              Claw402 + DeepSeek <span className="mx-2 text-zinc-700">·</span>
+              Claw402 + DeepSeek{' '}
+              <span className="mx-2 text-muted-foreground/50">·</span>
               {isZh ? '按次付费' : 'Pay per call'}
             </div>
           </div>
 
           <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,11,16,0.94),rgba(5,7,10,0.88))] shadow-[0_24px_120px_rgba(0,0,0,0.58)] backdrop-blur-2xl">
             {loading ? (
-              <div className="flex min-h-[390px] items-center justify-center px-6 text-sm text-zinc-400">
+              <div className="flex min-h-[390px] items-center justify-center px-6 text-sm text-muted-foreground">
                 {isZh
                   ? '正在准备你的 Base 钱包...'
                   : 'Preparing your Base wallet...'}
@@ -147,15 +148,15 @@ export function BeginnerOnboardingPage() {
                       <QRCodeSVG value={data.address} size={164} level="M" />
                     </div>
 
-                    <div className="mt-4 text-[15px] font-medium text-zinc-300">
+                    <div className="mt-4 text-[15px] font-medium text-muted-foreground">
                       {isZh
                         ? '充值地址（Base USDC）'
                         : 'Deposit address (Base USDC)'}
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between gap-3 rounded-[24px] border border-emerald-400/20 bg-emerald-500/7 px-5 py-3.5 shadow-[0_0_0_1px_rgba(16,185,129,0.08)]">
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-[24px] border border-profit/20 bg-profit/7 px-5 py-3.5 ring-1 ring-profit/10">
                       <div className="text-left">
-                        <div className="flex items-baseline gap-3 font-mono font-bold tracking-tight text-emerald-300">
+                        <div className="flex items-baseline gap-3 font-mono font-bold tracking-tight text-profit">
                           <span className="text-[22px]">
                             {data.balance_usdc}
                           </span>
@@ -166,7 +167,7 @@ export function BeginnerOnboardingPage() {
                         type="button"
                         onClick={() => void loadOnboarding(false)}
                         disabled={refreshingBalance}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/20 bg-black/20 text-emerald-300 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-profit/20 bg-black/20 text-profit transition hover:bg-profit/10 disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label={isZh ? '刷新余额' : 'Refresh balance'}
                       >
                         <RefreshCw
@@ -175,7 +176,7 @@ export function BeginnerOnboardingPage() {
                       </button>
                     </div>
 
-                    <div className="mt-4 text-sm text-zinc-500">
+                    <div className="mt-4 text-sm text-muted-foreground">
                       {isZh
                         ? '$5-$10 可以用很久'
                         : '$5-$10 usually lasts a long time'}
@@ -191,7 +192,7 @@ export function BeginnerOnboardingPage() {
                         <span>{isZh ? '钱包地址' : 'Wallet address'}</span>
                       </div>
                       <div className="flex items-stretch gap-3">
-                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-5 py-3 font-mono text-[14px] text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-5 py-3 font-mono text-[14px] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                           <div className="break-all">{data.address}</div>
                         </div>
                         <button
@@ -199,7 +200,7 @@ export function BeginnerOnboardingPage() {
                           onClick={() =>
                             copyText(data.address, isZh ? '地址' : 'Address')
                           }
-                          className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-zinc-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                          className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-muted-foreground transition hover:border-white/20 hover:bg-white/10 hover:text-white"
                           aria-label={isZh ? '复制地址' : 'Copy address'}
                         >
                           <Copy className="h-5 w-5" />
@@ -217,7 +218,7 @@ export function BeginnerOnboardingPage() {
                         </span>
                       </div>
                       <div className="flex items-stretch gap-3">
-                        <div className="min-w-0 flex-1 rounded-[24px] border border-primary/20 bg-[linear-gradient(180deg,rgba(32,25,7,0.44),rgba(14,10,3,0.28))] px-5 py-3 font-mono text-[13px] leading-6 text-amber-100 shadow-[0_0_0_1px_rgba(240,185,11,0.05)]">
+                        <div className="min-w-0 flex-1 rounded-[24px] border border-primary/20 bg-[linear-gradient(180deg,rgba(32,25,7,0.44),rgba(14,10,3,0.28))] px-5 py-3 font-mono text-[13px] leading-6 text-foreground ring-1 ring-primary/5">
                           <div className="overflow-x-auto whitespace-nowrap">
                             {data.private_key}
                           </div>
@@ -241,24 +242,24 @@ export function BeginnerOnboardingPage() {
                     </div>
 
                     <div
-                      className={`rounded-[24px] border border-white/15 bg-black/18 px-5 py-3.5 text-zinc-500 ${
+                      className={`rounded-[24px] border border-white/15 bg-black/18 px-5 py-3.5 text-muted-foreground ${
                         isZh
                           ? 'text-xs lg:whitespace-nowrap'
                           : 'text-[11px] leading-6'
                       }`}
                     >
-                      <span className="mr-2 text-zinc-600">•</span>
+                      <span className="mr-2 text-muted-foreground/60">•</span>
                       {noticeText}
                     </div>
 
                     {data.env_warning ? (
-                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                      <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
                         {data.env_warning}
                       </div>
                     ) : null}
 
                     {error ? (
-                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                      <div className="rounded-2xl border border-loss/30 bg-loss/10 px-4 py-3 text-sm text-loss">
                         {error}
                       </div>
                     ) : null}
@@ -266,7 +267,7 @@ export function BeginnerOnboardingPage() {
                     <button
                       type="button"
                       onClick={handleContinue}
-                      className={`mt-1 flex w-full items-center justify-center gap-3 rounded-[24px] bg-primary px-5 py-3.5 font-bold text-black shadow-[0_10px_40px_rgba(240,185,11,0.22)] transition hover:bg-yellow-400 ${
+                      className={`mt-1 flex w-full items-center justify-center gap-3 rounded-[24px] bg-primary px-5 py-3.5 font-bold text-black shadow-lg shadow-primary/20 transition hover:bg-primary/90 ${
                         isZh ? 'text-[20px]' : 'text-[16px] sm:text-[18px]'
                       }`}
                     >
@@ -277,7 +278,7 @@ export function BeginnerOnboardingPage() {
                     </button>
 
                     {data.env_saved ? (
-                      <div className="pt-1 text-xs text-zinc-600">
+                      <div className="pt-1 text-xs text-muted-foreground/60">
                         {isZh
                           ? `钱包信息已同步保存到 ${data.env_path || '.env'}`
                           : `Wallet details were also saved to ${data.env_path || '.env'}`}

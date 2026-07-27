@@ -78,7 +78,7 @@ export function CompetitionPage() {
           {/* Competition Header - 精简版 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30">
                 <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
               </div>
               <div>
@@ -97,7 +97,7 @@ export function CompetitionPage() {
 
           {/* Empty State */}
           <div className="bg-black/40 border border-white/10 rounded-xl p-16 text-center backdrop-blur-md">
-            <Trophy className="w-16 h-16 mx-auto mb-4 text-zinc-700" />
+            <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
             <h3 className="text-lg font-bold mb-2 text-foreground">
               {t('noTraders', language)}
             </h3>
@@ -124,7 +124,7 @@ export function CompetitionPage() {
         {/* Competition Header - 精简版 */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
           <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30 shadow-[0_0_15px_rgba(240,185,11,0.2)]">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30">
               <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
             </div>
             <div>
@@ -188,7 +188,7 @@ export function CompetitionPage() {
               <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
                 {t('leaderboard', language)}
               </h2>
-              <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 shadow-[0_0_8px_rgba(240,185,11,0.1)]">
+              <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20">
                 {t('live', language)}
               </div>
             </div>

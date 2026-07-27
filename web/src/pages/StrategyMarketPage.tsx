@@ -60,35 +60,35 @@ const strategyStyles: Record<
     icon: Zap,
   },
   swing: {
-    color: 'text-cyan-400',
-    border: 'border-cyan-400/30',
-    glow: 'shadow-[0_0_20px_rgba(34,211,238,0.15)]',
-    shadow: 'hover:shadow-[0_0_30px_rgba(34,211,238,0.25)]',
-    bg: 'bg-cyan-400/5',
+    color: 'text-accent',
+    border: 'border-accent/30',
+    glow: 'shadow-md',
+    shadow: 'hover:shadow-md',
+    bg: 'bg-accent/5',
     icon: TrendingUp,
   },
   arbitrage: {
-    color: 'text-purple-400',
-    border: 'border-purple-400/30',
-    glow: 'shadow-[0_0_20px_rgba(192,132,252,0.15)]',
-    shadow: 'hover:shadow-[0_0_30px_rgba(192,132,252,0.25)]',
-    bg: 'bg-purple-400/5',
+    color: 'text-accent-purple',
+    border: 'border-accent-purple/30',
+    glow: 'shadow-md',
+    shadow: 'hover:shadow-md',
+    bg: 'bg-accent-purple/5',
     icon: Layers,
   },
   conservative: {
-    color: 'text-emerald-400',
-    border: 'border-emerald-400/30',
+    color: 'text-profit',
+    border: 'border-profit/30',
     glow: 'shadow-[0_0_20px_rgba(52,211,153,0.15)]',
     shadow: 'hover:shadow-[0_0_30px_rgba(52,211,153,0.25)]',
-    bg: 'bg-emerald-400/5',
+    bg: 'bg-profit/5',
     icon: Shield,
   },
   aggressive: {
-    color: 'text-red-500',
-    border: 'border-red-500/30',
-    glow: 'shadow-[0_0_20px_rgba(239,68,68,0.15)]',
-    shadow: 'hover:shadow-[0_0_30px_rgba(239,68,68,0.25)]',
-    bg: 'bg-red-500/5',
+    color: 'text-loss',
+    border: 'border-loss/30',
+    glow: 'shadow-md',
+    shadow: 'hover:shadow-md',
+    bg: 'bg-loss/5',
     icon: Target,
   },
   default: {
@@ -529,7 +529,7 @@ export function StrategyMarketPage() {
                 className="relative group cursor-pointer"
                 onClick={() => navigate('/strategy')}
               >
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-yellow-600 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary/60 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
                 <div className="relative px-8 py-4 bg-background border border-border hover:border-border-hover flex items-center gap-4 transition-all">
                   <Hexagon
                     className="text-primary animate-spin-slow"

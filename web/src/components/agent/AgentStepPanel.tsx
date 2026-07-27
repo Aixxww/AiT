@@ -12,11 +12,11 @@ interface AgentStepPanelProps {
 
 const statusStyles: Record<AgentStep['status'], { dot: string; text: string }> =
   {
-    planning: { dot: '#7c3aed', text: '#c4b5fd' },
-    pending: { dot: 'rgba(255,255,255,0.18)', text: '#818198' },
-    running: { dot: '#F0B90B', text: '#f6d67a' },
-    completed: { dot: '#00e5a0', text: '#9cf5d5' },
-    replanned: { dot: '#38bdf8', text: '#9bdcf7' },
+    planning: { dot: 'var(--color-purple)', text: 'var(--color-purple)' },
+    pending: { dot: 'rgba(255,255,255,0.18)', text: 'var(--color-muted-fg)' },
+    running: { dot: 'var(--color-primary)', text: 'var(--color-primary)' },
+    completed: { dot: 'var(--color-profit)', text: 'var(--color-profit)' },
+    replanned: { dot: 'var(--color-info)', text: 'var(--color-info)' },
   }
 
 export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
@@ -41,7 +41,7 @@ export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: '#7b7b91',
+          color: 'var(--color-muted-fg)',
           marginBottom: 10,
         }}
       >
@@ -69,7 +69,7 @@ export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
                   background: style.dot,
                   boxShadow:
                     step.status === 'running'
-                      ? '0 0 0 4px rgba(240,185,11,0.08)'
+                      ? '0 0 0 4px color-mix(in srgb, var(--color-primary) 8%, transparent)'
                       : 'none',
                 }}
               />
@@ -89,7 +89,7 @@ export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
                     style={{
                       fontSize: 11.5,
                       lineHeight: 1.45,
-                      color: '#6e6e86',
+                      color: 'var(--color-muted-fg)',
                       marginTop: 2,
                     }}
                   >

@@ -744,20 +744,20 @@ export function AgentChatPage() {
         }
 
         .suggestion-card:hover {
-          background: rgba(240,185,11,0.04) !important;
-          border-color: rgba(240,185,11,0.15) !important;
+          background: color-mix(in srgb, var(--color-primary) 4%, transparent) !important;
+          border-color: color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
           transform: translateY(-1px);
         }
 
         .quick-action-btn:hover {
-          border-color: rgba(240,185,11,0.2) !important;
+          border-color: color-mix(in srgb, var(--color-primary) 20%, transparent) !important;
           color: var(--color-primary) !important;
-          background: rgba(240,185,11,0.04) !important;
+          background: color-mix(in srgb, var(--color-primary) 4%, transparent) !important;
         }
 
         .chat-input-wrapper:focus-within {
-          border-color: rgba(240,185,11,0.25) !important;
-          box-shadow: 0 0 0 1px rgba(240,185,11,0.08);
+          border-color: color-mix(in srgb, var(--color-primary) 25%, transparent) !important;
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent);
         }
 
         .custom-scrollbar::-webkit-scrollbar {

@@ -49,7 +49,7 @@ export function TraderConfigViewModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-panel)] to-[#252B35]">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover">
           <div className="flex items-center gap-3">
             <PunkAvatar
               seed={getTraderAvatar(
@@ -95,7 +95,7 @@ export function TraderConfigViewModal({
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[var(--color-border)] transition-colors flex items-center justify-center"
+              className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
             >
               ✕
             </button>
@@ -160,10 +160,10 @@ export function TraderConfigViewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-[var(--color-panel)] to-[#252B35]">
+        <div className="flex justify-end p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover">
           <button
             onClick={onClose}
-            className="px-6 py-3 bg-[var(--color-border)] text-foreground rounded-lg hover:bg-[#404750] transition-all duration-200 border border-[#404750]"
+            className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-all duration-200 border border-border"
           >
             {t('traderConfigView.close', language)}
           </button>

@@ -31,15 +31,15 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
         transition={{ duration: 0.5 }}
         className="max-w-lg w-full relative z-10"
       >
-        <div className="bg-surface/40 backdrop-blur-md border border-red-500/30 rounded-lg overflow-hidden relative group">
+        <div className="bg-surface/40 backdrop-blur-md border border-loss/30 rounded-lg overflow-hidden relative group">
           {/* Top Bar */}
-          <div className="flex items-center justify-between px-4 py-2 bg-red-900/20 border-b border-red-500/30">
+          <div className="flex items-center justify-between px-4 py-2 bg-loss/15 border-b border-loss/30">
             <div className="flex gap-1.5 opacity-50">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-600"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-600"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-loss"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-muted"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-muted"></div>
             </div>
-            <div className="text-[10px] text-red-400 font-mono tracking-widest animate-pulse">
+            <div className="text-[10px] text-loss font-mono tracking-widest animate-pulse">
               ACCESS_DENIED // ERROR_403
             </div>
           </div>
@@ -47,22 +47,22 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
           <div className="p-8 text-center">
             {/* Icon */}
             <div className="relative mx-auto mb-8 w-20 h-20 flex items-center justify-center">
-              <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping opacity-50"></div>
-              <div className="relative z-10 p-4 border-2 border-red-500/50 rounded-full bg-black/50">
-                <ShieldAlert className="w-8 h-8 text-red-500" />
+              <div className="absolute inset-0 bg-loss/20 rounded-full animate-ping opacity-50"></div>
+              <div className="relative z-10 p-4 border-2 border-loss/50 rounded-full bg-black/50">
+                <ShieldAlert className="w-8 h-8 text-loss" />
               </div>
             </div>
 
             {/* Title */}
             <h1 className="text-2xl font-bold mb-2 tracking-widest text-foreground uppercase glitch-text">
-              <span className="text-red-500">RESTRICTED</span> ACCESS
+              <span className="text-loss">RESTRICTED</span> ACCESS
             </h1>
 
-            <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-red-900/50 to-transparent my-4"></div>
+            <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-loss/30 to-transparent my-4"></div>
 
             {/* Description */}
             <p className="text-xs text-muted-foreground mb-8 leading-relaxed font-mono px-4">
-              <span className="text-red-400">[SYSTEM_MESSAGE]:</span> YOUR
+              <span className="text-loss">[SYSTEM_MESSAGE]:</span> YOUR
               IDENTIFIER IS NOT ON THE ACTIVE WHITELIST.
               <br />
               <br />
@@ -72,11 +72,11 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
             </p>
 
             {/* Info Box */}
-            <div className="bg-red-950/20 border border-red-900/30 p-4 rounded mb-8 text-left">
+            <div className="bg-loss/10 border border-loss/25 p-4 rounded mb-8 text-left">
               <div className="flex items-start gap-3">
-                <Lock className="w-4 h-4 text-red-500 mt-0.5" />
+                <Lock className="w-4 h-4 text-loss mt-0.5" />
                 <div>
-                  <h3 className="text-xs font-bold text-red-400 uppercase mb-1">
+                  <h3 className="text-xs font-bold text-loss uppercase mb-1">
                     Authorization Protocol
                   </h3>
                   <p className="text-[10px] text-muted-foreground leading-tight">
@@ -92,7 +92,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
             <div className="space-y-3">
               <button
                 onClick={handleBackToLogin}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-border bg-black hover:bg-surface hover:border-red-500 hover:text-red-500 text-muted-foreground transition-all text-xs font-bold tracking-widest uppercase group"
+                className="w-full flex items-center justify-center gap-2 py-3 border border-border bg-black hover:bg-surface hover:border-loss hover:text-loss text-muted-foreground transition-all text-xs font-bold tracking-widest uppercase group"
               >
                 <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
                 RETURN TO LOGIN
@@ -122,7 +122,7 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
           </div>
 
           {/* Footer */}
-          <div className="bg-black/80 p-2 text-[9px] text-zinc-700 text-center border-t border-border font-mono uppercase">
+          <div className="bg-black/80 p-2 text-[9px] text-muted-foreground/50 text-center border-t border-border font-mono uppercase">
             ERR_CODE: WLIST_0x403 // SECURITY_LAYER_ACTIVE
           </div>
         </div>

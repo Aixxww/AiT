@@ -88,7 +88,7 @@ export function SetupPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0a0a0f]">
+    <div className="relative min-h-screen w-full overflow-hidden bg-background">
       {/* Decorative background - simulates the main app behind a modal */}
 
       {/* Grid */}
@@ -105,8 +105,8 @@ export function SetupPage() {
       {/* Glow spots */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[10%] left-[15%] w-[500px] h-[500px] bg-primary/8 rounded-full blur-[150px]" />
-        <div className="absolute bottom-[5%] right-[10%] w-[400px] h-[400px] bg-indigo-500/6 rounded-full blur-[140px]" />
-        <div className="absolute top-[40%] right-[30%] w-[300px] h-[300px] bg-emerald-500/4 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[5%] right-[10%] w-[400px] h-[400px] bg-info/6 rounded-full blur-[140px]" />
+        <div className="absolute top-[40%] right-[30%] w-[300px] h-[300px] bg-profit/4 rounded-full blur-[120px]" />
       </div>
 
       {/* Faux UI elements in background to simulate the app */}
@@ -149,7 +149,7 @@ export function SetupPage() {
                 <img
                   src="/icons/ait.svg"
                   alt="AiT"
-                  className="w-14 h-14 relative z-10 drop-shadow-[0_0_15px_rgba(240,185,11,0.3)]"
+                  className="w-14 h-14 relative z-10"
                 />
               </div>
             </div>
@@ -160,7 +160,7 @@ export function SetupPage() {
           </div>
 
           {/* Card */}
-          <div className="bg-surface/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5),0_0_40px_-10px_rgba(240,185,11,0.08)]">
+          <div className="bg-surface/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
               <div>
@@ -171,7 +171,7 @@ export function SetupPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                   placeholder={l.emailPlaceholder}
                   required
                   autoFocus
@@ -188,7 +188,7 @@ export function SetupPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                     placeholder={l.passwordPlaceholder}
                     required
                   />
@@ -210,7 +210,7 @@ export function SetupPage() {
 
               {/* Error */}
               {error && (
-                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <p className="text-xs text-loss bg-loss/10 border border-loss/20 rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -219,7 +219,7 @@ export function SetupPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary hover:bg-yellow-400 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2 shadow-[0_0_20px_rgba(240,185,11,0.2)]"
+                className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? l.submitting : l.submit}
               </button>

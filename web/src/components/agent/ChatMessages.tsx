@@ -58,13 +58,13 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                 marginTop: 2,
                 background:
                   m.role === 'user'
-                    ? 'linear-gradient(135deg, rgba(139,92,246,.12), rgba(139,92,246,.04))'
-                    : 'linear-gradient(135deg, rgba(240,185,11,.08), rgba(0,229,160,.04))',
+                    ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-purple) 12%, transparent), color-mix(in srgb, var(--color-purple) 4%, transparent))'
+                    : 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, transparent), color-mix(in srgb, var(--color-profit) 4%, transparent))',
                 border:
                   '1px solid ' +
                   (m.role === 'user'
-                    ? 'rgba(139,92,246,.15)'
-                    : 'rgba(240,185,11,.1)'),
+                    ? 'color-mix(in srgb, var(--color-purple) 15%, transparent)'
+                    : 'color-mix(in srgb, var(--color-primary) 10%, transparent)'),
               }}
             >
               {m.role === 'user' ? '👤' : '⚡'}
@@ -82,7 +82,8 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     lineHeight: 1.7,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
-                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    background:
+                      'linear-gradient(135deg, var(--color-purple), color-mix(in srgb, var(--color-purple) 80%, black))',
                     color: '#fff',
                   }}
                 >
@@ -98,7 +99,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     lineHeight: 1.7,
                     wordBreak: 'break-word',
                     background: 'rgba(255,255,255,0.03)',
-                    color: '#dcdce8',
+                    color: 'var(--color-foreground)',
                     border: '1px solid rgba(255,255,255,0.05)',
                   }}
                 >
@@ -129,7 +130,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                         display: 'inline-block',
                         width: 2,
                         height: 15,
-                        background: '#F0B90B',
+                        background: 'var(--color-primary)',
                         marginLeft: 1,
                         borderRadius: 1,
                         animation: 'blink 0.8s infinite',
@@ -143,7 +144,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                 <div
                   style={{
                     fontSize: 10,
-                    color: '#2c2c42',
+                    color: 'var(--color-disabled-fg)',
                     marginTop: 4,
                     textAlign: m.role === 'user' ? 'right' : 'left',
                     paddingLeft: m.role === 'bot' ? 4 : 0,
