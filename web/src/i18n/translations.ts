@@ -1196,6 +1196,7 @@ export const translations = {
     // TraderDashboardPage
     traderDashboard: {
       connectionFailed: 'Connection Failed',
+      staleData: 'STALE',
       connectionFailedDesc: 'Please check if the backend service is running.',
       retry: 'Retry',
       confirmClosePosition:
@@ -2594,6 +2595,7 @@ export const translations = {
 
     traderDashboard: {
       connectionFailed: '无法连接到服务器',
+      staleData: '数据滞后',
       connectionFailedDesc: '请确认后端服务已启动。',
       retry: '重试',
       confirmClosePosition: '确定要平仓 {symbol} {side} 吗？',
@@ -3935,6 +3937,7 @@ export const translations = {
 
     traderDashboard: {
       connectionFailed: 'Koneksi Gagal',
+      staleData: 'DATA USANG',
       connectionFailedDesc: 'Silakan periksa apakah layanan backend berjalan.',
       retry: 'Coba Lagi',
       confirmClosePosition: 'Yakin ingin menutup posisi {symbol} {side}?',

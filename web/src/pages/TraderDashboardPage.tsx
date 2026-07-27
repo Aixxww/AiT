@@ -132,9 +132,14 @@ interface TraderDashboardPageProps {
   onDecisionsLimitChange: (limit: number) => void
   stats?: Statistics
   lastUpdate: string
+  /** Epoch ms of the last successful account fetch (stale detection). */
+  accountFetchedAt?: number
   language: Language
   exchanges?: Exchange[]
 }
+
+/** Data older than this is rendered as stale (grayed + warning border). */
+const STALE_AFTER_MS = 60000
 
 export function TraderDashboardPage({
   selectedTrader,
@@ -148,6 +153,7 @@ export function TraderDashboardPage({
   decisionsLimit,
   onDecisionsLimitChange,
   lastUpdate,
+  accountFetchedAt,
   language,
   traders,
   tradersError,
@@ -189,6 +195,17 @@ export function TraderDashboardPage({
     const timer = window.setTimeout(() => setMountDeferredPanels(true), 1200)
     return () => window.clearTimeout(timer)
   }, [selectedTraderId])
+
+  // Stale-data detection: re-evaluate the account data age on a ticker so
+  // the cards gray out even when no new render is triggered by SWR.
+  const [nowTick, setNowTick] = useState<number>(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTick(Date.now()), 15000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const accountStale =
+    accountFetchedAt !== undefined &&
+    nowTick - accountFetchedAt > STALE_AFTER_MS
 
   // Auto-set chart symbol for grid trading
   useEffect(() => {
@@ -580,6 +597,8 @@ export function TraderDashboardPage({
             change={account ? account.total_pnl_pct || 0 : undefined}
             positive={(account?.total_pnl ?? 0) > 0}
             loading={!account && !accountFailed}
+            stale={accountStale}
+            staleLabel={t('traderDashboard.staleData', language)}
           />
           <StatCard
             title={t('availableBalance', language)}
@@ -595,6 +614,8 @@ export function TraderDashboardPage({
                 : `${account?.available_balance && account?.total_equity ? ((account.available_balance / account.total_equity) * 100).toFixed(1) : '--'}% ${t('free', language)}`
             }
             loading={!account && !accountFailed}
+            stale={accountStale}
+            staleLabel={t('traderDashboard.staleData', language)}
           />
           <StatCard
             title={t('totalPnL', language)}
@@ -607,6 +628,8 @@ export function TraderDashboardPage({
             change={account ? account.total_pnl_pct || 0 : undefined}
             positive={(account?.total_pnl ?? 0) >= 0}
             loading={!account && !accountFailed}
+            stale={accountStale}
+            staleLabel={t('traderDashboard.staleData', language)}
           />
           <StatCard
             title={t('positions', language)}
@@ -622,6 +645,8 @@ export function TraderDashboardPage({
                 : `${t('margin', language)}: ${account?.margin_used_pct?.toFixed(1) ?? '--'}%`
             }
             loading={!account && !accountFailed}
+            stale={accountStale}
+            staleLabel={t('traderDashboard.staleData', language)}
           />
         </div>
 
@@ -1093,8 +1118,10 @@ function PnLCell({ value }: { value: number }) {
 
 // Account overview stat. The anchor number of the console: static surface,
 // no hover motion, no watermark — label / value / delta three-level
-// hierarchy, semantic color on the PnL delta only.
-function StatCard({
+// hierarchy, semantic color on the PnL delta only. When the feed stops
+// (>60s without a successful fetch) the card grays out behind a warning
+// border so a dead feed is never mistaken for live numbers.
+export function StatCard({
   title,
   value,
   unit,
@@ -1102,6 +1129,8 @@ function StatCard({
   positive,
   subtitle,
   loading,
+  stale,
+  staleLabel,
 }: {
   title: string
   value: string
@@ -1110,11 +1139,24 @@ function StatCard({
   positive?: boolean
   subtitle?: string
   loading?: boolean
+  stale?: boolean
+  staleLabel?: string
 }) {
   return (
-    <div className="ait-glass p-5 rounded-lg border border-border">
-      <div className="text-[11px] mb-2 font-mono uppercase tracking-wider text-muted-foreground">
-        {title}
+    <div
+      className={`ait-glass p-5 rounded-lg border ${
+        stale ? 'border-warning/40' : 'border-border'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          {title}
+        </div>
+        {stale && (
+          <span className="text-[10px] font-mono uppercase tracking-wider text-warning">
+            {staleLabel || 'STALE'}
+          </span>
+        )}
       </div>
       {loading ? (
         <div className="space-y-2">
@@ -1124,7 +1166,11 @@ function StatCard({
       ) : (
         <>
           <div className="flex items-baseline gap-1 mb-1">
-            <div className="text-2xl font-bold font-mono tabular-nums text-foreground tracking-tight">
+            <div
+              className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${
+                stale ? 'text-muted-foreground' : 'text-foreground'
+              }`}
+            >
               {value}
             </div>
             {unit && (
@@ -1135,7 +1181,13 @@ function StatCard({
           </div>
           {change !== undefined && (
             <div
-              className={`text-sm mono font-bold inline-flex items-center gap-1 ${positive ? 'text-profit' : 'text-loss'}`}
+              className={`text-sm mono font-bold inline-flex items-center gap-1 ${
+                stale
+                  ? 'text-muted-foreground'
+                  : positive
+                    ? 'text-profit'
+                    : 'text-loss'
+              }`}
             >
               <span>{positive ? '▲' : '▼'}</span>
               <span>

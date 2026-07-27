@@ -357,6 +357,9 @@ function DashboardRoute() {
   const selectedTraderSlug = searchParams.get('trader') || undefined
   const [selectedTraderId, setSelectedTraderId] = useState<string | undefined>()
   const [lastUpdate, setLastUpdate] = useState<string>('--:--:--')
+  const [accountFetchedAt, setAccountFetchedAt] = useState<number | undefined>(
+    undefined
+  )
   const [decisionsLimit, setDecisionsLimit] = useState(5)
 
   const { data: traders, error: tradersError } = useSWR<TraderInfo[]>(
@@ -413,6 +416,10 @@ function DashboardRoute() {
       refreshInterval: 30000,
       revalidateOnFocus: false,
       dedupingInterval: 25000,
+      // Freshness signal for the StatCard stale state: fires on every
+      // successful fetch even when the payload is deep-equal (SWR keeps
+      // the same data reference in that case).
+      onSuccess: () => setAccountFetchedAt(Date.now()),
       onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
         if (error.status === 404) return
         if (retryCount >= 5) return
@@ -491,6 +498,7 @@ function DashboardRoute() {
         onDecisionsLimitChange={setDecisionsLimit}
         stats={stats}
         lastUpdate={lastUpdate}
+        accountFetchedAt={accountFetchedAt}
         language={language}
         traders={traders}
         tradersError={tradersError}
