@@ -200,3 +200,58 @@ func TestHandleHunterV7Matrix(t *testing.T) {
 		t.Fatalf("setup_type = %v", cell["setup_type"])
 	}
 }
+
+func TestHandleHunterV7TagCatalog(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/hunter/v7/tag-catalog", nil)
+
+	s.handleHunterV7TagCatalog(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Count int `json:"count"`
+		Tags  []struct {
+			Tag        string `json:"tag"`
+			Source     string `json:"source"`
+			Category   string `json:"category"`
+			Polarity   string `json:"polarity"`
+			LLMAction  string `json:"llm_action"`
+			Definition string `json:"definition"`
+		} `json:"tags"`
+		Source string `json:"source"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Count != len(body.Tags) {
+		t.Fatalf("count = %d but %d tags returned", body.Count, len(body.Tags))
+	}
+	if body.Count < 400 {
+		t.Fatalf("catalog unexpectedly small: %d entries", body.Count)
+	}
+	if body.Source != "hunter_v7_tag_catalog" {
+		t.Fatalf("source = %q", body.Source)
+	}
+	// Sorted by tag, every entry fully populated.
+	found := false
+	for i, tag := range body.Tags {
+		if tag.Tag == "" || tag.Source == "" || tag.Category == "" || tag.Polarity == "" || tag.LLMAction == "" || tag.Definition == "" {
+			t.Fatalf("entry %d has empty fields: %+v", i, tag)
+		}
+		if i > 0 && body.Tags[i-1].Tag >= tag.Tag {
+			t.Fatalf("catalog not sorted at %d: %q >= %q", i, body.Tags[i-1].Tag, tag.Tag)
+		}
+		if tag.Tag == "fresh_oi_absent" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("known tag fresh_oi_absent missing from catalog")
+	}
+}

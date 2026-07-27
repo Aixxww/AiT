@@ -1,5 +1,7 @@
 package local
 
+import "sort"
+
 // HunterV7TagDefinition describes how a tag should be interpreted by the
 // downstream LLM and execution gate. It is intentionally metadata-only: signal
 // modules may keep emitting plain strings while the prompt layer gets a stable
@@ -298,4 +300,17 @@ func HunterV7PromptTagPolicy() string {
 	return "Tag semantics: reason_codes are evidence, risk_tags constrain or block execution, and required_confirmations are not optional. llm_action=wait_only/reject_only blocks opening; reduce_size_or_wait allows opening only after live entry-zone, flow, stop, and RR confirmation with conservative size; reviewable_only_if_live_confirmed requires live entry-zone, flow, stop, and RR confirmation; unknown_context_only is context and never open permission.\n" +
 		"Taker-flow ladder (unified vocabulary): flow_taker_buy_aggressive > flow_taker_buy_strong > flow_taker_buy_moderate/flow_taker_buy_aligned > flow_taker_buy_recovering > flow_taker_buy_neutral > flow_taker_buy_weak, and symmetrically flow_taker_sell_* for shorts. Ladder position is per-setup flow strength, not a standalone open permission. Audit rule: aggressive/strong (or sell_dominant/sell_strong for shorts) aligned with the signal direction plus a passed confirmation_summary supports opening at normal size; moderate/aligned/recovering requires the live taker_buy_15m reading to still confirm direction before opening; neutral/weak is never sufficient flow on its own — re-check live flow instead of issuing a blanket wait, and treat flow_taker_buy_weak on a LONG (or buy-side strength on a SHORT) as a size-reduction or wait signal.\n" +
 		"Generic-floor audit: a candidate whose tier_reason is execution_quality_ready passed only the generic score floor, not a setup-specific gate — before opening it, additionally verify entry_zone_position against the setup's entry doctrine and the live taker reading; when either check is unavailable, prefer conservative size or wait."
+}
+
+// HunterV7TagCatalogEntries returns the full merged tag catalog (base +
+// ext registrations) sorted by tag name. Read-only export for the frontend
+// tag-glossary endpoint; runtime prefix families (live_confirmed_*,
+// sector_theme_*) are resolved per-signal and are not enumerable here.
+func HunterV7TagCatalogEntries() []HunterV7TagDefinition {
+	out := make([]HunterV7TagDefinition, 0, len(hunterV7TagCatalog))
+	for _, def := range hunterV7TagCatalog {
+		out = append(out, def)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Tag < out[j].Tag })
+	return out
 }

@@ -211,6 +211,21 @@ func (s *Server) handleHunterV7Signals(c *gin.Context) {
 	})
 }
 
+// handleHunterV7TagCatalog exports the full Hunter v7 tag catalog (reason
+// codes, risk tags, and required confirmations with their semantics) so the
+// frontend can attach hover glossaries to veto/confirmation chips. The
+// catalog is compiled into the binary and immutable at runtime, hence the
+// aggressive cache header. Read-only.
+func (s *Server) handleHunterV7TagCatalog(c *gin.Context) {
+	tags := local.HunterV7TagCatalogEntries()
+	c.Header("Cache-Control", "public, max-age=3600")
+	c.JSON(http.StatusOK, gin.H{
+		"count":  len(tags),
+		"tags":   tags,
+		"source": "hunter_v7_tag_catalog",
+	})
+}
+
 // handleHunterV7Matrix returns a regime×setup diagnostic matrix from persisted
 // raw signal records. It is intentionally independent of terminal PnL outcomes
 // so P2 tuning can inspect noisy, blocked, and executable cells together.
