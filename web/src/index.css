@@ -825,6 +825,33 @@ tr:hover {
   --chart-border: rgba(0, 0, 0, 0.06);
 }
 
+/* ── Hunter v7 signal tier tokens ──
+   Tier = signal quality, orthogonal to direction. Never profit/loss
+   green/red. Derived from the active theme's base tokens, so Pro Light
+   and Glass resolve automatically. */
+:root {
+  --color-tier-executable: var(--color-primary);
+  --color-tier-executable-bg: color-mix(
+    in srgb,
+    var(--color-tier-executable) 12%,
+    transparent
+  );
+  --color-tier-reviewable: var(--color-accent);
+  --color-tier-reviewable-bg: color-mix(
+    in srgb,
+    var(--color-tier-reviewable) 10%,
+    transparent
+  );
+  --color-tier-watch: var(--color-muted-fg);
+  --color-tier-watch-bg: color-mix(
+    in srgb,
+    var(--color-tier-watch) 8%,
+    transparent
+  );
+  --color-tier-rejected: var(--color-disabled-fg);
+  --color-tier-rejected-bg: transparent;
+}
+
 [data-style='glass'] {
   --color-panel: color-mix(in srgb, var(--color-panel-hover) 72%, transparent);
   --color-surface: color-mix(

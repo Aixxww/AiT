@@ -57,6 +57,18 @@ export default {
 
         // 受控分类色（非语义、非涨跌）：折叠区标题、源类型图标等
         'accent-purple': { DEFAULT: 'var(--color-purple)' },
+
+        // Hunter v7 信号 tier（质量分层，与方向/盈亏正交，严禁绿红）
+        tier: {
+          executable: 'var(--color-tier-executable)',
+          'executable-bg': 'var(--color-tier-executable-bg)',
+          reviewable: 'var(--color-tier-reviewable)',
+          'reviewable-bg': 'var(--color-tier-reviewable-bg)',
+          watch: 'var(--color-tier-watch)',
+          'watch-bg': 'var(--color-tier-watch-bg)',
+          rejected: 'var(--color-tier-rejected)',
+          'rejected-bg': 'var(--color-tier-rejected-bg)',
+        },
       },
       fontFamily: {
         sans: [
