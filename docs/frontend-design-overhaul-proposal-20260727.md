@@ -317,6 +317,25 @@ grep -rP '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]' --include='*.tsx' -o . | wc -l
 # tabular-nums（4 处 / 2 文件）；字号直方图见 §2.4
 ```
 
+## 附录 B'：P0 实施记录（2026-07-27）
+
+P0 全量 + P1 部分已实施（分 9 个提交）。验收快照：
+
+| 指标 | 改造前 | 改造后 |
+|---|---:|---:|
+| hex 字面量（全库） | 509 | 188（白名单文件 144：PunkAvatar 89 / chartTheme / ModelIcons / ExchangeIcons / traderColors / AdvancedChart canvas 系列色 / SettingsPage 主题预览色板数据） |
+| hex（白名单外） | ~365 | 44 原始命中 = 12 个正则误报（`#123`/`#669`/`#678` issue 引用）+ 32 实际字面量，全部为第三方品牌色（Telegram/Hyperliquid/BTC/ETH/BNB/Twitter）、macOS 窗控点、奖牌渐变、landing 固定暗色 mockup 底、纯 #000/#fff——主题性 UI 颜色 0 处绕过 token |
+| Tailwind 原始调色板类 | 339 | **0** |
+| `ait-*` 别名类 | 418 | **0**（tailwind 兼容段已删除） |
+| 内联 rgba() | 282 | 132（余量为黑/白中性遮罩与 keyframes） |
+| `index.css` | 1,891 行 | 1,090 行 |
+| 字体 | Google Fonts 外链 ×2 | @fontsource 自托管，dist 零外链字体请求 |
+| tabular-nums | 4 处 | `:root` 全局继承 + `.tabular` 工具类 |
+| 含 emoji 的 tsx | 27 | 17（DecisionCard/StatCard 等结构性图标已 lucide 化；其余为 P1.7 存量） |
+| 构建/测试/lint | 116 tests | 116 tests 全绿、lint 0 warning |
+
+已实施的 P1 项：P1.1 tier token + `SignalTierBadge`/`VetoChip`（设计合同）、P1.3 StatCard 重做、P1.4 核心（DecisionCard 置信度灰阶/成败图标化/嵌套 button 修复/emoji 清除）、P1.5 持仓表排版、P1.6 flash-on-change（uPnL）。未实施：P1.2 信号面板骨架（等 v7 后端字段契约）、StatCard stale 态（需接数据新鲜度信号）、P1.7 剩余 17 文件 emoji、P2 全部。
+
 ## 附录 B：本次审阅精读文件清单
 
 - `web/tailwind.config.js`、`web/src/index.css`、`web/src/stores/themeStore.ts`、`web/package.json`
