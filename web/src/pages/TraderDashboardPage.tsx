@@ -573,7 +573,6 @@ export function TraderDashboardPage({
             unit="USDT"
             change={account ? account.total_pnl_pct || 0 : undefined}
             positive={(account?.total_pnl ?? 0) > 0}
-            icon="💰"
             loading={!account && !accountFailed}
           />
           <StatCard
@@ -589,7 +588,6 @@ export function TraderDashboardPage({
                 ? '--'
                 : `${account?.available_balance && account?.total_equity ? ((account.available_balance / account.total_equity) * 100).toFixed(1) : '--'}% ${t('free', language)}`
             }
-            icon="💳"
             loading={!account && !accountFailed}
           />
           <StatCard
@@ -602,7 +600,6 @@ export function TraderDashboardPage({
             unit="USDT"
             change={account ? account.total_pnl_pct || 0 : undefined}
             positive={(account?.total_pnl ?? 0) >= 0}
-            icon="📈"
             loading={!account && !accountFailed}
           />
           <StatCard
@@ -618,7 +615,6 @@ export function TraderDashboardPage({
                 ? `${t('margin', language)}: --`
                 : `${t('margin', language)}: ${account?.margin_used_pct?.toFixed(1) ?? '--'}%`
             }
-            icon="📊"
             loading={!account && !accountFailed}
           />
         </div>
@@ -689,59 +685,59 @@ export function TraderDashboardPage({
                     <table className="w-full text-xs">
                       <thead className="text-left border-b border-white/5">
                         <tr>
-                          <th className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-left">
+                          <th className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-left">
                             {t('symbol', language)}
                           </th>
-                          <th className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-center">
+                          <th className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-center">
                             {t('side', language)}
                           </th>
-                          <th className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-center">
+                          <th className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-center">
                             {t('traderDashboard.action', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
                             title={t('entryPrice', language)}
                           >
                             {t('traderDashboard.entry', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
                             title={t('markPrice', language)}
                           >
                             {t('traderDashboard.mark', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('quantity', language)}
                           >
                             {t('traderDashboard.qty', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
                             title={t('positionValue', language)}
                           >
                             {t('traderDashboard.value', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
                             title={t('margin', language)}
                           >
                             {t('traderDashboard.margin', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-center hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-center hidden md:table-cell"
                             title={t('leverage', language)}
                           >
                             {t('traderDashboard.lev', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('unrealizedPnL', language)}
                           >
                             {t('traderDashboard.uPnL', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
                             title={t('liqPrice', language)}
                           >
                             {t('traderDashboard.liq', language)}
@@ -788,7 +784,7 @@ export function TraderDashboardPage({
                                   )
                                 }}
                                 disabled={closingPosition === pos.symbol}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed mx-auto bg-loss/10 text-loss border border-loss/30 hover:bg-loss/20"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mx-auto bg-loss/10 text-loss border border-loss/30 hover:bg-loss/20"
                                 title={t(
                                   'traderDashboard.closePosition',
                                   language
@@ -824,18 +820,12 @@ export function TraderDashboardPage({
                                     ).toFixed(2)
                                   : '--'}
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-center text-primary hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-center text-muted-foreground hidden md:table-cell">
                               {pos.leverage}x
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right">
                               <span
-                                className={`font-bold ${pos.unrealized_pnl >= 0 ? 'text-profit shadow-profit' : 'text-loss shadow-loss'}`}
-                                style={{
-                                  textShadow:
-                                    pos.unrealized_pnl >= 0
-                                      ? '0 0 10px color-mix(in srgb, var(--color-profit) 30%, transparent)'
-                                      : '0 0 10px color-mix(in srgb, var(--color-loss) 30%, transparent)',
-                                }}
+                                className={`font-bold ${pos.unrealized_pnl >= 0 ? 'text-profit' : 'text-loss'}`}
                               >
                                 {pos.unrealized_pnl >= 0 ? '+' : ''}
                                 {pos.unrealized_pnl.toFixed(2)}
@@ -1076,6 +1066,9 @@ export function TraderDashboardPage({
 }
 
 // Stat Card Component - Deep Void Style
+// Account overview stat. The anchor number of the console: static surface,
+// no hover motion, no watermark — label / value / delta three-level
+// hierarchy, semantic color on the PnL delta only.
 function StatCard({
   title,
   value,
@@ -1083,7 +1076,6 @@ function StatCard({
   change,
   positive,
   subtitle,
-  icon,
   loading,
 }: {
   title: string
@@ -1092,15 +1084,11 @@ function StatCard({
   change?: number
   positive?: boolean
   subtitle?: string
-  icon?: string
   loading?: boolean
 }) {
   return (
-    <div className="group ait-glass p-5 rounded-lg transition-all duration-300 hover:bg-white/5 hover:translate-y-[-2px] border border-white/5 hover:border-primary/20 relative overflow-hidden">
-      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity text-4xl grayscale group-hover:grayscale-0">
-        {icon}
-      </div>
-      <div className="text-xs mb-2 font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+    <div className="ait-glass p-5 rounded-lg border border-border">
+      <div className="text-[11px] mb-2 font-mono uppercase tracking-wider text-muted-foreground">
         {title}
       </div>
       {loading ? (
@@ -1111,7 +1099,7 @@ function StatCard({
       ) : (
         <>
           <div className="flex items-baseline gap-1 mb-1">
-            <div className="text-2xl font-bold font-mono text-foreground tracking-tight group-hover:text-foreground transition-colors">
+            <div className="text-2xl font-bold font-mono tabular-nums text-foreground tracking-tight">
               {value}
             </div>
             {unit && (
@@ -1121,16 +1109,14 @@ function StatCard({
             )}
           </div>
           {change !== undefined && (
-            <div className="flex items-center gap-1">
-              <div
-                className={`text-sm mono font-bold flex items-center gap-1 ${positive ? 'text-profit' : 'text-loss'}`}
-              >
-                <span>{positive ? '▲' : '▼'}</span>
-                <span>
-                  {positive ? '+' : ''}
-                  {change.toFixed(2)}%
-                </span>
-              </div>
+            <div
+              className={`text-sm mono font-bold inline-flex items-center gap-1 ${positive ? 'text-profit' : 'text-loss'}`}
+            >
+              <span>{positive ? '▲' : '▼'}</span>
+              <span>
+                {positive ? '+' : ''}
+                {change.toFixed(2)}%
+              </span>
             </div>
           )}
           {subtitle && (
