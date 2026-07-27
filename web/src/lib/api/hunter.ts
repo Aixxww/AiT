@@ -94,6 +94,22 @@ export interface V7SignalsResponse {
   window_source: string
 }
 
+/** One entry of the Hunter v7 tag catalog (GET /api/hunter/v7/tag-catalog). */
+export interface V7TagDefinition {
+  tag: string
+  source: string
+  category: string
+  polarity: string
+  llm_action: string
+  definition: string
+}
+
+export interface V7TagCatalogResponse {
+  count: number
+  tags: V7TagDefinition[]
+  source: string
+}
+
 export const hunterApi = {
   async getV7Signals(limit: number = 80): Promise<V7SignalsResponse> {
     const result = await httpClient.request<V7SignalsResponse>(
@@ -102,6 +118,17 @@ export const hunterApi = {
     )
     if (!result.success || !result.data) {
       throw new Error('Failed to fetch v7 signals')
+    }
+    return result.data
+  },
+
+  async getV7TagCatalog(): Promise<V7TagCatalogResponse> {
+    const result = await httpClient.request<V7TagCatalogResponse>(
+      `${API_BASE}/hunter/v7/tag-catalog`,
+      { silent: true }
+    )
+    if (!result.success || !result.data) {
+      throw new Error('Failed to fetch v7 tag catalog')
     }
     return result.data
   },

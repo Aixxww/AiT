@@ -17,6 +17,7 @@ import { api } from '../../lib/api'
 import type { V7Signal, V7SignalRow, V7Tier } from '../../lib/api/hunter'
 import { SignalTierBadge, type SignalTier } from './SignalTierBadge'
 import { VetoChip } from './VetoChip'
+import { tagTooltip, useTagCatalog } from '../../lib/tagCatalog'
 import { t, type Language } from '../../i18n/translations'
 import { formatPrice } from '../../utils/format'
 import {
@@ -217,6 +218,7 @@ function SignalCard({
 }) {
   const { signal } = row
   const isExecutable = row.execution_tier === 'EXECUTABLE'
+  const catalog = useTagCatalog()
   return (
     <div
       data-testid={`signal-card-${signal.symbol}`}
@@ -283,6 +285,7 @@ function SignalCard({
           {signal.risk_tags!.map((tag) => (
             <span
               key={tag}
+              title={tagTooltip(catalog, tag)}
               className="inline-flex items-center rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 font-mono text-[10px] text-warning"
             >
               {tag}

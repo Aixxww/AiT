@@ -11,12 +11,15 @@ import type { V7Signal, V7SignalRow } from '../../lib/api/hunter'
 vi.mock('../../lib/api', () => ({
   api: {
     getV7Signals: vi.fn(),
+    getV7TagCatalog: vi.fn(),
   },
 }))
 
 import { api } from '../../lib/api'
+import { resetTagCatalogCache } from '../../lib/tagCatalog'
 
 const mockedGetV7Signals = vi.mocked(api.getV7Signals)
+const mockedGetV7TagCatalog = vi.mocked(api.getV7TagCatalog)
 
 function makeSignal(overrides: Partial<V7Signal> = {}): V7Signal {
   return {
@@ -138,6 +141,48 @@ describe('zonePositionPct', () => {
 describe('SignalPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetTagCatalogCache()
+    mockedGetV7TagCatalog.mockResolvedValue({
+      count: 1,
+      source: 'hunter_v7_tag_catalog',
+      tags: [
+        {
+          tag: 'fresh_oi_absent',
+          source: 'risk_tag',
+          category: 'oi',
+          polarity: 'neutral',
+          llm_action: 'wait_only',
+          definition: 'No fresh OI inflow supports the move.',
+        },
+      ],
+    })
+  })
+
+  it('attaches catalog definitions as veto chip tooltips', async () => {
+    mockedGetV7Signals.mockResolvedValue({
+      count: 1,
+      window_source: 'hunter_v7_signal_records',
+      signals: [
+        makeRow({
+          id: 1,
+          execution_tier: 'REJECTED',
+          tier_reason: 'fresh_oi_absent',
+          signal: makeSignal({ symbol: 'XRPUSDT' }),
+        }),
+      ],
+    })
+
+    render(<SignalPanel language="en" />)
+
+    const chip = await screen.findByText('fresh_oi_absent')
+    await waitFor(() => {
+      expect(chip.getAttribute('title')).toContain(
+        'No fresh OI inflow supports the move.'
+      )
+    })
+    expect(chip.getAttribute('title')).toContain('wait_only')
+    // Lazy-loaded exactly once for the whole panel.
+    expect(mockedGetV7TagCatalog).toHaveBeenCalledTimes(1)
   })
 
   it('renders expanded cards, watch rows and a folded rejected section', async () => {
