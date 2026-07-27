@@ -1226,7 +1226,7 @@ export function AdvancedChart({
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
             style={{
               background: showIndicatorPanel
-                ? 'var(--color-accent)' + '26'
+                ? 'color-mix(in srgb, var(--color-accent) 15%, transparent)'
                 : 'transparent',
               color: showIndicatorPanel
                 ? 'var(--color-accent)'
