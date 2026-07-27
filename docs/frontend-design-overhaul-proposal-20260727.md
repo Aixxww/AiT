@@ -336,6 +336,15 @@ P0 全量 + P1 部分已实施（分 9 个提交）。验收快照：
 
 已实施的 P1 项：P1.1 tier token + `SignalTierBadge`/`VetoChip`（设计合同）、P1.3 StatCard 重做、P1.4 核心（DecisionCard 置信度灰阶/成败图标化/嵌套 button 修复/emoji 清除）、P1.5 持仓表排版、P1.6 flash-on-change（uPnL）。未实施：P2 全部。
 
+**P2 实施进度（2026-07-27）**：
+- **P2.5 防回退护栏** ✅（commit `800cc97`）：`eslint.config.js` 的 `no-restricted-syntax` 拦截新 hex（6/8 位 + 短 hex + 模板串）、raw Tailwind palette 类、`ait-*` 别名类，白名单覆盖 `chartTheme/PunkAvatar/traderColors/ModelIcons/ExchangeIcons/AdvancedChart/SettingsPage/landing`。验证：当前树 lint 0 错误，违例 demo 文件 7 类全部被拦。
+- **P2.1 `ui/button.tsx`（CVA）** ✅（commit 见下）：`components/ui/Button.tsx` 落地 CVA Button。variants = `primary/secondary/ghost/danger`（动作语义）+ `tab/pill/segment`（模式切换器，自带 `active` 表现态，刻意不复用 `aria-pressed` 以免污染 toggle 语义），sizes = `sm/md/lg`。`segment` 变体刻意不带 `rounded`，匹配区间选择条的扁平形态。15 个单元测试覆盖变体/尺寸/active 翻转/ref 与属性透传/cn tailwind-merge 覆盖/点击。
+- **P2.3 首批裸 button 迁移** ✅（同 commit）：`components/charts/ChartTabs.tsx` 全量 7 处裸 `<button>` 迁入 `<Button>`（图表 tabs / 市场类型 pills / 区间 segment / 标的下拉触发与列表项 / Go 提交），作为范式建立；新增 `<Button>` import。验证：该文件 `grep <button` 命中 0。
+- **裸 `<button>` 计数演进**：230 → 223。
+- 门禁：web lint 0 / vitest 138 → 153（+15 Button）/ build OK；go build + `./api ./provider/local` 测试 OK。
+- 遗留：剩余 223 个裸 `<button>` 按方案分 4 批迁移（Dashboard → Studio → Modals → 其余）；P2.2 删 `index.css` 死 `.btn-*` 与全局 `button:active/hover` transform 待后续；`AdvancedChart` canvas CSS 变量疑似 bug 已证伪（见 `docs/advancedchart-canvas-css-var-investigation-20260727.md`），仅 HTML 按钮一处 `var(--x)+'26'` alpha 拼接已改 `color-mix`。
+
+
 **P1 收尾（2026-07-27 第二批）**：
 - **P1.2 信号面板** ✅：后端新增只读 `GET /api/hunter/v7/signals?limit=N`（store `RecentSignals` + RawJSON 重水合完整 `V7SignalOutput`，无快照的存量行由平铺列回建契约形状）；前端 `components/hunter/SignalPanel.tsx` 挂入看板主视区下方独立折叠区——最新 cycle 按 tier 分组：EXECUTABLE/REVIEWABLE 展开卡片（分数四联、zone 位置条、确认状态 + RR、taker 阶梯 chips、risk_tags）、WATCH 低亮度单行摘要、REJECTED 折叠为计数 + 聚合 veto chips（可展开）；空态/加载态/后端未启动态齐备，60s 轮询 + 手动刷新；tier 严格金/青/灰/暗灰，方向徽章独立绿红。
 - **StatCard stale 态** ✅：AppRoutes 在 account SWR `onSuccess` 记录取数时刻（deep-equal 时引用不变也会触发），看板 15s ticker 判定 >60s 未成功取数 → 数值灰化 + warning 边框 + STALE 标签（PnL delta 同灰）。
