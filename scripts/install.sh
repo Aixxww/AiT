@@ -11,6 +11,11 @@
 #   --docker     Docker mode — install Docker, pull images
 #   --minimal    Skip Python / Square Monitor
 #   --dir DIR    Installation directory (default: current directory or ~/AiT)
+#   --backend-port PORT   Backend API port (default: 8080)
+#   --frontend-port PORT  Frontend dashboard port (default: 3000)
+#   --proxy URL           HTTP/HTTPS/SOCKS5 proxy for dependency + Binance access
+#   --timezone TZ         Runtime timezone (default: Asia/Shanghai)
+#   --menu                Open the interactive AiT management menu after install
 #
 
 set -euo pipefail
@@ -30,6 +35,12 @@ INSTALL_DIR=""
 GO_VERSION="1.25.3"
 NODE_MAJOR=20
 PYTHON_MIN="3.10"
+MINIMAL=0
+BACKEND_PORT="${AIT_BACKEND_PORT:-8080}"
+FRONTEND_PORT="${AIT_FRONTEND_PORT:-3000}"
+TIMEZONE="${AIT_TIMEZONE:-Asia/Shanghai}"
+PROXY_URL="${AIT_PROXY_URL:-${AIT_BINANCE_PROXY_URL:-}}"
+OPEN_MENU=0
 
 # ─── Helpers ───────────────────────────────────────────────────
 info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -48,6 +59,11 @@ while [[ $# -gt 0 ]]; do
         --docker)   MODE="docker"; shift ;;
         --minimal)  MINIMAL=1; shift ;;
         --dir)      INSTALL_DIR="$2"; shift 2 ;;
+        --backend-port)  BACKEND_PORT="$2"; shift 2 ;;
+        --frontend-port) FRONTEND_PORT="$2"; shift 2 ;;
+        --proxy)     PROXY_URL="$2"; shift 2 ;;
+        --timezone)  TIMEZONE="$2"; shift 2 ;;
+        --menu)      OPEN_MENU=1; shift ;;
         -h|--help)
             echo "AiT One-Click Installer"
             echo ""
@@ -58,6 +74,11 @@ while [[ $# -gt 0 ]]; do
             echo "  --docker    Docker mode"
             echo "  --minimal   Skip Python / Square Monitor"
             echo "  --dir DIR   Installation directory"
+            echo "  --backend-port PORT   Backend API port (default: 8080)"
+            echo "  --frontend-port PORT  Frontend dashboard port (default: 3000)"
+            echo "  --proxy URL           Proxy URL, e.g. http://127.0.0.1:7897"
+            echo "  --timezone TZ         Runtime timezone (default: Asia/Shanghai)"
+            echo "  --menu                Open interactive management menu after install"
             echo "  -h, --help  Show this help"
             exit 0
             ;;
@@ -65,7 +86,17 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-MINIMAL="${MINIMAL:-0}"
+validate_port() {
+    local name="$1" value="$2"
+    [[ "$value" =~ ^[0-9]+$ ]] || die "$name must be a number: $value"
+    (( value >= 1 && value <= 65535 )) || die "$name must be between 1 and 65535: $value"
+}
+
+validate_config() {
+    validate_port "backend port" "$BACKEND_PORT"
+    validate_port "frontend port" "$FRONTEND_PORT"
+    [[ "$BACKEND_PORT" != "$FRONTEND_PORT" ]] || die "backend and frontend ports must be different"
+}
 
 # ─── OS Detection ─────────────────────────────────────────────
 detect_os() {
@@ -107,7 +138,14 @@ detect_os() {
             esac
             ;;
         MINGW*|MSYS*|CYGWIN*)
-            die "Windows is not supported. Use WSL2 instead."
+            OS_NAME="windows"
+            case "$ARCH" in
+                x86_64|AMD64) ARCH_NAME="amd64" ;;
+                aarch64|ARM64) ARCH_NAME="arm64" ;;
+                *) ARCH_NAME="$ARCH" ;;
+            esac
+            warn "Windows shell detected. Native dev mode is not supported by this Bash installer."
+            warn "Use --docker with Docker Desktop, or run this script inside WSL2 for dev mode."
             ;;
         *)
             die "Unsupported OS: $OS"
@@ -115,6 +153,27 @@ detect_os() {
     esac
 
     ok "Detected: $OS_NAME / $ARCH_NAME"
+}
+
+configure_proxy() {
+    if [[ -z "$PROXY_URL" ]]; then
+        info "Proxy: not configured"
+        return
+    fi
+
+    step "Configuring proxy"
+    info "Proxy URL: $PROXY_URL"
+    info "This proxy is exported for curl/npm/go/docker pull where supported, and persisted for AiT Binance HTTP clients."
+    export HTTP_PROXY="$PROXY_URL"
+    export HTTPS_PROXY="$PROXY_URL"
+    export ALL_PROXY="$PROXY_URL"
+    export http_proxy="$PROXY_URL"
+    export https_proxy="$PROXY_URL"
+    export all_proxy="$PROXY_URL"
+    export AIT_BINANCE_PROXY_URL="$PROXY_URL"
+    export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1,::1}"
+    export no_proxy="${no_proxy:-localhost,127.0.0.1,::1}"
+    ok "Proxy variables exported for this install run"
 }
 
 # ─── Command Existence ────────────────────────────────────────
@@ -129,6 +188,10 @@ version_gte() {
 # ─── Install Go ───────────────────────────────────────────────
 install_go() {
     step "Checking Go"
+
+    if [[ "${OS_NAME:-}" == "windows" ]]; then
+        die "Windows dev mode is not supported here. Use --docker with Docker Desktop or run inside WSL2."
+    fi
 
     if has go; then
         local current
@@ -195,6 +258,10 @@ install_go() {
 install_node() {
     step "Checking Node.js"
 
+    if [[ "${OS_NAME:-}" == "windows" ]]; then
+        die "Windows dev mode is not supported here. Use --docker with Docker Desktop or run inside WSL2."
+    fi
+
     if has node; then
         local current
         current=$(node -v | tr -d 'v')
@@ -251,6 +318,10 @@ install_node() {
 # ─── Install TA-Lib (C library) ───────────────────────────────
 install_talib() {
     step "Checking TA-Lib"
+
+    if [[ "${OS_NAME:-}" == "windows" ]]; then
+        die "Windows dev mode is not supported here because TA-Lib C dependencies are not installed natively. Use --docker or WSL2."
+    fi
 
     # Check if already installed
     if pkg-config --exists ta-lib 2>/dev/null; then
@@ -381,6 +452,12 @@ install_docker() {
     info "Installing Docker..."
 
     case "$OS_NAME" in
+        windows)
+            if has docker; then
+                die "Docker CLI exists but Docker Desktop is not responding. Start Docker Desktop, then rerun: scripts/install.sh --docker"
+            fi
+            die "Install Docker Desktop for Windows first: https://docs.docker.com/desktop/setup/install/windows-install/"
+            ;;
         macos)
             if has brew; then
                 brew install --cask docker
@@ -455,7 +532,18 @@ generate_env() {
     step "Configuring environment"
 
     if [[ -f ".env" ]]; then
-        ok ".env already exists, skipping generation"
+        ok ".env already exists, preserving secrets and updating runtime ports/proxy"
+        _set_env "AIT_BACKEND_PORT" "$BACKEND_PORT"
+        _set_env "AIT_FRONTEND_PORT" "$FRONTEND_PORT"
+        _set_env "AIT_TIMEZONE" "$TIMEZONE"
+        if [[ -n "$PROXY_URL" ]]; then
+            _set_env "AIT_PROXY_URL" "$PROXY_URL"
+            _set_env "AIT_BINANCE_PROXY_URL" "$PROXY_URL"
+            _set_env "HTTP_PROXY" "$PROXY_URL"
+            _set_env "HTTPS_PROXY" "$PROXY_URL"
+            _set_env "ALL_PROXY" "$PROXY_URL"
+            _set_env "NO_PROXY" "localhost,127.0.0.1,::1"
+        fi
         return
     fi
 
@@ -487,9 +575,19 @@ generate_env() {
 # Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # ── Server ──────────────────────────────────────────
-AIT_BACKEND_PORT=8080
-AIT_FRONTEND_PORT=3000
-AIT_TIMEZONE=Asia/Shanghai
+AIT_BACKEND_PORT=${BACKEND_PORT}
+AIT_FRONTEND_PORT=${FRONTEND_PORT}
+AIT_TIMEZONE=${TIMEZONE}
+
+# ── Network Proxy ──────────────────────────────────
+# Set when your server needs a proxy for model/exchange/dependency access.
+# Example: http://127.0.0.1:7897 or socks5://127.0.0.1:1080
+AIT_PROXY_URL=${PROXY_URL}
+AIT_BINANCE_PROXY_URL=${PROXY_URL}
+HTTP_PROXY=${PROXY_URL}
+HTTPS_PROXY=${PROXY_URL}
+ALL_PROXY=${PROXY_URL}
+NO_PROXY=localhost,127.0.0.1,::1
 
 # ── Authentication ──────────────────────────────────
 JWT_SECRET=${jwt_secret}
@@ -523,6 +621,20 @@ EOF
     mkdir -p data
     ok ".env created with auto-generated keys"
     warn "Keep .env safe — do NOT commit to version control"
+}
+
+# ─── Helper: set env var ──────────────────────────────────────
+_set_env() {
+    local name="$1" value="$2" file=".env"
+    if grep -q "^${name}=" "$file" 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${name}=.*|${name}=${value}|" "$file"
+        else
+            sed -i "s|^${name}=.*|${name}=${value}|" "$file"
+        fi
+    else
+        echo "${name}=${value}" >> "$file"
+    fi
 }
 
 # ─── Install Dependencies ─────────────────────────────────────
@@ -583,11 +695,18 @@ build_project() {
 
 # ─── Docker Mode ──────────────────────────────────────────────
 docker_mode() {
+    validate_config
+    detect_os
+    configure_proxy
     install_docker
     setup_project
     generate_env
 
     step "Starting Docker services"
+    info "Docker mode uses docker-compose.yml/docker-compose.prod.yml port mappings from .env:"
+    info "  AIT_BACKEND_PORT=$BACKEND_PORT -> container :8080"
+    info "  AIT_FRONTEND_PORT=$FRONTEND_PORT -> container :80"
+    [[ -n "$PROXY_URL" ]] && info "  Proxy persisted: $PROXY_URL"
 
     local compose_cmd="docker compose"
     if ! docker compose version &>/dev/null; then
@@ -598,23 +717,35 @@ docker_mode() {
         fi
     fi
 
-    $compose_cmd pull
-    $compose_cmd up -d
+    local compose_file="${AIT_COMPOSE_FILE:-}"
+    if [[ -z "$compose_file" ]]; then
+        if [[ -f "docker-compose.prod.yml" ]]; then
+            compose_file="docker-compose.prod.yml"
+        else
+            compose_file="docker-compose.yml"
+        fi
+    fi
+    info "Docker Compose file: $compose_file"
+
+    $compose_cmd -f "$compose_file" pull
+    $compose_cmd -f "$compose_file" up -d
 
     echo ""
     ok "Docker services started!"
     echo ""
-    echo -e "  ${BOLD}Web Dashboard:${NC}  http://localhost:3000"
-    echo -e "  ${BOLD}API Endpoint:${NC}   http://localhost:8080"
+    echo -e "  ${BOLD}Web Dashboard:${NC}  http://localhost:$FRONTEND_PORT"
+    echo -e "  ${BOLD}API Endpoint:${NC}   http://localhost:$BACKEND_PORT"
     echo ""
-    echo -e "  ${YELLOW}Manage:${NC}  $compose_cmd logs -f"
-    echo -e "  ${YELLOW}Stop:${NC}    $compose_cmd down"
+    echo -e "  ${YELLOW}Manage:${NC}  $compose_cmd -f $compose_file logs -f"
+    echo -e "  ${YELLOW}Stop:${NC}    $compose_cmd -f $compose_file down"
     echo ""
 }
 
 # ─── Dev Mode ─────────────────────────────────────────────────
 dev_mode() {
+    validate_config
     detect_os
+    configure_proxy
     install_go
     install_node
     install_talib
@@ -632,8 +763,9 @@ dev_mode() {
     echo -e "    cd $INSTALL_DIR"
     echo -e "    ./scripts/start.sh dev"
     echo ""
-    echo -e "  ${BOLD}Web Dashboard:${NC}  http://localhost:3000"
-    echo -e "  ${BOLD}API Endpoint:${NC}   http://localhost:8080"
+    echo -e "  ${BOLD}Web Dashboard:${NC}  http://localhost:$FRONTEND_PORT"
+    echo -e "  ${BOLD}API Endpoint:${NC}   http://localhost:$BACKEND_PORT"
+    [[ -n "$PROXY_URL" ]] && echo -e "  ${BOLD}Proxy:${NC}          $PROXY_URL"
     echo ""
     echo -e "  ${BOLD}Next steps:${NC}"
     echo "    1. Open http://localhost:3000 and register"
@@ -646,6 +778,10 @@ dev_mode() {
     echo ""
     echo -e "  ${RED}AI trading carries significant risk. Only use funds you can afford to lose.${NC}"
     echo ""
+
+    if [[ "$OPEN_MENU" == "1" && -x "$INSTALL_DIR/scripts/start.sh" ]]; then
+        "$INSTALL_DIR/scripts/start.sh" menu
+    fi
 }
 
 # ─── Main ─────────────────────────────────────────────────────
