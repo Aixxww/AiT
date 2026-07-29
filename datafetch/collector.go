@@ -8,16 +8,17 @@ import (
 
 // CollectorConfig holds configuration for the DataCollector.
 type CollectorConfig struct {
-	BinanceURL     string // "https://fapi.binance.com"
-	BinanceWSURL   string // "wss://fstream.binance.com"
-	LunarCrushKey  string
-	LunarCrushBase string        // "https://lunarcrush.com/api4"
-	RestInterval   time.Duration // 30s
-	SocialInterval time.Duration // 15min
-	MaxWorkers     int           // 50
-	TopNForDetail  int           // 100
-	TopNForWS      int           // 30 (top symbols for WS kline/aggTrade streams)
-	FastKlines     []KlineInterval
+	BinanceURL              string // "https://fapi.binance.com"
+	BinanceWSURL            string // "wss://fstream.binance.com"
+	LunarCrushKey           string
+	LunarCrushBase          string        // "https://lunarcrush.com/api4"
+	RestInterval            time.Duration // 30s
+	SocialInterval          time.Duration // 15min
+	MaxWorkers              int           // 50
+	TopNForDetail           int           // 100
+	TopNForWS               int           // 30 (top symbols for WS kline/aggTrade streams)
+	FastKlines              []KlineInterval
+	IncludeNonCryptoFutures bool // include Binance futures stock/commodity/ETF/RWA perps; default false
 }
 
 // DataCollector is the main orchestrator that manages REST fetching,
@@ -58,10 +59,11 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 	}
 
 	fetcher := NewDataFetcher(FetcherConfig{
-		BinanceURL:     cfg.BinanceURL,
-		MaxWorkers:     cfg.MaxWorkers,
-		TopNForDetail:  cfg.TopNForDetail,
-		KlineIntervals: DefaultKlineIntervals,
+		BinanceURL:              cfg.BinanceURL,
+		MaxWorkers:              cfg.MaxWorkers,
+		TopNForDetail:           cfg.TopNForDetail,
+		KlineIntervals:          DefaultKlineIntervals,
+		IncludeNonCryptoFutures: cfg.IncludeNonCryptoFutures,
 	})
 
 	ws := NewWSManager(cfg.BinanceWSURL, store, cfg.TopNForWS)

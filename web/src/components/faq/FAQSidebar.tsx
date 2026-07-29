@@ -1,5 +1,6 @@
 import { t, type Language } from '../../i18n/translations'
 import type { FAQCategory } from '../../data/faqData'
+import { Button } from '../ui/Button'
 
 interface FAQSidebarProps {
   categories: FAQCategory[]
@@ -42,7 +43,8 @@ export function FAQSidebar({
                 const isActive = activeItemId === item.id
                 return (
                   <li key={item.id}>
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() => onItemClick(category.id, item.id)}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all border-l-[3px] ${
                         isActive
@@ -51,7 +53,7 @@ export function FAQSidebar({
                       }`}
                     >
                       {t(item.questionKey, language)}
-                    </button>
+                    </Button>
                   </li>
                 )
               })}

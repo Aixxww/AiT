@@ -21,6 +21,7 @@ import { ExchangeConfigModal } from '../components/trader/ExchangeConfigModal'
 import { TelegramConfigModal } from '../components/trader/TelegramConfigModal'
 import { ModelConfigModal } from '../components/trader/ModelConfigModal'
 import type { Exchange, AIModel } from '../types'
+import { Button } from '../components/ui/Button'
 
 type Tab = 'account' | 'models' | 'exchanges' | 'telegram' | 'appearance'
 
@@ -91,7 +92,8 @@ function AppearanceTab() {
         <h3 className="text-sm font-semibold text-foreground mb-4">Theme</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {themeOptions.map((option) => (
-            <button
+            <Button
+              variant="unstyled"
               key={option.mode}
               onClick={() => setMode(option.mode)}
               className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
@@ -129,7 +131,7 @@ function AppearanceTab() {
               {mode === option.mode && (
                 <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
               )}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -445,7 +447,8 @@ export function SettingsPage() {
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-panel border border-border rounded-xl p-1">
           {tabs.map((tab) => (
-            <button
+            <Button
+              variant="unstyled"
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
@@ -457,7 +460,7 @@ export function SettingsPage() {
             >
               {tab.icon}
               <span className="hidden sm:inline">{tab.label}</span>
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -491,7 +494,8 @@ export function SettingsPage() {
                         placeholder="At least 8 characters"
                         required
                       />
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
@@ -501,16 +505,17 @@ export function SettingsPage() {
                         ) : (
                           <Eye size={16} />
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="submit"
                     disabled={changingPassword || newPassword.length < 8}
                     className="w-full bg-primary hover:opacity-90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {changingPassword ? 'Updating...' : 'Update Password'}
-                  </button>
+                  </Button>
                 </form>
               </div>
             </div>
@@ -524,7 +529,8 @@ export function SettingsPage() {
                   {configuredModels.length} model
                   {configuredModels.length !== 1 ? 's' : ''} configured
                 </p>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() => {
                     setEditingModel(null)
                     setShowModelModal(true)
@@ -533,7 +539,7 @@ export function SettingsPage() {
                 >
                   <Plus size={14} />
                   Add Model
-                </button>
+                </Button>
               </div>
 
               {configuredModels.length === 0 ? (
@@ -543,7 +549,8 @@ export function SettingsPage() {
               ) : (
                 <div className="space-y-2">
                   {configuredModels.map((model) => (
-                    <button
+                    <Button
+                      variant="unstyled"
                       key={model.id}
                       onClick={() => {
                         setEditingModel(model.id)
@@ -584,7 +591,7 @@ export function SettingsPage() {
                           className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                         />
                       </div>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -599,7 +606,8 @@ export function SettingsPage() {
                   {exchanges.length} account{exchanges.length !== 1 ? 's' : ''}{' '}
                   connected
                 </p>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() => {
                     setEditingExchange(null)
                     setShowExchangeModal(true)
@@ -608,7 +616,7 @@ export function SettingsPage() {
                 >
                   <Plus size={14} />
                   Add Exchange
-                </button>
+                </Button>
               </div>
 
               {exchanges.length === 0 ? (
@@ -618,7 +626,8 @@ export function SettingsPage() {
               ) : (
                 <div className="space-y-2">
                   {exchanges.map((exchange) => (
-                    <button
+                    <Button
+                      variant="unstyled"
                       key={exchange.id}
                       onClick={() => {
                         setEditingExchange(exchange.id)
@@ -660,7 +669,7 @@ export function SettingsPage() {
                         size={14}
                         className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                       />
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -674,7 +683,8 @@ export function SettingsPage() {
                 Connect a Telegram bot to receive trading notifications and
                 interact with your traders.
               </p>
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => setShowTelegramModal(true)}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-alt hover:bg-panel-hover border border-border transition-colors group"
               >
@@ -690,7 +700,7 @@ export function SettingsPage() {
                   size={14}
                   className="text-muted-foreground group-hover:text-muted-foreground transition-colors"
                 />
-              </button>
+              </Button>
             </div>
           )}
 

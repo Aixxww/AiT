@@ -275,14 +275,22 @@ func (s *HunterV7SignalStore) QueryByCycle(cycleNumber int) ([]HunterV7SignalRec
 	return records, err
 }
 
-// RecentSignals returns the newest signal records in insertion order
-// (id DESC). It backs the read-only dashboard signal panel.
+// RecentSignals returns the newest signal records with actionable rows first
+// inside each timestamp. Validator cycles persist raw rows, including
+// module_no_match diagnostics; priority ordering keeps small dashboard limits
+// from being filled only by rejected tail rows.
 func (s *HunterV7SignalStore) RecentSignals(limit int) ([]HunterV7SignalRecord, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	var records []HunterV7SignalRecord
-	err := s.db.Order("id DESC").Limit(limit).Find(&records).Error
+	err := s.db.
+		Order("timestamp DESC").
+		Order("CASE execution_tier WHEN 'EXECUTABLE' THEN 1 WHEN 'REVIEWABLE' THEN 2 WHEN 'WATCH' THEN 3 WHEN 'REJECTED' THEN 4 ELSE 5 END").
+		Order("ai_priority DESC").
+		Order("id DESC").
+		Limit(limit).
+		Find(&records).Error
 	return records, err
 }
 

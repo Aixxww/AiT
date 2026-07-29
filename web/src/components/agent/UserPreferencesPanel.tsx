@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button } from '../ui/Button'
 
 interface Preference {
   id: string
@@ -116,8 +117,9 @@ export function UserPreferencesPanel({ token, language }: Props) {
     <div
       id="agent-preferences-panel"
       style={{
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.05)',
+        background:
+          'color-mix(in srgb, var(--color-foreground) 2%, transparent)',
+        border: '1px solid var(--color-header-border)',
         borderRadius: 12,
         padding: 10,
       }}
@@ -161,8 +163,9 @@ export function UserPreferencesPanel({ token, language }: Props) {
           }
           style={{
             flex: 1,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background:
+              'color-mix(in srgb, var(--color-foreground) 3%, transparent)',
+            border: '1px solid var(--color-border)',
             color: 'var(--color-foreground)',
             borderRadius: 8,
             padding: '8px 10px',
@@ -170,14 +173,15 @@ export function UserPreferencesPanel({ token, language }: Props) {
             outline: 'none',
           }}
         />
-        <button
+        <Button
+          variant="unstyled"
           onClick={() => void addPreference()}
           disabled={!draft.trim() || saving}
           style={{
             background:
               draft.trim() && !saving
                 ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
-                : 'rgba(255,255,255,0.04)',
+                : 'color-mix(in srgb, var(--color-foreground) 4%, transparent)',
             color:
               draft.trim() && !saving
                 ? 'var(--color-primary)'
@@ -191,7 +195,7 @@ export function UserPreferencesPanel({ token, language }: Props) {
           }}
         >
           {language === 'zh' ? '添加' : 'Add'}
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -229,8 +233,9 @@ export function UserPreferencesPanel({ token, language }: Props) {
                 gap: 8,
                 padding: 8,
                 borderRadius: 10,
-                background: 'rgba(255,255,255,0.025)',
-                border: '1px solid rgba(255,255,255,0.04)',
+                background:
+                  'color-mix(in srgb, var(--color-foreground) 3%, transparent)',
+                border: '1px solid var(--color-header-border)',
               }}
             >
               <div
@@ -243,7 +248,8 @@ export function UserPreferencesPanel({ token, language }: Props) {
               >
                 {pref.text}
               </div>
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => void removePreference(pref.id)}
                 disabled={saving}
                 style={{
@@ -256,7 +262,7 @@ export function UserPreferencesPanel({ token, language }: Props) {
                 }}
               >
                 {language === 'zh' ? '删除' : 'Delete'}
-              </button>
+              </Button>
             </div>
           ))
         )}

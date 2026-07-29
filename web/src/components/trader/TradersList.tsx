@@ -20,6 +20,7 @@ import {
   getWalletAddress,
   truncateAddress,
 } from './model-constants'
+import { Button } from '../ui/Button'
 
 interface TradersListProps {
   traders: TraderInfo[] | undefined
@@ -255,7 +256,8 @@ function TraderRow({
             >
               {isVisible ? walletAddr : truncateAddress(walletAddr)}
             </span>
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
@@ -277,8 +279,9 @@ function TraderRow({
               ) : (
                 <Eye className="w-3 h-3 text-muted-foreground" />
               )}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
@@ -295,7 +298,7 @@ function TraderRow({
               ) : (
                 <Copy className="w-3 h-3 text-muted-foreground" />
               )}
-            </button>
+            </Button>
           </div>
         )}
         {/* Status */}
@@ -326,7 +329,8 @@ function TraderRow({
 
         {/* Actions */}
         <div className="flex gap-1.5 md:gap-2 flex-nowrap overflow-x-auto items-center">
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => {
               if (onTraderSelect) {
                 onTraderSelect(trader.trader_id)
@@ -344,9 +348,10 @@ function TraderRow({
           >
             <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
             {t('view', language)}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => onEditTrader(trader.trader_id)}
             disabled={trader.is_running}
             className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
@@ -361,9 +366,10 @@ function TraderRow({
           >
             <Pencil className="w-3 h-3 md:w-4 md:h-4" />
             {t('edit', language)}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() =>
               onToggleTrader(trader.trader_id, trader.is_running || false)
             }
@@ -383,9 +389,10 @@ function TraderRow({
             }
           >
             {trader.is_running ? t('stop', language) : t('start', language)}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() =>
               onToggleCompetition(
                 trader.trader_id,
@@ -417,9 +424,10 @@ function TraderRow({
             ) : (
               <EyeOff className="w-3 h-3 md:w-4 md:h-4" />
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => onDeleteTrader(trader.trader_id)}
             className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105"
             style={{
@@ -429,7 +437,7 @@ function TraderRow({
             }}
           >
             <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

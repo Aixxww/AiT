@@ -111,3 +111,33 @@ func TestHunterV7SignalStoreOutcomeStats(t *testing.T) {
 		t.Fatalf("grouped len = %d, want 2: %+v", len(grouped), grouped)
 	}
 }
+
+func TestHunterV7SignalStoreRecentSignalsPrioritizesActionableRows(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&HunterV7SignalRecord{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	store := NewHunterV7SignalStore(db)
+	ts := time.Now().UTC()
+	records := []HunterV7SignalRecord{
+		{CycleNumber: 1, Timestamp: ts, Symbol: "EXEC", ExecutionTier: "EXECUTABLE", AIPriority: 80},
+		{CycleNumber: 1, Timestamp: ts, Symbol: "REV", ExecutionTier: "REVIEWABLE", AIPriority: 70},
+		{CycleNumber: 1, Timestamp: ts, Symbol: "MISS", ExecutionTier: "REJECTED", TierReason: "module_no_match", AIPriority: 0},
+	}
+	if err := store.CreateBatch(records); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := store.RecentSignals(2)
+	if err != nil {
+		t.Fatalf("recent signals: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0].Symbol != "EXEC" || got[1].Symbol != "REV" {
+		t.Fatalf("recent order = %s,%s; want EXEC,REV", got[0].Symbol, got[1].Symbol)
+	}
+}

@@ -2124,7 +2124,7 @@ func hunterV7ShortSideTierCases() []v7TierCase {
 				withQuality("watch_only"),
 				withScores(61.7, 83.6, 67, 15, 100),
 				withRiskLevel("LOW"),
-				withReasons("range_expansion_event", "amplitude_24h_extreme", "moderate_range_expansion_event", "event_directional_followthrough", "flow_taker_sell_aligned", "range_expansion_continuation"),
+				withReasons("range_expansion_event", "amplitude_24h_extreme", "moderate_range_expansion_event", "event_directional_followthrough", "flow_taker_sell_aligned", "range_expansion_continuation", "no_new_high_after_rejection"),
 				withRiskTags("range_expansion_low_volume_followthrough", "regime_against_direction", "execution_stop_tightened", "stale_data_risk"),
 				withConfirms("15m_close_below_vwap_or_ema20_or_entry_zone_lower", "taker_buy_15m_lt_0_48", "no_new_high_after_rejection", "fresh_micro_confirmed"),
 				withZone(0.9700, 1.0300),

@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import type { AIModel } from '../../types'
 import { getModelIcon } from '../common/ModelIcons'
 import { getShortName } from './model-constants'
+import { Button } from '../ui/Button'
 
 interface ModelCardProps {
   model: AIModel
@@ -17,7 +18,8 @@ export function ModelCard({
   configured,
 }: ModelCardProps) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="button"
       onClick={onClick}
       className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-105"
@@ -74,6 +76,6 @@ export function ModelCard({
       >
         {model.provider}
       </span>
-    </button>
+    </Button>
   )
 }

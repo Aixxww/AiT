@@ -11,6 +11,7 @@
  * - WATCH       gray badge, row content stays at normal brightness
  * - REJECTED    dimmed outline + strikethrough; veto chips stay readable
  */
+import { cn } from '../../lib/cn'
 
 export type SignalTier = 'EXECUTABLE' | 'REVIEWABLE' | 'WATCH' | 'REJECTED'
 
@@ -35,7 +36,11 @@ export function SignalTierBadge({
 }: SignalTierBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${TIER_STYLES[tier]} ${className}`}
+      className={cn(
+        'inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+        TIER_STYLES[tier],
+        className
+      )}
     >
       {tier}
     </span>

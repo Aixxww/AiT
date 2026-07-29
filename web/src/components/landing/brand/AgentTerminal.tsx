@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { Button } from '../../ui/Button'
 
 export default function AgentTerminal() {
   return (
@@ -51,15 +52,24 @@ export default function AgentTerminal() {
               Portfolio PnL
             </span>
             <div className="flex gap-1">
-              <button className="px-2 py-0.5 bg-primary/20 border border-primary/30 rounded text-[10px] text-primary font-mono">
+              <Button
+                variant="unstyled"
+                className="px-2 py-0.5 bg-primary/20 border border-primary/30 rounded text-[10px] text-primary font-mono"
+              >
                 24H
-              </button>
-              <button className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors">
+              </Button>
+              <Button
+                variant="unstyled"
+                className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors"
+              >
                 7D
-              </button>
-              <button className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors">
+              </Button>
+              <Button
+                variant="unstyled"
+                className="px-2 py-0.5 text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors"
+              >
                 30D
-              </button>
+              </Button>
             </div>
           </div>
           <div className="flex items-baseline gap-3">

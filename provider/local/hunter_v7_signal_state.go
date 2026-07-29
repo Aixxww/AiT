@@ -215,13 +215,18 @@ func applyV7TriggerMemoryUpgrade(sig *V7SignalOutput, entry *v7TriggerMemoryEntr
 		return
 	}
 	sig.Status = V7StatusCandidate
-	if sig.ExecutionQuality == V7ExecWatchOnly || sig.ExecutionQuality == "" {
+	if sig.SetupType == V7SetupAltLadderShort {
+		sig.ExecutionQuality = V7ExecReady
+	} else if sig.ExecutionQuality == V7ExecWatchOnly || sig.ExecutionQuality == "" {
 		sig.ExecutionQuality = V7ExecNearConfirm
 	}
 	sig.EntrySignal = V7EntrySignalOpenNow
 	sig.Confidence = "B"
 	applyV7ConfirmedTriggerZone(sig, entry)
 	sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "trigger_memory_confirmed")
+	if sig.SetupType == V7SetupAltLadderShort {
+		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "alt_ladder_multi_cycle_close_through")
+	}
 	for _, confirm := range v7TriggerMemoryConfirmations(sig) {
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, confirm)
 		sig.RequiredConfirms = appendIfMissing(sig.RequiredConfirms, confirm)
@@ -491,7 +496,8 @@ func isWatchSetup(setup V7SetupType) bool {
 func isTriggerMemorySetup(setup V7SetupType) bool {
 	switch setup {
 	case V7SetupTrendBreakoutLong, V7SetupAccumulationLong,
-		V7SetupPanicReversalLong, V7SetupPullbackLong, V7SetupFundingReversal:
+		V7SetupPanicReversalLong, V7SetupPullbackLong, V7SetupFundingReversal,
+		V7SetupAltLadderShort:
 		return true
 	default:
 		return false
@@ -501,6 +507,9 @@ func isTriggerMemorySetup(setup V7SetupType) bool {
 func isV7TriggerNearSignal(sig *V7SignalOutput) bool {
 	if sig == nil || !isTriggerMemorySetup(sig.SetupType) {
 		return false
+	}
+	if isV7AltLadderShortTriggerMemorySignal(sig) {
+		return true
 	}
 	if sig.EntrySignal == V7EntrySignalTriggerNear {
 		return true
@@ -529,6 +538,9 @@ func v7TriggerMemoryConfirmed(sig *V7SignalOutput, entry *v7TriggerMemoryEntry) 
 	if price <= 0 {
 		return false
 	}
+	if sig.SetupType == V7SetupAltLadderShort && !v7AltLadderShortCloseThroughConfirmed(sig, entry) {
+		return false
+	}
 	switch entry.Direction {
 	case V7DirLong:
 		return price >= entry.TriggerPrice
@@ -537,6 +549,77 @@ func v7TriggerMemoryConfirmed(sig *V7SignalOutput, entry *v7TriggerMemoryEntry) 
 	default:
 		return false
 	}
+}
+
+func isV7AltLadderShortTriggerMemorySignal(sig *V7SignalOutput) bool {
+	if sig == nil || sig.SetupType != V7SetupAltLadderShort || sig.Direction != V7DirShort {
+		return false
+	}
+	if sig.AIPriority < 52 || sig.TimingScore < 58 || sig.RiskScore > 45 {
+		return false
+	}
+	if sig.LiquidityScore > 0 && sig.LiquidityScore < 50 {
+		return false
+	}
+	if !containsV7String(sig.ReasonCodes, "alt_ladder_taker_sell") {
+		return false
+	}
+	if !containsV7String(sig.ReasonCodes, "alt_ladder_new_shorts") &&
+		!containsV7String(sig.ReasonCodes, "alt_ladder_long_flush") &&
+		!containsV7String(sig.ReasonCodes, "alt_ladder_sell_volume") {
+		return false
+	}
+	if hasV7SignalRiskTag(sig, "crowding_extreme") ||
+		hasV7SignalRiskTag(sig, "low_liquidity") ||
+		hasV7SignalRiskTag(sig, "alt_ladder_late_short_risk") {
+		return false
+	}
+	if sig.DerivativesCtx != nil && sig.DerivativesCtx.TakerBuy15m > 0 && sig.DerivativesCtx.TakerBuy15m > 0.48 {
+		return false
+	}
+	return v7TriggerPrice(sig) > 0
+}
+
+func v7AltLadderShortCloseThroughConfirmed(sig *V7SignalOutput, entry *v7TriggerMemoryEntry) bool {
+	if sig == nil || entry == nil || entry.TriggerPrice <= 0 {
+		return false
+	}
+	if sig.DerivativesCtx != nil && sig.DerivativesCtx.TakerBuy15m > 0 && sig.DerivativesCtx.TakerBuy15m > 0.48 {
+		return false
+	}
+	if !v7RequiredConfirmPassed(sig, "5m_or_15m_close_below_trigger") {
+		return false
+	}
+	price := 0.0
+	if sig.PriceCtx != nil {
+		price = sig.PriceCtx.Last
+	}
+	return price > 0 && price <= entry.TriggerPrice
+}
+
+func v7RequiredConfirmPassed(sig *V7SignalOutput, code string) bool {
+	if sig == nil || code == "" {
+		return false
+	}
+	if sig.ConfirmSummary == nil {
+		return containsV7String(sig.ReasonCodes, code)
+	}
+	for _, check := range sig.ConfirmSummary.MissingHard {
+		if check.Code == code {
+			return false
+		}
+	}
+	for _, check := range sig.ConfirmSummary.MissingReview {
+		if check.Code == code {
+			return false
+		}
+	}
+	for _, check := range sig.ConfirmSummary.ContextChecks {
+		if check.Code == code {
+			return check.Passed
+		}
+	}
+	return containsV7String(sig.RequiredConfirms, code) && sig.ConfirmSummary.PassedReview
 }
 
 func v7TriggerPrice(sig *V7SignalOutput) float64 {
@@ -586,6 +669,13 @@ func v7TriggerMemoryConfirmations(sig *V7SignalOutput) []string {
 
 func v7SignalStateKey(symbol string, setup V7SetupType, direction V7Direction) string {
 	return symbol + "|" + string(setup) + "|" + string(direction)
+}
+
+func hasV7SignalRiskTag(sig *V7SignalOutput, tag string) bool {
+	if sig == nil {
+		return false
+	}
+	return containsV7String(sig.RiskTags, tag)
 }
 
 // removeTag removes a tag from a slice (first occurrence only).

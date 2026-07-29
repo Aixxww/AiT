@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
+import { Button } from '../ui/Button'
 
 export function RegistrationDisabled() {
   const { language } = useLanguage()
@@ -24,7 +25,8 @@ export function RegistrationDisabled() {
         <p className="text-sm text-muted-foreground">
           {t('registrationClosedMessage', language)}
         </p>
-        <button
+        <Button
+          variant="unstyled"
           className="mt-6 px-4 py-2 rounded text-sm font-semibold transition-colors hover:opacity-90"
           style={{
             background: 'var(--color-primary)',
@@ -33,7 +35,7 @@ export function RegistrationDisabled() {
           onClick={handleBackToLogin}
         >
           {t('backToLogin', language)}
-        </button>
+        </Button>
       </div>
     </div>
   )

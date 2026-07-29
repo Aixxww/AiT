@@ -12,6 +12,7 @@ import {
 import type { IndicatorConfig } from '../../types'
 import { indicator, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
+import { Button } from '../ui/Button'
 
 const MIN_KLINE_COUNT = 10
 const MAX_KLINE_COUNT = 200
@@ -85,7 +86,7 @@ export function IndicatorEditor({
             : 'Maximum 4 timeframes allowed'
         toast.className =
           'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm z-50 shadow-lg'
-        toast.style.cssText = 'background:var(--color-loss);color:#fff;'
+        toast.style.cssText = 'background:var(--color-loss);color:white;'
         document.body.appendChild(toast)
         setTimeout(() => toast.remove(), 2000)
         return
@@ -145,8 +146,9 @@ export function IndicatorEditor({
         className="rounded-lg overflow-hidden relative"
         style={{
           background:
-            'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(236, 72, 153, 0.08) 100%)',
-          border: '1px solid rgba(139, 92, 246, 0.3)',
+            'linear-gradient(135deg, color-mix(in srgb, var(--color-info) 8%, transparent) 0%, color-mix(in srgb, var(--color-purple) 8%, transparent) 50%, color-mix(in srgb, var(--color-accent) 8%, transparent) 100%)',
+          border:
+            '1px solid color-mix(in srgb, var(--color-purple) 30%, transparent)',
         }}
       >
         {/* Decorative gradient line at top */}
@@ -200,7 +202,8 @@ export function IndicatorEditor({
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full transition-all hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(139, 92, 246, 0.2)',
+                  background:
+                    'color-mix(in srgb, var(--color-purple) 20%, transparent)',
                   color: 'var(--color-purple)',
                 }}
               >
@@ -213,8 +216,10 @@ export function IndicatorEditor({
           <div
             className="rounded-lg px-3 py-2 text-xs text-muted-foreground"
             style={{
-              background: 'rgba(30, 35, 41, 0.55)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
+              background:
+                'color-mix(in srgb, var(--color-panel) 70%, transparent)',
+              border:
+                '1px solid color-mix(in srgb, var(--color-purple) 25%, transparent)',
             }}
           >
             {ts(indicator.snapshotStoreDesc, language)}
@@ -231,11 +236,11 @@ export function IndicatorEditor({
                 className="p-2.5 rounded-lg transition-all cursor-pointer"
                 style={{
                   background: config.enable_quant_data
-                    ? 'rgba(96, 165, 250, 0.1)'
-                    : 'rgba(30, 35, 41, 0.5)',
+                    ? 'color-mix(in srgb, var(--color-info) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--color-panel) 65%, transparent)',
                   border: config.enable_quant_data
-                    ? '1px solid rgba(96, 165, 250, 0.3)'
-                    : '1px solid rgba(43, 49, 57, 0.5)',
+                    ? '1px solid color-mix(in srgb, var(--color-info) 30%, transparent)'
+                    : '1px solid color-mix(in srgb, var(--color-border) 80%, transparent)',
                   opacity: disabled ? 0.5 : 1,
                 }}
                 onClick={() =>
@@ -324,11 +329,11 @@ export function IndicatorEditor({
                 className="p-2.5 rounded-lg transition-all cursor-pointer"
                 style={{
                   background: config.enable_oi_ranking
-                    ? 'rgba(34, 197, 94, 0.1)'
-                    : 'rgba(30, 35, 41, 0.5)',
+                    ? 'color-mix(in srgb, var(--color-profit) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--color-panel) 65%, transparent)',
                   border: config.enable_oi_ranking
-                    ? '1px solid rgba(34, 197, 94, 0.3)'
-                    : '1px solid rgba(43, 49, 57, 0.5)',
+                    ? '1px solid color-mix(in srgb, var(--color-profit) 30%, transparent)'
+                    : '1px solid color-mix(in srgb, var(--color-border) 80%, transparent)',
                   opacity: disabled ? 0.5 : 1,
                 }}
                 onClick={() =>
@@ -433,11 +438,11 @@ export function IndicatorEditor({
                 className="p-2.5 rounded-lg transition-all cursor-pointer"
                 style={{
                   background: config.enable_netflow_ranking
-                    ? 'rgba(245, 158, 11, 0.1)'
-                    : 'rgba(30, 35, 41, 0.5)',
+                    ? 'color-mix(in srgb, var(--color-warning) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--color-panel) 65%, transparent)',
                   border: config.enable_netflow_ranking
-                    ? '1px solid rgba(245, 158, 11, 0.3)'
-                    : '1px solid rgba(43, 49, 57, 0.5)',
+                    ? '1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)'
+                    : '1px solid color-mix(in srgb, var(--color-border) 80%, transparent)',
                   opacity: disabled ? 0.5 : 1,
                 }}
                 onClick={() =>
@@ -548,11 +553,11 @@ export function IndicatorEditor({
                 className="p-2.5 rounded-lg transition-all cursor-pointer"
                 style={{
                   background: config.enable_price_ranking
-                    ? 'rgba(236, 72, 153, 0.1)'
-                    : 'rgba(30, 35, 41, 0.5)',
+                    ? 'color-mix(in srgb, var(--color-purple) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--color-panel) 65%, transparent)',
                   border: config.enable_price_ranking
-                    ? '1px solid rgba(236, 72, 153, 0.3)'
-                    : '1px solid rgba(43, 49, 57, 0.5)',
+                    ? '1px solid color-mix(in srgb, var(--color-purple) 30%, transparent)'
+                    : '1px solid color-mix(in srgb, var(--color-border) 80%, transparent)',
                   opacity: disabled ? 0.5 : 1,
                 }}
                 onClick={() =>
@@ -701,7 +706,8 @@ export function IndicatorEditor({
             style={{
               background:
                 'color-mix(in srgb, var(--color-primary) 8%, transparent)',
-              border: '1px solid rgba(240, 185, 11, 0.2)',
+              border:
+                '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
             }}
           >
             <div className="flex items-center gap-3">
@@ -824,7 +830,8 @@ export function IndicatorEditor({
                           const isPrimary =
                             config.klines.primary_timeframe === tf.value
                           return (
-                            <button
+                            <Button
+                              variant="unstyled"
                               key={tf.value}
                               onClick={() => toggleTimeframe(tf.value)}
                               onDoubleClick={() =>
@@ -854,7 +861,7 @@ export function IndicatorEditor({
                               {isPrimary && (
                                 <span className="ml-0.5 text-[8px]">*</span>
                               )}
-                            </button>
+                            </Button>
                           )
                         })}
                       </div>

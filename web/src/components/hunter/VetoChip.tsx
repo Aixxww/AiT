@@ -12,6 +12,7 @@
  * until it arrives or when the backend is down).
  */
 import { tagTooltip, useTagCatalog } from '../../lib/tagCatalog'
+import { cn } from '../../lib/cn'
 
 interface VetoChipProps {
   /** Raw confirmation/veto code, displayed verbatim. */
@@ -26,7 +27,10 @@ export function VetoChip({ code, title, className = '' }: VetoChipProps) {
   return (
     <span
       title={title ?? tagTooltip(catalog, code)}
-      className={`inline-flex items-center rounded border border-border bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground ${className}`}
+      className={cn(
+        'inline-flex items-center rounded border border-border bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground',
+        className
+      )}
     >
       {code}
     </span>

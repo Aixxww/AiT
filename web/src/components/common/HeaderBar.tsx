@@ -11,6 +11,7 @@ import {
   type UserMode,
 } from '../../lib/onboarding'
 import { getCurrentPageForPath, ROUTES, type Page } from '../../router/paths'
+import { Button } from '../ui/Button'
 
 interface HeaderBarProps {
   onLoginClick?: () => void
@@ -206,7 +207,8 @@ export default function HeaderBar({
               return navTabs
                 .filter((tab) => !tab.hidden)
                 .map((tab) => (
-                  <button
+                  <Button
+                    variant="unstyled"
                     key={tab.page}
                     onClick={() => handleNavClick(tab)}
                     className={`whitespace-nowrap text-sm font-bold transition-all duration-300 relative focus:outline-2 focus:outline-primary px-3 py-2 rounded-lg
@@ -221,7 +223,7 @@ export default function HeaderBar({
                         {tab.badge}
                       </span>
                     )}
-                  </button>
+                  </Button>
                 ))
             })()}
           </div>
@@ -233,7 +235,8 @@ export default function HeaderBar({
               <div className="flex items-center gap-3">
                 {/* User Info with Dropdown */}
                 <div className="relative" ref={userDropdownRef}>
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                     className="flex max-w-[260px] items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-surface border border-primary/20 hover:bg-primary/5"
                   >
@@ -244,7 +247,7 @@ export default function HeaderBar({
                       {user.email}
                     </span>
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  </Button>
 
                   {userDropdownOpen && (
                     <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
@@ -256,7 +259,8 @@ export default function HeaderBar({
                           {user.email}
                         </div>
                       </div>
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={() => {
                           navigateInApp(ROUTES.settings)
                           setUserDropdownOpen(false)
@@ -265,8 +269,9 @@ export default function HeaderBar({
                       >
                         <Settings className="w-3.5 h-3.5" />
                         Settings
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="unstyled"
                         onClick={() =>
                           handleSwitchMode(
                             userMode === 'beginner' ? 'advanced' : 'beginner'
@@ -282,9 +287,10 @@ export default function HeaderBar({
                           : language === 'zh'
                             ? '切到新手模式'
                             : 'Switch to Beginner'}
-                      </button>
+                      </Button>
                       {onLogout && (
-                        <button
+                        <Button
+                          variant="unstyled"
                           onClick={() => {
                             onLogout()
                             setUserDropdownOpen(false)
@@ -292,7 +298,7 @@ export default function HeaderBar({
                           className="w-full px-3 py-2 text-sm font-semibold transition-colors hover:opacity-80 text-center bg-loss/20 text-loss"
                         >
                           {t('exitLogin', language)}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}
@@ -303,19 +309,21 @@ export default function HeaderBar({
               resolvedCurrentPage !== 'login' &&
               resolvedCurrentPage !== 'register' && (
                 <div className="flex items-center gap-3">
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => navigateInApp(ROUTES.login)}
                     className="px-3 py-2 text-sm font-medium transition-colors rounded text-muted-foreground hover:text-foreground"
                   >
                     {t('signIn', language)}
-                  </button>
+                  </Button>
                 </div>
               )
             )}
 
             {/* Theme Toggle */}
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={toggleColorScheme}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground hover:border-border-hover hover:text-foreground"
@@ -331,11 +339,12 @@ export default function HeaderBar({
               ) : (
                 <Moon className="h-4 w-4" />
               )}
-            </button>
+            </Button>
 
             {/* Language Toggle - Always at the rightmost */}
             <div className="relative" ref={dropdownRef}>
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-muted-foreground hover:bg-primary/5"
               >
@@ -343,11 +352,12 @@ export default function HeaderBar({
                   {language === 'zh' ? '🇨🇳' : language === 'id' ? '🇮🇩' : '🇺🇸'}
                 </span>
                 <ChevronDown className="w-4 h-4" />
-              </button>
+              </Button>
 
               {languageDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-32 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       onLanguageChange?.('zh')
                       setLanguageDropdownOpen(false)
@@ -357,8 +367,9 @@ export default function HeaderBar({
                   >
                     <span className="text-base">🇨🇳</span>
                     <span className="text-sm">中文</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       onLanguageChange?.('en')
                       setLanguageDropdownOpen(false)
@@ -368,8 +379,9 @@ export default function HeaderBar({
                   >
                     <span className="text-base">🇺🇸</span>
                     <span className="text-sm">English</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       onLanguageChange?.('id')
                       setLanguageDropdownOpen(false)
@@ -379,7 +391,7 @@ export default function HeaderBar({
                   >
                     <span className="text-base">🇮🇩</span>
                     <span className="text-sm">Bahasa</span>
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -591,7 +603,8 @@ export default function HeaderBar({
                   {/* Lang Switcher */}
                   <div className="flex bg-surface rounded-lg p-1 border border-border">
                     {['zh', 'en', 'id'].map((lang) => (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={lang}
                         onClick={() => {
                           onLanguageChange?.(lang as Language)
@@ -604,11 +617,12 @@ export default function HeaderBar({
                         }`}
                       >
                         {lang === 'zh' ? 'CN' : lang === 'id' ? 'ID' : 'EN'}
-                      </button>
+                      </Button>
                     ))}
                   </div>
 
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={toggleColorScheme}
                     className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-surface text-sm font-bold text-muted-foreground"
@@ -625,11 +639,12 @@ export default function HeaderBar({
                       : language === 'zh'
                         ? '夜间'
                         : 'Dark'}
-                  </button>
+                  </Button>
 
                   {/* Auth Actions */}
                   {isLoggedIn && user ? (
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() => {
                         onLogout?.()
                         setMobileMenuOpen(false)
@@ -637,11 +652,12 @@ export default function HeaderBar({
                       className="bg-loss/10 border border-loss/20 text-loss rounded-lg font-bold text-sm hover:bg-loss/20 transition-colors"
                     >
                       {t('exitLogin', language)}
-                    </button>
+                    </Button>
                   ) : (
                     resolvedCurrentPage !== 'login' &&
                     resolvedCurrentPage !== 'register' && (
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => {
                           navigateInApp(ROUTES.login)
@@ -650,7 +666,7 @@ export default function HeaderBar({
                         className="flex items-center justify-center bg-primary text-primary-foreground rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
                       >
                         {t('signIn', language)}
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>

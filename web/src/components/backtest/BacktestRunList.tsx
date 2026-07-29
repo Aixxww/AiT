@@ -8,6 +8,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { t, type Language } from '../../i18n/translations'
+import { Button } from '../ui/Button'
 
 // ============ Types ============
 
@@ -102,7 +103,8 @@ export function BacktestRunList({
           </div>
         ) : (
           runs.map((run) => (
-            <button
+            <Button
+              variant="unstyled"
               key={run.run_id}
               onClick={() => onSelectRun(run.run_id)}
               className="w-full p-3 rounded-lg text-left transition-all"
@@ -131,7 +133,8 @@ export function BacktestRunList({
                   {run.summary.progress_pct.toFixed(0)}% · $
                   {run.summary.equity_last.toFixed(0)}
                 </span>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={(e) => {
                     e.stopPropagation()
                     onToggleCompare(run.run_id)
@@ -152,9 +155,9 @@ export function BacktestRunList({
                         : 'var(--color-muted-fg)',
                     }}
                   />
-                </button>
+                </Button>
               </div>
-            </button>
+            </Button>
           ))
         )}
       </div>

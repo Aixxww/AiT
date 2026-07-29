@@ -24,6 +24,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        unstyled: '',
         primary:
           'bg-primary text-primary-foreground rounded hover:bg-primary/90 active:scale-[0.98]',
         secondary:
@@ -101,14 +102,13 @@ export interface ButtonProps
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    { className, variant, size, active = false, type = 'button', ...props },
-    ref
-  ) => {
+  ({ className, variant, size, active = false, type, ...props }, ref) => {
+    const resolvedType = type ?? (variant === 'unstyled' ? undefined : 'button')
+
     return (
       <button
         ref={ref}
-        type={type}
+        type={resolvedType}
         className={cn(buttonVariants({ variant, size, active }), className)}
         {...props}
       />

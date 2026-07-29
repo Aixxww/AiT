@@ -1,4 +1,5 @@
 import type { UserMode } from '../../lib/onboarding'
+import { Button } from '../ui/Button'
 
 interface OnboardingModeSelectorProps {
   language: string
@@ -45,7 +46,8 @@ export function OnboardingModeSelector({
         {options.map((option) => {
           const selected = option.id === mode
           return (
-            <button
+            <Button
+              variant="unstyled"
               key={option.id}
               type="button"
               onClick={() => onChange(option.id)}
@@ -66,7 +68,7 @@ export function OnboardingModeSelector({
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {option.description}
               </p>
-            </button>
+            </Button>
           )
         })}
       </div>

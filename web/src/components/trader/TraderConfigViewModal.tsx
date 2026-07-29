@@ -3,6 +3,7 @@ import type { TraderConfigData } from '../../types'
 import { t } from '../../i18n/translations'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { PunkAvatar, getTraderAvatar } from '../common/PunkAvatar'
+import { Button } from '../ui/Button'
 
 // Extract the name part after the last underscore
 function getShortName(fullName: string): string {
@@ -94,12 +95,13 @@ export function TraderConfigViewModal({
                 ? t('traderConfigView.running', language)
                 : t('traderConfigView.stopped', language)}
             </div>
-            <button
+            <Button
+              variant="unstyled"
               onClick={onClose}
               className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -162,12 +164,13 @@ export function TraderConfigViewModal({
 
         {/* Footer */}
         <div className="flex justify-end p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover">
-          <button
+          <Button
+            variant="unstyled"
             onClick={onClose}
             className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-all duration-200 border border-border"
           >
             {t('traderConfigView.close', language)}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
   setBeginnerWalletAddress,
   markBeginnerOnboardingCompleted,
 } from '../lib/onboarding'
+import { Button } from '../components/ui/Button'
 
 export function BeginnerOnboardingPage() {
   const { language } = useLanguage()
@@ -84,14 +85,15 @@ export function BeginnerOnboardingPage() {
     <div className="fixed inset-0 z-[80]">
       <div className="absolute inset-0 bg-black/58 backdrop-blur-[2px]" />
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={handleContinue}
           className="absolute right-6 top-6 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground transition hover:border-white/20 hover:bg-white/10 hover:text-white"
           aria-label={isZh ? '跳过' : 'Skip'}
         >
           <X className="h-5 w-5" />
-        </button>
+        </Button>
         <div className="w-full max-w-[1120px]">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-center gap-4">
@@ -133,7 +135,7 @@ export function BeginnerOnboardingPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,11,16,0.94),rgba(5,7,10,0.88))] shadow-[0_24px_120px_rgba(0,0,0,0.58)] backdrop-blur-2xl">
+          <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-background)_94%,var(--color-surface))_0%,color-mix(in_srgb,var(--color-background)_88%,transparent)_100%)] shadow-[0_24px_120px_color-mix(in_srgb,var(--color-background)_72%,transparent)] backdrop-blur-2xl">
             {loading ? (
               <div className="flex min-h-[390px] items-center justify-center px-6 text-sm text-muted-foreground">
                 {isZh
@@ -144,7 +146,7 @@ export function BeginnerOnboardingPage() {
               <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
                 <section className="flex flex-col justify-center px-8 py-7 sm:px-9 lg:min-h-[430px]">
                   <div className="mx-auto w-full max-w-[248px] text-center">
-                    <div className="mx-auto inline-flex rounded-[28px] border border-black/10 bg-white p-4 shadow-[0_20px_60px_rgba(255,255,255,0.08)]">
+                    <div className="mx-auto inline-flex rounded-[28px] border border-black/10 bg-white p-4 shadow-[0_20px_60px_color-mix(in_srgb,var(--color-foreground)_8%,transparent)]">
                       <QRCodeSVG value={data.address} size={164} level="M" />
                     </div>
 
@@ -163,7 +165,8 @@ export function BeginnerOnboardingPage() {
                           <span className="text-[20px]">USDC</span>
                         </div>
                       </div>
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => void loadOnboarding(false)}
                         disabled={refreshingBalance}
@@ -173,7 +176,7 @@ export function BeginnerOnboardingPage() {
                         <RefreshCw
                           className={`h-4 w-4 ${refreshingBalance ? 'animate-spin' : ''}`}
                         />
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="mt-4 text-sm text-muted-foreground">
@@ -192,10 +195,11 @@ export function BeginnerOnboardingPage() {
                         <span>{isZh ? '钱包地址' : 'Wallet address'}</span>
                       </div>
                       <div className="flex items-stretch gap-3">
-                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-5 py-3 font-mono text-[14px] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-5 py-3 font-mono text-[14px] text-foreground shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-foreground)_3%,transparent)]">
                           <div className="break-all">{data.address}</div>
                         </div>
-                        <button
+                        <Button
+                          variant="unstyled"
                           type="button"
                           onClick={() =>
                             copyText(data.address, isZh ? '地址' : 'Address')
@@ -204,7 +208,7 @@ export function BeginnerOnboardingPage() {
                           aria-label={isZh ? '复制地址' : 'Copy address'}
                         >
                           <Copy className="h-5 w-5" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -218,13 +222,14 @@ export function BeginnerOnboardingPage() {
                         </span>
                       </div>
                       <div className="flex items-stretch gap-3">
-                        <div className="min-w-0 flex-1 rounded-[24px] border border-primary/20 bg-[linear-gradient(180deg,rgba(32,25,7,0.44),rgba(14,10,3,0.28))] px-5 py-3 font-mono text-[13px] leading-6 text-foreground ring-1 ring-primary/5">
+                        <div className="min-w-0 flex-1 rounded-[24px] border border-primary/20 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-primary)_16%,transparent)_0%,color-mix(in_srgb,var(--color-primary)_8%,transparent)_100%)] px-5 py-3 font-mono text-[13px] leading-6 text-foreground ring-1 ring-primary/5">
                           <div className="overflow-x-auto whitespace-nowrap">
                             {data.private_key}
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col justify-end">
-                          <button
+                          <Button
+                            variant="unstyled"
                             type="button"
                             onClick={() =>
                               copyText(
@@ -236,7 +241,7 @@ export function BeginnerOnboardingPage() {
                             aria-label={isZh ? '复制私钥' : 'Copy private key'}
                           >
                             <Copy className="h-5 w-5" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -264,7 +269,8 @@ export function BeginnerOnboardingPage() {
                       </div>
                     ) : null}
 
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={handleContinue}
                       className={`mt-1 flex w-full items-center justify-center gap-3 rounded-[24px] bg-primary px-5 py-3.5 font-bold text-black shadow-lg shadow-primary/20 transition hover:bg-primary/90 ${
@@ -275,7 +281,7 @@ export function BeginnerOnboardingPage() {
                         {isZh ? '我已保存，进入下一步' : 'I saved it, continue'}
                       </span>
                       <ArrowRight className="h-5 w-5" />
-                    </button>
+                    </Button>
 
                     {data.env_saved ? (
                       <div className="pt-1 text-xs text-muted-foreground/60">

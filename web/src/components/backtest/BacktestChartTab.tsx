@@ -35,6 +35,7 @@ import type {
   BacktestTradeEvent,
   BacktestKlinesResponse,
 } from '../../types'
+import { Button } from '../ui/Button'
 
 // ============ Equity Chart (Recharts) ============
 
@@ -368,7 +369,8 @@ export function CandlestickChartComponent({
             style={{ border: '1px solid var(--color-border)' }}
           >
             {CHART_TIMEFRAMES.map((tf) => (
-              <button
+              <Button
+                variant="unstyled"
                 key={tf}
                 onClick={() => setSelectedTimeframe(tf)}
                 className="px-2.5 py-1 text-xs font-medium transition-colors"
@@ -384,7 +386,7 @@ export function CandlestickChartComponent({
                 }}
               >
                 {tf}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, Layers, Zap, Hexagon, Crosshair } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
+import { Button } from '../../ui/Button'
 
 const agents = [
   {
@@ -154,13 +155,14 @@ export default function AgentGrid() {
                   </div>
 
                   {/* Action Btn */}
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={handleInitialize}
                     className={`w-full py-4 text-xs font-bold font-mono uppercase tracking-[0.2em] border border-border hover:border-${agent.color === 'text-primary' ? 'primary' : 'white'} hover:bg-white/5 transition-all flex items-center justify-center gap-2 group-hover:text-foreground cursor-pointer`}
                   >
                     <span className={agent.color}>[</span> INITIALIZE{' '}
                     <span className={agent.color}>]</span>
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Decorative Background Elements */}

@@ -10,6 +10,7 @@ import { getSystemConfig } from '../../lib/config'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { RegistrationDisabled } from './RegistrationDisabled'
 import { WhitelistFullPage } from '../common/WhitelistFullPage'
+import { Button } from '../ui/Button'
 
 export function RegisterPage() {
   const { language } = useLanguage()
@@ -118,7 +119,8 @@ export function RegisterPage() {
     <DeepVoidBackground className="min-h-screen flex items-center justify-center py-12 font-mono">
       <div className="w-full max-w-lg relative z-10 px-6">
         <div className="flex justify-between items-center mb-8">
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group px-3 py-1.5 rounded border border-transparent hover:border-border bg-black/20 backdrop-blur-sm"
           >
@@ -126,7 +128,7 @@ export function RegisterPage() {
             <span className="text-xs font-mono uppercase tracking-widest">
               &lt; ABORT_REGISTRATION
             </span>
-          </button>
+          </Button>
         </div>
 
         <div className="mb-8 text-center">
@@ -209,13 +211,14 @@ export function RegisterPage() {
                       placeholder="••••••••"
                       required
                     />
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -232,7 +235,8 @@ export function RegisterPage() {
                       placeholder="••••••••"
                       required
                     />
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
@@ -244,7 +248,7 @@ export function RegisterPage() {
                       ) : (
                         <Eye size={16} />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -312,7 +316,8 @@ export function RegisterPage() {
                 </div>
               )}
 
-              <button
+              <Button
+                variant="unstyled"
                 type="submit"
                 disabled={
                   loading || (betaMode && !betaCode.trim()) || !passwordValid
@@ -329,7 +334,7 @@ export function RegisterPage() {
                     </span>
                   </>
                 )}
-              </button>
+              </Button>
             </form>
           </div>
 
@@ -342,19 +347,21 @@ export function RegisterPage() {
         <div className="text-center mt-8 space-y-4">
           <p className="text-xs font-mono text-muted-foreground">
             EXISTING_OPERATOR?{' '}
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => navigate('/login')}
               className="text-primary hover:underline hover:text-primary/80 transition-colors ml-1 uppercase"
             >
               ACCESS TERMINAL
-            </button>
+            </Button>
           </p>
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => navigate('/')}
             className="text-[10px] text-muted-foreground hover:text-loss transition-colors uppercase tracking-widest hover:underline decoration-loss/30 font-mono"
           >
             [ ABORT_REGISTRATION_RETURN_HOME ]
-          </button>
+          </Button>
         </div>
       </div>
     </DeepVoidBackground>

@@ -16,6 +16,11 @@ describe('Button', () => {
     expect(screen.getByText('Ok').getAttribute('type')).toBe('button')
   })
 
+  it('keeps unstyled buttons native so migrated legacy form buttons still submit', () => {
+    render(<Button variant="unstyled">Legacy</Button>)
+    expect(screen.getByText('Legacy')).not.toHaveAttribute('type')
+  })
+
   it('forwards an explicit type override', () => {
     render(<Button type="submit">Go</Button>)
     expect(screen.getByText('Go').getAttribute('type')).toBe('submit')
@@ -23,6 +28,7 @@ describe('Button', () => {
 
   it.each([
     ['primary', /bg-primary text-primary-foreground/],
+    ['unstyled', /inline-flex items-center justify-center/],
     ['secondary', /bg-panel text-foreground/],
     ['ghost', /text-muted-foreground hover:text-foreground/],
     ['danger', /bg-loss text-white/],

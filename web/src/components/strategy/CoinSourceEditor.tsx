@@ -17,6 +17,7 @@ import {
 import type { CoinSourceConfig } from '../../types'
 import { coinSource, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
+import { Button } from '../ui/Button'
 
 interface CoinSourceEditorProps {
   config: CoinSourceConfig
@@ -142,7 +143,7 @@ export function CoinSourceEditor({
     toast.textContent = msg
     toast.className =
       'fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm z-50 shadow-lg'
-    toast.style.cssText = 'background:var(--color-loss);color:#fff;'
+    toast.style.cssText = 'background:var(--color-loss);color:white;'
     document.body.appendChild(toast)
     setTimeout(() => toast.remove(), 2000)
   }
@@ -238,7 +239,8 @@ export function CoinSourceEditor({
         </label>
         <div className="grid grid-cols-4 gap-2">
           {sourceTypes.map(({ value, icon: Icon, color }) => (
-            <button
+            <Button
+              variant="unstyled"
               key={value}
               onClick={() => {
                 if (disabled) return
@@ -259,6 +261,9 @@ export function CoinSourceEditor({
                         config.hunter_config?.v7_min_ai_priority ?? 55,
                       v7_aggressive:
                         config.hunter_config?.v7_aggressive ?? true,
+                      include_non_crypto_futures:
+                        config.hunter_config?.include_non_crypto_futures ??
+                        false,
                     },
                   })
                   return
@@ -282,7 +287,7 @@ export function CoinSourceEditor({
                   language
                 )}
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -301,12 +306,13 @@ export function CoinSourceEditor({
               >
                 {coin}
                 {!disabled && (
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => handleRemoveCoin(coin)}
                     className="ml-1 hover:text-loss transition-colors"
                   >
                     <X className="w-3 h-3" />
-                  </button>
+                  </Button>
                 )}
               </span>
             ))}
@@ -321,13 +327,14 @@ export function CoinSourceEditor({
                 placeholder="BTC, ETH, SOL..."
                 className="flex-1 px-4 py-2 rounded-lg bg-background border border-primary/20 text-foreground"
               />
-              <button
+              <Button
+                variant="unstyled"
                 onClick={handleAddCoin}
                 className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors bg-primary text-primary-foreground hover:bg-primary"
               >
                 <Plus className="w-4 h-4" />
                 {ts(coinSource.addCoin, language)}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -352,12 +359,13 @@ export function CoinSourceEditor({
             >
               {coin}
               {!disabled && (
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() => handleRemoveExcludedCoin(coin)}
                   className="ml-1 hover:text-foreground transition-colors"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               )}
             </span>
           ))}
@@ -377,13 +385,14 @@ export function CoinSourceEditor({
               placeholder="BTC, ETH, DOGE..."
               className="flex-1 px-4 py-2 rounded-lg text-sm bg-background border border-primary/20 text-foreground"
             />
-            <button
+            <Button
+              variant="unstyled"
               onClick={handleAddExcludedCoin}
               className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-loss text-foreground hover:bg-loss"
             >
               <Ban className="w-4 h-4" />
               {ts(coinSource.addExcludedCoin, language)}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -623,7 +632,8 @@ export function CoinSourceEditor({
                   {ts(coinSource.hunterDirection, language)}:
                 </span>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       if (disabled) return
                       const d = config.hunter_direction
@@ -647,8 +657,9 @@ export function CoinSourceEditor({
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       if (disabled) return
                       const d = config.hunter_direction
@@ -672,7 +683,7 @@ export function CoinSourceEditor({
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -689,7 +700,8 @@ export function CoinSourceEditor({
                       {language === 'zh' ? '策略模式' : 'Strategy Mode'}:
                     </span>
                     <div className="flex gap-1.5">
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={() =>
                           !disabled &&
                           onChange({
@@ -709,8 +721,9 @@ export function CoinSourceEditor({
                         }`}
                       >
                         {language === 'zh' ? '默认模式' : 'Default'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="unstyled"
                         onClick={() =>
                           !disabled &&
                           onChange({
@@ -729,7 +742,7 @@ export function CoinSourceEditor({
                         }`}
                       >
                         {language === 'zh' ? '妖币猎杀' : 'Breakout'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
@@ -1181,6 +1194,33 @@ export function CoinSourceEditor({
               </span>
             </label>
 
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={
+                  !(config.hunter_config?.include_non_crypto_futures ?? false)
+                }
+                onChange={(e) =>
+                  !disabled &&
+                  onChange({
+                    ...config,
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      include_non_crypto_futures: !e.target.checked,
+                    },
+                  })
+                }
+                disabled={disabled}
+                className="w-5 h-5 rounded accent-accent"
+              />
+              <span className="text-sm text-foreground">
+                {ts(coinSource.v7ExcludeNonCryptoFutures, language)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {ts(coinSource.v7ExcludeNonCryptoFuturesDesc, language)}
+              </span>
+            </label>
+
             <p className="text-xs text-muted-foreground">
               {ts(coinSource.hunter_v7Desc, language)}
             </p>
@@ -1566,7 +1606,8 @@ export function CoinSourceEditor({
                   <span className="text-xs text-muted-foreground">
                     {ts(coinSource.hunterDirection, language)}:
                   </span>
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (disabled) return
@@ -1591,8 +1632,9 @@ export function CoinSourceEditor({
                     }`}
                   >
                     ▲ {ts(coinSource.hunterDirectionLong, language)}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (disabled) return
@@ -1617,7 +1659,7 @@ export function CoinSourceEditor({
                     }`}
                   >
                     ▼ {ts(coinSource.hunterDirectionShort, language)}
-                  </button>
+                  </Button>
                 </div>
               )}
               {config.use_hunter && (
@@ -1902,7 +1944,8 @@ export function CoinSourceEditor({
                   >
                     {coin}
                     {!disabled && (
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemoveCoin(coin)
@@ -1910,7 +1953,7 @@ export function CoinSourceEditor({
                         className="hover:text-loss transition-colors"
                       >
                         <X className="w-2.5 h-2.5" />
-                      </button>
+                      </Button>
                     )}
                   </span>
                 ))}
@@ -1934,7 +1977,8 @@ export function CoinSourceEditor({
                     placeholder="BTC, ETH..."
                     className="flex-1 px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleAddCoin()
@@ -1942,7 +1986,7 @@ export function CoinSourceEditor({
                     className="px-2 py-1 rounded text-xs bg-primary text-primary-foreground hover:bg-primary"
                   >
                     <Plus className="w-3 h-3" />
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

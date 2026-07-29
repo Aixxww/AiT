@@ -44,6 +44,7 @@ import { BacktestOverviewTab } from './BacktestOverviewTab'
 import { BacktestChartTab } from './BacktestChartTab'
 import { BacktestTradesTab } from './BacktestTradesTab'
 import { BacktestDecisionsTab } from './BacktestDecisionsTab'
+import { Button } from '../ui/Button'
 
 // ============ Types ============
 type ViewTab = 'overview' | 'chart' | 'trades' | 'decisions' | 'compare'
@@ -383,7 +384,8 @@ export function BacktestPage() {
               {tr('subtitle')}
             </p>
           </div>
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setWizardStep(1)}
             className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all hover:opacity-90"
             style={{
@@ -393,7 +395,7 @@ export function BacktestPage() {
           >
             <Play className="w-4 h-4" />
             {t('backtestPageExtra.newBacktest', language)}
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -482,7 +484,8 @@ export function BacktestPage() {
                       {(status?.state === 'running' ||
                         selectedRun?.state === 'running') && (
                         <>
-                          <button
+                          <Button
+                            variant="unstyled"
                             onClick={() => handleControl('pause')}
                             className="p-2 rounded-lg transition-all hover:bg-[var(--color-border)]"
                             style={{ border: '1px solid var(--color-border)' }}
@@ -492,8 +495,9 @@ export function BacktestPage() {
                               className="w-4 h-4"
                               style={{ color: 'var(--color-primary)' }}
                             />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="unstyled"
                             onClick={() => handleControl('stop')}
                             className="p-2 rounded-lg transition-all hover:bg-[var(--color-border)]"
                             style={{ border: '1px solid var(--color-border)' }}
@@ -503,11 +507,12 @@ export function BacktestPage() {
                               className="w-4 h-4"
                               style={{ color: 'var(--color-loss)' }}
                             />
-                          </button>
+                          </Button>
                         </>
                       )}
                       {status?.state === 'paused' && (
-                        <button
+                        <Button
+                          variant="unstyled"
                           onClick={() => handleControl('resume')}
                           className="p-2 rounded-lg transition-all hover:bg-[var(--color-border)]"
                           style={{ border: '1px solid var(--color-border)' }}
@@ -517,17 +522,19 @@ export function BacktestPage() {
                             className="w-4 h-4"
                             style={{ color: 'var(--color-profit)' }}
                           />
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={handleExport}
                         className="p-2 rounded-lg transition-all hover:bg-[var(--color-border)]"
                         style={{ border: '1px solid var(--color-border)' }}
                         title={tr('detail.exportLabel')}
                       >
                         <Download className="w-4 h-4 text-foreground" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="unstyled"
                         onClick={handleDelete}
                         className="p-2 rounded-lg transition-all hover:bg-[var(--color-border)]"
                         style={{ border: '1px solid var(--color-border)' }}
@@ -537,7 +544,7 @@ export function BacktestPage() {
                           className="w-4 h-4"
                           style={{ color: 'var(--color-loss)' }}
                         />
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
@@ -616,7 +623,8 @@ export function BacktestPage() {
                     {(
                       ['overview', 'chart', 'trades', 'decisions'] as ViewTab[]
                     ).map((tab) => (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={tab}
                         onClick={() => setViewTab(tab)}
                         className="px-4 py-3 text-sm font-medium transition-all relative"
@@ -641,7 +649,7 @@ export function BacktestPage() {
                             style={{ background: 'var(--color-primary)' }}
                           />
                         )}
-                      </button>
+                      </Button>
                     ))}
                   </div>
 

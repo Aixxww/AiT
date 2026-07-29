@@ -362,44 +362,11 @@ func (e *StrategyEngine) SetV7SignalRecorder(recorder local.V7SignalRecorder) {
 
 // buildV7SignalRecords merges raw V7 signals with kernel tier classification.
 func (e *StrategyEngine) buildV7SignalRecords(signals []local.V7SignalOutput, candidates []CandidateCoin) []local.V7SignalRecord {
-	// Build a lookup from symbol+setup to candidate tier info
-	tierMap := make(map[string]CandidateCoin, len(candidates))
-	for _, cc := range candidates {
-		key := cc.Symbol + "|" + cc.V7SetupType
-		tierMap[key] = cc
-	}
-	records := make([]local.V7SignalRecord, 0, len(signals))
-	for _, sig := range signals {
-		key := sig.Symbol + "|" + string(sig.SetupType)
-		rec := local.V7SignalRecord{Signal: sig}
-		if sig.SetupType == local.V7SetupModuleNoMatch {
-			rec.Tier = "REJECTED"
-			rec.TierReason = "module_no_match"
-			rec.BlockedGate = "module_no_match"
-		} else if cc, ok := tierMap[key]; ok {
-			rec.Tier = cc.V7ExecutionTier
-			rec.TierReason = cc.V7TierReason
-			rec.BlockedGate = v7BlockedGate(cc)
-			if cc.V7Readiness != nil && cc.V7Readiness.BlockedGate != "" {
-				rec.BlockedGate = cc.V7Readiness.BlockedGate
-			}
-		} else {
-			rec.Tier = ""
-			if sig.Status == local.V7StatusFiltered {
-				rec.Tier = "REJECTED"
-				rec.TierReason = "router_filtered"
-				rec.BlockedGate = "router_filtered"
-			} else {
-				rec.BlockedGate = "router_priority_filtered"
-			}
-		}
-		records = append(records, rec)
-	}
-	return records
+	return BuildHunterV7SignalRecords(signals, candidates)
 }
 
-// v7BlockedGate determines where a signal was blocked in the funnel.
-func v7BlockedGate(cc CandidateCoin) string {
+// HunterV7BlockedGate determines where a signal was blocked in the funnel.
+func HunterV7BlockedGate(cc CandidateCoin) string {
 	if cc.V7ExecutionQuality == "invalid_rr" {
 		return "execution_invalid_rr"
 	}
@@ -912,6 +879,17 @@ func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing stri
 		return false, ""
 	}
 	if strings.EqualFold(coin.Direction, "SHORT") {
+		if coin.V7Readiness != nil {
+			if coin.V7Readiness.EntryZonePos > 60 {
+				return false, ""
+			}
+			if coin.V7Readiness.PriceDeviation > 0.30 {
+				return false, ""
+			}
+		}
+		if !containsAnyStringValue(coin.V7ReasonCodes, []string{"range_expansion_retest", "retest_confirmed", "no_new_high_after_rejection"}) {
+			return false, ""
+		}
 		if !containsAnyStringValue(coin.V7ReasonCodes, []string{"event_breakdown_short", "event_directional_followthrough", "range_expansion_continuation"}) ||
 			!containsStringValue(coin.V7ReasonCodes, "flow_taker_sell_aligned") ||
 			!hunterV7TakerBuyAtMost(coin, 0.48) {

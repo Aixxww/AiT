@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Zap, BarChart3, Lightbulb, Search } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 interface SuggestionCard {
   icon: JSX.Element
@@ -146,7 +147,8 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
         }}
       >
         {suggestions.map((s, i) => (
-          <button
+          <Button
+            variant="unstyled"
             key={i}
             onClick={() => onSend(s.cmd)}
             className="suggestion-card"
@@ -156,8 +158,9 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
               alignItems: 'flex-start',
               gap: 6,
               padding: '16px 14px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background:
+                'color-mix(in srgb, var(--color-foreground) 2%, transparent)',
+              border: '1px solid var(--color-border)',
               borderRadius: 14,
               cursor: 'pointer',
               textAlign: 'left',
@@ -183,7 +186,7 @@ export function WelcomeScreen({ language, onSend }: WelcomeScreenProps) {
                 {s.subtitle}
               </div>
             </div>
-          </button>
+          </Button>
         ))}
       </motion.div>
     </div>

@@ -7,6 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { LanguageSwitcher } from '../common/LanguageSwitcher'
+import { Button } from '../ui/Button'
 
 export function LoginPage() {
   const { language } = useLanguage()
@@ -105,13 +106,14 @@ export function LoginPage() {
                   <label className="text-xs font-medium text-muted-foreground">
                     {t('password', language)}
                   </label>
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => navigate('/reset-password')}
                     className="text-xs text-muted-foreground hover:text-primary transition-colors"
                   >
                     {t('forgotPassword', language)}
-                  </button>
+                  </Button>
                 </div>
                 <div className="relative">
                   <input
@@ -122,13 +124,14 @@ export function LoginPage() {
                     placeholder="••••••••"
                     required
                   />
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -140,7 +143,8 @@ export function LoginPage() {
               )}
 
               {/* Submit */}
-              <button
+              <Button
+                variant="unstyled"
                 type="submit"
                 disabled={loading}
                 className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
@@ -148,7 +152,7 @@ export function LoginPage() {
                 {loading
                   ? t('loggingIn', language) || 'Signing in...'
                   : t('signIn', language) || 'Sign In'}
-              </button>
+              </Button>
             </form>
           </div>
         </div>

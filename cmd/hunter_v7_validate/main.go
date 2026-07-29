@@ -11,6 +11,7 @@ import (
 	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
+	aittrader "github.com/Aixxww/AiT/trader"
 	"log"
 	"os"
 	"sort"
@@ -95,18 +96,23 @@ type issue struct {
 }
 
 type validationOptions struct {
-	topDetail     int
-	maxWorkers    int
-	maxOutput     int
-	watchOutput   int
-	minPriority   float64
-	aggressive    bool
-	strategyID    string
-	dbPath        string
-	outDir        string
-	rounds        int
-	roundInterval time.Duration
-	dumpUniverse  string
+	topDetail      int
+	maxWorkers     int
+	maxOutput      int
+	watchOutput    int
+	minPriority    float64
+	aggressive     bool
+	strategyID     string
+	dbPath         string
+	outDir         string
+	rounds         int
+	roundInterval  time.Duration
+	dumpUniverse   string
+	persistSignals bool
+	trackOutcomes  bool
+	store          *store.Store
+	watchState     *local.V7SignalStateManager
+	outcomeTracker *aittrader.SignalOutcomeTracker
 }
 
 func main() {
@@ -122,27 +128,75 @@ func main() {
 	dumpUniverse := flag.String("dump-universe", "", "write a golden-replay fixture (universe+regime+config JSON) to this path")
 	rounds := flag.Int("rounds", 1, "number of validation rounds to run")
 	roundInterval := flag.Duration("round-interval", 120*time.Second, "sleep interval between validation rounds")
+	persistSignals := flag.Bool("persist-signals", true, "persist classified raw Hunter v7 signals into hunter_v7_signal_records")
+	trackOutcomes := flag.Bool("track-outcomes", true, "track persisted EXECUTABLE/REVIEWABLE signals with 1m candles during validation")
 	flag.Parse()
 
 	opts := validationOptions{
-		topDetail:     *topDetail,
-		maxWorkers:    *maxWorkers,
-		maxOutput:     *maxOutput,
-		watchOutput:   *watchOutput,
-		minPriority:   *minPriority,
-		aggressive:    *aggressive,
-		strategyID:    *strategyID,
-		dbPath:        *dbPath,
-		outDir:        *outDir,
-		dumpUniverse:  *dumpUniverse,
-		rounds:        *rounds,
-		roundInterval: *roundInterval,
+		topDetail:      *topDetail,
+		maxWorkers:     *maxWorkers,
+		maxOutput:      *maxOutput,
+		watchOutput:    *watchOutput,
+		minPriority:    *minPriority,
+		aggressive:     *aggressive,
+		strategyID:     *strategyID,
+		dbPath:         *dbPath,
+		outDir:         *outDir,
+		dumpUniverse:   *dumpUniverse,
+		rounds:         *rounds,
+		roundInterval:  *roundInterval,
+		persistSignals: *persistSignals,
+		trackOutcomes:  *trackOutcomes,
+		watchState:     local.NewV7SignalStateManager(),
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
 	}
 	if opts.maxWorkers <= 0 {
 		opts.maxWorkers = 8
+	}
+	if opts.persistSignals {
+		st, err := store.New(opts.dbPath)
+		if err != nil {
+			log.Fatalf("open store for signal persistence failed: %v", err)
+		}
+		defer st.Close()
+		opts.store = st
+		if opts.trackOutcomes {
+			tracker := aittrader.NewSignalOutcomeTracker(&aittrader.TrackerConfig{
+				PollInterval:          time.Minute,
+				TimeoutDuration:       2 * time.Hour,
+				MaxTracked:            500,
+				SnapshotLimit:         180,
+				ActiveOutcomeInterval: time.Second,
+				EnableDynamicStop:     true,
+			}, nil)
+			tracker.SetOutcomeCallback(func(outcome aittrader.TrackedOutcome) {
+				if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, store.HunterV7SignalTrackUpdate{
+					Status:       string(outcome.Status),
+					CurrentPrice: outcome.CurrentPrice,
+					ExitPrice:    outcome.ExitPrice,
+					StopPrice:    outcome.StopUsed,
+					PnLPct:       outcome.PnLPct,
+					MFE:          outcome.MaxFavorable,
+					MAE:          outcome.MaxAdverse,
+					ExitTime:     outcome.ExitTime,
+					Snapshots:    outcome.SnapshotJSON,
+				}); err != nil {
+					log.Printf("WARN update validation V7 outcome failed: %v", err)
+				}
+			})
+			backfillFetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
+				Timeout: 8 * time.Second,
+				KlineIntervals: []datafetch.KlineInterval{
+					{Interval: "1m", Limit: 120},
+				},
+			})
+			tracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []aittrader.TrackedCandle {
+				return validationBackfillCandles(backfillFetcher, symbol, from, to)
+			})
+			opts.outcomeTracker = tracker
+		}
 	}
 	for round := 1; round <= opts.rounds; round++ {
 		if opts.rounds > 1 {
@@ -163,10 +217,20 @@ func runValidation(opts validationOptions, round int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
+	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
+	if err != nil {
+		return fmt.Errorf("load strategy config failed: %w", err)
+	}
+	includeNonCryptoFutures := false
+	if strategyCfg != nil && strategyCfg.CoinSource.Hunter != nil {
+		includeNonCryptoFutures = strategyCfg.CoinSource.Hunter.IncludeNonCryptoFutures
+	}
+
 	fetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
-		TopNForDetail: opts.topDetail,
-		MaxWorkers:    opts.maxWorkers,
-		Timeout:       15 * time.Second,
+		TopNForDetail:           opts.topDetail,
+		MaxWorkers:              opts.maxWorkers,
+		Timeout:                 15 * time.Second,
+		IncludeNonCryptoFutures: includeNonCryptoFutures,
 	})
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
@@ -178,10 +242,8 @@ func runValidation(opts validationOptions, round int) error {
 	cfg.WatchOutput = opts.watchOutput
 	cfg.MinAIPriority = opts.minPriority
 	cfg.Aggressive = opts.aggressive
-	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
-	if err != nil {
-		return fmt.Errorf("load strategy config failed: %w", err)
-	}
+	cfg.CycleNumber = round
+	cfg.WatchStateManager = opts.watchState
 	if strategyCfg != nil {
 		if strategyCfg.CoinSource.Hunter != nil {
 			if strategyCfg.CoinSource.Hunter.V7MaxOutput > 0 {
@@ -271,9 +333,133 @@ func runValidation(opts validationOptions, round int) error {
 	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
 		return fmt.Errorf("write markdown report failed: %w", err)
 	}
+	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, now.UTC(), snap); err != nil {
+		return err
+	}
 
 	printConsoleSummary(report, rawPath, mdPath)
 	return nil
+}
+
+func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals []local.V7SignalOutput, candidates []kernel.CandidateCoin, ts time.Time, snap *datafetch.Snapshot) error {
+	if !opts.persistSignals || opts.store == nil {
+		return nil
+	}
+	records := kernel.BuildHunterV7SignalRecords(rawSignals, candidates)
+	dbRecords := kernel.BuildHunterV7SignalDBRecords(cycleNum, records, ts, string(aittrader.TrackedActive))
+	if len(dbRecords) == 0 {
+		return nil
+	}
+	if err := opts.store.HunterV7Signal().CreateBatch(dbRecords); err != nil {
+		return fmt.Errorf("persist hunter v7 validation signals failed: %w", err)
+	}
+	if opts.outcomeTracker == nil {
+		return nil
+	}
+	opts.outcomeTracker.SetCandleHistorySource(func(symbol string, since time.Time) []aittrader.TrackedCandle {
+		return validationTrackedCandlesFromSnapshot(snap, symbol, since)
+	})
+	for i, dbRec := range dbRecords {
+		if i >= len(records) || dbRec.ID <= 0 {
+			continue
+		}
+		rec := records[i]
+		if !kernel.HunterV7ShouldTrackSignal(rec) {
+			continue
+		}
+		entry := kernel.HunterV7SignalEntryPrice(rec.Signal)
+		if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
+			continue
+		}
+		opts.outcomeTracker.Register(
+			dbRec.ID,
+			rec.Signal.Symbol,
+			string(rec.Signal.Direction),
+			string(rec.Signal.SetupType),
+			rec.Tier,
+			entry,
+			rec.Signal.Invalidation.Price,
+			rec.Signal.TP0Price,
+			rec.Signal.TP1Price,
+			rec.Signal.TP2Price,
+			ts,
+		)
+	}
+	opts.outcomeTracker.TickNow()
+	fmt.Printf("persisted Hunter v7 signals: %d (tracking open-review outcomes)\n", len(dbRecords))
+	return nil
+}
+
+func validationTrackedCandlesFromSnapshot(snap *datafetch.Snapshot, symbol string, since time.Time) []aittrader.TrackedCandle {
+	if snap == nil || snap.Symbols == nil || symbol == "" {
+		return nil
+	}
+	ss := snap.Symbols[symbol]
+	if ss == nil {
+		return nil
+	}
+	out := make([]aittrader.TrackedCandle, 0, len(ss.Klines["1m"]))
+	for _, k := range ss.Klines["1m"] {
+		candleTime := time.UnixMilli(k.CloseTime).UTC()
+		if !since.IsZero() && !candleTime.After(since) {
+			continue
+		}
+		closePrice := k.Close
+		if closePrice <= 0 {
+			closePrice = ss.Price
+		}
+		if closePrice <= 0 {
+			continue
+		}
+		out = append(out, aittrader.TrackedCandle{
+			T:      candleTime,
+			Open:   k.Open,
+			High:   k.High,
+			Low:    k.Low,
+			Close:  closePrice,
+			Volume: k.Volume,
+		})
+	}
+	return out
+}
+
+func validationBackfillCandles(fetcher *datafetch.DataFetcher, symbol string, from, to time.Time) []aittrader.TrackedCandle {
+	if fetcher == nil || symbol == "" || from.IsZero() {
+		return nil
+	}
+	if to.IsZero() || to.Before(from) {
+		to = time.Now().UTC()
+	}
+	minutes := int(to.Sub(from).Minutes()) + 3
+	if minutes < 10 {
+		minutes = 10
+	}
+	if minutes > 120 {
+		minutes = 120
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	klines, err := fetcher.FetchKlines(ctx, symbol, "1m", minutes)
+	if err != nil {
+		log.Printf("WARN validation Hunter v7 1m backfill failed for %s: %v", symbol, err)
+		return nil
+	}
+	out := make([]aittrader.TrackedCandle, 0, len(klines))
+	for _, k := range klines {
+		candleTime := time.UnixMilli(k.CloseTime).UTC()
+		if candleTime.Before(from) || candleTime.After(to.Add(time.Minute)) || k.Close <= 0 {
+			continue
+		}
+		out = append(out, aittrader.TrackedCandle{
+			T:      candleTime,
+			Open:   k.Open,
+			High:   k.High,
+			Low:    k.Low,
+			Close:  k.Close,
+			Volume: k.Volume,
+		})
+	}
+	return out
 }
 
 // executionGeometryFromStrategy mirrors the production engine's geometry

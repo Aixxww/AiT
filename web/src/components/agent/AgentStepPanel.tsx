@@ -13,7 +13,10 @@ interface AgentStepPanelProps {
 const statusStyles: Record<AgentStep['status'], { dot: string; text: string }> =
   {
     planning: { dot: 'var(--color-purple)', text: 'var(--color-purple)' },
-    pending: { dot: 'rgba(255,255,255,0.18)', text: 'var(--color-muted-fg)' },
+    pending: {
+      dot: 'color-mix(in srgb, var(--color-muted-fg) 30%, transparent)',
+      text: 'var(--color-muted-fg)',
+    },
     running: { dot: 'var(--color-primary)', text: 'var(--color-primary)' },
     completed: { dot: 'var(--color-profit)', text: 'var(--color-profit)' },
     replanned: { dot: 'var(--color-info)', text: 'var(--color-info)' },
@@ -31,8 +34,8 @@ export function AgentStepPanel({ steps, visible }: AgentStepPanelProps) {
         padding: '10px 12px',
         borderRadius: 12,
         background:
-          'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))',
-        border: '1px solid rgba(255,255,255,0.06)',
+          'linear-gradient(180deg, color-mix(in srgb, var(--color-foreground) 3%, transparent), color-mix(in srgb, var(--color-foreground) 2%, transparent))',
+        border: '1px solid var(--color-border)',
       }}
     >
       <div

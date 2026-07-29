@@ -163,6 +163,16 @@ export const coinSource = {
     en: 'Boost priority for high-momentum candidates',
     es: 'Aumenta prioridad para candidatos con impulso',
   },
+  v7ExcludeNonCryptoFutures: {
+    zh: '剔除金融类合约标的',
+    en: 'Exclude financial futures symbols',
+    es: 'Excluir futuros financieros',
+  },
+  v7ExcludeNonCryptoFuturesDesc: {
+    zh: '默认开启，过滤股票、商品、ETF/RWA 等非加密 USDT 永续；取消后纳入同池筛选',
+    en: 'On by default. Filters stock, commodity, ETF/RWA USDT perps; turn off to include them',
+    es: 'Activado por defecto. Filtra perpetuos USDT de acciones, materias primas y ETF/RWA',
+  },
   mixedDesc: {
     zh: '组合多种数据源',
     en: 'Combine multiple sources',

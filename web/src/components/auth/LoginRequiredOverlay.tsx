@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
+import { Button } from '../ui/Button'
 
 interface LoginRequiredOverlayProps {
   isOpen: boolean
@@ -63,18 +64,19 @@ export function LoginRequiredOverlay({
                     auth_protocol.exe
                   </span>
                 </div>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={onClose}
                   className="text-muted-foreground hover:text-loss transition-colors"
                 >
                   <X size={14} />
-                </button>
+                </Button>
               </div>
 
               {/* Main Content */}
               <div className="p-8 relative">
                 {/* Background Grid */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:14px_14px] pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px)] bg-[size:14px_14px] pointer-events-none"></div>
 
                 <div className="relative z-10">
                   {/* Flashing Access Denied */}
@@ -144,12 +146,13 @@ export function LoginRequiredOverlay({
                   </div>
 
                   <div className="mt-4 text-center">
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={onClose}
                       className="text-[10px] text-muted-foreground hover:text-loss uppercase tracking-widest hover:underline decoration-loss/30"
                     >
                       [ {tr('abort')} ]
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>

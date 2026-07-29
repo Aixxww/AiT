@@ -65,7 +65,7 @@ func (f *DataFetcher) fetchExchangeInfo(ctx context.Context) ([]string, error) {
 	var symbols []string
 	for _, s := range raw.Symbols {
 		if s.Status == "TRADING" && s.ContractType == "PERPETUAL" && strings.HasSuffix(s.Symbol, "USDT") {
-			if excludedNonCryptoFuturesSymbol(s) {
+			if !f.cfg.IncludeNonCryptoFutures && excludedNonCryptoFuturesSymbol(s) {
 				continue
 			}
 			symbols = append(symbols, s.Symbol)

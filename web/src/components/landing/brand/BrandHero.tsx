@@ -3,6 +3,7 @@ import { ArrowRight, Github } from 'lucide-react'
 import { Marquee } from './Marquee'
 import { OFFICIAL_LINKS } from '../../../constants/branding'
 import AgentTerminal from './AgentTerminal'
+import { Button } from '../../ui/Button'
 
 export default function BrandHero() {
   const handleScroll = () => {
@@ -53,13 +54,14 @@ export default function BrandHero() {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <button
+              <Button
+                variant="unstyled"
                 onClick={handleScroll}
                 className="bg-primary text-primary-foreground text-lg font-black px-8 py-4 uppercase tracking-wider hover:bg-white hover:scale-105 transition-all flex items-center gap-2 clip-path-slant"
                 style={{ clipPath: 'polygon(0 0, 100% 0, 95% 100%, 0% 100%)' }}
               >
                 Start Trading <ArrowRight className="w-6 h-6" />
-              </button>
+              </Button>
 
               <a
                 href={OFFICIAL_LINKS.github}

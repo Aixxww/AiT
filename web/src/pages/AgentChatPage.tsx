@@ -33,6 +33,7 @@ import {
   prepareAgentMessagesForPersistence,
   persistAgentMessages,
 } from '../lib/agentChatStorage'
+import { Button } from '../components/ui/Button'
 
 let msgIdCounter = 0
 function nextId() {
@@ -529,23 +530,26 @@ export function AgentChatPage() {
             alignItems: 'center',
             gap: 6,
             padding: '8px 16px',
-            borderBottom: '1px solid rgba(255,255,255,0.04)',
+            borderBottom: '1px solid var(--color-header-border)',
             overflowX: 'auto',
             flexShrink: 0,
             backdropFilter: 'blur(12px)',
-            background: 'rgba(9,9,11,0.8)',
+            background:
+              'color-mix(in srgb, var(--color-background) 88%, transparent)',
           }}
           className="hide-scrollbar"
         >
           {quickActions.map((a, i) => (
-            <button
+            <Button
+              variant="unstyled"
               key={i}
               onClick={() => void send(a.cmd)}
               className="quick-action-btn"
               style={{
                 padding: '5px 12px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background:
+                  'color-mix(in srgb, var(--color-foreground) 3%, transparent)',
+                border: '1px solid var(--color-border)',
                 borderRadius: 20,
                 color: 'var(--color-muted-foreground)',
                 fontSize: 12,
@@ -556,10 +560,11 @@ export function AgentChatPage() {
               }}
             >
               {a.label}
-            </button>
+            </Button>
           ))}
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             style={{
               marginLeft: 'auto',
@@ -587,7 +592,7 @@ export function AgentChatPage() {
             ) : (
               <PanelRightOpen size={18} />
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Messages area or Welcome state */}
@@ -624,8 +629,9 @@ export function AgentChatPage() {
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             style={{
-              borderLeft: '1px solid rgba(255,255,255,0.04)',
-              background: 'rgba(11,11,19,0.6)',
+              borderLeft: '1px solid var(--color-header-border)',
+              background:
+                'color-mix(in srgb, var(--color-background) 70%, transparent)',
               backdropFilter: 'blur(12px)',
               overflowY: 'auto',
               overflowX: 'hidden',
@@ -660,7 +666,8 @@ export function AgentChatPage() {
               {/* Sidebar sections */}
               {sidebarSections.map((section) => (
                 <div key={section.key} style={{ marginBottom: 8 }}>
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => toggleSection(section.key)}
                     style={{
                       display: 'flex',
@@ -680,7 +687,7 @@ export function AgentChatPage() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background =
-                        'rgba(255,255,255,0.03)'
+                        'color-mix(in srgb, var(--color-foreground) 3%, transparent)'
                       e.currentTarget.style.color = 'var(--color-foreground)'
                     }}
                     onMouseLeave={(e) => {
@@ -703,7 +710,7 @@ export function AgentChatPage() {
                         <ChevronRight size={14} />
                       )}
                     </span>
-                  </button>
+                  </Button>
                   <AnimatePresence>
                     {sections[section.key] && (
                       <motion.div
@@ -769,11 +776,11 @@ export function AgentChatPage() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.06);
+          background: color-mix(in srgb, var(--color-foreground) 6%, transparent);
           border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.1);
+          background: color-mix(in srgb, var(--color-foreground) 10%, transparent);
         }
 
         .hide-scrollbar::-webkit-scrollbar {

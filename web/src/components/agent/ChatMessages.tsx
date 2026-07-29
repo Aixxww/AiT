@@ -89,7 +89,7 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     wordBreak: 'break-word',
                     background:
                       'linear-gradient(135deg, var(--color-purple), color-mix(in srgb, var(--color-purple) 80%, black))',
-                    color: '#fff',
+                    color: 'white',
                   }}
                 >
                   {m.text}
@@ -103,9 +103,10 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                     fontSize: 13.5,
                     lineHeight: 1.7,
                     wordBreak: 'break-word',
-                    background: 'rgba(255,255,255,0.03)',
+                    background:
+                      'color-mix(in srgb, var(--color-foreground) 3%, transparent)',
                     color: 'var(--color-foreground)',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    border: '1px solid var(--color-header-border)',
                   }}
                 >
                   <AgentStepPanel

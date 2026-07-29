@@ -23,6 +23,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 import { t } from '../i18n/translations'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
+import { Button } from '../components/ui/Button'
 
 interface PublicStrategy {
   id: string
@@ -78,8 +79,9 @@ const strategyStyles: Record<
   conservative: {
     color: 'text-profit',
     border: 'border-profit/30',
-    glow: 'shadow-[0_0_20px_rgba(52,211,153,0.15)]',
-    shadow: 'hover:shadow-[0_0_30px_rgba(52,211,153,0.25)]',
+    glow: 'shadow-[0_0_20px_color-mix(in_srgb,var(--color-profit)_15%,transparent)]',
+    shadow:
+      'hover:shadow-[0_0_30px_color-mix(in_srgb,var(--color-profit)_25%,transparent)]',
     bg: 'bg-profit/5',
     icon: Shield,
   },
@@ -95,7 +97,8 @@ const strategyStyles: Record<
     color: 'text-muted-foreground',
     border: 'border-border',
     glow: '',
-    shadow: 'hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]',
+    shadow:
+      'hover:shadow-[0_0_20px_color-mix(in_srgb,var(--color-foreground)_5%,transparent)]',
     bg: 'bg-surface-alt/20',
     icon: Activity,
   },
@@ -253,7 +256,8 @@ export function StrategyMarketPage() {
             {/* Category Filter */}
             <div className="flex gap-2 bg-surface/50 p-1 border border-border">
               {['all', 'popular', 'recent'].map((cat) => (
-                <button
+                <Button
+                  variant="unstyled"
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-4 py-2 text-xs font-mono uppercase tracking-wider transition-all relative overflow-hidden ${
@@ -274,7 +278,7 @@ export function StrategyMarketPage() {
                     />
                   )}
                   <span className="relative z-10">{tr(cat)}</span>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -481,7 +485,8 @@ export function StrategyMarketPage() {
                         {/* Action Button */}
                         <div>
                           {strategy.config_visible && strategy.config ? (
-                            <button
+                            <Button
+                              variant="unstyled"
                               onClick={() => handleCopyConfig(strategy)}
                               className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-black hover:bg-surface text-foreground hover:text-primary hover:border-primary transition-all flex items-center justify-center gap-2 group/btn"
                             >
@@ -498,15 +503,16 @@ export function StrategyMarketPage() {
                                   {tr('copyConfig')}
                                 </>
                               )}
-                            </button>
+                            </Button>
                           ) : (
-                            <button
+                            <Button
+                              variant="unstyled"
                               disabled
                               className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-background text-disabled-fg cursor-not-allowed flex items-center justify-center gap-2"
                             >
                               <Shield size={12} />
                               {tr('hideConfig')}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>

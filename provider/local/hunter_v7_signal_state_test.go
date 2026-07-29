@@ -137,3 +137,87 @@ func TestV7SignalStateManagerKeepsStableLongBreakoutTrigger(t *testing.T) {
 		t.Fatalf("entry zone upper = %.8f, want stable trigger %.8f", got.EntryZone.Upper, first.EntryZone.Upper)
 	}
 }
+
+func TestV7SignalStateManagerDoesNotPromoteAltLadderShortWithoutCloseThrough(t *testing.T) {
+	manager := NewV7SignalStateManager()
+	first := altLadderShortMemorySignal(0.0866, false)
+	if upgraded := manager.Process([]V7SignalOutput{first}, 1); len(upgraded) != 0 {
+		t.Fatalf("first cycle upgraded = %d, want 0", len(upgraded))
+	}
+
+	second := altLadderShortMemorySignal(0.0864, false)
+	upgraded := manager.Process([]V7SignalOutput{second}, 2)
+	if len(upgraded) != 0 {
+		t.Fatalf("missing close-through upgraded = %d, want 0", len(upgraded))
+	}
+}
+
+func TestV7SignalStateManagerPromotesAltLadderShortAfterCloseThrough(t *testing.T) {
+	manager := NewV7SignalStateManager()
+	first := altLadderShortMemorySignal(0.0866, false)
+	if upgraded := manager.Process([]V7SignalOutput{first}, 1); len(upgraded) != 0 {
+		t.Fatalf("first cycle upgraded = %d, want 0", len(upgraded))
+	}
+
+	second := altLadderShortMemorySignal(0.0857, true)
+	upgraded := manager.Process([]V7SignalOutput{second}, 2)
+	if len(upgraded) != 1 {
+		t.Fatalf("upgraded signals = %d, want 1", len(upgraded))
+	}
+	got := upgraded[0]
+	if got.EntrySignal != V7EntrySignalOpenNow {
+		t.Fatalf("entry_signal = %q, want %q", got.EntrySignal, V7EntrySignalOpenNow)
+	}
+	if got.ExecutionQuality != V7ExecReady {
+		t.Fatalf("execution_quality = %q, want %q", got.ExecutionQuality, V7ExecReady)
+	}
+	if !containsString(got.ReasonCodes, "alt_ladder_multi_cycle_close_through") {
+		t.Fatalf("missing alt_ladder_multi_cycle_close_through: %+v", got.ReasonCodes)
+	}
+}
+
+func altLadderShortMemorySignal(price float64, closeThrough bool) V7SignalOutput {
+	summary := &V7ConfirmationSummary{
+		PassedHard:   true,
+		PassedReview: closeThrough,
+	}
+	if closeThrough {
+		summary.ContextChecks = []V7ConfirmationCheck{{
+			Code:   "5m_or_15m_close_below_trigger",
+			Passed: true,
+		}}
+	} else {
+		summary.MissingReview = []V7ConfirmationCheck{{
+			Code:   "5m_or_15m_close_below_trigger",
+			Passed: false,
+		}}
+	}
+	return V7SignalOutput{
+		Symbol:           "OPUSDT",
+		Direction:        V7DirShort,
+		SetupType:        V7SetupAltLadderShort,
+		Status:           V7StatusWaitConfirm,
+		ExecutionQuality: V7ExecNearConfirm,
+		EntrySignal:      V7EntrySignalTriggerNear,
+		ReasonCodes: []string{
+			"alt_ladder_breakdown_short",
+			"alt_ladder_downshift_mid",
+			"alt_ladder_taker_sell",
+			"alt_ladder_new_shorts",
+		},
+		RequiredConfirms: []string{
+			"live_price_in_entry_zone",
+			"taker_buy_15m_lt_0_48",
+			"5m_or_15m_close_below_trigger",
+		},
+		RiskScore:      30,
+		LiquidityScore: 80,
+		TimingScore:    64,
+		AIPriority:     60,
+		EntryZone:      V7PriceZone{Lower: 0.0858, Upper: 0.0868},
+		Invalidation:   V7InvalidationRule{Price: 0.0884},
+		PriceCtx:       &V7PriceContext{Last: price},
+		DerivativesCtx: &V7DerivativesContext{TakerBuy15m: 0.44},
+		ConfirmSummary: summary,
+	}
+}

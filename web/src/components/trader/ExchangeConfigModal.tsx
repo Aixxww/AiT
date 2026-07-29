@@ -3,10 +3,9 @@ import type { Exchange } from '../../types'
 import { t, type Language } from '../../i18n/translations'
 import { api } from '../../lib/api'
 import { getExchangeIcon } from '../common/ExchangeIcons'
+import { Button } from '../ui/Button'
 
-// Hyperliquid brand identity color (third-party brand, exempt from the token system)
-// eslint-disable-next-line no-restricted-syntax -- third-party brand color, not a theme color
-const HYPERLIQUID_MINT = '#7FE7CC'
+const HYPERLIQUID_MINT = 'var(--color-accent)'
 import {
   TwoStageKeyModal,
   type TwoStageKeyModalResult,
@@ -146,7 +145,8 @@ function ExchangeCard({
   disabled?: boolean
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -189,7 +189,7 @@ function ExchangeCard({
       >
         {template.type.toUpperCase()}
       </span>
-    </button>
+    </Button>
   )
 }
 
@@ -565,13 +565,14 @@ export function ExchangeConfigModal({
         <div className="flex items-center justify-between p-6 pb-2">
           <div className="flex items-center gap-3">
             {currentStep > 0 && !editingExchangeId && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={handleBack}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </Button>
             )}
             <h3 className="text-xl font-bold text-foreground">
               {editingExchangeId
@@ -581,7 +582,8 @@ export function ExchangeConfigModal({
           </div>
           <div className="flex items-center gap-2">
             {currentExchangeType === 'binance' && currentStep === 1 && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => setShowGuide(true)}
                 className="px-3 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105 flex items-center gap-2"
@@ -593,25 +595,27 @@ export function ExchangeConfigModal({
               >
                 <BookOpen className="w-4 h-4" />
                 {t('viewGuide', language)}
-              </button>
+              </Button>
             )}
             {editingExchangeId && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => onDelete(editingExchangeId)}
                 className="p-2 rounded-lg hover:bg-loss/20 transition-colors"
                 style={{ color: 'var(--color-loss)' }}
               >
                 <Trash2 className="w-4 h-4" />
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -995,7 +999,8 @@ export function ExchangeConfigModal({
                           >
                             {serverIP.public_ip}
                           </code>
-                          <button
+                          <Button
+                            variant="unstyled"
                             type="button"
                             onClick={() => handleCopyIP(serverIP.public_ip)}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
@@ -1009,7 +1014,7 @@ export function ExchangeConfigModal({
                             {copiedIP
                               ? t('ipCopied', language)
                               : t('copyIP', language)}
-                          </button>
+                          </Button>
                         </div>
                       ) : null}
                     </div>
@@ -1164,16 +1169,20 @@ export function ExchangeConfigModal({
                           color: 'var(--color-foreground)',
                         }}
                       />
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => setSecureInputTarget('hyperliquid')}
                         className="px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
-                        style={{ background: HYPERLIQUID_MINT, color: '#000' }}
+                        style={{
+                          background: HYPERLIQUID_MINT,
+                          color: 'var(--color-primary-fg)',
+                        }}
                       >
                         {apiKey
                           ? t('secureInputReenter', language)
                           : t('secureInputButton', language)}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -1248,14 +1257,15 @@ export function ExchangeConfigModal({
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
                       {t('lighterApiKeyPrivateKey', language)} *
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => setSecureInputTarget('lighter')}
                         className="text-xs underline"
                         style={{ color: 'var(--color-info)' }}
                       >
                         {t('secureInputButton', language)}
-                      </button>
+                      </Button>
                     </label>
                     <input
                       type="password"
@@ -1341,7 +1351,8 @@ export function ExchangeConfigModal({
 
               {/* Buttons */}
               <div className="flex gap-3 pt-4">
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={handleBack}
                   className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
@@ -1353,8 +1364,9 @@ export function ExchangeConfigModal({
                   {editingExchangeId
                     ? t('cancel', language)
                     : t('exchangeConfig.back', language)}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   type="submit"
                   disabled={isSaving || !accountName.trim()}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1371,7 +1383,7 @@ export function ExchangeConfigModal({
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           )}
@@ -1397,7 +1409,8 @@ export function ExchangeConfigModal({
                 />
                 {t('binanceSetupGuide', language)}
               </h3>
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => setShowGuide(false)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{
@@ -1406,7 +1419,7 @@ export function ExchangeConfigModal({
                 }}
               >
                 {t('closeGuide', language)}
-              </button>
+              </Button>
             </div>
             <div className="overflow-y-auto max-h-[80vh]">
               <img

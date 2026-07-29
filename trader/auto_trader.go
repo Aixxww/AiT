@@ -2,7 +2,6 @@ package trader
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -444,6 +443,9 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				LunarCrushKey: ihCfg.LunarCrushAPIKey,
 			}
 		}
+		if coinSrc.Hunter != nil {
+			dataCfg.IncludeNonCryptoFutures = coinSrc.Hunter.IncludeNonCryptoFutures
+		}
 
 		se, err := kernel.NewSnapshotEngine(hubCfg, dataCfg)
 		if err != nil {
@@ -501,81 +503,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				return
 			}
 			now := time.Now().UTC()
-			dbRecords := make([]store.HunterV7SignalRecord, 0, len(records))
-			for _, rec := range records {
-				sig := rec.Signal
-				var target1 float64
-				if len(sig.Targets) > 0 {
-					target1 = sig.Targets[0].Price
-				}
-				var oiValue, oiDelta1h, oiDelta4h, fundingRate, takerBuy15m float64
-				if sig.DerivativesCtx != nil {
-					oiValue = sig.DerivativesCtx.OIValue
-					oiDelta1h = sig.DerivativesCtx.OIChange1h
-					oiDelta4h = sig.DerivativesCtx.OIChange4h
-					fundingRate = sig.DerivativesCtx.FundingRate
-					takerBuy15m = sig.DerivativesCtx.TakerBuy15m
-				}
-				rawJSON, _ := json.Marshal(sig)
-				var change1h, change4h, change24h float64
-				if sig.PriceCtx != nil {
-					change1h = sig.PriceCtx.Change1h
-					change4h = sig.PriceCtx.Change4h
-					change24h = sig.PriceCtx.Change24h
-				}
-				var readyScore, windowHealth float64
-				dataQuality := ""
-				if sig.ExecutionReadiness != nil {
-					readyScore = sig.ExecutionReadiness.ReadyScore
-					windowHealth = sig.ExecutionReadiness.WindowHealth
-					dataQuality = sig.ExecutionReadiness.DataQuality
-				}
-				dbRecords = append(dbRecords, store.HunterV7SignalRecord{
-					CycleNumber:       cycleNum,
-					Timestamp:         now,
-					Symbol:            sig.Symbol,
-					Direction:         string(sig.Direction),
-					SetupType:         string(sig.SetupType),
-					Status:            string(sig.Status),
-					ExecutionQuality:  string(sig.ExecutionQuality),
-					ExecutionTier:     rec.Tier,
-					TierReason:        rec.TierReason,
-					AIPriority:        sig.AIPriority,
-					SetupScore:        sig.SetupScore,
-					TimingScore:       sig.TimingScore,
-					RiskScore:         sig.RiskScore,
-					LiquidityScore:    sig.LiquidityScore,
-					RegimeFitScore:    sig.RegimeFitScore,
-					MarketRegime:      string(sig.MarketRegime),
-					ReasonCodes:       store.ToJSON(sig.ReasonCodes),
-					RiskTags:          store.ToJSON(sig.RiskTags),
-					EntryZoneLower:    sig.EntryZone.Lower,
-					EntryZoneUpper:    sig.EntryZone.Upper,
-					InvalidationPrice: sig.Invalidation.Price,
-					Target1:           target1,
-					OIValue:           oiValue,
-					OIDelta1h:         oiDelta1h,
-					OIDelta4h:         oiDelta4h,
-					FundingRate:       fundingRate,
-					TakerBuy15m:       takerBuy15m,
-					Change1h:          change1h,
-					Change4h:          change4h,
-					Change24h:         change24h,
-					ReadyScore:        readyScore,
-					WindowHealth:      windowHealth,
-					DataQuality:       dataQuality,
-					TP0Price:          sig.TP0Price,
-					TP0RR:             sig.TP0RR,
-					TP1Price:          sig.TP1Price,
-					TP1RR:             sig.TP1RR,
-					TP2Price:          sig.TP2Price,
-					TP2RR:             sig.TP2RR,
-					ResonanceBonus:    sig.ResonanceBonus,
-					BlockedGate:       rec.BlockedGate,
-					TrackStatus:       string(TrackedActive),
-					RawJSON:           string(rawJSON),
-				})
-			}
+			dbRecords := kernel.BuildHunterV7SignalDBRecords(cycleNum, records, now, string(TrackedActive))
 			if err := st.HunterV7Signal().CreateBatch(dbRecords); err != nil {
 				logger.Warnf("⚠️ [%s] Failed to persist V7 signal records: %v", config.Name, err)
 				return
@@ -585,10 +513,10 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					continue
 				}
 				rec := records[i]
-				if !shouldTrackHunterV7Signal(rec) {
+				if !kernel.HunterV7ShouldTrackSignal(rec) {
 					continue
 				}
-				entry := hunterV7SignalEntryPrice(rec.Signal)
+				entry := kernel.HunterV7SignalEntryPrice(rec.Signal)
 				if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
 					continue
 				}
@@ -845,27 +773,6 @@ func (at *AutoTrader) Stop() {
 	close(at.stopMonitorCh) // Notify monitoring goroutine to stop
 	at.monitorWg.Wait()     // Wait for monitoring goroutine to finish
 	logger.Info("⏹ Automatic trading system stopped")
-}
-
-func shouldTrackHunterV7Signal(rec local.V7SignalRecord) bool {
-	if rec.Tier == string(local.V7ReadinessExecutable) || rec.Tier == string(local.V7ReadinessReviewable) {
-		return true
-	}
-	if rec.Signal.ExecutionReadiness != nil {
-		tier := rec.Signal.ExecutionReadiness.Tier
-		return tier == local.V7ReadinessExecutable || tier == local.V7ReadinessReviewable
-	}
-	return false
-}
-
-func hunterV7SignalEntryPrice(sig local.V7SignalOutput) float64 {
-	if sig.EntryZone.Lower > 0 && sig.EntryZone.Upper >= sig.EntryZone.Lower {
-		return (sig.EntryZone.Lower + sig.EntryZone.Upper) / 2
-	}
-	if sig.PriceCtx != nil && sig.PriceCtx.Last > 0 {
-		return sig.PriceCtx.Last
-	}
-	return 0
 }
 
 func latestHunterV7TrackedCandle(snapshotEngine *kernel.SnapshotEngine, symbol string) *TrackedCandle {

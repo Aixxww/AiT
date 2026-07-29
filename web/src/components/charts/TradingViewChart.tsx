@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, memo } from 'react'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { ChevronDown, TrendingUp, X } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 // 支持的交易所列表 (合约格式)
 const EXCHANGES = [
@@ -131,7 +132,7 @@ function TradingViewChartComponent({
       style: '1',
       locale: language === 'zh' ? 'zh_CN' : 'en',
       enable_publishing: false,
-      backgroundColor: 'rgba(11, 14, 17, 1)',
+      backgroundColor: 'var(--chart-bg)',
       gridColor: 'var(--chart-grid)',
       hide_top_toolbar: !showToolbar,
       hide_legend: false,
@@ -198,7 +199,8 @@ function TradingViewChartComponent({
         >
           {/* Exchange Selector */}
           <div className="relative">
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => {
                 setShowExchangeDropdown(!showExchangeDropdown)
                 setShowSymbolDropdown(false)
@@ -212,7 +214,7 @@ function TradingViewChartComponent({
             >
               {EXCHANGES.find((e) => e.id === exchange)?.name || exchange}
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </button>
+            </Button>
 
             {showExchangeDropdown && (
               <div
@@ -223,7 +225,8 @@ function TradingViewChartComponent({
                 }}
               >
                 {EXCHANGES.map((ex) => (
-                  <button
+                  <Button
+                    variant="unstyled"
                     key={ex.id}
                     onClick={() => {
                       setExchange(ex.id)
@@ -242,7 +245,7 @@ function TradingViewChartComponent({
                     }}
                   >
                     {ex.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -250,7 +253,8 @@ function TradingViewChartComponent({
 
           {/* Symbol Selector */}
           <div className="relative">
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => {
                 setShowSymbolDropdown(!showSymbolDropdown)
                 setShowExchangeDropdown(false)
@@ -266,7 +270,7 @@ function TradingViewChartComponent({
             >
               {symbol}
               <ChevronDown className="w-4 h-4" />
-            </button>
+            </Button>
 
             {showSymbolDropdown && (
               <div
@@ -299,7 +303,8 @@ function TradingViewChartComponent({
                         color: 'var(--color-foreground)',
                       }}
                     />
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={handleCustomSymbolSubmit}
                       className="px-3 py-1.5 rounded text-sm font-medium"
                       style={{
@@ -308,7 +313,7 @@ function TradingViewChartComponent({
                       }}
                     >
                       OK
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -319,7 +324,8 @@ function TradingViewChartComponent({
                   </div>
                   <div className="grid grid-cols-3 gap-1">
                     {POPULAR_SYMBOLS.map((sym) => (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={sym}
                         onClick={() => {
                           setSymbol(sym)
@@ -338,7 +344,7 @@ function TradingViewChartComponent({
                         }}
                       >
                         {sym.replace('USDT', '')}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -355,7 +361,8 @@ function TradingViewChartComponent({
             }}
           >
             {INTERVALS.map((int) => (
-              <button
+              <Button
+                variant="unstyled"
                 key={int.id}
                 onClick={() => setTimeInterval(int.id)}
                 className="px-2 py-1 rounded text-xs font-medium transition-all"
@@ -371,12 +378,13 @@ function TradingViewChartComponent({
                 }}
               >
                 {int.label}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Fullscreen Toggle */}
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-1.5 rounded transition-all"
             style={{
@@ -405,7 +413,7 @@ function TradingViewChartComponent({
                 <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
               </svg>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 

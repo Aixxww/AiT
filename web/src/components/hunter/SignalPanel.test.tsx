@@ -52,12 +52,32 @@ function makeRow(overrides: Partial<V7SignalRow> = {}): V7SignalRow {
 }
 
 describe('groupLatestCycleByTier', () => {
-  it('groups the newest cycle rows by tier and drops older cycles', () => {
+  it('groups the newest timestamp rows by tier and drops older runs', () => {
     const rows: V7SignalRow[] = [
-      makeRow({ id: 10, cycle_number: 7, execution_tier: 'EXECUTABLE' }),
-      makeRow({ id: 9, cycle_number: 7, execution_tier: 'WATCH' }),
-      makeRow({ id: 8, cycle_number: 7, execution_tier: 'REJECTED' }),
-      makeRow({ id: 7, cycle_number: 6, execution_tier: 'EXECUTABLE' }),
+      makeRow({
+        id: 10,
+        cycle_number: 1,
+        timestamp: '2026-07-28T02:20:17Z',
+        execution_tier: 'EXECUTABLE',
+      }),
+      makeRow({
+        id: 9,
+        cycle_number: 1,
+        timestamp: '2026-07-28T02:20:17Z',
+        execution_tier: 'WATCH',
+      }),
+      makeRow({
+        id: 8,
+        cycle_number: 1,
+        timestamp: '2026-07-28T02:20:17Z',
+        execution_tier: 'REJECTED',
+      }),
+      makeRow({
+        id: 7,
+        cycle_number: 1,
+        timestamp: '2026-07-27T23:18:13Z',
+        execution_tier: 'EXECUTABLE',
+      }),
     ]
     const grouped = groupLatestCycleByTier(rows)
     expect(grouped.EXECUTABLE).toHaveLength(1)

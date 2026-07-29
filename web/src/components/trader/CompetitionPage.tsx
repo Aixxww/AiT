@@ -212,7 +212,7 @@ export function CompetitionPage() {
                       border: `1px solid ${isLeader ? 'color-mix(in srgb, var(--color-primary) 40%, transparent)' : 'var(--color-border)'}`,
                       boxShadow: isLeader
                         ? '0 3px 15px color-mix(in srgb, var(--color-primary) 12%, transparent), 0 0 0 1px color-mix(in srgb, var(--color-primary) 15%, transparent)'
-                        : '0 1px 4px rgba(0, 0, 0, 0.3)',
+                        : '0 1px 4px color-mix(in srgb, var(--color-background) 50%, transparent)',
                     }}
                   >
                     <div className="flex items-center justify-between">
@@ -226,11 +226,9 @@ export function CompetitionPage() {
                               index === 0
                                 ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)'
                                 : index === 1
-                                  ? // eslint-disable-next-line no-restricted-syntax -- silver medal gradient, decorative constant
-                                    'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 100%)'
+                                  ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-muted-fg) 60%, white) 0%, color-mix(in srgb, var(--color-muted-fg) 25%, white) 100%)'
                                   : index === 2
-                                    ? // eslint-disable-next-line no-restricted-syntax -- bronze medal gradient, decorative constant
-                                      'linear-gradient(135deg, #CD7F32 0%, #E8A64C 100%)'
+                                    ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 80%, var(--color-loss)) 0%, color-mix(in srgb, var(--color-warning) 65%, white) 100%)'
                                     : 'var(--color-border)',
                             color:
                               index < 3
@@ -383,7 +381,8 @@ export function CompetitionPage() {
                         : {
                             background: 'var(--color-background)',
                             border: '1px solid var(--color-border)',
-                            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
+                            boxShadow:
+                              '0 1px 4px color-mix(in srgb, var(--color-background) 50%, transparent)',
                           }
                     }
                   >

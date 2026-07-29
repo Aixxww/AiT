@@ -11,11 +11,12 @@ import (
 
 // FetcherConfig holds configuration for the DataFetcher.
 type FetcherConfig struct {
-	BinanceURL     string        // default "https://fapi.binance.com"
-	MaxWorkers     int           // default 50
-	TopNForDetail  int           // default 100 (only top N get OI/LSR/Klines)
-	Timeout        time.Duration // default 10s
-	KlineIntervals []KlineInterval
+	BinanceURL              string        // default "https://fapi.binance.com"
+	MaxWorkers              int           // default 50
+	TopNForDetail           int           // default 100 (only top N get OI/LSR/Klines)
+	Timeout                 time.Duration // default 10s
+	KlineIntervals          []KlineInterval
+	IncludeNonCryptoFutures bool // include Binance futures stock/commodity/ETF/RWA perps; default false
 }
 
 // DataFetcher performs one complete REST data fetch cycle.

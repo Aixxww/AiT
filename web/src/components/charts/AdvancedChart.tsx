@@ -20,6 +20,7 @@ import {
   type Kline,
 } from '../../utils/indicators'
 import { Settings, BarChart2, AlertTriangle } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 // Order marker interface
 interface OrderMarker {
@@ -1221,7 +1222,8 @@ export function AdvancedChart({
               {t('advancedChart.updating', language)}
             </span>
           )}
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
             style={{
@@ -1235,9 +1237,10 @@ export function AdvancedChart({
           >
             <Settings className="w-3 h-3" />
             <span>{t('advancedChart.indicators', language)}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setShowOrderMarkers(!showOrderMarkers)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
             style={{
@@ -1251,7 +1254,7 @@ export function AdvancedChart({
             title={t('advancedChart.orderMarkers', language)}
           >
             <span>B/S</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1280,12 +1283,13 @@ export function AdvancedChart({
                 {t('advancedChart.technicalIndicators', language)}
               </h4>
             </div>
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => setShowIndicatorPanel(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <span className="text-lg">×</span>
-            </button>
+            </Button>
           </div>
 
           {/* Indicator list */}

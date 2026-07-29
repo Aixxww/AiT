@@ -5,6 +5,7 @@ import {
   promptSections as promptSectionsI18n,
   ts,
 } from '../../i18n/strategy-translations'
+import { Button } from '../ui/Button'
 
 interface PromptSectionsEditorProps {
   config: PromptSectionsConfig | undefined
@@ -140,7 +141,8 @@ export function PromptSectionsEditor({
                 border: '1px solid var(--color-border)',
               }}
             >
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => toggleSection(key)}
                 className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors text-left"
               >
@@ -157,7 +159,8 @@ export function PromptSectionsEditor({
                     <span
                       className="px-1.5 py-0.5 text-[10px] rounded"
                       style={{
-                        background: 'rgba(168, 85, 247, 0.15)',
+                        background:
+                          'color-mix(in srgb, var(--color-purple) 15%, transparent)',
                         color: 'var(--color-purple)',
                       }}
                     >
@@ -168,7 +171,7 @@ export function PromptSectionsEditor({
                 <span className="text-[10px] text-muted-foreground">
                   {value.length} {ts(promptSectionsI18n.chars, language)}
                 </span>
-              </button>
+              </Button>
 
               {isExpanded && (
                 <div className="px-3 pb-3">
@@ -184,14 +187,15 @@ export function PromptSectionsEditor({
                     }}
                   />
                   <div className="flex justify-end mt-2">
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() => resetSection(sectionKey)}
                       disabled={disabled || !isModified}
                       className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors hover:bg-white/5 disabled:opacity-30 text-muted-foreground"
                     >
                       <RotateCcw className="w-3 h-3" />
                       {ts(promptSectionsI18n.resetToDefault, language)}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

@@ -16,10 +16,9 @@ import { api } from '../../lib/api'
 import type { TelegramConfig, AIModel } from '../../types'
 import { t, type Language } from '../../i18n/translations'
 import { AiTSelect } from '../ui/select'
+import { Button } from '../ui/Button'
 
-// Telegram brand identity color (third-party brand, exempt from the token system)
-// eslint-disable-next-line no-restricted-syntax -- third-party brand color, not a theme color
-const TELEGRAM_BLUE = '#2AABEE'
+const TELEGRAM_BLUE = 'var(--color-info)'
 
 // Step indicator (reused pattern from ExchangeConfigModal)
 function StepIndicator({
@@ -225,13 +224,14 @@ export function TelegramConfigModal({
         <div className="flex items-center justify-between p-6 pb-2">
           <div className="flex items-center gap-3">
             {step > 0 && !config?.is_bound && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => setStep(step - 1)}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </Button>
             )}
             <div className="flex items-center gap-2">
               <MessageCircle
@@ -243,13 +243,14 @@ export function TelegramConfigModal({
               </h3>
             </div>
           </div>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Step Indicator */}
@@ -341,7 +342,8 @@ export function TelegramConfigModal({
 
                   <ModelSelector />
 
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={handleSaveToken}
                     disabled={isSaving || !token.trim()}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -358,7 +360,7 @@ export function TelegramConfigModal({
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -433,7 +435,8 @@ export function TelegramConfigModal({
                   </div>
 
                   <div className="flex gap-3">
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() => {
                         setStep(0)
                         setToken('')
@@ -445,8 +448,9 @@ export function TelegramConfigModal({
                       }}
                     >
                       {t('telegram.reconfigureToken', language)}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="unstyled"
                       onClick={async () => {
                         try {
                           const updated = await api.getTelegramConfig()
@@ -469,7 +473,7 @@ export function TelegramConfigModal({
                     >
                       <Check className="w-4 h-4" />
                       {t('telegram.checkStatus', language)}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -578,7 +582,8 @@ export function TelegramConfigModal({
                   </div>
 
                   <div className="flex gap-3">
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={handleUnbind}
                       disabled={isUnbinding}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5 disabled:opacity-50"
@@ -594,8 +599,9 @@ export function TelegramConfigModal({
                       {isUnbinding
                         ? t('telegram.unbinding', language)
                         : t('telegram.unbindAccount', language)}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="unstyled"
                       onClick={onClose}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02]"
                       style={{
@@ -604,7 +610,7 @@ export function TelegramConfigModal({
                       }}
                     >
                       {t('telegram.done', language)}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -678,7 +684,8 @@ function BoundModelSelector({
               : 'var(--color-muted-fg)',
           }}
         />
-        <button
+        <Button
+          variant="unstyled"
           onClick={handleSave}
           disabled={isSaving || modelId === currentModelId}
           className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
@@ -689,7 +696,7 @@ function BoundModelSelector({
           }}
         >
           {isSaving ? '...' : t('telegram.save', language)}
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -25,12 +25,14 @@ export function PublishSettingsEditor({
         className={`relative overflow-hidden rounded-lg transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         style={{
           background: isPublic
-            ? 'linear-gradient(135deg, rgba(14, 203, 129, 0.15) 0%, rgba(14, 203, 129, 0.05) 100%)'
+            ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-profit) 15%, transparent) 0%, color-mix(in srgb, var(--color-profit) 5%, transparent) 100%)'
             : 'linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%)',
           border: isPublic
-            ? '1px solid rgba(14, 203, 129, 0.4)'
+            ? '1px solid color-mix(in srgb, var(--color-profit) 40%, transparent)'
             : '1px solid var(--color-border)',
-          boxShadow: isPublic ? '0 0 20px rgba(14, 203, 129, 0.1)' : 'none',
+          boxShadow: isPublic
+            ? '0 0 20px color-mix(in srgb, var(--color-profit) 10%, transparent)'
+            : 'none',
         }}
         onClick={() => !disabled && onIsPublicChange(!isPublic)}
       >
@@ -51,10 +53,10 @@ export function PublishSettingsEditor({
               className="p-2.5 rounded-lg transition-all duration-300"
               style={{
                 background: isPublic
-                  ? 'rgba(14, 203, 129, 0.2)'
+                  ? 'color-mix(in srgb, var(--color-profit) 20%, transparent)'
                   : 'var(--color-background)',
                 border: isPublic
-                  ? '1px solid rgba(14, 203, 129, 0.3)'
+                  ? '1px solid color-mix(in srgb, var(--color-profit) 30%, transparent)'
                   : '1px solid var(--color-border)',
               }}
             >
@@ -98,7 +100,7 @@ export function PublishSettingsEditor({
                   ? 'var(--color-profit)'
                   : 'var(--color-border)',
                 boxShadow: isPublic
-                  ? '0 0 10px rgba(14, 203, 129, 0.4)'
+                  ? '0 0 10px color-mix(in srgb, var(--color-profit) 40%, transparent)'
                   : 'none',
               }}
             >
@@ -107,7 +109,8 @@ export function PublishSettingsEditor({
                 style={{
                   background: 'var(--color-foreground)',
                   left: isPublic ? '28px' : '4px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  boxShadow:
+                    '0 2px 4px color-mix(in srgb, var(--color-background) 50%, transparent)',
                 }}
               />
             </div>
@@ -121,13 +124,13 @@ export function PublishSettingsEditor({
           className={`relative overflow-hidden rounded-lg transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           style={{
             background: configVisible
-              ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)'
+              ? 'linear-gradient(135deg, color-mix(in srgb, var(--color-purple) 15%, transparent) 0%, color-mix(in srgb, var(--color-purple) 5%, transparent) 100%)'
               : 'linear-gradient(135deg, var(--color-panel) 0%, var(--color-background) 100%)',
             border: configVisible
-              ? '1px solid rgba(168, 85, 247, 0.4)'
+              ? '1px solid color-mix(in srgb, var(--color-purple) 40%, transparent)'
               : '1px solid var(--color-border)',
             boxShadow: configVisible
-              ? '0 0 20px rgba(168, 85, 247, 0.1)'
+              ? '0 0 20px color-mix(in srgb, var(--color-purple) 10%, transparent)'
               : 'none',
           }}
           onClick={() => !disabled && onConfigVisibleChange(!configVisible)}
@@ -149,10 +152,10 @@ export function PublishSettingsEditor({
                 className="p-2.5 rounded-lg transition-all duration-300"
                 style={{
                   background: configVisible
-                    ? 'rgba(168, 85, 247, 0.2)'
+                    ? 'color-mix(in srgb, var(--color-purple) 20%, transparent)'
                     : 'var(--color-background)',
                   border: configVisible
-                    ? '1px solid rgba(168, 85, 247, 0.3)'
+                    ? '1px solid color-mix(in srgb, var(--color-purple) 30%, transparent)'
                     : '1px solid var(--color-border)',
                 }}
               >
@@ -196,7 +199,7 @@ export function PublishSettingsEditor({
                     ? 'var(--color-purple)'
                     : 'var(--color-border)',
                   boxShadow: configVisible
-                    ? '0 0 10px rgba(168, 85, 247, 0.4)'
+                    ? '0 0 10px color-mix(in srgb, var(--color-purple) 40%, transparent)'
                     : 'none',
                 }}
               >
@@ -205,7 +208,8 @@ export function PublishSettingsEditor({
                   style={{
                     background: 'var(--color-foreground)',
                     left: configVisible ? '28px' : '4px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    boxShadow:
+                      '0 2px 4px color-mix(in srgb, var(--color-background) 50%, transparent)',
                   }}
                 />
               </div>

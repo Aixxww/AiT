@@ -7,6 +7,7 @@ import {
   forwardRef,
 } from 'react'
 import { ArrowUp } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 export interface ChatInputHandle {
   focus: () => void
@@ -70,7 +71,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       <div
         style={{
           padding: '12px 16px 20px',
-          borderTop: '1px solid rgba(255,255,255,0.04)',
+          borderTop: '1px solid var(--color-header-border)',
           background:
             'linear-gradient(to top, var(--color-background) 80%, transparent)',
         }}
@@ -82,8 +83,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             margin: '0 auto',
             display: 'flex',
             gap: 8,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.07)',
+            background:
+              'color-mix(in srgb, var(--color-foreground) 3%, transparent)',
+            border: '1px solid var(--color-border)',
             borderRadius: 18,
             padding: '4px 4px 4px 16px',
             alignItems: 'flex-end',
@@ -122,7 +124,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               maxHeight: 150,
             }}
           />
-          <button
+          <Button
+            variant="unstyled"
             onClick={handleSend}
             disabled={loading || !input.trim()}
             style={{
@@ -132,10 +135,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               border: 'none',
               background:
                 loading || !input.trim()
-                  ? 'rgba(255,255,255,0.04)'
+                  ? 'color-mix(in srgb, var(--color-foreground) 4%, transparent)'
                   : 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 85%, black))',
               color:
-                loading || !input.trim() ? 'var(--color-disabled-fg)' : '#000',
+                loading || !input.trim()
+                  ? 'var(--color-disabled-fg)'
+                  : 'var(--color-primary-fg)',
               cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
               display: 'grid',
               placeItems: 'center',
@@ -144,7 +149,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             }}
           >
             <ArrowUp size={16} strokeWidth={2.5} />
-          </button>
+          </Button>
         </div>
         <div
           style={{

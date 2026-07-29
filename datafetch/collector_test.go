@@ -158,6 +158,43 @@ func TestDataCollectorRefreshSymbolPatchesSingleSnapshot(t *testing.T) {
 	}
 }
 
+func TestFetchExchangeInfoCanIncludeNonCryptoFutures(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/fapi/v1/exchangeInfo", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"symbols":[
+			{"symbol":"BTCUSDT","status":"TRADING","contractType":"PERPETUAL","baseAsset":"BTC","underlyingType":"COIN"},
+			{"symbol":"NVDAUSDT","status":"TRADING","contractType":"PERPETUAL","baseAsset":"NVDA","underlyingType":"STOCK"},
+			{"symbol":"XAUUSDT","status":"TRADING","contractType":"PERPETUAL","baseAsset":"XAU","underlyingSubType":["metal"]},
+			{"symbol":"ETHUSDC","status":"TRADING","contractType":"PERPETUAL","baseAsset":"ETH","underlyingType":"COIN"},
+			{"symbol":"OLDUSDT","status":"SETTLING","contractType":"PERPETUAL","baseAsset":"OLD","underlyingType":"COIN"}
+		]}`)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	filteredFetcher := NewDataFetcher(FetcherConfig{BinanceURL: server.URL})
+	filtered, err := filteredFetcher.fetchExchangeInfo(context.Background())
+	if err != nil {
+		t.Fatalf("filtered fetchExchangeInfo: %v", err)
+	}
+	if len(filtered) != 1 || filtered[0] != "BTCUSDT" {
+		t.Fatalf("default exchangeInfo symbols = %+v, want [BTCUSDT]", filtered)
+	}
+
+	inclusiveFetcher := NewDataFetcher(FetcherConfig{
+		BinanceURL:              server.URL,
+		IncludeNonCryptoFutures: true,
+	})
+	inclusive, err := inclusiveFetcher.fetchExchangeInfo(context.Background())
+	if err != nil {
+		t.Fatalf("inclusive fetchExchangeInfo: %v", err)
+	}
+	want := []string{"BTCUSDT", "NVDAUSDT", "XAUUSDT"}
+	if fmt.Sprint(inclusive) != fmt.Sprint(want) {
+		t.Fatalf("inclusive exchangeInfo symbols = %+v, want %+v", inclusive, want)
+	}
+}
+
 func hasKlineInterval(intervals []KlineInterval, interval string) bool {
 	return countKlineInterval(intervals, interval) > 0
 }

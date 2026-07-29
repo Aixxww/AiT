@@ -22,6 +22,7 @@ import type { DecisionRecord, DecisionAction } from '../../types'
 import { t, type Language } from '../../i18n/translations'
 import { notify } from '../../lib/notify'
 import { formatPrice as formatPriceRaw } from '../../utils/format'
+import { Button } from '../ui/Button'
 
 interface DecisionCardProps {
   decision: DecisionRecord
@@ -293,7 +294,8 @@ function CollapsibleSection({
   return (
     <div>
       <div className="flex items-center gap-2 text-sm w-full justify-between p-2 rounded hover:bg-white/5">
-        <button
+        <Button
+          variant="unstyled"
           onClick={onToggle}
           className="flex flex-1 items-center gap-2 text-left"
         >
@@ -301,9 +303,10 @@ function CollapsibleSection({
           <span className="font-semibold" style={{ color }}>
             {title}
           </span>
-        </button>
+        </Button>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="unstyled"
             onClick={onCopy}
             className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
             style={{
@@ -314,8 +317,9 @@ function CollapsibleSection({
             title="Copy to clipboard"
           >
             <Clipboard className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             onClick={onDownload}
             className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
             style={{
@@ -326,8 +330,9 @@ function CollapsibleSection({
             title="Download as file"
           >
             <Download className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             onClick={onToggle}
             className="text-xs px-2 py-0.5 rounded"
             style={{
@@ -336,7 +341,7 @@ function CollapsibleSection({
             }}
           >
             {toggleLabel}
-          </button>
+          </Button>
         </div>
       </div>
       {isOpen && (

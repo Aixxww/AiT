@@ -22,6 +22,7 @@ import {
   TrendingUp as ArrowUp,
   TrendingDown as ArrowDown,
 } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 interface EquityPoint {
   timestamp: string
@@ -267,7 +268,8 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
 
         {/* Display Mode Toggle */}
         <div className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto bg-background border border-border">
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => setDisplayMode('dollar')}
             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
             style={
@@ -281,8 +283,9 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             }
           >
             <DollarSign className="w-4 h-4" /> USDT
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             onClick={() => setDisplayMode('percent')}
             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
             style={
@@ -296,7 +299,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             }
           >
             <Percent className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </div>
 

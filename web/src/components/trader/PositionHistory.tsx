@@ -24,6 +24,7 @@ import type {
   SymbolStats,
   DirectionStats,
 } from '../../types'
+import { Button } from '../ui/Button'
 
 interface PositionHistoryProps {
   traderId: string
@@ -783,7 +784,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
               style={{ border: '1px solid var(--color-border)' }}
             >
               {['all', 'LONG', 'SHORT'].map((side) => (
-                <button
+                <Button
+                  variant="unstyled"
                   key={side}
                   onClick={() => setFilterSide(side)}
                   className="px-3 py-1.5 text-sm capitalize transition-colors"
@@ -799,7 +801,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   }}
                 >
                   {side === 'all' ? t('positionHistory.all', language) : side}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -962,7 +964,8 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             {/* Page navigation */}
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
@@ -975,8 +978,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   }}
                 >
                   «
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
@@ -989,11 +993,12 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   }}
                 >
                   ‹
-                </button>
+                </Button>
                 <span className="px-3 text-xs text-foreground">
                   {currentPage} / {totalPages}
                 </span>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() =>
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
                   }
@@ -1008,8 +1013,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   }}
                 >
                   ›
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
                   className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
@@ -1022,7 +1028,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   }}
                 >
                   »
-                </button>
+                </Button>
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import { FAQSidebar } from './FAQSidebar'
 import { FAQContent } from './FAQContent'
 import { faqCategories } from '../../data/faqData'
 import type { FAQCategory } from '../../data/faqData'
+import { Button } from '../ui/Button'
 
 interface FAQLayoutProps {
   language: Language
@@ -113,7 +114,8 @@ export function FAQLayout({ language }: FAQLayoutProps) {
                     ? '没有找到匹配的问题'
                     : 'No matching questions found'}
                 </p>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={() => setSearchTerm('')}
                   className="mt-4 px-6 py-2 rounded-lg font-semibold transition-all hover:opacity-90"
                   style={{
@@ -123,7 +125,7 @@ export function FAQLayout({ language }: FAQLayoutProps) {
                   }}
                 >
                   {language === 'zh' ? '清除搜索' : 'Clear Search'}
-                </button>
+                </Button>
               </div>
             )}
           </main>

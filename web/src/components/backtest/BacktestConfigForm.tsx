@@ -4,6 +4,7 @@ import { ChevronRight, ChevronLeft, RefreshCw, Zap } from 'lucide-react'
 import type { AIModel, Strategy } from '../../types'
 import { t as globalT } from '../../i18n/translations'
 import type { Language } from '../../i18n/translations'
+import { Button } from '../ui/Button'
 
 // ============ Types ============
 
@@ -142,7 +143,8 @@ export function BacktestConfigForm({
       <div className="flex items-center gap-2 mb-4">
         {[1, 2, 3].map((step) => (
           <div key={step} className="flex items-center">
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => onWizardStepChange(step as WizardStep)}
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
               style={{
@@ -157,7 +159,7 @@ export function BacktestConfigForm({
               }}
             >
               {step}
-            </button>
+            </Button>
             {step < 3 && (
               <div
                 className="w-8 h-0.5 mx-1"
@@ -309,7 +311,8 @@ export function BacktestConfigForm({
                     {POPULAR_SYMBOLS.map((sym) => {
                       const isSelected = formState.symbols.includes(sym)
                       return (
-                        <button
+                        <Button
+                          variant="unstyled"
                           key={sym}
                           type="button"
                           onClick={() => {
@@ -334,7 +337,7 @@ export function BacktestConfigForm({
                           }}
                         >
                           {sym.replace('USDT', '')}
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>
@@ -360,7 +363,8 @@ export function BacktestConfigForm({
                     }
                   />
                   {strategyHasDynamicCoins && formState.symbols && (
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => onFormChange('symbols', '')}
                       className="absolute top-2 right-2 px-2 py-1 rounded text-xs"
@@ -370,12 +374,13 @@ export function BacktestConfigForm({
                       }}
                     >
                       {globalT('backtestConfigForm.clearToUseStrategy', lang)}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
 
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => onWizardStepChange(2)}
                 disabled={!selectedModel?.enabled}
@@ -387,7 +392,7 @@ export function BacktestConfigForm({
               >
                 {globalT('backtestConfigForm.next', lang)}
                 <ChevronRight className="w-4 h-4" />
-              </button>
+              </Button>
             </motion.div>
           )}
 
@@ -406,7 +411,8 @@ export function BacktestConfigForm({
                 </label>
                 <div className="flex flex-wrap gap-1 mb-2">
                   {quickRanges.map((r) => (
-                    <button
+                    <Button
+                      variant="unstyled"
                       key={r.hours}
                       type="button"
                       onClick={() => applyQuickRange(r.hours)}
@@ -418,7 +424,7 @@ export function BacktestConfigForm({
                       }}
                     >
                       {r.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -455,7 +461,8 @@ export function BacktestConfigForm({
                   {TIMEFRAME_OPTIONS.map((tf) => {
                     const isSelected = formState.timeframes.includes(tf)
                     return (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={tf}
                         type="button"
                         onClick={() => {
@@ -477,7 +484,7 @@ export function BacktestConfigForm({
                         }}
                       >
                         {tf}
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>
@@ -529,7 +536,8 @@ export function BacktestConfigForm({
               </div>
 
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => onWizardStepChange(1)}
                   className="flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
@@ -541,8 +549,9 @@ export function BacktestConfigForm({
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {globalT('backtestConfigForm.back', lang)}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => onWizardStepChange(3)}
                   className="flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
@@ -553,7 +562,7 @@ export function BacktestConfigForm({
                 >
                   {globalT('backtestConfigForm.next', lang)}
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </motion.div>
           )}
@@ -685,7 +694,8 @@ export function BacktestConfigForm({
                 <div className="flex flex-wrap gap-1">
                   {['baseline', 'aggressive', 'conservative', 'scalping'].map(
                     (p) => (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={p}
                         type="button"
                         onClick={() => onFormChange('prompt', p)}
@@ -703,7 +713,7 @@ export function BacktestConfigForm({
                         }}
                       >
                         {tr(`form.promptPresets.${p}`)}
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>
@@ -733,7 +743,8 @@ export function BacktestConfigForm({
               </div>
 
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => onWizardStepChange(2)}
                   className="flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
@@ -745,8 +756,9 @@ export function BacktestConfigForm({
                 >
                   <ChevronLeft className="w-4 h-4" />
                   {globalT('backtestConfigForm.back', lang)}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   type="submit"
                   disabled={isStarting}
                   className="flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50"
@@ -761,7 +773,7 @@ export function BacktestConfigForm({
                     <Zap className="w-4 h-4" />
                   )}
                   {isStarting ? tr('starting') : tr('start')}
-                </button>
+                </Button>
               </div>
             </motion.div>
           )}

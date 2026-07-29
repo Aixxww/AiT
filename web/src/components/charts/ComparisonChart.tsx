@@ -18,6 +18,7 @@ import { getTraderColor } from '../../utils/traderColors'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { BarChart3, TrendingUp, TrendingDown, Zap } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 // Time period options: 1D, 3D, 7D, 30D, All
 const TIME_PERIODS = [
@@ -414,7 +415,8 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
         {/* Time Period Buttons */}
         <div className="flex items-center gap-1">
           {TIME_PERIODS.map((period) => (
-            <button
+            <Button
+              variant="unstyled"
               key={period.key}
               onClick={() => setSelectedPeriod(period.key)}
               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
@@ -431,7 +433,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
               }}
             >
               {t(`comparisonChart.${period.key}`, language)}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -743,7 +745,10 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
         </div>
         <div
           className="p-3 rounded-lg text-center"
-          style={{ background: 'rgba(139, 92, 246, 0.05)' }}
+          style={{
+            background:
+              'color-mix(in srgb, var(--color-purple) 5%, transparent)',
+          }}
         >
           <div className="text-[10px] uppercase tracking-wider mb-1 text-muted-foreground">
             {t('dataPoints', language)}

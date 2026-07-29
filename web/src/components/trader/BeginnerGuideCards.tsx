@@ -1,4 +1,5 @@
 import { Brain, Landmark, Rocket, Sparkles } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 interface BeginnerGuideCardsProps {
   language: string
@@ -192,7 +193,8 @@ export function BeginnerGuideCards({
                 {card.meta}
               </div>
 
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={card.onAction}
                 disabled={card.disabled}
@@ -203,7 +205,7 @@ export function BeginnerGuideCards({
                 }`}
               >
                 {card.actionLabel}
-              </button>
+              </Button>
             </div>
           )
         })}

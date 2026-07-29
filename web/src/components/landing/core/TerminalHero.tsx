@@ -16,6 +16,7 @@ import {
 import { useState, useEffect } from 'react'
 import { useGitHubStats } from '../../../hooks/useGitHubStats'
 import AgentTerminal from '../brand/AgentTerminal'
+import { Button } from '../../ui/Button'
 
 export default function TerminalHero() {
   // Real-time price state
@@ -261,7 +262,8 @@ export default function TerminalHero() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-            <button
+            <Button
+              variant="unstyled"
               onClick={() =>
                 document
                   .getElementById('market-scanner')
@@ -277,7 +279,7 @@ export default function TerminalHero() {
                 INITIALIZE PROTOCOL <ArrowRight className="w-4 h-4" />
               </span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            </button>
+            </Button>
           </div>
 
           {/* Community Stats Row */}

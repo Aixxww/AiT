@@ -171,6 +171,7 @@ export interface HunterConfig {
   v7_watch_output?: number
   v7_min_ai_priority?: number
   v7_aggressive?: boolean
+  include_non_crypto_futures?: boolean
 }
 
 export interface IndicatorConfig {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { t } from '../i18n/translations'
 import { BarChart3, TrendingUp, ExternalLink } from 'lucide-react'
+import { Button } from '../components/ui/Button'
 
 type MarketWidget = 'chart' | 'heatmap' | 'ticker'
 
@@ -33,7 +34,8 @@ export function DataPage() {
           ).map((item) => {
             const Icon = item.icon
             return (
-              <button
+              <Button
+                variant="unstyled"
                 key={item.key}
                 onClick={() => setActiveWidget(item.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
@@ -44,7 +46,7 @@ export function DataPage() {
               >
                 <Icon className="w-3.5 h-3.5 inline mr-1.5" />
                 {item.label}
-              </button>
+              </Button>
             )
           })}
         </div>

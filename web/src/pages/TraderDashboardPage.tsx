@@ -31,6 +31,7 @@ import type {
   TraderInfo,
   Exchange,
 } from '../types'
+import { Button } from '../components/ui/Button'
 
 const ChartTabs = lazy(() =>
   import('../components/charts/ChartTabs').then((m) => ({
@@ -329,12 +330,13 @@ export function TraderDashboardPage({
           <p className="text-base mb-6 text-muted-foreground">
             {t('traderDashboard.connectionFailedDesc', language)}
           </p>
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => window.location.reload()}
             className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-primary/30 text-primary hover:bg-primary-dim"
           >
             {t('traderDashboard.retry', language)}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -374,12 +376,13 @@ export function TraderDashboardPage({
           <p className="text-base mb-6 text-muted-foreground">
             {t('dashboardEmptyDescription', language)}
           </p>
-          <button
+          <Button
+            variant="unstyled"
             onClick={onNavigateToTraders}
             className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 active:scale-95 ait-glass border border-primary/30 text-primary hover:bg-primary-dim"
           >
             {t('goToTradersPage', language)}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -474,7 +477,8 @@ export function TraderDashboardPage({
                           ? walletAddress
                           : truncateAddress(walletAddress)}
                       </span>
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => setShowWalletAddress(!showWalletAddress)}
                         className="p-1 rounded hover:bg-white/10 transition-colors"
@@ -489,8 +493,9 @@ export function TraderDashboardPage({
                         ) : (
                           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={handleCopyAddress}
                         className="p-1 rounded hover:bg-white/10 transition-colors"
@@ -501,7 +506,7 @@ export function TraderDashboardPage({
                         ) : (
                           <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
-                      </button>
+                      </Button>
                     </>
                   ) : (
                     <span className="text-xs text-muted-foreground">
@@ -816,7 +821,8 @@ export function TraderDashboardPage({
                               </span>
                             </td>
                             <td className="px-1 py-3 whitespace-nowrap text-center">
-                              <button
+                              <Button
+                                variant="unstyled"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -838,7 +844,7 @@ export function TraderDashboardPage({
                                   <LogOut className="w-3 h-3" />
                                 )}
                                 {t('traderDashboard.close', language)}
-                              </button>
+                              </Button>
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground hidden md:table-cell">
                               {formatPrice(pos.entry_price)}
@@ -955,14 +961,15 @@ export function TraderDashboardPage({
                               }
 
                               return (
-                                <button
+                                <Button
+                                  variant="unstyled"
                                   key={idx}
                                   onClick={onClick}
                                   disabled={disabled}
                                   className={`px-2 py-1 rounded transition-colors ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/10 text-foreground bg-white/5'}`}
                                 >
                                   {label}
-                                </button>
+                                </Button>
                               )
                             })}
                           </div>

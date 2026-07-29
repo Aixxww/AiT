@@ -4,6 +4,7 @@ import { HelpCircle } from 'lucide-react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { t } from '../../i18n/translations'
+import { Button } from '../ui/Button'
 
 export interface MetricDefinition {
   key: string
@@ -369,7 +370,8 @@ export function MetricTooltip({
 
   return (
     <>
-      <button
+      <Button
+        variant="unstyled"
         ref={buttonRef}
         type="button"
         onMouseEnter={handleMouseEnter}
@@ -385,7 +387,7 @@ export function MetricTooltip({
         aria-label={`Info about ${name}`}
       >
         <HelpCircle size={size} />
-      </button>
+      </Button>
 
       {show && createPortal(tooltipContent, document.body)}
     </>

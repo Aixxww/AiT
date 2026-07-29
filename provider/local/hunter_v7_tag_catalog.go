@@ -209,6 +209,7 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"alt_ladder_new_shorts":                    tagDef("alt_ladder_new_shorts", "reason_code", "oi", "bearish", V7TagActionOpenSupport, "OI rises into the drop, suggesting new short participation."),
 	"alt_ladder_long_flush":                    tagDef("alt_ladder_long_flush", "reason_code", "oi", "bearish", V7TagActionEvidence, "OI is flushing during downside continuation; can support trend but may be late near support."),
 	"alt_ladder_sell_volume":                   tagDef("alt_ladder_sell_volume", "reason_code", "flow", "bearish", V7TagActionOpenSupport, "Sell-side volume expansion confirms the alt-ladder breakdown."),
+	"alt_ladder_multi_cycle_close_through":     tagDef("alt_ladder_multi_cycle_close_through", "reason_code", "confirmation", "bearish", V7TagActionOpenSupport, "Alt-ladder short repeated across cycles and the latest close/trigger check confirmed breakdown continuation."),
 	"mms_bottom_wake":                          tagDef("mms_bottom_wake", "reason_code", "state", "bullish", V7TagActionReviewableOnly, "MMS bottom-wake route detected quiet accumulation; requires breakout/reclaim confirmation."),
 	"mms_small_cap_proxy":                      tagDef("mms_small_cap_proxy", "reason_code", "liquidity", "neutral", V7TagActionEvidence, "Symbol passes Binance-native small-cap proxy filters."),
 	"mms_quiet_accumulation":                   tagDef("mms_quiet_accumulation", "reason_code", "price", "bullish", V7TagActionEvidence, "Price compression suggests quiet accumulation."),

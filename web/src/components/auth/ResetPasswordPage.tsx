@@ -8,6 +8,7 @@ import { ArrowLeft, KeyRound, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import PasswordChecklist from 'react-password-checklist'
 import { Input } from '../ui/input'
 import { toast } from 'sonner'
+import { Button } from '../ui/Button'
 
 export function ResetPasswordPage() {
   const { language } = useLanguage()
@@ -64,13 +65,14 @@ export function ResetPasswordPage() {
       >
         <div className="w-full max-w-md">
           {/* Back to Login */}
-          <button
+          <Button
+            variant="unstyled"
             onClick={() => navigate('/login')}
             className="flex items-center gap-2 mb-6 text-sm hover:text-primary transition-colors text-muted-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             {t('backToLogin', language)}
-          </button>
+          </Button>
 
           {/* Logo */}
           <div className="text-center mb-8">
@@ -140,7 +142,8 @@ export function ResetPasswordPage() {
                       placeholder={t('newPasswordPlaceholder', language)}
                       required
                     />
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
@@ -152,7 +155,7 @@ export function ResetPasswordPage() {
                       ) : (
                         <Eye className="w-5 h-5" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -169,7 +172,8 @@ export function ResetPasswordPage() {
                       placeholder={t('confirmPasswordPlaceholder', language)}
                       required
                     />
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() =>
@@ -183,7 +187,7 @@ export function ResetPasswordPage() {
                       ) : (
                         <Eye className="w-5 h-5" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -236,7 +240,8 @@ export function ResetPasswordPage() {
                   </div>
                 )}
 
-                <button
+                <Button
+                  variant="unstyled"
                   type="submit"
                   disabled={loading || !passwordValid}
                   className="w-full px-4 py-2 rounded text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50"
@@ -248,7 +253,7 @@ export function ResetPasswordPage() {
                   {loading
                     ? t('loading', language)
                     : t('resetPasswordButton', language)}
-                </button>
+                </Button>
               </form>
             )}
           </div>

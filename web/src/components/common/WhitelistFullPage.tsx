@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { ShieldAlert, ArrowLeft, Twitter, Send, Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { OFFICIAL_LINKS } from '../../constants/branding'
+import { Button } from '../ui/Button'
 
 interface WhitelistFullPageProps {
   onBack?: () => void
@@ -21,9 +22,9 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
   return (
     <div className="min-h-screen bg-background text-foreground font-mono relative overflow-hidden flex items-center justify-center px-4">
       {/* Background Grid & Scanlines */}
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_7%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_7%,transparent)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
       <div className="fixed inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none"></div>
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.5)_50%)] bg-[length:100%_4px]"></div>
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(transparent_50%,color-mix(in_srgb,var(--color-background)_70%,transparent)_50%)] bg-[length:100%_4px]"></div>
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -90,13 +91,14 @@ export function WhitelistFullPage({ onBack }: WhitelistFullPageProps) {
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button
+              <Button
+                variant="unstyled"
                 onClick={handleBackToLogin}
                 className="w-full flex items-center justify-center gap-2 py-3 border border-border bg-black hover:bg-surface hover:border-loss hover:text-loss text-muted-foreground transition-all text-xs font-bold tracking-widest uppercase group"
               >
                 <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
                 RETURN TO LOGIN
-              </button>
+              </Button>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <a

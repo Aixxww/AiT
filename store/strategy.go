@@ -300,6 +300,9 @@ type HunterConfig struct {
 	V7WatchOutput   int     `json:"v7_watch_output,omitempty"`    // default 5, appended as watch-only pre-move radar context
 	V7MinAIPriority float64 `json:"v7_min_ai_priority,omitempty"` // default 55
 	V7Aggressive    bool    `json:"v7_aggressive,omitempty"`      // use aggressive priority weighting
+	// Include Binance Futures stock/commodity/ETF/RWA perpetuals in the Hunter universe.
+	// Default false preserves the crypto-only universe.
+	IncludeNonCryptoFutures bool `json:"include_non_crypto_futures,omitempty"`
 }
 
 // SnifferConfig tunable parameters for the Hunter Sniff mode (institutional ambush detector).

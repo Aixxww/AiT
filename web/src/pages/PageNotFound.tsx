@@ -6,7 +6,7 @@ export function PageNotFound() {
     <DeepVoidBackground className="flex items-center justify-center text-center p-4">
       <div className="bg-background border border-primary/20 p-8 rounded-lg max-w-md w-full relative overflow-hidden group">
         {/* Background Grid inside Card */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="relative">

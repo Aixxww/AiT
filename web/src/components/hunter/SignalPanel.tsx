@@ -20,6 +20,7 @@ import { VetoChip } from './VetoChip'
 import { tagTooltip, useTagCatalog } from '../../lib/tagCatalog'
 import { t, type Language } from '../../i18n/translations'
 import { formatPrice } from '../../utils/format'
+import { IconButton } from '../ui/IconButton'
 import {
   Check,
   ChevronDown,
@@ -48,10 +49,11 @@ export function groupLatestCycleByTier(
     REJECTED: [],
   }
   if (rows.length === 0) return grouped
-  // Rows arrive newest-first; the first row belongs to the latest cycle.
-  const latestCycle = rows[0].cycle_number
+  // Rows arrive newest-first. Validator smoke runs may reuse cycle_number=1,
+  // so timestamp is the stable latest-cycle boundary for dashboard grouping.
+  const latestTimestamp = rows[0].timestamp
   for (const row of rows) {
-    if (row.cycle_number !== latestCycle) continue
+    if (row.timestamp !== latestTimestamp) continue
     const tier = (row.execution_tier || 'REJECTED') as V7Tier
     if (grouped[tier]) grouped[tier].push(row)
   }
@@ -352,10 +354,10 @@ function RejectedSection({
   if (rows.length === 0) return null
   return (
     <div className="rounded border border-border/50 px-3 py-2">
-      <button
+      <IconButton
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 w-full text-left"
+        className="h-auto w-full justify-start gap-2 rounded-none p-0 text-left hover:bg-transparent"
         aria-expanded={expanded}
       >
         {expanded ? (
@@ -377,7 +379,7 @@ function RejectedSection({
               />
             ))}
         </span>
-      </button>
+      </IconButton>
       {expanded && (
         <div className="mt-2 space-y-1 pl-6">
           {rows.map((row) => (
@@ -442,10 +444,10 @@ export function SignalPanel({
     <div className="ait-glass p-6">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
-        <button
+        <IconButton
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          className="flex items-center gap-2 text-left"
+          className="h-auto w-auto justify-start gap-2 rounded-none p-0 text-left hover:bg-transparent"
           aria-expanded={!collapsed}
         >
           {collapsed ? (
@@ -459,7 +461,7 @@ export function SignalPanel({
           <h2 className="text-lg font-bold text-foreground uppercase tracking-wide">
             {t('v7Signals.title', language)}
           </h2>
-        </button>
+        </IconButton>
         {total > 0 && (
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
             {TIER_ORDER.map((tier) =>
@@ -483,17 +485,17 @@ export function SignalPanel({
               {updatedAt.toLocaleTimeString()}
             </span>
           )}
-          <button
+          <IconButton
             type="button"
             onClick={() => {
               setLoading(true)
               fetchSignals()
             }}
-            className="p-1.5 rounded-lg transition-colors hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+            size="sm"
             title={t('v7Signals.refresh', language)}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
+          </IconButton>
         </div>
       </div>
 

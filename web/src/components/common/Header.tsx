@@ -1,6 +1,7 @@
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
 import { Container } from './Container'
+import { Button } from '../ui/Button'
 
 interface HeaderProps {
   simple?: boolean // For login/register pages
@@ -35,7 +36,8 @@ export function Header({ simple = false }: HeaderProps) {
             className="flex gap-1 rounded p-1"
             style={{ background: 'var(--color-panel)' }}
           >
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => setLanguage('zh')}
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
@@ -51,8 +53,9 @@ export function Header({ simple = false }: HeaderProps) {
               }
             >
               中文
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               onClick={() => setLanguage('en')}
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
@@ -68,8 +71,9 @@ export function Header({ simple = false }: HeaderProps) {
               }
             >
               EN
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               onClick={() => setLanguage('id')}
               className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
               style={
@@ -85,7 +89,7 @@ export function Header({ simple = false }: HeaderProps) {
               }
             >
               ID
-            </button>
+            </Button>
           </div>
         </div>
       </Container>

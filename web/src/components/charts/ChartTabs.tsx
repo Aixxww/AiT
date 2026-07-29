@@ -192,7 +192,7 @@ export function ChartTabs({
       */}
       <div
         className="relative z-20 flex flex-wrap md:flex-nowrap items-center justify-between gap-y-2 px-3 py-2 shrink-0 backdrop-blur-md bg-background/80 rounded-t-lg"
-        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
+        style={{ borderBottom: '1px solid var(--color-header-border)' }}
       >
         {/* Left: Tab Switcher */}
         <div className="flex flex-wrap items-center gap-1">
@@ -260,7 +260,7 @@ export function ChartTabs({
                     />
                   </Button>
                   {showDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-background border border-white/10 rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden ait-glass ring-1 ring-white/5">
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-background border border-white/10 rounded-lg shadow-[0_10px_40px_-10px_color-mix(in_srgb,var(--color-background)_70%,transparent)] z-50 overflow-hidden ait-glass ring-1 ring-white/5">
                       <div className="p-2 border-b border-white/5">
                         <div className="flex items-center gap-2 px-2 py-1.5 bg-black/40 rounded border border-white/10 focus-within:border-primary/50 transition-colors">
                           <Search className="w-3.5 h-3.5 text-muted-foreground" />

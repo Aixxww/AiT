@@ -27,6 +27,7 @@ import {
   DEFAULT_CLAW402_MODEL,
   getShortName,
 } from './model-constants'
+import { Button } from '../ui/Button'
 
 interface ModelConfigModalProps {
   allModels: AIModel[]
@@ -132,7 +133,8 @@ export function ModelConfigModal({
         <div className="flex items-center justify-between p-6 pb-2">
           <div className="flex items-center gap-3">
             {currentStep > 0 && !editingModelId && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={handleBack}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -150,7 +152,7 @@ export function ModelConfigModal({
                     d="M15 19l-7-7 7-7"
                   />
                 </svg>
-              </button>
+              </Button>
             )}
             <h3 className="text-xl font-bold text-foreground">
               {editingModelId
@@ -160,22 +162,24 @@ export function ModelConfigModal({
           </div>
           <div className="flex items-center gap-2">
             {editingModelId && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => onDelete(editingModelId)}
                 className="p-2 rounded-lg hover:bg-loss/20 transition-colors"
                 style={{ color: 'var(--color-loss)' }}
               >
                 <Trash2 className="w-4 h-4" />
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -276,7 +280,8 @@ function ModelSelectionStep({
 
       {/* Claw402 Featured Card */}
       {claw402Model && (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => {
             onSelectModel(claw402Model.id)
@@ -364,12 +369,13 @@ function ModelSelectionStep({
           >
             {t('modelConfig.claw402EntryDesc', language)}
           </div>
-        </button>
+        </Button>
       )}
 
       {otherProviders.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-black/20 overflow-hidden">
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => setShowOtherProviders((prev) => !prev)}
             className="w-full flex items-center justify-between px-4 py-4 text-left transition-all hover:bg-white/5"
@@ -393,7 +399,7 @@ function ModelSelectionStep({
                 {showOtherProviders ? '−' : '+'}
               </span>
             </div>
-          </button>
+          </Button>
 
           {showOtherProviders && (
             <div className="border-t border-white/5 px-4 py-4">
@@ -661,7 +667,8 @@ function Claw402ConfigForm({
                 key={name}
                 className="text-[11px] px-2 py-0.5 rounded-full"
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
+                  background:
+                    'color-mix(in srgb, var(--color-foreground) 6%, transparent)',
                   color: 'var(--color-muted-fg)',
                 }}
               >
@@ -671,7 +678,8 @@ function Claw402ConfigForm({
           )}
         </div>
         <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={handleTestConnection}
             disabled={testing || (!hasExistingWallet && !isKeyValid)}
@@ -688,7 +696,7 @@ function Claw402ConfigForm({
             {testing
               ? t('modelConfig.testingConnection', language)
               : t('modelConfig.testConnection', language)}
-          </button>
+          </Button>
           {claw402Status ? (
             <div
               className="text-xs"
@@ -720,7 +728,8 @@ function Claw402ConfigForm({
           {CLAW402_MODELS.map((m) => {
             const isSelected = (modelName || DEFAULT_CLAW402_MODEL) === m.id
             return (
-              <button
+              <Button
+                variant="unstyled"
                 key={m.id}
                 type="button"
                 onClick={() => onModelNameChange(m.id)}
@@ -780,7 +789,7 @@ function Claw402ConfigForm({
                     <Check className="w-3 h-3" />
                   </span>
                 )}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -909,7 +918,8 @@ function Claw402ConfigForm({
               required={!hasExistingWallet}
             />
             {!apiKey && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={async () => {
                   try {
@@ -936,7 +946,7 @@ function Claw402ConfigForm({
                 }}
               >
                 {language === 'zh' ? '创建钱包' : 'Create Wallet'}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -977,7 +987,8 @@ function Claw402ConfigForm({
                 >
                   {newWalletKey}
                 </code>
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(newWalletKey)
@@ -994,7 +1005,7 @@ function Claw402ConfigForm({
                   }}
                 >
                   {copiedAddr ? 'Copied' : 'Copy Key'}
-                </button>
+                </Button>
               </div>
               <div className="text-[10px] space-y-1 text-muted-foreground">
                 <div>
@@ -1069,7 +1080,8 @@ function Claw402ConfigForm({
                     >
                       {t('modelConfig.walletAddress', language)}:
                     </span>
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(walletAddress)
@@ -1090,7 +1102,7 @@ function Claw402ConfigForm({
                       ) : (
                         <Copy className="w-3 h-3" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                   <code
                     className="text-[11px] font-mono block select-all"
@@ -1121,7 +1133,8 @@ function Claw402ConfigForm({
                       {t('modelConfig.usdcBalance', language)}: $
                       {resolvedUsdcBalance}
                     </span>
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => setShowDeposit(!showDeposit)}
                       className="text-[10px] px-2 py-0.5 rounded transition-all"
@@ -1140,7 +1153,7 @@ function Claw402ConfigForm({
                         : language === 'zh'
                           ? '充值'
                           : 'Deposit'}
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {showDeposit && (
@@ -1187,7 +1200,8 @@ function Claw402ConfigForm({
                         >
                           {resolvedWalletAddress}
                         </code>
-                        <button
+                        <Button
+                          variant="unstyled"
                           type="button"
                           onClick={() => {
                             navigator.clipboard.writeText(walletAddress)
@@ -1204,7 +1218,7 @@ function Claw402ConfigForm({
                           }}
                         >
                           {copiedAddr ? 'Copied' : 'Copy Address'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div className="text-[10px] space-y-1 text-muted-foreground">
@@ -1265,7 +1279,8 @@ function Claw402ConfigForm({
 
             {/* Test Connection button */}
             {(isKeyValid || hasExistingWallet) && !validating && (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testing}
@@ -1282,7 +1297,7 @@ function Claw402ConfigForm({
                 {testing
                   ? t('modelConfig.testingConnection', language)
                   : t('modelConfig.testConnection', language)}
-              </button>
+              </Button>
             )}
 
             {/* Test result */}
@@ -1356,7 +1371,8 @@ function Claw402ConfigForm({
 
       {/* Buttons */}
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={onBack}
           className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
@@ -1368,8 +1384,9 @@ function Claw402ConfigForm({
           {editingModelId
             ? t('cancel', language)
             : t('modelConfig.back', language)}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={!isKeyValid && !hasExistingWallet}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1382,7 +1399,7 @@ function Claw402ConfigForm({
           }}
         >
           {t('modelConfig.startTrading', language)}
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -1660,7 +1677,8 @@ function StandardProviderConfigForm({
 
       {/* Buttons */}
       <div className="flex gap-3 pt-4">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={onBack}
           className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
@@ -1672,8 +1690,9 @@ function StandardProviderConfigForm({
           {editingModelId
             ? t('cancel', language)
             : t('modelConfig.back', language)}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={!selectedModel || !apiKey.trim()}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1693,7 +1712,7 @@ function StandardProviderConfigForm({
               d="M14 5l7 7m0 0l-7 7m7-7H3"
             />
           </svg>
-        </button>
+        </Button>
       </div>
     </form>
   )

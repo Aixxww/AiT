@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { t, type Language } from '../../i18n/translations'
 import { toast } from 'sonner'
 import { WebCryptoEnvironmentCheck } from '../common/WebCryptoEnvironmentCheck'
+import { Button } from '../ui/Button'
 
 const DEFAULT_LENGTH = 64
 
@@ -227,7 +228,8 @@ export function TwoStageKeyModal({
               {error && <div className="text-loss text-sm">{error}</div>}
 
               <div className="flex gap-3">
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={handleStage1Next}
                   disabled={
                     (part1.startsWith('0x') ? part1.slice(2) : part1).length <
@@ -238,14 +240,15 @@ export function TwoStageKeyModal({
                   {processing
                     ? t('twoStageKey.processing', language)
                     : t('twoStageKey.nextButton', language)}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   onClick={onCancel}
                   disabled={processing}
                   className="px-6 py-3 text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors"
                 >
                   {t('twoStageKey.cancelButton', language)}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -301,7 +304,8 @@ export function TwoStageKeyModal({
               {error && <div className="text-loss text-sm">{error}</div>}
 
               <div className="flex gap-3">
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={handleStage2Complete}
                   disabled={
                     (part2.startsWith('0x') ? part2.slice(2) : part2).length <
@@ -310,13 +314,14 @@ export function TwoStageKeyModal({
                   className="flex-1 bg-profit hover:bg-profit disabled:bg-muted text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
                 >
                   {t('twoStageKey.encryptButton', language)}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   onClick={handleReset}
                   className="px-6 py-3 text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors"
                 >
                   {t('twoStageKey.backButton', language)}
-                </button>
+                </Button>
               </div>
             </div>
           )}

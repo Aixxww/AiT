@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { httpClient } from '../../lib/httpClient'
 import { AiTSelect } from '../ui/select'
+import { Button } from '../ui/Button'
 
 // 提取下划线后面的名称部分
 function getShortName(fullName: string): string {
@@ -283,12 +284,13 @@ export function TraderConfigModal({
               </p>
             </div>
           </div>
-          <button
+          <Button
+            variant="unstyled"
             onClick={onClose}
             className="w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
           >
             <IconX className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Content */}
@@ -481,7 +483,8 @@ export function TraderConfigModal({
                     {t('marginMode', language)}
                   </label>
                   <div className="flex gap-2">
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => handleInputChange('is_cross_margin', true)}
                       className={`flex-1 px-3 py-2 rounded text-sm ${
@@ -491,8 +494,9 @@ export function TraderConfigModal({
                       }`}
                     >
                       {t('crossMargin', language)}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() =>
                         handleInputChange('is_cross_margin', false)
@@ -504,7 +508,7 @@ export function TraderConfigModal({
                       }`}
                     >
                       {t('isolatedMargin', language)}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div>
@@ -545,7 +549,8 @@ export function TraderConfigModal({
                   {t('competitionDisplay', language)}
                 </label>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() =>
                       handleInputChange('show_in_competition', true)
@@ -557,8 +562,9 @@ export function TraderConfigModal({
                     }`}
                   >
                     {t('show', language)}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() =>
                       handleInputChange('show_in_competition', false)
@@ -570,7 +576,7 @@ export function TraderConfigModal({
                     }`}
                   >
                     {t('hide', language)}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('hiddenInCompetition', language)}
@@ -584,7 +590,8 @@ export function TraderConfigModal({
                     <label className="text-sm text-foreground">
                       {t('initialBalanceLabel', language)}
                     </label>
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={handleFetchCurrentBalance}
                       disabled={isFetchingBalance}
@@ -593,7 +600,7 @@ export function TraderConfigModal({
                       {isFetchingBalance
                         ? t('fetching', language)
                         : t('fetchCurrentBalance', language)}
-                    </button>
+                    </Button>
                   </div>
                   <input
                     type="number"
@@ -654,14 +661,16 @@ export function TraderConfigModal({
 
         {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover sticky bottom-0 z-10 rounded-b-xl">
-          <button
+          <Button
+            variant="unstyled"
             onClick={onClose}
             className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted transition-all duration-200 border border-border"
           >
             {t('cancel', language)}
-          </button>
+          </Button>
           {onSave && (
-            <button
+            <Button
+              variant="unstyled"
               onClick={handleSave}
               disabled={
                 isSaving ||
@@ -676,7 +685,7 @@ export function TraderConfigModal({
                 : isEditMode
                   ? t('editTrader', language)
                   : t('createTraderButton', language)}
-            </button>
+            </Button>
           )}
         </div>
       </div>

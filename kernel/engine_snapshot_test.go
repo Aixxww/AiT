@@ -41,6 +41,14 @@ func TestSnapshotEngineRegistryReusesDataSource(t *testing.T) {
 	if other.GetStore() == first.GetStore() {
 		t.Fatalf("expected different data config to create a separate SnapshotStore")
 	}
+
+	inclusive, err := NewSnapshotEngine(cfg, datafetch.CollectorConfig{IncludeNonCryptoFutures: true})
+	if err != nil {
+		t.Fatalf("NewSnapshotEngine inclusive: %v", err)
+	}
+	if inclusive.GetStore() == first.GetStore() {
+		t.Fatalf("expected non-crypto futures inclusion to create a separate SnapshotStore")
+	}
 }
 
 func TestBuildMarketDataFromSnapshotUsesSharedStore(t *testing.T) {

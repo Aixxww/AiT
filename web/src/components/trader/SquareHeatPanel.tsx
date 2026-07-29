@@ -14,6 +14,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 interface SquareHeatPanelProps {
   language: Language
@@ -123,7 +124,8 @@ export function SquareHeatPanel({
           Square Heat
         </h2>
         <div className="flex items-center gap-1">
-          <button
+          <Button
+            variant="unstyled"
             onClick={toggleWorker}
             disabled={workerToggling}
             className={`p-1.5 rounded-lg transition-all ${
@@ -138,8 +140,9 @@ export function SquareHeatPanel({
             ) : (
               <Power size={14} />
             )}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             onClick={() => {
               setLoading(true)
               fetchData()
@@ -148,7 +151,7 @@ export function SquareHeatPanel({
             title="Refresh"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
+          </Button>
         </div>
       </div>
 

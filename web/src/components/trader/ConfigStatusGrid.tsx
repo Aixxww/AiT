@@ -9,6 +9,7 @@ import {
   AI_PROVIDER_CONFIG,
   truncateAddress,
 } from './model-constants'
+import { Button } from '../ui/Button'
 
 interface UsageInfo {
   runningCount: number
@@ -276,7 +277,8 @@ export function ConfigStatusGrid({
                         <span className="text-[10px] font-mono text-muted-foreground bg-black/40 px-1.5 py-0.5 rounded border border-border">
                           {isVisible ? walletAddr : truncateAddress(walletAddr)}
                         </span>
-                        <button
+                        <Button
+                          variant="unstyled"
                           onClick={(e) => {
                             e.stopPropagation()
                             onToggleExchangeAddress(exchange.id)
@@ -284,8 +286,9 @@ export function ConfigStatusGrid({
                           className="text-muted-foreground hover:text-foreground"
                         >
                           {isVisible ? <EyeOff size={10} /> : <Eye size={10} />}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="unstyled"
                           onClick={(e) => {
                             e.stopPropagation()
                             onCopyAddress(`exchange-${exchange.id}`, walletAddr)
@@ -297,7 +300,7 @@ export function ConfigStatusGrid({
                           ) : (
                             <Copy size={10} />
                           )}
-                        </button>
+                        </Button>
                       </div>
                     )
                   })()}

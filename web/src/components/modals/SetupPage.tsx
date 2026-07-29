@@ -6,6 +6,7 @@ import { OnboardingModeSelector } from '../auth/OnboardingModeSelector'
 import type { UserMode } from '../../lib/onboarding'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { LanguageSwitcher } from '../common/LanguageSwitcher'
+import { Button } from '../ui/Button'
 
 const labels = {
   zh: {
@@ -94,7 +95,7 @@ export function SetupPage() {
       {/* Grid */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute inset-x-0 bottom-0 h-[60vh] bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-40"
+          className="absolute inset-x-0 bottom-0 h-[60vh] bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_7%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_7%,transparent)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black_70%,transparent_100%)] opacity-40"
           style={{
             transform:
               'perspective(500px) rotateX(60deg) translateY(80px) scale(2)',
@@ -160,7 +161,7 @@ export function SetupPage() {
           </div>
 
           {/* Card */}
-          <div className="bg-surface/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-surface/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_25px_60px_-15px_color-mix(in_srgb,var(--color-background)_70%,transparent)]">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
               <div>
@@ -192,13 +193,14 @@ export function SetupPage() {
                     placeholder={l.passwordPlaceholder}
                     required
                   />
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -216,13 +218,14 @@ export function SetupPage() {
               )}
 
               {/* Submit */}
-              <button
+              <Button
+                variant="unstyled"
                 type="submit"
                 disabled={loading}
                 className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? l.submitting : l.submit}
-              </button>
+              </Button>
             </form>
           </div>
 

@@ -42,6 +42,7 @@ import { defaultGridConfig } from '../components/strategy/gridConfigDefaults'
 import { TokenEstimateBar } from '../components/strategy/TokenEstimateBar'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { t } from '../i18n/translations'
+import { Button } from '../components/ui/Button'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -836,12 +837,13 @@ export function StrategyStudioPage() {
           {error && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-loss/10 text-loss">
               {error}
-              <button
+              <Button
+                variant="unstyled"
                 onClick={() => setError(null)}
                 className="hover:underline"
               >
                 ×
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -870,13 +872,14 @@ export function StrategyStudioPage() {
                     className="hidden"
                   />
                 </label>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={handleCreateStrategy}
                   className="p-1 rounded hover:bg-white/10 transition-colors text-primary"
                   title={tr('newStrategyTooltip')}
                 >
                   <Plus className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </div>
             <div className="space-y-2">
@@ -903,7 +906,8 @@ export function StrategyStudioPage() {
                       {strategy.name}
                     </span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleExportStrategy(strategy)
@@ -912,10 +916,11 @@ export function StrategyStudioPage() {
                         title={tr('export')}
                       >
                         <Download className="w-3 h-3" />
-                      </button>
+                      </Button>
                       {!strategy.is_default && (
                         <>
-                          <button
+                          <Button
+                            variant="unstyled"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleDuplicateStrategy(strategy.id)
@@ -924,8 +929,9 @@ export function StrategyStudioPage() {
                             title={tr('duplicate')}
                           >
                             <Copy className="w-3 h-3" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="unstyled"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleDeleteStrategy(strategy.id)
@@ -939,7 +945,7 @@ export function StrategyStudioPage() {
                             }
                           >
                             <Trash2 className="w-3 h-3" />
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>
@@ -1010,7 +1016,8 @@ export function StrategyStudioPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {!selectedStrategy.is_active && (
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() =>
                         handleActivateStrategy(selectedStrategy.id)
                       }
@@ -1018,10 +1025,11 @@ export function StrategyStudioPage() {
                     >
                       <Check className="w-3 h-3" />
                       {tr('activate')}
-                    </button>
+                    </Button>
                   )}
                   {!selectedStrategy.is_default && (
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={handleSaveStrategy}
                       disabled={isSaving || !hasChanges}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50
@@ -1029,7 +1037,7 @@ export function StrategyStudioPage() {
                     >
                       <Save className="w-3 h-3" />
                       {isSaving ? tr('saving') : tr('save')}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -1058,7 +1066,8 @@ export function StrategyStudioPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={() => handleStrategyTypeChange('ai_trading')}
                       disabled={selectedStrategy?.is_default}
                       className={`p-3 rounded-lg border transition-all ${
@@ -1080,8 +1089,9 @@ export function StrategyStudioPage() {
                       <p className="text-xs text-muted-foreground text-left">
                         {tr('aiTradingDesc')}
                       </p>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="unstyled"
                       onClick={() => handleStrategyTypeChange('grid_trading')}
                       disabled={selectedStrategy?.is_default}
                       className={`p-3 rounded-lg border transition-all ${
@@ -1102,7 +1112,7 @@ export function StrategyStudioPage() {
                       <p className="text-xs text-muted-foreground text-left">
                         {tr('gridTradingDesc')}
                       </p>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1115,7 +1125,8 @@ export function StrategyStudioPage() {
                       key={key}
                       className="rounded-lg overflow-hidden bg-surface border border-primary/20"
                     >
-                      <button
+                      <Button
+                        variant="unstyled"
                         onClick={() => toggleSection(key)}
                         className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
                       >
@@ -1130,7 +1141,7 @@ export function StrategyStudioPage() {
                         ) : (
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
-                      </button>
+                      </Button>
                       {expandedSections[key] && (
                         <div className="px-3 pb-3">
                           <Suspense
@@ -1163,7 +1174,8 @@ export function StrategyStudioPage() {
         <div className="w-[420px] flex-shrink-0 flex flex-col overflow-hidden">
           {/* Tabs */}
           <div className="flex-shrink-0 flex border-b border-primary/20">
-            <button
+            <Button
+              variant="unstyled"
               onClick={() => setActiveRightTab('prompt')}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeRightTab === 'prompt'
@@ -1173,8 +1185,9 @@ export function StrategyStudioPage() {
             >
               <Eye className="w-4 h-4" />
               {tr('promptPreview')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               onClick={() => setActiveRightTab('test')}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeRightTab === 'test'
@@ -1184,7 +1197,7 @@ export function StrategyStudioPage() {
             >
               <Play className="w-4 h-4" />
               {tr('aiTestRun')}
-            </button>
+            </Button>
           </div>
 
           {/* Tab Content */}
@@ -1203,7 +1216,8 @@ export function StrategyStudioPage() {
                     <option value="aggressive">{tr('aggressive')}</option>
                     <option value="conservative">{tr('conservative')}</option>
                   </select>
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={fetchPromptPreview}
                     disabled={isLoadingPrompt || !editingConfig}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 bg-accent hover:bg-accent/80 text-foreground"
@@ -1214,7 +1228,7 @@ export function StrategyStudioPage() {
                       <RefreshCw className="w-3 h-3" />
                     )}
                     {promptPreview ? tr('refreshPrompt') : tr('loadPrompt')}
-                  </button>
+                  </Button>
                 </div>
 
                 {promptPreview ? (
@@ -1311,7 +1325,8 @@ export function StrategyStudioPage() {
                       <option value="aggressive">{tr('aggressive')}</option>
                       <option value="conservative">{tr('conservative')}</option>
                     </select>
-                    <button
+                    <Button
+                      variant="unstyled"
                       onClick={runAiTest}
                       disabled={
                         isRunningAiTest || !editingConfig || !selectedModelId
@@ -1329,7 +1344,7 @@ export function StrategyStudioPage() {
                           {tr('runTest')}
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
                     {tr('testNote')}

@@ -18,6 +18,12 @@ const SYMBOL_ICONS: Record<string, string> = {
   SOL: '◎',
 }
 
+const subtleBg = 'color-mix(in srgb, var(--color-foreground) 2%, transparent)'
+const subtleBgHover =
+  'color-mix(in srgb, var(--color-foreground) 4%, transparent)'
+const subtleBorder = 'var(--color-header-border)'
+const subtleBorderHover = 'var(--color-border)'
+
 export function MarketTicker() {
   const [tickers, setTickers] = useState<Record<string, TickerData>>({})
   const [loading, setLoading] = useState(true)
@@ -74,9 +80,9 @@ export function MarketTicker() {
             key={sym}
             style={{
               padding: '12px',
-              background: 'rgba(255,255,255,0.02)',
+              background: subtleBg,
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.04)',
+              border: `1px solid ${subtleBorder}`,
               height: 56,
             }}
           >
@@ -84,7 +90,7 @@ export function MarketTicker() {
               style={{
                 width: '60%',
                 height: 10,
-                background: 'rgba(255,255,255,0.04)',
+                background: subtleBgHover,
                 borderRadius: 4,
                 animation: 'pulse 1.5s infinite',
               }}
@@ -130,19 +136,19 @@ export function MarketTicker() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 11px',
-              background: 'rgba(255,255,255,0.02)',
+              background: subtleBg,
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.04)',
+              border: `1px solid ${subtleBorder}`,
               transition: 'all 0.15s ease',
               cursor: 'default',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+              e.currentTarget.style.background = subtleBgHover
+              e.currentTarget.style.borderColor = subtleBorderHover
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'
+              e.currentTarget.style.background = subtleBg
+              e.currentTarget.style.borderColor = subtleBorder
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
