@@ -128,6 +128,8 @@ type TrackerConfig struct {
 	MaxTracked                  int           // default 200
 	SnapshotLimit               int           // default 480 = 8h @ 1m
 	ActiveOutcomeInterval       time.Duration // default 5 minutes; terminal outcomes always emit
+	DuplicateWindow             time.Duration // default 30 minutes; same symbol/setup/direction keeps latest active thesis only
+	BreakevenMFEThreshold       float64       // default 0.60%; setup-specific breakeven protection after enough MFE
 	EnableDynamicStop           bool          // default true
 	ATRPercentile               float64       // default 50 when no volatility percentile is available
 	MissedOpportunityMinTouches int           // default 2 consecutive TP0 touches for WATCH audit
@@ -141,6 +143,8 @@ func DefaultTrackerConfig() *TrackerConfig {
 		MaxTracked:                  200,
 		SnapshotLimit:               480,
 		ActiveOutcomeInterval:       5 * time.Minute,
+		DuplicateWindow:             30 * time.Minute,
+		BreakevenMFEThreshold:       0.60,
 		EnableDynamicStop:           true,
 		ATRPercentile:               50,
 		MissedOpportunityMinTouches: 2,
@@ -153,6 +157,7 @@ type SignalOutcomeTracker struct {
 	config        *TrackerConfig
 	mu            sync.RWMutex
 	activeSignals map[int64]*TrackedSignal
+	activeThesis  map[string]int64
 	priceFunc     func(symbol string) float64
 	candleFunc    func(symbol string) *TrackedCandle
 	candlesFunc   func(symbol string, since time.Time) []TrackedCandle
@@ -172,6 +177,7 @@ func NewSignalOutcomeTracker(cfg *TrackerConfig, priceFunc func(string) float64)
 	return &SignalOutcomeTracker{
 		config:        cfg,
 		activeSignals: make(map[int64]*TrackedSignal),
+		activeThesis:  make(map[string]int64),
 		priceFunc:     priceFunc,
 		dynamicStop:   DefaultDynamicStopManager(),
 	}
@@ -192,6 +198,12 @@ func normalizeTrackerConfig(cfg *TrackerConfig) *TrackerConfig {
 	}
 	if cfg.ActiveOutcomeInterval <= 0 {
 		cfg.ActiveOutcomeInterval = 5 * time.Minute
+	}
+	if cfg.DuplicateWindow <= 0 {
+		cfg.DuplicateWindow = 30 * time.Minute
+	}
+	if cfg.BreakevenMFEThreshold <= 0 {
+		cfg.BreakevenMFEThreshold = 0.60
 	}
 	if cfg.ATRPercentile <= 0 {
 		cfg.ATRPercentile = 50
@@ -237,20 +249,39 @@ func (t *SignalOutcomeTracker) Register(
 	symbol, direction, setupType, tier string,
 	signalPrice, stopPrice, tp0, tp1, tp2 float64,
 	signalTime ...time.Time,
-) {
+) (bool, int64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	if len(t.activeSignals) >= t.config.MaxTracked {
-		return // at capacity; caller should evict oldest
+	if t.activeThesis == nil {
+		t.activeThesis = make(map[string]int64)
 	}
+
 	if _, exists := t.activeSignals[recordID]; exists {
-		return // already tracked
+		return false, 0 // already tracked
 	}
 
 	registeredAt := time.Now()
 	if len(signalTime) > 0 && !signalTime[0].IsZero() {
 		registeredAt = signalTime[0]
+	}
+
+	replacedID := int64(0)
+	key := trackedThesisKey(symbol, setupType, direction)
+	if t.config.DuplicateWindow > 0 && key != "" {
+		if existingID, ok := t.activeThesis[key]; ok {
+			if existing := t.activeSignals[existingID]; existing != nil {
+				if !registeredAt.After(existing.SignalTime) {
+					return false, 0
+				}
+				if registeredAt.Sub(existing.SignalTime) <= t.config.DuplicateWindow {
+					delete(t.activeSignals, existingID)
+					replacedID = existingID
+				}
+			}
+		}
+	}
+	if len(t.activeSignals) >= t.config.MaxTracked {
+		return false, 0 // at capacity; caller should evict oldest
 	}
 
 	t.activeSignals[recordID] = &TrackedSignal{
@@ -268,6 +299,17 @@ func (t *SignalOutcomeTracker) Register(
 		Status:      TrackedActive,
 		Snapshots:   make([]PriceSnapshot, 0, 8),
 	}
+	if key != "" {
+		t.activeThesis[key] = recordID
+	}
+	return true, replacedID
+}
+
+func trackedThesisKey(symbol, setupType, direction string) string {
+	if symbol == "" || setupType == "" || direction == "" {
+		return ""
+	}
+	return symbol + "\x00" + setupType + "\x00" + direction
 }
 
 // TickNow runs one tracking cycle immediately. It is primarily used by tests
@@ -369,6 +411,10 @@ func (t *SignalOutcomeTracker) tick() {
 		if terminal {
 			toArchive = append(toArchive, sig)
 			delete(t.activeSignals, id)
+			key := trackedThesisKey(sig.Symbol, sig.SetupType, sig.Direction)
+			if t.activeThesis[key] == sig.RecordID {
+				delete(t.activeThesis, key)
+			}
 		}
 
 		if terminal || auditChanged || t.shouldEmitActiveOutcome(sig, now) {
@@ -546,10 +592,36 @@ func (t *SignalOutcomeTracker) updateDynamicStop(sig *TrackedSignal, currentPric
 	} else if sig.DynamicStop <= 0 || dyn < sig.DynamicStop {
 		sig.DynamicStop = dyn
 	}
+	if protected := t.breakevenStop(sig); protected > 0 {
+		if isLong {
+			if sig.DynamicStop <= 0 || protected > sig.DynamicStop {
+				sig.DynamicStop = protected
+			}
+		} else if sig.DynamicStop <= 0 || protected < sig.DynamicStop {
+			sig.DynamicStop = protected
+		}
+	}
 	if sig.DynamicStop > 0 {
 		stopUsed = sig.DynamicStop
 	}
 	return stopUsed
+}
+
+func (t *SignalOutcomeTracker) breakevenStop(sig *TrackedSignal) float64 {
+	if sig == nil || sig.SignalPrice <= 0 {
+		return 0
+	}
+	threshold := 0.60
+	if t.config != nil && t.config.BreakevenMFEThreshold > 0 {
+		threshold = t.config.BreakevenMFEThreshold
+	}
+	if sig.MaxFavorable < threshold {
+		return 0
+	}
+	if sig.SetupType == string(local.V7SetupAltLadderShort) && sig.Direction == string(local.V7DirShort) {
+		return sig.SignalPrice
+	}
+	return 0
 }
 
 func (t *SignalOutcomeTracker) updateMissedOpportunityAudit(sig *TrackedSignal, candle TrackedCandle) bool {

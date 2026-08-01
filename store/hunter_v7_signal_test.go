@@ -82,6 +82,7 @@ func TestHunterV7SignalStoreOutcomeStats(t *testing.T) {
 		{CycleNumber: 1, Timestamp: base, Symbol: "B", Direction: "LONG", SetupType: "pullback_long", MarketRegime: "trend_up", Status: "candidate", ExecutionTier: "EXECUTABLE", TrackStatus: "STOP", TrackExitTime: &exit10m, TrackPnLPct: -1, TrackMFE: 0.4, TrackMAE: -1.1},
 		{CycleNumber: 1, Timestamp: base, Symbol: "C", Direction: "LONG", SetupType: "squeeze_breakout", MarketRegime: "compression", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "WIN_TP1", TrackExitTime: &exit90m, TrackPnLPct: 2.5, TrackMFE: 3, TrackMAE: -0.3},
 		{CycleNumber: 1, Timestamp: base, Symbol: "D", Direction: "LONG", SetupType: "squeeze_breakout", MarketRegime: "compression", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "WIN_TP1", TrackExitTime: &exit3h, TrackPnLPct: 2, TrackMFE: 2.2, TrackMAE: -0.4},
+		{CycleNumber: 1, Timestamp: base, Symbol: "E", Direction: "LONG", SetupType: "pullback_long", MarketRegime: "trend_up", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "DUPLICATE_CONTEXT", TrackExitTime: &exit10m, TrackPnLPct: 99, TrackMFE: 99, TrackMAE: -99},
 	}
 	if err := store.CreateBatch(records); err != nil {
 		t.Fatalf("create: %v", err)

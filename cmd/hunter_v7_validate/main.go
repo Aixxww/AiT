@@ -24,6 +24,7 @@ import (
 
 type validationReport struct {
 	GeneratedAt       string                       `json:"generated_at"`
+	Round             int                          `json:"round"`
 	Snapshot          snapshotSummary              `json:"snapshot"`
 	Config            local.V7Config               `json:"config"`
 	FormatCheck       formatCheck                  `json:"format_check"`
@@ -36,13 +37,17 @@ type validationReport struct {
 }
 
 type snapshotSummary struct {
-	SymbolCount   int     `json:"symbol_count"`
-	UniverseCount int     `json:"universe_count"`
-	FetchMs       int64   `json:"fetch_ms"`
-	RestErrors    int     `json:"rest_errors"`
-	BTC24h        float64 `json:"btc_24h"`
-	ETH24h        float64 `json:"eth_24h"`
-	Regime        string  `json:"regime"`
+	SymbolCount        int      `json:"symbol_count"`
+	UniverseCount      int      `json:"universe_count"`
+	FetchMs            int64    `json:"fetch_ms"`
+	RestErrors         int      `json:"rest_errors"`
+	RestErrorRate      float64  `json:"rest_error_rate"`
+	UniverseCoverage   float64  `json:"universe_coverage"`
+	Degraded           bool     `json:"degraded"`
+	DegradationReasons []string `json:"degradation_reasons,omitempty"`
+	BTC24h             float64  `json:"btc_24h"`
+	ETH24h             float64  `json:"eth_24h"`
+	Regime             string   `json:"regime"`
 }
 
 type formatCheck struct {
@@ -96,23 +101,92 @@ type issue struct {
 }
 
 type validationOptions struct {
-	topDetail      int
-	maxWorkers     int
-	maxOutput      int
-	watchOutput    int
-	minPriority    float64
-	aggressive     bool
-	strategyID     string
-	dbPath         string
-	outDir         string
-	rounds         int
-	roundInterval  time.Duration
-	dumpUniverse   string
-	persistSignals bool
-	trackOutcomes  bool
-	store          *store.Store
-	watchState     *local.V7SignalStateManager
-	outcomeTracker *aittrader.SignalOutcomeTracker
+	topDetail         int
+	maxWorkers        int
+	maxOutput         int
+	watchOutput       int
+	minPriority       float64
+	aggressive        bool
+	strategyID        string
+	dbPath            string
+	outDir            string
+	rounds            int
+	roundInterval     time.Duration
+	dumpUniverse      string
+	persistSignals    bool
+	trackOutcomes     bool
+	postTrackDuration time.Duration
+	postTrackInterval time.Duration
+	trackActiveOnly   bool
+	store             *store.Store
+	watchState        *local.V7SignalStateManager
+	outcomeTracker    *aittrader.SignalOutcomeTracker
+}
+
+type validationOutcomeSummary struct {
+	GeneratedAt       string                          `json:"generated_at"`
+	PostTrackDuration string                          `json:"post_track_duration"`
+	PostTrackInterval string                          `json:"post_track_interval"`
+	TrackActiveOnly   bool                            `json:"track_active_only"`
+	ActiveCount       int                             `json:"active_count"`
+	TrackedCount      int                             `json:"tracked_count"`
+	Status            []validationStatusOutcome       `json:"status"`
+	Setup             []validationSetupOutcome        `json:"setup"`
+	CompletedStats    map[string]aittrader.SetupStats `json:"completed_stats_by_setup"`
+}
+
+type validationRunSummary struct {
+	GeneratedAt          string                   `json:"generated_at"`
+	Rounds               int                      `json:"rounds"`
+	ValidRounds          int                      `json:"valid_rounds"`
+	SignalCount          int                      `json:"signal_count"`
+	OpenReviewCount      int                      `json:"open_review_count"`
+	OpenReviewRate       float64                  `json:"open_review_rate"`
+	ValidSignalCount     int                      `json:"valid_signal_count"`
+	ValidOpenReviewCount int                      `json:"valid_open_review_count"`
+	ValidOpenReviewRate  float64                  `json:"valid_open_review_rate"`
+	DegradedRounds       []int                    `json:"degraded_rounds,omitempty"`
+	Round                []validationRoundSummary `json:"round"`
+}
+
+type validationRoundSummary struct {
+	Round          int      `json:"round"`
+	GeneratedAt    string   `json:"generated_at"`
+	Regime         string   `json:"regime"`
+	SignalCount    int      `json:"signal_count"`
+	OpenReview     int      `json:"open_review"`
+	OpenReviewRate float64  `json:"open_review_rate"`
+	RestErrors     int      `json:"rest_errors"`
+	RestErrorRate  float64  `json:"rest_error_rate"`
+	UniverseCount  int      `json:"universe_count"`
+	Degraded       bool     `json:"degraded"`
+	Reasons        []string `json:"reasons,omitempty"`
+}
+
+type validationStatusOutcome struct {
+	Status      string  `json:"status"`
+	Count       int     `json:"count"`
+	AvgPnLPct   float64 `json:"avg_pnl_pct"`
+	AvgMFE      float64 `json:"avg_mfe"`
+	AvgMAE      float64 `json:"avg_mae"`
+	ProfitCount int     `json:"profit_count"`
+	LossCount   int     `json:"loss_count"`
+	FlatCount   int     `json:"flat_count"`
+}
+
+type validationSetupOutcome struct {
+	SetupType      string  `json:"setup_type"`
+	Count          int     `json:"count"`
+	Active         int     `json:"active"`
+	Wins           int     `json:"wins"`
+	LossStops      int     `json:"loss_stops"`
+	ProtectedStops int     `json:"protected_stops"`
+	Timeouts       int     `json:"timeouts"`
+	ActiveProfit   int     `json:"active_profit"`
+	ActiveLoss     int     `json:"active_loss"`
+	AvgPnLPct      float64 `json:"avg_pnl_pct"`
+	AvgMFE         float64 `json:"avg_mfe"`
+	AvgMAE         float64 `json:"avg_mae"`
 }
 
 func main() {
@@ -130,24 +204,30 @@ func main() {
 	roundInterval := flag.Duration("round-interval", 120*time.Second, "sleep interval between validation rounds")
 	persistSignals := flag.Bool("persist-signals", true, "persist classified raw Hunter v7 signals into hunter_v7_signal_records")
 	trackOutcomes := flag.Bool("track-outcomes", true, "track persisted EXECUTABLE/REVIEWABLE signals with 1m candles during validation")
+	postTrackDuration := flag.Duration("post-track-duration", 0, "continue tracking ACTIVE validation outcomes after all rounds; 0 disables post tracking")
+	postTrackInterval := flag.Duration("post-track-interval", 30*time.Second, "post-round outcome tracking tick interval")
+	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	flag.Parse()
 
 	opts := validationOptions{
-		topDetail:      *topDetail,
-		maxWorkers:     *maxWorkers,
-		maxOutput:      *maxOutput,
-		watchOutput:    *watchOutput,
-		minPriority:    *minPriority,
-		aggressive:     *aggressive,
-		strategyID:     *strategyID,
-		dbPath:         *dbPath,
-		outDir:         *outDir,
-		dumpUniverse:   *dumpUniverse,
-		rounds:         *rounds,
-		roundInterval:  *roundInterval,
-		persistSignals: *persistSignals,
-		trackOutcomes:  *trackOutcomes,
-		watchState:     local.NewV7SignalStateManager(),
+		topDetail:         *topDetail,
+		maxWorkers:        *maxWorkers,
+		maxOutput:         *maxOutput,
+		watchOutput:       *watchOutput,
+		minPriority:       *minPriority,
+		aggressive:        *aggressive,
+		strategyID:        *strategyID,
+		dbPath:            *dbPath,
+		outDir:            *outDir,
+		dumpUniverse:      *dumpUniverse,
+		rounds:            *rounds,
+		roundInterval:     *roundInterval,
+		persistSignals:    *persistSignals,
+		trackOutcomes:     *trackOutcomes,
+		postTrackDuration: *postTrackDuration,
+		postTrackInterval: *postTrackInterval,
+		trackActiveOnly:   *trackActiveOnly,
+		watchState:        local.NewV7SignalStateManager(),
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -195,31 +275,47 @@ func main() {
 			tracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []aittrader.TrackedCandle {
 				return validationBackfillCandles(backfillFetcher, symbol, from, to)
 			})
+			tracker.SetCandleSource(func(symbol string) *aittrader.TrackedCandle {
+				return validationLatestCandle(backfillFetcher, symbol)
+			})
 			opts.outcomeTracker = tracker
 		}
 	}
+	reports := make([]validationReport, 0, opts.rounds)
 	for round := 1; round <= opts.rounds; round++ {
 		if opts.rounds > 1 {
 			fmt.Printf("Hunter v7 validation round %d/%d\n", round, opts.rounds)
 		}
-		if err := runValidation(opts, round); err != nil {
+		report, err := runValidation(opts, round)
+		if err != nil {
 			log.Fatalf("validation round %d failed: %v", round, err)
 		}
+		reports = append(reports, report)
 		if round < opts.rounds {
 			fmt.Printf("Sleeping %s before next Binance REST validation round\n", opts.roundInterval)
 			time.Sleep(opts.roundInterval)
 		}
 	}
+	if err := writeValidationRunSummary(opts, reports); err != nil {
+		log.Fatalf("write run summary failed: %v", err)
+	}
+	if err := runPostTrackOutcomes(opts); err != nil {
+		log.Fatalf("post-track outcomes failed: %v", err)
+	}
+	if err := writeValidationOutcomeSummary(opts); err != nil {
+		log.Fatalf("write outcome summary failed: %v", err)
+	}
 }
 
-func runValidation(opts validationOptions, round int) error {
+func runValidation(opts validationOptions, round int) (validationReport, error) {
+	var report validationReport
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
 	if err != nil {
-		return fmt.Errorf("load strategy config failed: %w", err)
+		return report, fmt.Errorf("load strategy config failed: %w", err)
 	}
 	includeNonCryptoFutures := false
 	if strategyCfg != nil && strategyCfg.CoinSource.Hunter != nil {
@@ -234,7 +330,7 @@ func runValidation(opts validationOptions, round int) error {
 	})
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
-		return fmt.Errorf("fetch snapshot failed: %w", err)
+		return report, fmt.Errorf("fetch snapshot failed: %w", err)
 	}
 
 	cfg := local.DefaultV7Config()
@@ -270,7 +366,7 @@ func runValidation(opts validationOptions, round int) error {
 		// Golden-replay capture: freeze this cycle's routing inputs so the
 		// refactor safety net can replay RouteDetailed deterministically.
 		if err := local.DumpV7GoldenFixture(opts.dumpUniverse, universe, regime, cfg); err != nil {
-			return fmt.Errorf("dump golden fixture failed: %w", err)
+			return report, fmt.Errorf("dump golden fixture failed: %w", err)
 		}
 		fmt.Printf("golden fixture: %s (universe=%d regime=%s)\n", opts.dumpUniverse, len(universe), regime)
 	}
@@ -284,18 +380,19 @@ func runValidation(opts validationOptions, round int) error {
 		stamp = fmt.Sprintf("%s-r%02d", stamp, round)
 	}
 	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
-		return fmt.Errorf("create out dir failed: %w", err)
+		return report, fmt.Errorf("create out dir failed: %w", err)
 	}
 	promptPath := fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", opts.outDir, stamp)
 	rawPath := fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", opts.outDir, stamp)
 	mdPath := fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", opts.outDir, stamp)
 
 	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
-		return fmt.Errorf("write prompt failed: %w", err)
+		return report, fmt.Errorf("write prompt failed: %w", err)
 	}
 
-	report := validationReport{
+	report = validationReport{
 		GeneratedAt: now.Format("2006-01-02 15:04:05 MST"),
+		Round:       round,
 		Snapshot: snapshotSummary{
 			SymbolCount:   snap.Meta.SymbolCount,
 			UniverseCount: len(universe),
@@ -310,6 +407,7 @@ func runValidation(opts validationOptions, round int) error {
 		PotentialPool:     v7Result.PotentialPool,
 		PromptPreviewPath: promptPath,
 	}
+	report.Snapshot = annotateSnapshotQuality(report.Snapshot)
 	report.FormatCheck, report.Issues = validateFormat(signals)
 	report.AIRecognition = validatePrompt(prompt, len(candidates))
 	report.OpportunityCover = validateCoverage(signals, geometry)
@@ -325,20 +423,20 @@ func runValidation(opts validationOptions, round int) error {
 
 	raw, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal report failed: %w", err)
+		return report, fmt.Errorf("marshal report failed: %w", err)
 	}
 	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
-		return fmt.Errorf("write raw report failed: %w", err)
+		return report, fmt.Errorf("write raw report failed: %w", err)
 	}
 	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
-		return fmt.Errorf("write markdown report failed: %w", err)
+		return report, fmt.Errorf("write markdown report failed: %w", err)
 	}
 	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, now.UTC(), snap); err != nil {
-		return err
+		return report, err
 	}
 
 	printConsoleSummary(report, rawPath, mdPath)
-	return nil
+	return report, nil
 }
 
 func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals []local.V7SignalOutput, candidates []kernel.CandidateCoin, ts time.Time, snap *datafetch.Snapshot) error {
@@ -371,7 +469,7 @@ func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals [
 		if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
 			continue
 		}
-		opts.outcomeTracker.Register(
+		if _, replacedID := opts.outcomeTracker.Register(
 			dbRec.ID,
 			rec.Signal.Symbol,
 			string(rec.Signal.Direction),
@@ -383,7 +481,15 @@ func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals [
 			rec.Signal.TP1Price,
 			rec.Signal.TP2Price,
 			ts,
-		)
+		); replacedID > 0 {
+			now := time.Now().UTC()
+			if err := opts.store.HunterV7Signal().UpdateTrackOutcome(replacedID, store.HunterV7SignalTrackUpdate{
+				Status:   "DUPLICATE_CONTEXT",
+				ExitTime: &now,
+			}); err != nil {
+				log.Printf("WARN mark validation V7 duplicate context failed: %v", err)
+			}
+		}
 	}
 	opts.outcomeTracker.TickNow()
 	fmt.Printf("persisted Hunter v7 signals: %d (tracking open-review outcomes)\n", len(dbRecords))
@@ -460,6 +566,371 @@ func validationBackfillCandles(fetcher *datafetch.DataFetcher, symbol string, fr
 		})
 	}
 	return out
+}
+
+func validationLatestCandle(fetcher *datafetch.DataFetcher, symbol string) *aittrader.TrackedCandle {
+	if fetcher == nil || symbol == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	klines, err := fetcher.FetchKlines(ctx, symbol, "1m", 2)
+	if err != nil {
+		log.Printf("WARN validation Hunter v7 latest 1m candle failed for %s: %v", symbol, err)
+		return nil
+	}
+	for i := len(klines) - 1; i >= 0; i-- {
+		k := klines[i]
+		if k.Close <= 0 {
+			continue
+		}
+		return &aittrader.TrackedCandle{
+			T:      time.UnixMilli(k.CloseTime).UTC(),
+			Open:   k.Open,
+			High:   k.High,
+			Low:    k.Low,
+			Close:  k.Close,
+			Volume: k.Volume,
+		}
+	}
+	return nil
+}
+
+func runPostTrackOutcomes(opts validationOptions) error {
+	if opts.outcomeTracker == nil || opts.postTrackDuration <= 0 {
+		return nil
+	}
+	interval := opts.postTrackInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
+		return fmt.Errorf("create out dir failed: %w", err)
+	}
+	deadline := time.Now().Add(opts.postTrackDuration)
+	fmt.Printf("Post-tracking Hunter v7 outcomes for up to %s (interval=%s, active_only=%v)\n",
+		opts.postTrackDuration, interval, opts.trackActiveOnly)
+	opts.outcomeTracker.TickNow()
+	for time.Now().Before(deadline) {
+		active := len(opts.outcomeTracker.GetActive())
+		if opts.trackActiveOnly && active == 0 {
+			fmt.Println("Post-tracking complete: no ACTIVE validation outcomes remain")
+			return nil
+		}
+		remaining := time.Until(deadline)
+		sleepFor := interval
+		if remaining < sleepFor {
+			sleepFor = remaining
+		}
+		if sleepFor <= 0 {
+			break
+		}
+		fmt.Printf("Post-tracking ACTIVE outcomes: %d; next tick in %s\n", active, sleepFor.Round(time.Second))
+		time.Sleep(sleepFor)
+		opts.outcomeTracker.TickNow()
+	}
+	fmt.Printf("Post-tracking finished at duration limit; ACTIVE outcomes remaining=%d\n", len(opts.outcomeTracker.GetActive()))
+	return nil
+}
+
+func writeValidationOutcomeSummary(opts validationOptions) error {
+	if opts.outcomeTracker == nil {
+		return nil
+	}
+	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
+		return fmt.Errorf("create out dir failed: %w", err)
+	}
+	now := time.Now()
+	summary := buildValidationOutcomeSummary(opts, now)
+	stamp := now.Format("20060102-150405")
+	rawPath := fmt.Sprintf("%s/hunter-v7-validation-outcomes-%s.json", opts.outDir, stamp)
+	mdPath := fmt.Sprintf("%s/hunter-v7-validation-outcomes-%s.md", opts.outDir, stamp)
+	raw, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal outcome summary failed: %w", err)
+	}
+	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
+		return fmt.Errorf("write outcome summary json failed: %w", err)
+	}
+	if err := os.WriteFile(mdPath, []byte(formatOutcomeSummaryMarkdown(summary, rawPath)), 0644); err != nil {
+		return fmt.Errorf("write outcome summary markdown failed: %w", err)
+	}
+	fmt.Printf("outcome_summary: %s\noutcome_report: %s\n", rawPath, mdPath)
+	return nil
+}
+
+func writeValidationRunSummary(opts validationOptions, reports []validationReport) error {
+	if len(reports) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
+		return fmt.Errorf("create out dir failed: %w", err)
+	}
+	now := time.Now()
+	summary := buildValidationRunSummary(reports, now)
+	stamp := now.Format("20060102-150405")
+	rawPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.json", opts.outDir, stamp)
+	mdPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.md", opts.outDir, stamp)
+	raw, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal run summary failed: %w", err)
+	}
+	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
+		return fmt.Errorf("write run summary json failed: %w", err)
+	}
+	if err := os.WriteFile(mdPath, []byte(formatRunSummaryMarkdown(summary, rawPath)), 0644); err != nil {
+		return fmt.Errorf("write run summary markdown failed: %w", err)
+	}
+	fmt.Printf("run_summary: %s\nrun_report: %s\n", rawPath, mdPath)
+	return nil
+}
+
+func buildValidationRunSummary(reports []validationReport, now time.Time) validationRunSummary {
+	summary := validationRunSummary{
+		GeneratedAt: now.Format("2006-01-02 15:04:05 MST"),
+		Rounds:      len(reports),
+		Round:       make([]validationRoundSummary, 0, len(reports)),
+	}
+	for _, report := range reports {
+		signalCount := report.OpportunityCover.SignalCount
+		openReview := reportOpenReviewCount(report)
+		round := validationRoundSummary{
+			Round:          report.Round,
+			GeneratedAt:    report.GeneratedAt,
+			Regime:         report.Snapshot.Regime,
+			SignalCount:    signalCount,
+			OpenReview:     openReview,
+			OpenReviewRate: pct(openReview, signalCount),
+			RestErrors:     report.Snapshot.RestErrors,
+			RestErrorRate:  report.Snapshot.RestErrorRate,
+			UniverseCount:  report.Snapshot.UniverseCount,
+			Degraded:       report.Snapshot.Degraded,
+			Reasons:        append([]string(nil), report.Snapshot.DegradationReasons...),
+		}
+		summary.Round = append(summary.Round, round)
+		summary.SignalCount += signalCount
+		summary.OpenReviewCount += openReview
+		if report.Snapshot.Degraded {
+			summary.DegradedRounds = append(summary.DegradedRounds, report.Round)
+			continue
+		}
+		summary.ValidRounds++
+		summary.ValidSignalCount += signalCount
+		summary.ValidOpenReviewCount += openReview
+	}
+	summary.OpenReviewRate = pct(summary.OpenReviewCount, summary.SignalCount)
+	summary.ValidOpenReviewRate = pct(summary.ValidOpenReviewCount, summary.ValidSignalCount)
+	return summary
+}
+
+func reportOpenReviewCount(report validationReport) int {
+	return report.AIRecognition.PromptTierCounts["EXECUTABLE"] + report.AIRecognition.PromptTierCounts["REVIEWABLE"]
+}
+
+func pct(n, d int) float64 {
+	if d <= 0 {
+		return 0
+	}
+	return float64(n) / float64(d) * 100
+}
+
+func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) string {
+	var sb strings.Builder
+	sb.WriteString("# Hunter v7 验证 Run 汇总\n\n")
+	sb.WriteString(fmt.Sprintf("> 生成时间：%s\n", summary.GeneratedAt))
+	sb.WriteString(fmt.Sprintf("> 原始 JSON：`%s`\n\n", rawPath))
+	sb.WriteString("## 1. 总览\n\n")
+	sb.WriteString("| 项目 | 数值 |\n|---|---:|\n")
+	sb.WriteString(fmt.Sprintf("| rounds | %d |\n", summary.Rounds))
+	sb.WriteString(fmt.Sprintf("| valid_rounds | %d |\n", summary.ValidRounds))
+	sb.WriteString(fmt.Sprintf("| all_open_review_rate | %.1f%% |\n", summary.OpenReviewRate))
+	sb.WriteString(fmt.Sprintf("| valid_open_review_rate | %.1f%% |\n", summary.ValidOpenReviewRate))
+	sb.WriteString(fmt.Sprintf("| all_signals | %d |\n", summary.SignalCount))
+	sb.WriteString(fmt.Sprintf("| all_open_review | %d |\n", summary.OpenReviewCount))
+	sb.WriteString(fmt.Sprintf("| valid_signals | %d |\n", summary.ValidSignalCount))
+	sb.WriteString(fmt.Sprintf("| valid_open_review | %d |\n\n", summary.ValidOpenReviewCount))
+	sb.WriteString("## 2. Round 明细\n\n")
+	sb.WriteString("| Round | Regime | Signals | Open-review | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons |\n")
+	sb.WriteString("|---:|---|---:|---:|---:|---:|---:|---:|---|---|\n")
+	for _, round := range summary.Round {
+		sb.WriteString(fmt.Sprintf("| %d | %s | %d | %d | %.1f%% | %d | %.1f%% | %d | %v | %s |\n",
+			round.Round, round.Regime, round.SignalCount, round.OpenReview, round.OpenReviewRate,
+			round.RestErrors, round.RestErrorRate*100, round.UniverseCount, round.Degraded, strings.Join(round.Reasons, ", ")))
+	}
+	return sb.String()
+}
+
+func buildValidationOutcomeSummary(opts validationOptions, now time.Time) validationOutcomeSummary {
+	summary := validationOutcomeSummary{
+		GeneratedAt:       now.Format("2006-01-02 15:04:05 MST"),
+		PostTrackDuration: opts.postTrackDuration.String(),
+		PostTrackInterval: opts.postTrackInterval.String(),
+		TrackActiveOnly:   opts.trackActiveOnly,
+		CompletedStats:    opts.outcomeTracker.GetStatsBySetupType(),
+	}
+	statuses := []aittrader.TrackedStatus{
+		aittrader.TrackedActive,
+		aittrader.TrackedWinTP0,
+		aittrader.TrackedWinTP1,
+		aittrader.TrackedWinTP2,
+		aittrader.TrackedStop,
+		aittrader.TrackedTimeout,
+	}
+	setupBuckets := make(map[string]*validationSetupOutcome)
+	for _, status := range statuses {
+		signals := opts.outcomeTracker.GetByStatus(status)
+		if len(signals) == 0 {
+			continue
+		}
+		statusSummary := summarizeTrackedStatus(status, signals)
+		summary.Status = append(summary.Status, statusSummary)
+		summary.TrackedCount += statusSummary.Count
+		if status == aittrader.TrackedActive {
+			summary.ActiveCount = statusSummary.Count
+		}
+		for _, sig := range signals {
+			setup := sig.SetupType
+			if setup == "" {
+				setup = "unknown"
+			}
+			bucket := setupBuckets[setup]
+			if bucket == nil {
+				bucket = &validationSetupOutcome{SetupType: setup}
+				setupBuckets[setup] = bucket
+			}
+			addSignalToSetupOutcome(bucket, sig)
+		}
+	}
+	sort.Slice(summary.Status, func(i, j int) bool {
+		return summary.Status[i].Status < summary.Status[j].Status
+	})
+	for _, bucket := range setupBuckets {
+		if bucket.Count > 0 {
+			n := float64(bucket.Count)
+			bucket.AvgPnLPct /= n
+			bucket.AvgMFE /= n
+			bucket.AvgMAE /= n
+		}
+		summary.Setup = append(summary.Setup, *bucket)
+	}
+	sort.Slice(summary.Setup, func(i, j int) bool {
+		return summary.Setup[i].SetupType < summary.Setup[j].SetupType
+	})
+	return summary
+}
+
+func summarizeTrackedStatus(status aittrader.TrackedStatus, signals []*aittrader.TrackedSignal) validationStatusOutcome {
+	out := validationStatusOutcome{Status: string(status), Count: len(signals)}
+	for _, sig := range signals {
+		pnl := trackedSignalPnLPct(sig)
+		out.AvgPnLPct += pnl
+		out.AvgMFE += sig.MaxFavorable
+		out.AvgMAE += sig.MaxAdverse
+		switch {
+		case pnl > 0:
+			out.ProfitCount++
+		case pnl < 0:
+			out.LossCount++
+		default:
+			out.FlatCount++
+		}
+	}
+	if out.Count > 0 {
+		n := float64(out.Count)
+		out.AvgPnLPct /= n
+		out.AvgMFE /= n
+		out.AvgMAE /= n
+	}
+	return out
+}
+
+func addSignalToSetupOutcome(out *validationSetupOutcome, sig *aittrader.TrackedSignal) {
+	if out == nil || sig == nil {
+		return
+	}
+	out.Count++
+	pnl := trackedSignalPnLPct(sig)
+	out.AvgPnLPct += pnl
+	out.AvgMFE += sig.MaxFavorable
+	out.AvgMAE += sig.MaxAdverse
+	switch sig.Status {
+	case aittrader.TrackedActive:
+		out.Active++
+		if pnl > 0 {
+			out.ActiveProfit++
+		} else if pnl < 0 {
+			out.ActiveLoss++
+		}
+	case aittrader.TrackedWinTP0, aittrader.TrackedWinTP1, aittrader.TrackedWinTP2:
+		out.Wins++
+	case aittrader.TrackedStop:
+		if pnl >= 0 {
+			out.ProtectedStops++
+		} else {
+			out.LossStops++
+		}
+	case aittrader.TrackedTimeout:
+		out.Timeouts++
+	}
+}
+
+func trackedSignalPnLPct(sig *aittrader.TrackedSignal) float64 {
+	if sig == nil || sig.SignalPrice <= 0 {
+		return 0
+	}
+	price := sig.CurrentPrice
+	if sig.ExitPrice > 0 {
+		price = sig.ExitPrice
+	}
+	if price <= 0 {
+		return 0
+	}
+	switch strings.ToUpper(sig.Direction) {
+	case string(local.V7DirLong):
+		return (price - sig.SignalPrice) / sig.SignalPrice * 100
+	case string(local.V7DirShort):
+		return (sig.SignalPrice - price) / sig.SignalPrice * 100
+	default:
+		return 0
+	}
+}
+
+func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath string) string {
+	var sb strings.Builder
+	sb.WriteString("# Hunter v7 验证 Outcome 汇总\n\n")
+	sb.WriteString(fmt.Sprintf("> 生成时间：%s\n", summary.GeneratedAt))
+	sb.WriteString(fmt.Sprintf("> 原始 JSON：`%s`\n\n", rawPath))
+	sb.WriteString("## 1. 总览\n\n")
+	sb.WriteString("| 项目 | 数值 |\n|---|---:|\n")
+	sb.WriteString(fmt.Sprintf("| tracked | %d |\n", summary.TrackedCount))
+	sb.WriteString(fmt.Sprintf("| active | %d |\n", summary.ActiveCount))
+	sb.WriteString(fmt.Sprintf("| post_track_duration | %s |\n", summary.PostTrackDuration))
+	sb.WriteString(fmt.Sprintf("| post_track_interval | %s |\n\n", summary.PostTrackInterval))
+	sb.WriteString("## 2. 状态分布\n\n")
+	if len(summary.Status) == 0 {
+		sb.WriteString("- 无 tracked outcome。\n\n")
+	} else {
+		sb.WriteString("| Status | Count | Profit | Loss | Flat | Avg PnL% | Avg MFE% | Avg MAE% |\n")
+		sb.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|\n")
+		for _, st := range summary.Status {
+			sb.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %.3f | %.3f | %.3f |\n",
+				st.Status, st.Count, st.ProfitCount, st.LossCount, st.FlatCount, st.AvgPnLPct, st.AvgMFE, st.AvgMAE))
+		}
+		sb.WriteString("\n")
+	}
+	sb.WriteString("## 3. Setup 汇总\n\n")
+	if len(summary.Setup) == 0 {
+		sb.WriteString("- 无 setup outcome。\n")
+		return sb.String()
+	}
+	sb.WriteString("| Setup | Count | Active | Wins | Loss Stops | Protected Stops | Timeouts | Active Profit | Active Loss | Avg PnL% | Avg MFE% | Avg MAE% |\n")
+	sb.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+	for _, setup := range summary.Setup {
+		sb.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %d | %d | %d | %d | %.3f | %.3f | %.3f |\n",
+			setup.SetupType, setup.Count, setup.Active, setup.Wins, setup.LossStops, setup.ProtectedStops,
+			setup.Timeouts, setup.ActiveProfit, setup.ActiveLoss, setup.AvgPnLPct, setup.AvgMFE, setup.AvgMAE))
+	}
+	return sb.String()
 }
 
 // executionGeometryFromStrategy mirrors the production engine's geometry
@@ -797,7 +1268,7 @@ func snapshotIssues(s snapshotSummary) []issue {
 	if s.SymbolCount <= 0 {
 		return []issue{{Severity: "critical", Code: "snapshot_empty", Detail: "Binance snapshot returned no symbols"}}
 	}
-	restRate := float64(s.RestErrors) / float64(s.SymbolCount)
+	restRate := s.RestErrorRate
 	if s.RestErrors > 0 {
 		severity := "medium"
 		if s.RestErrors >= 50 || restRate >= 0.20 {
@@ -810,7 +1281,7 @@ func snapshotIssues(s snapshotSummary) []issue {
 				s.RestErrors, s.SymbolCount, restRate*100),
 		})
 	}
-	coverage := float64(s.UniverseCount) / float64(s.SymbolCount)
+	coverage := s.UniverseCoverage
 	if s.UniverseCount > 0 && coverage < 0.30 {
 		issues = append(issues, issue{
 			Severity: "medium",
@@ -819,7 +1290,30 @@ func snapshotIssues(s snapshotSummary) []issue {
 				s.UniverseCount, s.SymbolCount, coverage*100),
 		})
 	}
+	if s.Degraded {
+		issues = append(issues, issue{
+			Severity: "high",
+			Code:     "degraded_round_excluded_from_main_stats",
+			Detail:   "this validation round is marked degraded and should be excluded from valid-round open-rate/outcome conclusions: " + strings.Join(s.DegradationReasons, ", "),
+		})
+	}
 	return issues
+}
+
+func annotateSnapshotQuality(s snapshotSummary) snapshotSummary {
+	if s.SymbolCount > 0 {
+		s.RestErrorRate = float64(s.RestErrors) / float64(s.SymbolCount)
+		s.UniverseCoverage = float64(s.UniverseCount) / float64(s.SymbolCount)
+	}
+	if s.RestErrorRate > 0.20 {
+		s.Degraded = true
+		s.DegradationReasons = append(s.DegradationReasons, fmt.Sprintf("rest_error_rate_gt_20pct(%.1f%%)", s.RestErrorRate*100))
+	}
+	if s.SymbolCount > 0 && s.UniverseCoverage < 0.30 {
+		s.Degraded = true
+		s.DegradationReasons = append(s.DegradationReasons, fmt.Sprintf("universe_coverage_lt_30pct(%.1f%%)", s.UniverseCoverage*100))
+	}
+	return s
 }
 
 func priceChange24h(snap *datafetch.Snapshot, symbol string) float64 {
@@ -869,6 +1363,10 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("| Universe coverage | %.1f%% |\n", universeCoverage))
 	sb.WriteString(fmt.Sprintf("| REST errors | %d |\n", r.Snapshot.RestErrors))
 	sb.WriteString(fmt.Sprintf("| REST error rate | %.1f%% |\n", restRate))
+	sb.WriteString(fmt.Sprintf("| Degraded round | %v |\n", r.Snapshot.Degraded))
+	if len(r.Snapshot.DegradationReasons) > 0 {
+		sb.WriteString(fmt.Sprintf("| Degradation reasons | %s |\n", strings.Join(r.Snapshot.DegradationReasons, ", ")))
+	}
 	sb.WriteString(fmt.Sprintf("| Fetch ms | %d |\n\n", r.Snapshot.FetchMs))
 
 	sb.WriteString("## 4. 实时信号\n\n")
@@ -971,6 +1469,9 @@ func printConsoleSummary(r validationReport, rawPath, mdPath string) {
 	fmt.Printf("Hunter v7 validation complete\n")
 	fmt.Printf("snapshot: symbols=%d universe=%d regime=%s BTC24h=%+.2f%% ETH24h=%+.2f%% rest_errors=%d\n",
 		r.Snapshot.SymbolCount, r.Snapshot.UniverseCount, r.Snapshot.Regime, r.Snapshot.BTC24h, r.Snapshot.ETH24h, r.Snapshot.RestErrors)
+	if r.Snapshot.Degraded {
+		fmt.Printf("snapshot_degraded: true reasons=%s\n", strings.Join(r.Snapshot.DegradationReasons, ","))
+	}
 	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
 		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
 	fmt.Printf("potential_pool: top=%d unmatched=%d\n", r.OpportunityCover.PotentialPoolCount, r.OpportunityCover.UnmatchedPotentialCount)

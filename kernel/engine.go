@@ -666,6 +666,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	}
 
 	if reason := hunterV7RequiredConfirmationWaitReason(coin); reason != "" {
+		if hunterV7AltLadderShortReboundPending(coin, reason) {
+			return "WATCH", "alt_ladder_short_rebound_pending"
+		}
 		if ok, reviewReason := hunterV7LiveConfirmableReviewableReason(coin, reason); ok {
 			return "REVIEWABLE", reviewReason
 		}
@@ -821,6 +824,51 @@ func hunterV7LiveConfirmableReviewableReason(coin CandidateCoin, waitReason stri
 		return false, ""
 	}
 	return true, "live_reviewable_" + missing
+}
+
+func hunterV7AltLadderShortReboundPending(coin CandidateCoin, waitReason string) bool {
+	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
+		return false
+	}
+	switch waitReason {
+	case "confirmation_missing_no_new_high_after_rejection":
+		return true
+	case "confirmation_missing_5m_or_15m_close_below_trigger":
+		return !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection")
+	default:
+		return false
+	}
+}
+
+func hunterV7ConfirmationPassed(coin CandidateCoin, code string) bool {
+	if code == "" {
+		return false
+	}
+	if containsStringValue(coin.V7ReasonCodes, code) {
+		return true
+	}
+	if coin.V7ConfirmSummary == nil {
+		return false
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingHard {
+		if check.Code == code {
+			return false
+		}
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingReview {
+		if check.Code == code {
+			return false
+		}
+	}
+	for _, check := range coin.V7ConfirmSummary.ContextChecks {
+		if check.Code == code {
+			return check.Passed
+		}
+	}
+	if containsStringValue(coin.V7RequiredConfirms, code) {
+		return coin.V7ConfirmSummary.PassedReview
+	}
+	return false
 }
 
 func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing string) (bool, string) {
@@ -2981,6 +3029,40 @@ func hunterV7AltLadderLongExecutable(coin CandidateCoin) bool {
 		}
 	}
 	return true
+}
+
+func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
+	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
+		return false
+	}
+	if !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") {
+		return false
+	}
+	hasFlowLeg := containsAnyStringValue(coin.V7ReasonCodes, []string{
+		"alt_ladder_new_shorts",
+		"alt_ladder_long_flush",
+		"alt_ladder_sell_volume",
+	})
+	if !hasFlowLeg {
+		return false
+	}
+	hasCloseThrough := containsAnyStringValue(coin.V7ReasonCodes, []string{
+		"alt_ladder_multi_cycle_close_through",
+		"trigger_memory_confirmed",
+	})
+	hasTakerSell := containsStringValue(coin.V7ReasonCodes, "alt_ladder_taker_sell")
+	late := containsStringValue(coin.V7ReasonCodes, "alt_ladder_downshift_late") ||
+		containsStringValue(coin.V7RiskTags, "alt_ladder_late_short_risk")
+	if late {
+		return hasCloseThrough &&
+			hasTakerSell &&
+			!containsStringValue(coin.V7RiskTags, "alt_ladder_late_short_risk") &&
+			hunterV7TakerBuyConfirmedAtMost(coin, 0.46)
+	}
+	if hasCloseThrough {
+		return hunterV7TakerBuyConfirmedAtMost(coin, 0.48)
+	}
+	return hasTakerSell && hunterV7TakerBuyConfirmedAtMost(coin, 0.46)
 }
 
 func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {

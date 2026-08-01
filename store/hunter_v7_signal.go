@@ -165,7 +165,8 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 		winStatuses = []string{"WIN_TP0", "WIN_TP1", "WIN_TP2"}
 	}
 	var records []HunterV7SignalRecord
-	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status != '' AND track_status != ?", from, to, "ACTIVE").
+	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "STOP", "TIMEOUT"}
+	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
 		Find(&records).Error
 	if err != nil {
 		return stats, err
@@ -209,7 +210,8 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 // regime weighting.
 func (s *HunterV7SignalStore) SetupRegimeOutcomeStats(from, to time.Time, minSamples int) ([]HunterV7SetupRegimeOutcomeStats, error) {
 	var records []HunterV7SignalRecord
-	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status != '' AND track_status != ?", from, to, "ACTIVE").
+	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "STOP", "TIMEOUT"}
+	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
 		Find(&records).Error
 	if err != nil {
 		return nil, err

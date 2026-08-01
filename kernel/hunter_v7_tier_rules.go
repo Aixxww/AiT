@@ -513,6 +513,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 				Taker:      hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
 				RequireAll: []string{"alt_ladder_taker_sell"},
 				RequireAny: [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
+				Guards:     []func(CandidateCoin) bool{func(coin CandidateCoin) bool { return hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") }},
 				Reason:     "alt_ladder_short_ready_strong_confirmed",
 			},
 		},
@@ -520,6 +521,7 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 			{
 				MinAIPriority: 52, MinTimingScore: 58, RiskAtMost: 45,
 				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
+				Guards: []func(CandidateCoin) bool{hunterV7AltLadderShortReviewableOK},
 				Reason: "alt_ladder_short_reviewable_confirmed",
 			},
 		},

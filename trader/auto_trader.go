@@ -520,7 +520,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
 					continue
 				}
-				v7OutcomeTracker.Register(
+				if _, replacedID := v7OutcomeTracker.Register(
 					dbRec.ID,
 					rec.Signal.Symbol,
 					string(rec.Signal.Direction),
@@ -532,7 +532,15 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					rec.Signal.TP1Price,
 					rec.Signal.TP2Price,
 					now,
-				)
+				); replacedID > 0 {
+					dupAt := time.Now().UTC()
+					if err := st.HunterV7Signal().UpdateTrackOutcome(replacedID, store.HunterV7SignalTrackUpdate{
+						Status:   "DUPLICATE_CONTEXT",
+						ExitTime: &dupAt,
+					}); err != nil {
+						logger.Warnf("⚠️ [%s] Failed to mark duplicate V7 tracking context: %v", config.Name, err)
+					}
+				}
 			}
 		})
 	}

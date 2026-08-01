@@ -174,12 +174,33 @@ func TestV7SignalStateManagerPromotesAltLadderShortAfterCloseThrough(t *testing.
 	if !containsString(got.ReasonCodes, "alt_ladder_multi_cycle_close_through") {
 		t.Fatalf("missing alt_ladder_multi_cycle_close_through: %+v", got.ReasonCodes)
 	}
+	if !containsString(got.RequiredConfirms, "no_new_high_after_rejection") {
+		t.Fatalf("missing no-new-high rebound-failure confirmation: %+v", got.RequiredConfirms)
+	}
+}
+
+func TestV7SignalStateManagerDoesNotPromoteAltLadderShortWithoutRejectionFailure(t *testing.T) {
+	manager := NewV7SignalStateManager()
+	first := altLadderShortMemorySignal(0.0866, false)
+	if upgraded := manager.Process([]V7SignalOutput{first}, 1); len(upgraded) != 0 {
+		t.Fatalf("first cycle upgraded = %d, want 0", len(upgraded))
+	}
+
+	second := altLadderShortMemorySignalWithRejection(0.0857, true, false)
+	upgraded := manager.Process([]V7SignalOutput{second}, 2)
+	if len(upgraded) != 0 {
+		t.Fatalf("missing rebound-failure confirmation upgraded = %d, want 0", len(upgraded))
+	}
 }
 
 func altLadderShortMemorySignal(price float64, closeThrough bool) V7SignalOutput {
+	return altLadderShortMemorySignalWithRejection(price, closeThrough, closeThrough)
+}
+
+func altLadderShortMemorySignalWithRejection(price float64, closeThrough, noNewHigh bool) V7SignalOutput {
 	summary := &V7ConfirmationSummary{
 		PassedHard:   true,
-		PassedReview: closeThrough,
+		PassedReview: closeThrough && noNewHigh,
 	}
 	if closeThrough {
 		summary.ContextChecks = []V7ConfirmationCheck{{
@@ -191,6 +212,17 @@ func altLadderShortMemorySignal(price float64, closeThrough bool) V7SignalOutput
 			Code:   "5m_or_15m_close_below_trigger",
 			Passed: false,
 		}}
+	}
+	if noNewHigh {
+		summary.ContextChecks = append(summary.ContextChecks, V7ConfirmationCheck{
+			Code:   "no_new_high_after_rejection",
+			Passed: true,
+		})
+	} else {
+		summary.MissingReview = append(summary.MissingReview, V7ConfirmationCheck{
+			Code:   "no_new_high_after_rejection",
+			Passed: false,
+		})
 	}
 	return V7SignalOutput{
 		Symbol:           "OPUSDT",
@@ -209,6 +241,7 @@ func altLadderShortMemorySignal(price float64, closeThrough bool) V7SignalOutput
 			"live_price_in_entry_zone",
 			"taker_buy_15m_lt_0_48",
 			"5m_or_15m_close_below_trigger",
+			"no_new_high_after_rejection",
 		},
 		RiskScore:      30,
 		LiquidityScore: 80,

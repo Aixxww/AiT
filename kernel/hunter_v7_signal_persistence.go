@@ -136,14 +136,8 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 // followed. WATCH rows stay persisted for funnel stats but do not count as
 // active trade outcomes unless a caller explicitly tracks missed opportunity.
 func HunterV7ShouldTrackSignal(rec local.V7SignalRecord) bool {
-	if rec.Tier == string(local.V7ReadinessExecutable) || rec.Tier == string(local.V7ReadinessReviewable) {
-		return true
-	}
-	if rec.Signal.ExecutionReadiness != nil {
-		tier := rec.Signal.ExecutionReadiness.Tier
-		return tier == local.V7ReadinessExecutable || tier == local.V7ReadinessReviewable
-	}
-	return false
+	return rec.Tier == string(local.V7ReadinessExecutable) ||
+		rec.Tier == string(local.V7ReadinessReviewable)
 }
 
 // HunterV7SignalEntryPrice returns the same synthetic entry used for dry-run

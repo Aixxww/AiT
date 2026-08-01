@@ -590,6 +590,9 @@ func v7AltLadderShortCloseThroughConfirmed(sig *V7SignalOutput, entry *v7Trigger
 	if !v7RequiredConfirmPassed(sig, "5m_or_15m_close_below_trigger") {
 		return false
 	}
+	if !v7RequiredConfirmPassed(sig, "no_new_high_after_rejection") {
+		return false
+	}
 	price := 0.0
 	if sig.PriceCtx != nil {
 		price = sig.PriceCtx.Last
@@ -657,6 +660,9 @@ func v7TriggerMemoryConfirmations(sig *V7SignalOutput) []string {
 		sig.SetupType == V7SetupTrendBreakoutLong ||
 		sig.SetupType == V7SetupAccumulationLong {
 		if sig.Direction == V7DirShort {
+			if sig.SetupType == V7SetupAltLadderShort {
+				return []string{"5m_or_15m_close_below_trigger", "no_new_high_after_rejection"}
+			}
 			return []string{"5m_or_15m_close_below_trigger"}
 		}
 		return []string{"5m_or_15m_close_through_breakout_level"}

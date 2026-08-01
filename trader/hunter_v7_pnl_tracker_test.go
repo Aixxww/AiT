@@ -27,7 +27,7 @@ func TestSignalOutcomeTrackerEmitsTP0Outcome(t *testing.T) {
 		outcomes = append(outcomes, outcome)
 	})
 
-	tracker.Register(1, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupLeaderMomentumLong), "EXECUTABLE", 100, 95, 101, 103, 106, time.Now())
+	_, _ = tracker.Register(1, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupLeaderMomentumLong), "EXECUTABLE", 100, 95, 101, 103, 106, time.Now())
 	candle = &TrackedCandle{T: time.Now(), High: 101.2, Low: 100.2, Close: 100.6}
 	tracker.TickNow()
 
@@ -65,7 +65,7 @@ func TestSignalOutcomeTrackerDynamicStopUsesCandleLow(t *testing.T) {
 		outcomes = append(outcomes, outcome)
 	})
 
-	tracker.Register(3, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 110, 115, 120, time.Now().Add(-40*time.Minute))
+	_, _ = tracker.Register(3, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 110, 115, 120, time.Now().Add(-40*time.Minute))
 	tracker.TickNow()
 	if len(outcomes) != 1 || outcomes[0].Status != TrackedActive {
 		t.Fatalf("first outcome = %+v, want active", outcomes)
@@ -80,6 +80,48 @@ func TestSignalOutcomeTrackerDynamicStopUsesCandleLow(t *testing.T) {
 	tracker.TickNow()
 	if outcomes[len(outcomes)-1].Status != TrackedStop {
 		t.Fatalf("last status = %s, want %s", outcomes[len(outcomes)-1].Status, TrackedStop)
+	}
+}
+
+func TestSignalOutcomeTrackerAltLadderShortBreakevenAfterMFE(t *testing.T) {
+	signalTime := time.Now().Add(-5 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:          time.Hour,
+		TimeoutDuration:       time.Hour,
+		MaxTracked:            10,
+		SnapshotLimit:         10,
+		EnableDynamicStop:     true,
+		BreakevenMFEThreshold: 0.60,
+	}, nil)
+	candles := []TrackedCandle{
+		{T: signalTime.Add(time.Minute), Open: 100, High: 99.8, Low: 99.2, Close: 99.4},
+		{T: signalTime.Add(2 * time.Minute), Open: 99.4, High: 100.05, Low: 99.3, Close: 99.9},
+	}
+	tracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
+		var out []TrackedCandle
+		for _, candle := range candles {
+			if !candle.T.Before(since) {
+				out = append(out, candle)
+			}
+		}
+		return out
+	})
+
+	var outcome TrackedOutcome
+	tracker.SetOutcomeCallback(func(o TrackedOutcome) {
+		outcome = o
+	})
+	_, _ = tracker.Register(30, "ALTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 98, 96, 94, signalTime)
+	tracker.TickNow()
+
+	if outcome.Status != TrackedStop {
+		t.Fatalf("status = %s, want %s", outcome.Status, TrackedStop)
+	}
+	if outcome.ExitPrice != 100 {
+		t.Fatalf("exit price = %v, want breakeven stop 100", outcome.ExitPrice)
+	}
+	if outcome.PnLPct != 0 {
+		t.Fatalf("pnl = %v, want breakeven", outcome.PnLPct)
 	}
 }
 
@@ -105,7 +147,7 @@ func TestSignalOutcomeTrackerReplaysCandleHistorySinceSignal(t *testing.T) {
 		outcome = o
 	})
 
-	tracker.Register(4, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(4, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 
 	if outcome.Status != TrackedWinTP0 {
@@ -149,7 +191,7 @@ func TestSignalOutcomeTrackerBackfillsWhenHistoryMissesSignalWindow(t *testing.T
 		outcome = o
 	})
 
-	tracker.Register(5, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(5, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 
 	if backfillCalls != 1 {
@@ -183,7 +225,7 @@ func TestSignalOutcomeTrackerSkipsBackfillWhenHistoryCoversSignalWindow(t *testi
 		return nil
 	})
 
-	tracker.Register(6, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(6, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 
 	if backfillCalls != 0 {
@@ -213,7 +255,7 @@ func TestSignalOutcomeTrackerThrottlesActiveOutcomeWrites(t *testing.T) {
 		outcomes = append(outcomes, o)
 	})
 
-	tracker.Register(7, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(7, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 	tracker.TickNow()
 
@@ -248,11 +290,112 @@ func TestSignalOutcomeTrackerTimeoutOutcome(t *testing.T) {
 		outcome = o
 	})
 
-	tracker.Register(2, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "REVIEWABLE", 100, 95, 105, 110, 115, time.Now().Add(-2*time.Minute))
+	_, _ = tracker.Register(2, "TESTUSDT", string(local.V7DirLong), string(local.V7SetupPullbackLong), "REVIEWABLE", 100, 95, 105, 110, 115, time.Now().Add(-2*time.Minute))
 	tracker.TickNow()
 
 	if outcome.Status != TrackedTimeout {
 		t.Fatalf("status = %s, want %s", outcome.Status, TrackedTimeout)
+	}
+}
+
+func TestSignalOutcomeTrackerReplacesNewerDuplicateThesisWithinWindow(t *testing.T) {
+	signalTime := time.Now().Add(-10 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:      time.Hour,
+		TimeoutDuration:   time.Hour,
+		MaxTracked:        10,
+		DuplicateWindow:   30 * time.Minute,
+		EnableDynamicStop: false,
+	}, nil)
+
+	registered, replacedID := tracker.Register(1, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 99, 97, 94, signalTime)
+	if !registered || replacedID != 0 {
+		t.Fatalf("first register = %v replaced=%d, want true/0", registered, replacedID)
+	}
+	registered, replacedID = tracker.Register(2, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 99.5, 104, 98.5, 96.5, 94, signalTime.Add(5*time.Minute))
+	if !registered || replacedID != 1 {
+		t.Fatalf("second register = %v replaced=%d, want true/1", registered, replacedID)
+	}
+
+	active := tracker.GetActive()
+	if len(active) != 1 || active[0].RecordID != 2 {
+		t.Fatalf("active = %+v, want only record 2", active)
+	}
+}
+
+func TestSignalOutcomeTrackerIgnoresOlderDuplicateThesisWithinWindow(t *testing.T) {
+	signalTime := time.Now().Add(-10 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:      time.Hour,
+		TimeoutDuration:   time.Hour,
+		MaxTracked:        10,
+		DuplicateWindow:   30 * time.Minute,
+		EnableDynamicStop: false,
+	}, nil)
+
+	_, _ = tracker.Register(2, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 99.5, 104, 98.5, 96.5, 94, signalTime.Add(5*time.Minute))
+	registered, replacedID := tracker.Register(1, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 99, 97, 94, signalTime)
+	if registered || replacedID != 0 {
+		t.Fatalf("older register = %v replaced=%d, want false/0", registered, replacedID)
+	}
+
+	active := tracker.GetActive()
+	if len(active) != 1 || active[0].RecordID != 2 {
+		t.Fatalf("active = %+v, want only record 2", active)
+	}
+}
+
+func TestSignalOutcomeTrackerIgnoresOlderDuplicateThesisOutsideWindow(t *testing.T) {
+	signalTime := time.Now().Add(-10 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:      time.Hour,
+		TimeoutDuration:   time.Hour,
+		MaxTracked:        10,
+		DuplicateWindow:   30 * time.Minute,
+		EnableDynamicStop: false,
+	}, nil)
+
+	_, _ = tracker.Register(2, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 99.5, 104, 98.5, 96.5, 94, signalTime.Add(40*time.Minute))
+	registered, replacedID := tracker.Register(1, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 99, 97, 94, signalTime)
+	if registered || replacedID != 0 {
+		t.Fatalf("older outside-window register = %v replaced=%d, want false/0", registered, replacedID)
+	}
+
+	active := tracker.GetActive()
+	if len(active) != 1 || active[0].RecordID != 2 {
+		t.Fatalf("active = %+v, want only record 2", active)
+	}
+}
+
+func TestSignalOutcomeTrackerKeepsLatestThesisIndexWhenOlderSignalCompletes(t *testing.T) {
+	base := time.Now().Add(-45 * time.Minute).Truncate(time.Second)
+	candles := []TrackedCandle{
+		{T: base.Add(time.Minute), Open: 100, High: 100.2, Low: 98.8, Close: 99},
+	}
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:      time.Hour,
+		TimeoutDuration:   time.Hour,
+		MaxTracked:        10,
+		DuplicateWindow:   30 * time.Minute,
+		EnableDynamicStop: false,
+	}, nil)
+	tracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
+		var out []TrackedCandle
+		for _, candle := range candles {
+			if !candle.T.Before(since) {
+				out = append(out, candle)
+			}
+		}
+		return out
+	})
+
+	_, _ = tracker.Register(1, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 99, 97, 94, base)
+	_, _ = tracker.Register(2, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 99.5, 104, 98.5, 96.5, 94, base.Add(35*time.Minute))
+	tracker.TickNow()
+
+	registered, replacedID := tracker.Register(3, "GRVTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 99, 103, 98, 96, 93, base.Add(40*time.Minute))
+	if !registered || replacedID != 2 {
+		t.Fatalf("third register = %v replaced=%d, want true/2", registered, replacedID)
 	}
 }
 
@@ -274,9 +417,9 @@ func TestSignalOutcomeTrackerSetupStatsSplitTP0TP1AndNoSLSurvival(t *testing.T) 
 	})
 
 	setup := string(local.V7SetupRangeExpansion)
-	tracker.Register(10, "TP0USDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
-	tracker.Register(11, "TP1USDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
-	tracker.Register(12, "SLUSDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(10, "TP0USDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(11, "TP1USDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(12, "SLUSDT", string(local.V7DirLong), setup, "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 
 	stats := tracker.GetStatsBySetupType()[setup]
@@ -310,7 +453,7 @@ func TestSignalOutcomeTrackerWatchTP0CreatesMissedOpportunityAudit(t *testing.T)
 	})
 
 	setup := string(local.V7SetupPreBreakoutWatch)
-	tracker.Register(20, "WATCHUSDT", string(local.V7DirLong), setup, "WATCH", 100, 95, 101, 103, 106, signalTime)
+	_, _ = tracker.Register(20, "WATCHUSDT", string(local.V7DirLong), setup, "WATCH", 100, 95, 101, 103, 106, signalTime)
 	tracker.TickNow()
 
 	active := tracker.GetActive()
