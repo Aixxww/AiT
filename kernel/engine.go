@@ -830,6 +830,9 @@ func hunterV7AltLadderShortReboundPending(coin CandidateCoin, waitReason string)
 	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
 	}
+	if hunterV7AltLadderShortLayeredReleaseOK(coin) {
+		return false
+	}
 	switch waitReason {
 	case "confirmation_missing_no_new_high_after_rejection":
 		return true
@@ -3035,7 +3038,8 @@ func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
 	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
 	}
-	if !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") {
+	if !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") &&
+		!hunterV7AltLadderShortLayeredReleaseOK(coin) {
 		return false
 	}
 	hasFlowLeg := containsAnyStringValue(coin.V7ReasonCodes, []string{
@@ -3063,6 +3067,57 @@ func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
 		return hunterV7TakerBuyConfirmedAtMost(coin, 0.48)
 	}
 	return hasTakerSell && hunterV7TakerBuyConfirmedAtMost(coin, 0.46)
+}
+
+func hunterV7AltLadderShortLayeredReleaseOK(coin CandidateCoin) bool {
+	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
+		return false
+	}
+	if hunterV7AltLadderShortLayeredReleaseHardBlock(coin) {
+		return false
+	}
+	earlyOrMid := containsAnyStringValue(coin.V7ReasonCodes, []string{
+		"alt_ladder_downshift_early",
+		"alt_ladder_downshift_mid",
+	})
+	if !earlyOrMid {
+		return false
+	}
+	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 70 {
+		return false
+	}
+	stopDistancePct := hunterV7StopDistancePct(coin)
+	if stopDistancePct > 0 && stopDistancePct > 2.2 {
+		return false
+	}
+	lowTakerSell := hunterV7TakerBuyConfirmedAtMost(coin, 0.38)
+	newShortsWithOI := containsStringValue(coin.V7ReasonCodes, "alt_ladder_new_shorts") &&
+		coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange1h > 1.0 &&
+		hunterV7TakerBuyConfirmedAtMost(coin, 0.42)
+	return lowTakerSell || newShortsWithOI
+}
+
+func hunterV7AltLadderShortLayeredReleaseHardBlock(coin CandidateCoin) bool {
+	if containsAnyStringValue(coin.V7RiskTags, []string{
+		"high_volatility",
+		"extreme_volatility",
+		"alt_ladder_late_short_risk",
+	}) || hasHunterV7DangerRiskTag(coin.V7RiskTags) {
+		return true
+	}
+	if containsStringValue(coin.V7RiskTags, "funding_elevated") &&
+		containsStringValue(coin.V7RiskTags, "execution_stop_tightened") {
+		return true
+	}
+	late := containsStringValue(coin.V7ReasonCodes, "alt_ladder_downshift_late")
+	closeThrough := containsAnyStringValue(coin.V7ReasonCodes, []string{
+		"alt_ladder_multi_cycle_close_through",
+		"trigger_memory_confirmed",
+	})
+	if late && !closeThrough {
+		return true
+	}
+	return coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0.42
 }
 
 func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {

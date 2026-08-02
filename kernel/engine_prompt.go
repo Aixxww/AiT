@@ -1125,6 +1125,10 @@ func hunterV7TP0DistancePct(coin CandidateCoin) float64 {
 	}
 	switch coin.V7SetupType {
 	case "mms_trend_ride_long", "mms_squeeze_engine_long", "alt_ladder_momentum_long", "alt_ladder_breakdown_short", "displacement_momentum_long", "breakdown_momentum_short":
+	case "relative_weakness_short", "range_expansion_event":
+		if !strings.EqualFold(coin.Direction, "SHORT") {
+			return 0
+		}
 	default:
 		return 0
 	}

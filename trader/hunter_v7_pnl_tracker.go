@@ -618,10 +618,25 @@ func (t *SignalOutcomeTracker) breakevenStop(sig *TrackedSignal) float64 {
 	if sig.MaxFavorable < threshold {
 		return 0
 	}
-	if sig.SetupType == string(local.V7SetupAltLadderShort) && sig.Direction == string(local.V7DirShort) {
+	if hunterV7ContinuationBreakevenEligible(sig) {
 		return sig.SignalPrice
 	}
 	return 0
+}
+
+func hunterV7ContinuationBreakevenEligible(sig *TrackedSignal) bool {
+	if sig == nil || sig.Direction != string(local.V7DirShort) {
+		return false
+	}
+	switch sig.SetupType {
+	case string(local.V7SetupAltLadderShort),
+		string(local.V7SetupBreakdownShort),
+		string(local.V7SetupRelativeWeaknessShort),
+		string(local.V7SetupRangeExpansion):
+		return true
+	default:
+		return false
+	}
 }
 
 func (t *SignalOutcomeTracker) updateMissedOpportunityAudit(sig *TrackedSignal, candle TrackedCandle) bool {
