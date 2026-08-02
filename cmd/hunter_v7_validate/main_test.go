@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Aixxww/AiT/kernel"
@@ -82,6 +83,22 @@ func TestPromptIssuesAllowsNoOpenReviewCandidatesWithoutExpandedJSON(t *testing.
 
 	if issues := promptIssues(check); len(issues) != 0 {
 		t.Fatalf("no open-review candidates should not require expanded v7 JSON: %+v", issues)
+	}
+}
+
+func TestFormatRunSummaryMarksAllDegradedSampleInvalidForWinRate(t *testing.T) {
+	md := formatRunSummaryMarkdown(validationRunSummary{
+		GeneratedAt: "2026-08-02 12:00:00 CST",
+		Rounds:      2,
+		ValidRounds: 0,
+		Round: []validationRoundSummary{
+			{Round: 1, Regime: "compression", SignalCount: 8, Degraded: true, Reasons: []string{"universe_coverage_lt_30pct"}},
+			{Round: 2, Regime: "trend_down", SignalCount: 9, Degraded: true, Reasons: []string{"rest_error_rate_gt_20pct"}},
+		},
+	}, "summary.json")
+
+	if !strings.Contains(md, "INVALID_SAMPLE_DO_NOT_USE_FOR_WINRATE") {
+		t.Fatalf("all-degraded summary should mark sample invalid for win-rate use:\n%s", md)
 	}
 }
 

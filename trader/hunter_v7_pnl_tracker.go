@@ -23,12 +23,13 @@ import (
 type TrackedStatus string
 
 const (
-	TrackedActive  TrackedStatus = "ACTIVE"
-	TrackedWinTP0  TrackedStatus = "WIN_TP0"
-	TrackedWinTP1  TrackedStatus = "WIN_TP1"
-	TrackedWinTP2  TrackedStatus = "WIN_TP2"
-	TrackedStop    TrackedStatus = "STOP"
-	TrackedTimeout TrackedStatus = "TIMEOUT"
+	TrackedActive        TrackedStatus = "ACTIVE"
+	TrackedWinTP0        TrackedStatus = "WIN_TP0"
+	TrackedWinTP1        TrackedStatus = "WIN_TP1"
+	TrackedWinTP2        TrackedStatus = "WIN_TP2"
+	TrackedStop          TrackedStatus = "STOP"
+	TrackedProtectedStop TrackedStatus = "PROTECTED_STOP"
+	TrackedTimeout       TrackedStatus = "TIMEOUT"
 )
 
 // PriceSnapshot captures a single point-in-time price observation.
@@ -625,18 +626,28 @@ func (t *SignalOutcomeTracker) breakevenStop(sig *TrackedSignal) float64 {
 }
 
 func hunterV7ContinuationBreakevenEligible(sig *TrackedSignal) bool {
-	if sig == nil || sig.Direction != string(local.V7DirShort) {
+	if sig == nil {
 		return false
 	}
-	switch sig.SetupType {
-	case string(local.V7SetupAltLadderShort),
-		string(local.V7SetupBreakdownShort),
-		string(local.V7SetupRelativeWeaknessShort),
-		string(local.V7SetupRangeExpansion):
-		return true
-	default:
-		return false
+	switch sig.Direction {
+	case string(local.V7DirShort):
+		switch sig.SetupType {
+		case string(local.V7SetupAltLadderShort),
+			string(local.V7SetupBreakdownShort),
+			string(local.V7SetupRelativeWeaknessShort),
+			string(local.V7SetupRangeExpansion):
+			return true
+		}
+	case string(local.V7DirLong):
+		switch sig.SetupType {
+		case string(local.V7SetupAltLadderLong),
+			"displacement_momentum_long",
+			"whale_flow_reversal",
+			string(local.V7SetupRangeExpansion):
+			return true
+		}
 	}
+	return false
 }
 
 func (t *SignalOutcomeTracker) updateMissedOpportunityAudit(sig *TrackedSignal, candle TrackedCandle) bool {
@@ -676,7 +687,7 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 	switch sig.Direction {
 	case string(local.V7DirLong):
 		if stopUsed > 0 && candle.Low <= stopUsed {
-			sig.Status = TrackedStop
+			sig.Status = trackedStopStatus(sig, stopUsed)
 			return true, stopUsed
 		}
 		if sig.TP2Price > 0 && candle.High >= sig.TP2Price {
@@ -693,7 +704,7 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 		}
 	case string(local.V7DirShort):
 		if stopUsed > 0 && candle.High >= stopUsed {
-			sig.Status = TrackedStop
+			sig.Status = trackedStopStatus(sig, stopUsed)
 			return true, stopUsed
 		}
 		if sig.TP2Price > 0 && candle.Low <= sig.TP2Price {
@@ -710,6 +721,23 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 		}
 	}
 	return false, 0
+}
+
+func trackedStopStatus(sig *TrackedSignal, stopPrice float64) TrackedStatus {
+	if sig == nil || sig.SignalPrice <= 0 || stopPrice <= 0 {
+		return TrackedStop
+	}
+	switch sig.Direction {
+	case string(local.V7DirLong):
+		if stopPrice >= sig.SignalPrice {
+			return TrackedProtectedStop
+		}
+	case string(local.V7DirShort):
+		if stopPrice <= sig.SignalPrice {
+			return TrackedProtectedStop
+		}
+	}
+	return TrackedStop
 }
 
 func (t *SignalOutcomeTracker) buildOutcome(sig *TrackedSignal, pnlPct float64) TrackedOutcome {
@@ -815,6 +843,8 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 			st.TP0Wins++
 			st.TP1Wins++
 			st.TP2Wins++
+		case TrackedProtectedStop:
+			st.Wins++
 		case TrackedStop:
 			st.Losses++
 			st.Stops++

@@ -730,6 +730,9 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	if reason := hunterV7CounterTrendConfirmationWaitReason(coin); reason != "" {
 		return "WATCH", reason
 	}
+	if reason := hunterV7RangeExpansionLongFragileWaitReason(coin); reason != "" {
+		return "WATCH", reason
+	}
 	if reason := hunterV7BackendCappedRRWaitReason(coin, geometry); reason != "" {
 		return "WATCH", reason
 	}
@@ -1224,6 +1227,9 @@ func hunterV7ConfirmedRangeExpansionContinuation(coin CandidateCoin, executable 
 	if coin.V7SetupType != "range_expansion_event" {
 		return false
 	}
+	if reason := hunterV7RangeExpansionLongFragileWaitReason(coin); reason != "" {
+		return false
+	}
 	if coin.V7Readiness == nil || !hunterV7ConfirmationSummaryReviewPassed(coin) {
 		return false
 	}
@@ -1264,6 +1270,33 @@ func hunterV7ConfirmedRangeExpansionContinuation(coin CandidateCoin, executable 
 		return hunterV7TakerBuyConfirmedAtMost(coin, 0.48)
 	}
 	return hunterV7TakerBuyConfirmedAtLeast(coin, 0.52)
+}
+
+func hunterV7RangeExpansionLongFragileWaitReason(coin CandidateCoin) string {
+	if coin.V7SetupType != "range_expansion_event" || !strings.EqualFold(coin.Direction, "LONG") {
+		return ""
+	}
+	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.OIChange1h >= 0 {
+		return ""
+	}
+	entryZonePos := 0.0
+	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.EntryZonePosition > 0 {
+		entryZonePos = coin.V7ConfirmSummary.EntryZonePosition
+	}
+	if coin.V7Readiness != nil && coin.V7Readiness.EntryZonePos > entryZonePos {
+		entryZonePos = coin.V7Readiness.EntryZonePos
+	}
+	if entryZonePos <= 60 {
+		return ""
+	}
+	if containsAnyStringValue(coin.V7ReasonCodes, []string{
+		"oi_confirms_new_longs",
+		"oi_building",
+		"oi_increasing",
+	}) {
+		return ""
+	}
+	return "range_expansion_long_negative_oi_high_zone_wait"
 }
 
 func hunterV7LeaderMomentumFlexibleReviewableReason(coin CandidateCoin) (bool, string) {

@@ -749,6 +749,9 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 	sb.WriteString(fmt.Sprintf("| all_open_review | %d |\n", summary.OpenReviewCount))
 	sb.WriteString(fmt.Sprintf("| valid_signals | %d |\n", summary.ValidSignalCount))
 	sb.WriteString(fmt.Sprintf("| valid_open_review | %d |\n\n", summary.ValidOpenReviewCount))
+	if summary.Rounds > 0 && summary.ValidRounds == 0 {
+		sb.WriteString("> INVALID_SAMPLE_DO_NOT_USE_FOR_WINRATE: 本次所有轮次均为 degraded，all_open_review_rate 仅可用于 smoke 回归，不可作为胜率/开仓率验收。\n\n")
+	}
 	sb.WriteString("## 2. Round 明细\n\n")
 	sb.WriteString("| Round | Regime | Signals | Open-review | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons |\n")
 	sb.WriteString("|---:|---|---:|---:|---:|---:|---:|---:|---|---|\n")
@@ -773,6 +776,7 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 		aittrader.TrackedWinTP0,
 		aittrader.TrackedWinTP1,
 		aittrader.TrackedWinTP2,
+		aittrader.TrackedProtectedStop,
 		aittrader.TrackedStop,
 		aittrader.TrackedTimeout,
 	}
@@ -863,6 +867,8 @@ func addSignalToSetupOutcome(out *validationSetupOutcome, sig *aittrader.Tracked
 		}
 	case aittrader.TrackedWinTP0, aittrader.TrackedWinTP1, aittrader.TrackedWinTP2:
 		out.Wins++
+	case aittrader.TrackedProtectedStop:
+		out.ProtectedStops++
 	case aittrader.TrackedStop:
 		if pnl >= 0 {
 			out.ProtectedStops++

@@ -1191,6 +1191,7 @@ export const translations = {
       invalidation: 'INVALID',
       hardConfirms: 'HARD',
       reviewConfirms: 'REVIEW',
+      protectedStop: 'PROTECTED',
     },
 
     // TraderDashboardPage
@@ -2591,6 +2592,7 @@ export const translations = {
       invalidation: '失效价',
       hardConfirms: '硬确认',
       reviewConfirms: '复核确认',
+      protectedStop: '保护',
     },
 
     traderDashboard: {
@@ -3933,6 +3935,7 @@ export const translations = {
       invalidation: 'INVALID',
       hardConfirms: 'HARD',
       reviewConfirms: 'REVIEW',
+      protectedStop: 'TERLINDUNG',
     },
 
     traderDashboard: {

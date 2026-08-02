@@ -78,8 +78,8 @@ func TestSignalOutcomeTrackerDynamicStopUsesCandleLow(t *testing.T) {
 
 	candle = &TrackedCandle{T: time.Now(), High: 103.2, Low: active[0].DynamicStop - 0.01, Close: 103}
 	tracker.TickNow()
-	if outcomes[len(outcomes)-1].Status != TrackedStop {
-		t.Fatalf("last status = %s, want %s", outcomes[len(outcomes)-1].Status, TrackedStop)
+	if outcomes[len(outcomes)-1].Status != TrackedProtectedStop {
+		t.Fatalf("last status = %s, want %s", outcomes[len(outcomes)-1].Status, TrackedProtectedStop)
 	}
 }
 
@@ -114,8 +114,8 @@ func TestSignalOutcomeTrackerAltLadderShortBreakevenAfterMFE(t *testing.T) {
 	_, _ = tracker.Register(30, "ALTUSDT", string(local.V7DirShort), string(local.V7SetupAltLadderShort), "REVIEWABLE", 100, 105, 98, 96, 94, signalTime)
 	tracker.TickNow()
 
-	if outcome.Status != TrackedStop {
-		t.Fatalf("status = %s, want %s", outcome.Status, TrackedStop)
+	if outcome.Status != TrackedProtectedStop {
+		t.Fatalf("status = %s, want %s", outcome.Status, TrackedProtectedStop)
 	}
 	if outcome.ExitPrice != 100 {
 		t.Fatalf("exit price = %v, want breakeven stop 100", outcome.ExitPrice)
@@ -163,8 +163,60 @@ func TestSignalOutcomeTrackerShortContinuationBreakevenAfterMFE(t *testing.T) {
 			_, _ = tracker.Register(30, "SHORTUSDT", string(local.V7DirShort), setup, "REVIEWABLE", 100, 105, 98, 96, 94, signalTime)
 			tracker.TickNow()
 
-			if outcome.Status != TrackedStop {
-				t.Fatalf("status = %s, want %s", outcome.Status, TrackedStop)
+			if outcome.Status != TrackedProtectedStop {
+				t.Fatalf("status = %s, want %s", outcome.Status, TrackedProtectedStop)
+			}
+			if outcome.ExitPrice != 100 {
+				t.Fatalf("exit price = %v, want breakeven stop 100", outcome.ExitPrice)
+			}
+			if outcome.PnLPct != 0 {
+				t.Fatalf("pnl = %v, want breakeven", outcome.PnLPct)
+			}
+		})
+	}
+}
+
+func TestSignalOutcomeTrackerLongContinuationBreakevenAfterMFE(t *testing.T) {
+	setups := []string{
+		string(local.V7SetupAltLadderLong),
+		"displacement_momentum_long",
+		"whale_flow_reversal",
+		string(local.V7SetupRangeExpansion),
+	}
+	for _, setup := range setups {
+		t.Run(setup, func(t *testing.T) {
+			signalTime := time.Now().Add(-5 * time.Minute).Truncate(time.Second)
+			tracker := NewSignalOutcomeTracker(&TrackerConfig{
+				PollInterval:          time.Hour,
+				TimeoutDuration:       time.Hour,
+				MaxTracked:            10,
+				SnapshotLimit:         10,
+				EnableDynamicStop:     true,
+				BreakevenMFEThreshold: 0.60,
+			}, nil)
+			candles := []TrackedCandle{
+				{T: signalTime.Add(time.Minute), Open: 100, High: 100.8, Low: 100.2, Close: 100.6},
+				{T: signalTime.Add(2 * time.Minute), Open: 100.6, High: 100.7, Low: 99.95, Close: 100.1},
+			}
+			tracker.SetCandleHistorySource(func(symbol string, since time.Time) []TrackedCandle {
+				var out []TrackedCandle
+				for _, candle := range candles {
+					if !candle.T.Before(since) {
+						out = append(out, candle)
+					}
+				}
+				return out
+			})
+
+			var outcome TrackedOutcome
+			tracker.SetOutcomeCallback(func(o TrackedOutcome) {
+				outcome = o
+			})
+			_, _ = tracker.Register(30, "LONGUSDT", string(local.V7DirLong), setup, "REVIEWABLE", 100, 95, 102, 104, 106, signalTime)
+			tracker.TickNow()
+
+			if outcome.Status != TrackedProtectedStop {
+				t.Fatalf("status = %s, want %s", outcome.Status, TrackedProtectedStop)
 			}
 			if outcome.ExitPrice != 100 {
 				t.Fatalf("exit price = %v, want breakeven stop 100", outcome.ExitPrice)

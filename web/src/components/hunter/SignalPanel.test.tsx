@@ -231,6 +231,8 @@ describe('SignalPanel', () => {
           id: 4,
           execution_tier: 'REVIEWABLE',
           tier_reason: 'needs review',
+          track_status: 'PROTECTED_STOP',
+          track_pnl_pct: 0.18,
           signal: makeSignal({ symbol: 'SOLUSDT', direction: 'SHORT' }),
         }),
         makeRow({
@@ -259,6 +261,8 @@ describe('SignalPanel', () => {
     // Expanded cards for the actionable tiers
     expect(await screen.findByTestId('signal-card-BTCUSDT')).toBeInTheDocument()
     expect(screen.getByTestId('signal-card-SOLUSDT')).toBeInTheDocument()
+    expect(screen.getByText('PROTECTED')).toBeInTheDocument()
+    expect(screen.getByText('+0.18%')).toBeInTheDocument()
     // Direction badge is separate from the tier badge
     expect(screen.getAllByText('LONG').length).toBeGreaterThan(0)
     expect(screen.getAllByText('SHORT').length).toBeGreaterThan(0)

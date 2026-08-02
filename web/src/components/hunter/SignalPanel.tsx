@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Radar,
   RefreshCw,
+  ShieldCheck,
   WifiOff,
   X,
 } from 'lucide-react'
@@ -88,6 +89,45 @@ function DirectionBadge({ direction }: { direction: 'LONG' | 'SHORT' }) {
       }`}
     >
       {direction}
+    </span>
+  )
+}
+
+function OutcomeBadge({
+  row,
+  language,
+}: {
+  row: V7SignalRow
+  language: Language
+}) {
+  if (!row.track_status) return null
+  const pnl = Number.isFinite(row.track_pnl_pct) ? row.track_pnl_pct : 0
+  const status = row.track_status
+  const isProtected = status === 'PROTECTED_STOP'
+  const isWin = status.startsWith('WIN_')
+  const isStop = status === 'STOP'
+  const classes = isProtected
+    ? 'border-tier-reviewable/40 bg-tier-reviewable-bg text-tier-reviewable'
+    : isWin
+      ? 'border-profit/30 bg-profit/10 text-profit'
+      : isStop
+        ? 'border-loss/30 bg-loss/10 text-loss'
+        : 'border-border/60 bg-muted/20 text-muted-foreground'
+  return (
+    <span
+      className={`inline-flex min-w-0 items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${classes}`}
+      title={`${status} ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)}%`}
+    >
+      {isProtected && <ShieldCheck className="h-3 w-3 shrink-0" />}
+      <span className="truncate">
+        {isProtected
+          ? t('v7Signals.protectedStop', language)
+          : status.replace('_', ' ')}
+      </span>
+      <span className="tabular-nums">
+        {pnl >= 0 ? '+' : ''}
+        {pnl.toFixed(2)}%
+      </span>
     </span>
   )
 }
@@ -236,6 +276,7 @@ function SignalCard({
         </span>
         <DirectionBadge direction={signal.direction} />
         <SignalTierBadge tier={row.execution_tier as SignalTier} />
+        <OutcomeBadge row={row} language={language} />
         <span className="font-mono text-[11px] text-muted-foreground">
           {signal.setup_type}
         </span>
@@ -311,6 +352,7 @@ function WatchRow({ row, language }: { row: V7SignalRow; language: Language }) {
         {row.signal.symbol}
       </span>
       <DirectionBadge direction={row.signal.direction} />
+      <OutcomeBadge row={row} language={language} />
       <span className="font-mono text-[10px]">{row.signal.setup_type}</span>
       <span className="ml-auto font-mono text-[10px] tabular-nums">
         {t('v7Signals.scoreAiPriority', language)}{' '}
