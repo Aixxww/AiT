@@ -18,10 +18,36 @@ import (
 
 type hunterV7TakerGate struct {
 	// Kind selects the taker predicate: "" (no gate), "at_least", "at_most",
-	// "confirmed_at_least" (missing data fails instead of passing), "aligned"
-	// (direction-dependent default thresholds).
+	// "confirmed_at_least" / "confirmed_at_most" (missing data fails),
+	// "aligned" (direction-dependent default thresholds).
 	Kind      string
 	Threshold float64
+}
+
+// hunterV7ZoneGate constrains entry-zone position %. Zero thresholds mean
+// "no bound". RequireKnown fails closed when position cannot be computed.
+type hunterV7ZoneGate struct {
+	MaxPos       float64
+	MinPos       float64
+	RequireKnown bool
+}
+
+// hunterV7OIGate constrains derivatives OI change %. Zero thresholds mean
+// "no bound". RequireCtx fails when DerivativesCtx is missing.
+// AllowMissing lets a nil context pass (legacy "unknown OI does not block").
+type hunterV7OIGate struct {
+	MinChange1h  float64
+	MaxChange1h  float64
+	MinChange4h  float64
+	RequireCtx   bool
+	AllowMissing bool
+}
+
+// hunterV7StopGate constrains stop distance %. AllowUnknown passes when the
+// distance cannot be computed (legacy soft-release behaviour).
+type hunterV7StopGate struct {
+	MaxPct       float64
+	AllowUnknown bool
 }
 
 type hunterV7TierRule struct {
@@ -43,14 +69,27 @@ type hunterV7TierRule struct {
 	MinLiquidity float64
 
 	Taker hunterV7TakerGate
+	Zone  hunterV7ZoneGate
+	OI    hunterV7OIGate
+	Stop  hunterV7StopGate
+
+	// RequireInsideZone demands hunterV7PriceInsideEntryZone.
+	RequireInsideZone bool
+	// RequireConfirmAll demands hunterV7ConfirmationPassed for each code.
+	RequireConfirmAll []string
 
 	// Reason-code requirements over V7ReasonCodes.
 	RequireAll []string
 	RequireAny [][]string
 	ForbidAll  []string
+	// ForbidRiskAny rejects when any listed tag appears in V7RiskTags.
+	ForbidRiskAny []string
+	// RequireRiskAny requires at least one listed tag in V7RiskTags.
+	RequireRiskAny []string
 
 	// Guards carry the setup-specific predicates that are not yet (or not
-	// worth) data-encoding; all must pass.
+	// worth) data-encoding; all must pass. Prefer Zone/OI/Stop/Forbid* first
+	// (docs/hunter-v7-entropy-recoil-20260813.md).
 	Guards []func(CandidateCoin) bool
 
 	// Reason is the tier reason emitted when the rule matches. Rules whose
@@ -62,6 +101,13 @@ type hunterV7TierRule struct {
 }
 
 type hunterV7SetupTierSpec struct {
+	// EarlyWatch is evaluated before hard REJECTED gates that are setup-
+	// agnostic only when the setup wants a visible WATCH (e.g. extreme
+	// continuation). First match wins → ("WATCH", Reason).
+	EarlyWatch []hunterV7TierRule
+	// ConfirmWatchReason runs when required-confirmation wait fires. A
+	// non-empty return overrides the wait reason with a setup-specific WATCH.
+	ConfirmWatchReason func(coin CandidateCoin, waitReason string) string
 	// Ready gates EXECUTABLE when execution quality is "ready" or the entry
 	// signal is "entry_open_now"; NearConfirm gates EXECUTABLE for
 	// "near_confirm"/candidate status; Reviewable gates REVIEWABLE.
@@ -102,6 +148,7 @@ var hunterV7MMSLongTierSpec = hunterV7SetupTierSpec{
 			Guards: []func(CandidateCoin) bool{
 				hunterV7MMSLongExecutableFreshEnough,
 				func(coin CandidateCoin) bool { return !hunterV7MMSLongExecutableChaseBlock(coin) },
+				hunterV7MMSLongLiveSupportOK,
 			},
 			Reason: "mms_long_ready_confirmed",
 		},
@@ -110,6 +157,7 @@ var hunterV7MMSLongTierSpec = hunterV7SetupTierSpec{
 		{
 			MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 55, RiskBelow: 55,
 			Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: 0.50},
+			Guards: []func(CandidateCoin) bool{hunterV7MMSLongLiveSupportOK},
 			Reason: "mms_long_reviewable_confirmed",
 		},
 	},
@@ -198,14 +246,14 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 	"pre_distribution_watch":      hunterV7WatchStateTierSpec,
 	"accumulation_watch":          hunterV7WatchStateTierSpec,
 	"alt_ladder_momentum_long": {
-		Ready: []hunterV7TierRule{
-			// The ladder-stage/oi/volume resonance lives in one composite
-			// predicate; the row is just its carrier.
+		EarlyWatch: []hunterV7TierRule{
 			{
-				Guards: []func(CandidateCoin) bool{hunterV7AltLadderLongExecutable},
-				Reason: "alt_ladder_long_ready_confirmed",
+				RequireRiskAny: []string{"alt_ladder_extreme_continuation_watch"},
+				RequireAll:     []string{"alt_ladder_stage_extreme"},
+				Reason:         "alt_ladder_extreme_continuation_watch",
 			},
 		},
+		Ready: altLadderLongReadyRules,
 		Reviewable: []hunterV7TierRule{
 			{
 				MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 52, RiskBelow: 55,
@@ -481,14 +529,19 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 	"whale_flow_reversal": {
 		PromptWait: hunterV7WhaleFlowDataPromptWait,
 		// Ready mirrors the trader's whale-flow LONG gates (zone position
-		// <=45%, taker_buy_15m >= 0.56): the 2026-07-27 six-round live trial
-		// showed every whale EXECUTABLE sat at zone 56-67%, where the trader
-		// guard vetoes the open — the generic floor was spending EXECUTABLE
-		// slots on candidates the backend could never accept.
+		// <=45%, taker_buy_15m >= 0.56). SHORT keeps the score floor only —
+		// trader does not apply the LONG zone/taker confirmation leg to shorts.
 		Ready: []hunterV7TierRule{
 			{
+				Direction:     "LONG",
 				MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55,
-				Guards: []func(CandidateCoin) bool{hunterV7WhaleFlowLongEntryGatesOK},
+				Zone:   hunterV7ZoneGate{MaxPos: hunterV7WhaleLongMaxZonePos},
+				Taker:  hunterV7TakerGate{Kind: "at_least", Threshold: hunterV7WhaleLongMinTaker},
+				Reason: "whale_flow_ready_zone_and_flow_ok",
+			},
+			{
+				Direction:     "SHORT",
+				MinAIPriority: 60, MinTimingScore: 60, RiskBelow: 55,
 				Reason: "whale_flow_ready_zone_and_flow_ok",
 			},
 		},
@@ -507,25 +560,180 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 	"breakdown_momentum_short": hunterV7ShortOrReversionTierSpec,
 	"range_reversion":          hunterV7ShortOrReversionTierSpec,
 	"alt_ladder_breakdown_short": {
+		ConfirmWatchReason: hunterV7AltLadderShortConfirmWatchReason,
 		Ready: []hunterV7TierRule{
 			{
 				MinAIPriority: 60, MinTimingScore: 65, RiskBelow: 35,
-				Taker:      hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
-				RequireAll: []string{"alt_ladder_taker_sell"},
-				RequireAny: [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
-				Guards:     []func(CandidateCoin) bool{func(coin CandidateCoin) bool { return hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") }},
-				Reason:     "alt_ladder_short_ready_strong_confirmed",
+				Taker:             hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
+				RequireAll:        []string{"alt_ladder_taker_sell"},
+				RequireAny:        [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
+				RequireConfirmAll: []string{"no_new_high_after_rejection"},
+				Reason:            "alt_ladder_short_ready_strong_confirmed",
 			},
 		},
+		// Reviewable rows are ordered: soft-release → classic late/close-through/early.
 		Reviewable: []hunterV7TierRule{
-			{
-				MinAIPriority: 52, MinTimingScore: 58, RiskAtMost: 45,
-				Taker:  hunterV7TakerGate{Kind: "at_most", Threshold: 0.48},
-				Guards: []func(CandidateCoin) bool{hunterV7AltLadderShortReviewableOK},
-				Reason: "alt_ladder_short_reviewable_confirmed",
-			},
+			altLadderShortSoftReleaseStandard,
+			altLadderShortSoftReleaseStrong,
+			altLadderShortClassicLate,
+			altLadderShortClassicCloseThrough,
+			altLadderShortClassicEarly,
 		},
 	},
+}
+
+// Alt-ladder soft-release thresholds (single source — Entropy Recoil E2.1).
+// Tune here only; do not re-embed these literals in engine.go helpers.
+const (
+	hunterV7AltLadderSoftMaxZonePos    = 45.0
+	hunterV7AltLadderSoftMinLiquidity  = 70.0
+	hunterV7AltLadderSoftTakerStandard = 0.38
+	hunterV7AltLadderSoftTakerStrong   = 0.34
+	hunterV7AltLadderSoftStopStandard  = 2.25
+	hunterV7AltLadderSoftStopStrong    = 2.45
+	hunterV7AltLadderSoftMinOI1h       = 0.8
+
+	hunterV7WhaleLongMaxZonePos = 45.0
+	hunterV7WhaleLongMinTaker   = 0.56
+)
+
+var altLadderSoftReleaseShared = hunterV7TierRule{
+	MinAIPriority: 52, MinTimingScore: 58, RiskAtMost: 45,
+	MinLiquidity: hunterV7AltLadderSoftMinLiquidity,
+	RequireAny: [][]string{
+		{"alt_ladder_downshift_early", "alt_ladder_downshift_mid"},
+	},
+	RequireAll: []string{"alt_ladder_taker_sell", "alt_ladder_new_shorts"},
+	ForbidRiskAny: []string{
+		"high_volatility",
+		"extreme_volatility",
+		"alt_ladder_late_short_risk",
+	},
+	Zone: hunterV7ZoneGate{
+		MaxPos:       hunterV7AltLadderSoftMaxZonePos,
+		RequireKnown: true,
+	},
+	OI: hunterV7OIGate{
+		MinChange1h: hunterV7AltLadderSoftMinOI1h,
+		RequireCtx:  true,
+	},
+	Guards: []func(CandidateCoin) bool{hunterV7AltLadderSoftReleaseClear},
+	Reason: "alt_ladder_short_reviewable_confirmed",
+}
+
+var altLadderShortSoftReleaseStandard = func() hunterV7TierRule {
+	r := altLadderSoftReleaseShared
+	r.Taker = hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: hunterV7AltLadderSoftTakerStandard}
+	r.Stop = hunterV7StopGate{MaxPct: hunterV7AltLadderSoftStopStandard, AllowUnknown: true}
+	return r
+}()
+
+var altLadderShortSoftReleaseStrong = func() hunterV7TierRule {
+	r := altLadderSoftReleaseShared
+	r.Taker = hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: hunterV7AltLadderSoftTakerStrong}
+	r.Stop = hunterV7StopGate{MaxPct: hunterV7AltLadderSoftStopStrong, AllowUnknown: true}
+	return r
+}()
+
+// Classic alt_ladder short reviewable channels (E2.2) — rebound-failure
+// confirmed paths after soft-release rows miss.
+var altLadderShortClassicFlow = [][]string{
+	{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"},
+}
+var altLadderShortClassicCloseThroughCodes = [][]string{
+	{"alt_ladder_multi_cycle_close_through", "trigger_memory_confirmed"},
+}
+
+var altLadderShortClassicLate = hunterV7TierRule{
+	MinAIPriority:     52,
+	MinTimingScore:    58,
+	RiskAtMost:        45,
+	RequireConfirmAll: []string{"no_new_high_after_rejection"},
+	RequireAll:        []string{"alt_ladder_taker_sell", "alt_ladder_downshift_late"},
+	RequireAny:        append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
+	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
+	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
+	Reason:            "alt_ladder_short_reviewable_confirmed",
+}
+
+var altLadderShortClassicCloseThrough = hunterV7TierRule{
+	MinAIPriority:     52,
+	MinTimingScore:    58,
+	RiskAtMost:        45,
+	RequireConfirmAll: []string{"no_new_high_after_rejection"},
+	RequireAny:        append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
+	ForbidAll:         []string{"alt_ladder_downshift_late"},
+	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
+	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.48},
+	Reason:            "alt_ladder_short_reviewable_confirmed",
+}
+
+var altLadderShortClassicEarly = hunterV7TierRule{
+	MinAIPriority:     52,
+	MinTimingScore:    58,
+	RiskAtMost:        45,
+	RequireConfirmAll: []string{"no_new_high_after_rejection"},
+	RequireAll:        []string{"alt_ladder_taker_sell"},
+	RequireAny:        altLadderShortClassicFlow,
+	ForbidAll:         []string{"alt_ladder_downshift_late"},
+	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
+	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
+	Reason:            "alt_ladder_short_reviewable_confirmed",
+}
+
+// alt_ladder_momentum_long Ready floors (E2.3). Residual late/OI/stop logic
+// stays in hunterV7AltLadderLongExecutableExtras.
+var altLadderLongReadyRules = []hunterV7TierRule{
+	{
+		MinAIPriority:     58,
+		MinSetupScore:     58,
+		MinTimingScore:    60,
+		RiskBelow:         55,
+		RequireInsideZone: true,
+		Taker:             hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.55},
+		RequireAll:        []string{"alt_ladder_taker_buy"},
+		RequireAny:        [][]string{{"alt_ladder_oi_inflow", "alt_ladder_volume_expansion"}},
+		ForbidRiskAny:     []string{"fresh_oi_absent"},
+		Guards:            []func(CandidateCoin) bool{hunterV7AltLadderLongExecutableExtras},
+		Reason:            "alt_ladder_long_ready_confirmed",
+	},
+}
+
+// hunterV7AltLadderLongExecutableExtras carries the residual long-side gates
+// that cannot be represented by a single tier-rule field. The common score,
+// entry-zone, taker, and participation requirements live in
+// altLadderLongReadyRules above.
+func hunterV7AltLadderLongExecutableExtras(coin CandidateCoin) bool {
+	if containsAnyStringValue(coin.V7RiskTags, []string{"alt_ladder_late_chase_risk", "high_volatility"}) &&
+		!containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") {
+		return false
+	}
+	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange4h < -3 &&
+		!containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") {
+		return false
+	}
+	if hunterV7AltLadderLateLongNeedsFreshFlow(coin) {
+		return false
+	}
+	if containsStringValue(coin.V7RiskTags, "execution_stop_tightened") {
+		if !hunterV7TakerBuyConfirmedAtLeast(coin, 0.58) {
+			return false
+		}
+		if !containsStringValue(coin.V7ReasonCodes, "alt_ladder_oi_inflow") &&
+			(coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.OIChange1h < 0) {
+			return false
+		}
+	}
+	return true
+}
+
+// hunterV7AltLadderShortConfirmWatchReason preserves the setup-specific
+// rebound-pending WATCH while the required confirmation has not arrived.
+func hunterV7AltLadderShortConfirmWatchReason(coin CandidateCoin, waitReason string) string {
+	if hunterV7AltLadderShortReboundPending(coin, waitReason) {
+		return "alt_ladder_short_rebound_pending"
+	}
+	return ""
 }
 
 // hunterV7RangeExpansionShortExhaustionPromptWait parks a deeply-fallen
@@ -563,26 +771,14 @@ func hunterV7WhaleFlowDataPromptWait(_ CandidateCoin, readiness local.V7Executio
 }
 
 // hunterV7WhaleFlowLongEntryGatesOK mirrors the trader-side whale-flow LONG
-// protections at classification time so EXECUTABLE is only granted to
-// candidates the execution guard could actually accept: entry-zone position
-// at or below 45% and taker_buy_15m at or above 0.56. Missing zone or taker
-// data passes — the trader gates re-check with live data at decision time.
-// SHORT-direction whale signals are unaffected, mirroring the guard.
+// protections. Prefer the table Zone/Taker fields (E3.1); this helper remains
+// for direct unit tests and any residual call sites.
 func hunterV7WhaleFlowLongEntryGatesOK(coin CandidateCoin) bool {
 	if !strings.EqualFold(coin.Direction, "LONG") {
 		return true
 	}
-	price := 0.0
-	if coin.V7PriceContext != nil {
-		price = coin.V7PriceContext.Last
-	}
-	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok && pos > 45 {
-		return false
-	}
-	if coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0 && coin.V7DerivativesCtx.TakerBuy15m < 0.56 {
-		return false
-	}
-	return true
+	return hunterV7ZoneGateMatches(coin, hunterV7ZoneGate{MaxPos: hunterV7WhaleLongMaxZonePos}) &&
+		hunterV7TakerBuyAtLeast(coin, hunterV7WhaleLongMinTaker)
 }
 
 func hunterV7EvalTierRules(coin CandidateCoin, rules []hunterV7TierRule) (bool, string) {
@@ -645,10 +841,23 @@ func hunterV7TierRuleMatches(coin CandidateCoin, rule *hunterV7TierRule) bool {
 		if !hunterV7TakerBuyConfirmedAtLeast(coin, rule.Taker.Threshold) {
 			return false
 		}
+	case "confirmed_at_most":
+		if !hunterV7TakerBuyConfirmedAtMost(coin, rule.Taker.Threshold) {
+			return false
+		}
 	case "aligned":
 		if !hunterV7TakerBuyAligned(coin) {
 			return false
 		}
+	}
+	if !hunterV7ZoneGateMatches(coin, rule.Zone) {
+		return false
+	}
+	if !hunterV7OIGateMatches(coin, rule.OI) {
+		return false
+	}
+	if !hunterV7StopGateMatches(coin, rule.Stop) {
+		return false
 	}
 	for _, code := range rule.RequireAll {
 		if !containsStringValue(coin.V7ReasonCodes, code) {
@@ -665,10 +874,73 @@ func hunterV7TierRuleMatches(coin CandidateCoin, rule *hunterV7TierRule) bool {
 			return false
 		}
 	}
+	for _, tag := range rule.ForbidRiskAny {
+		if containsStringValue(coin.V7RiskTags, tag) {
+			return false
+		}
+	}
 	for _, guard := range rule.Guards {
 		if !guard(coin) {
 			return false
 		}
 	}
 	return true
+}
+
+func hunterV7ZoneGateMatches(coin CandidateCoin, gate hunterV7ZoneGate) bool {
+	if gate.MaxPos <= 0 && gate.MinPos <= 0 && !gate.RequireKnown {
+		return true
+	}
+	pos, ok := hunterV7EntryZonePositionPct(coin)
+	if !ok {
+		return !gate.RequireKnown
+	}
+	if gate.MaxPos > 0 && pos > gate.MaxPos {
+		return false
+	}
+	if gate.MinPos > 0 && pos < gate.MinPos {
+		return false
+	}
+	return true
+}
+
+func hunterV7OIGateMatches(coin CandidateCoin, gate hunterV7OIGate) bool {
+	if gate.MinChange1h == 0 && gate.MaxChange1h == 0 && gate.MinChange4h == 0 && !gate.RequireCtx {
+		return true
+	}
+	if coin.V7DerivativesCtx == nil {
+		return false
+	}
+	if gate.MinChange1h != 0 && coin.V7DerivativesCtx.OIChange1h < gate.MinChange1h {
+		return false
+	}
+	if gate.MaxChange1h != 0 && coin.V7DerivativesCtx.OIChange1h > gate.MaxChange1h {
+		return false
+	}
+	if gate.MinChange4h != 0 && coin.V7DerivativesCtx.OIChange4h < gate.MinChange4h {
+		return false
+	}
+	return true
+}
+
+func hunterV7StopGateMatches(coin CandidateCoin, gate hunterV7StopGate) bool {
+	if gate.MaxPct <= 0 && !gate.AllowUnknown {
+		return true
+	}
+	distance := hunterV7StopDistancePct(coin)
+	if distance <= 0 {
+		return gate.AllowUnknown || gate.MaxPct <= 0
+	}
+	if gate.MaxPct > 0 && distance > gate.MaxPct {
+		return false
+	}
+	return true
+}
+
+// hunterV7AltLadderSoftReleaseClear is the residual composite hard-block for
+// soft-release rows (danger tags, funding∧stop-tightened, late-without-close-
+// through, raw taker buy rebound). Threshold tags/zone/OI/stop live in the
+// table rows above — do not add numeric literals here.
+func hunterV7AltLadderSoftReleaseClear(coin CandidateCoin) bool {
+	return !hunterV7AltLadderShortLayeredReleaseHardBlock(coin)
 }

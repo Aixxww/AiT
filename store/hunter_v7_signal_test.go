@@ -42,6 +42,9 @@ func TestHunterV7SignalStoreUpdateTrackOutcome(t *testing.T) {
 		ExitPrice:    101,
 		StopPrice:    99,
 		PnLPct:       1,
+		TP0Done:      true,
+		Remaining:    0.65,
+		RealizedPnL:  0.35,
 		MFE:          1.2,
 		MAE:          -0.3,
 		ExitTime:     &exitAt,
@@ -55,7 +58,7 @@ func TestHunterV7SignalStoreUpdateTrackOutcome(t *testing.T) {
 	if err := db.First(&updated, saved.ID).Error; err != nil {
 		t.Fatalf("load updated: %v", err)
 	}
-	if updated.TrackStatus != "WIN_TP0" || updated.TrackPnLPct != 1 || updated.TrackMFE != 1.2 || updated.TrackStopPrice != 99 {
+	if updated.TrackStatus != "WIN_TP0" || updated.TrackPnLPct != 1 || updated.TrackMFE != 1.2 || updated.TrackStopPrice != 99 || !updated.TrackTP0Done || updated.TrackRemaining != 0.65 || updated.TrackRealizedPnL != 0.35 {
 		t.Fatalf("unexpected tracking fields: %+v", updated)
 	}
 	if updated.TrackExitTime == nil {
@@ -83,6 +86,7 @@ func TestHunterV7SignalStoreOutcomeStats(t *testing.T) {
 		{CycleNumber: 1, Timestamp: base, Symbol: "C", Direction: "LONG", SetupType: "squeeze_breakout", MarketRegime: "compression", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "WIN_TP1", TrackExitTime: &exit90m, TrackPnLPct: 2.5, TrackMFE: 3, TrackMAE: -0.3},
 		{CycleNumber: 1, Timestamp: base, Symbol: "D", Direction: "LONG", SetupType: "squeeze_breakout", MarketRegime: "compression", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "WIN_TP1", TrackExitTime: &exit3h, TrackPnLPct: 2, TrackMFE: 2.2, TrackMAE: -0.4},
 		{CycleNumber: 1, Timestamp: base, Symbol: "E", Direction: "LONG", SetupType: "pullback_long", MarketRegime: "trend_up", Status: "candidate", ExecutionTier: "REVIEWABLE", TrackStatus: "DUPLICATE_CONTEXT", TrackExitTime: &exit10m, TrackPnLPct: 99, TrackMFE: 99, TrackMAE: -99},
+		{CycleNumber: 1, Timestamp: base, Symbol: "F", Direction: "LONG", SetupType: "pullback_long", MarketRegime: "trend_up", Status: "candidate", ExecutionTier: "EXECUTABLE", TrackStatus: "PROTECTED_STOP", TrackExitTime: &exit10m, TrackPnLPct: 0.4, TrackMFE: 1.2, TrackMAE: -0.1},
 	}
 	if err := store.CreateBatch(records); err != nil {
 		t.Fatalf("create: %v", err)
@@ -92,7 +96,7 @@ func TestHunterV7SignalStoreOutcomeStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tp0 stats: %v", err)
 	}
-	if tp0.Total != 2 || tp0.Wins != 1 || tp0.WinRate != 50 {
+	if tp0.Total != 3 || tp0.Wins != 1 || tp0.Protected != 1 || tp0.WinRate < 33.3 || tp0.WinRate > 33.4 {
 		t.Fatalf("unexpected tp0 stats: %+v", tp0)
 	}
 
@@ -100,7 +104,7 @@ func TestHunterV7SignalStoreOutcomeStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tp1 stats: %v", err)
 	}
-	if tp1.Total != 3 || tp1.Wins != 1 {
+	if tp1.Total != 4 || tp1.Wins != 1 || tp1.Protected != 1 {
 		t.Fatalf("unexpected tp1 stats: %+v", tp1)
 	}
 
@@ -140,5 +144,36 @@ func TestHunterV7SignalStoreRecentSignalsPrioritizesActionableRows(t *testing.T)
 	}
 	if got[0].Symbol != "EXEC" || got[1].Symbol != "REV" {
 		t.Fatalf("recent order = %s,%s; want EXEC,REV", got[0].Symbol, got[1].Symbol)
+	}
+}
+
+func TestHunterV7SignalStoreLatestCycleSummaryUsesNewestTimestamp(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&HunterV7SignalRecord{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	signalStore := NewHunterV7SignalStore(db)
+	old := time.Now().UTC().Add(-time.Hour)
+	latest := old.Add(time.Minute)
+	records := []HunterV7SignalRecord{
+		{CycleNumber: 1, Timestamp: old, Symbol: "OLD", Direction: "LONG", SetupType: "old", Status: "candidate", ExecutionTier: "EXECUTABLE"},
+		{CycleNumber: 2, Timestamp: latest, Symbol: "A", Direction: "LONG", SetupType: "a", Status: "candidate", ExecutionTier: "EXECUTABLE", DataQuality: "GOOD"},
+		{CycleNumber: 2, Timestamp: latest, Symbol: "B", Direction: "SHORT", SetupType: "b", Status: "filtered", ExecutionTier: "REJECTED", TierReason: "late_chase", DataQuality: "PARTIAL"},
+	}
+	if err := signalStore.CreateBatch(records); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	summary, err := signalStore.LatestCycleSummary()
+	if err != nil {
+		t.Fatalf("summary: %v", err)
+	}
+	if summary.CycleNumber != 2 || summary.Records != 2 || summary.TierCounts["EXECUTABLE"] != 1 || summary.TierCounts["REJECTED"] != 1 {
+		t.Fatalf("unexpected latest cycle summary: %+v", summary)
+	}
+	if summary.QualityCounts["GOOD"] != 1 || summary.QualityCounts["PARTIAL"] != 1 || len(summary.TopVetoes) != 1 || summary.TopVetoes[0].Code != "late_chase" {
+		t.Fatalf("unexpected cycle diagnostics: %+v", summary)
 	}
 }

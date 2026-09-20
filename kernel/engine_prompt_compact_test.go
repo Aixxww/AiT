@@ -953,6 +953,68 @@ func TestHunterV7PromptExposesTP0PlanAndConditionalOpenChecklist(t *testing.T) {
 	}
 }
 
+func TestHunterV7PromptExecutionContractUsesBackendTierAndProtectionPlan(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:             "CONTRACTUSDT",
+		Direction:          "LONG",
+		V7SetupType:        string(local.V7SetupRangeExpansion),
+		V7ExecutionTier:    "REVIEWABLE",
+		V7ReasonCodes:      []string{"range_expansion_late_chase"},
+		V7RiskTags:         []string{"high_volatility"},
+		V7RequiredConfirms: []string{"live_taker_flow_aligned"},
+		V7TP0Price:         101,
+		V7TP1Price:         104,
+		V7TP2Price:         108,
+		V7TPPlan: &local.V7TakeProfitPlan{
+			TP0Price:            101,
+			MoveStopToBreakeven: true,
+		},
+	}
+
+	payload := buildHunterV7PromptPayload(coin)
+	contract := payload.ExecutionContract
+	if contract.EntryPermission != "live_confirmation_required" {
+		t.Fatalf("entry permission = %q", contract.EntryPermission)
+	}
+	if !containsStringValue(contract.MustConfirm, "live_taker_flow_aligned") {
+		t.Fatalf("missing required confirmation: %#v", contract.MustConfirm)
+	}
+	if !containsStringValue(contract.HardBlocks, "range_expansion_late_chase") {
+		t.Fatalf("missing wait-only blocker: %#v", contract.HardBlocks)
+	}
+	if contract.SizePolicy != "conservative_only_after_live_checks" {
+		t.Fatalf("size policy = %q", contract.SizePolicy)
+	}
+	if contract.ExitPolicy != "partial_tp0_then_breakeven_runner_to_tp1_tp2" {
+		t.Fatalf("exit policy = %q", contract.ExitPolicy)
+	}
+
+	compact := payload.compactView()
+	if compact.ExecutionContract.EntryPermission != contract.EntryPermission {
+		t.Fatalf("compact contract omitted: %#v", compact.ExecutionContract)
+	}
+}
+
+func TestHunterV7PromptExecutionContractUsesWhaleFastProtectionExitPolicy(t *testing.T) {
+	coin := CandidateCoin{
+		Symbol:          "WHALEUSDT",
+		Direction:       "LONG",
+		V7SetupType:     "whale_flow_reversal",
+		V7ExecutionTier: "REVIEWABLE",
+		V7TP0Price:      101,
+		V7TP1Price:      104,
+		V7TP2Price:      108,
+		V7TPPlan: &local.V7TakeProfitPlan{
+			TP0Price:            101,
+			MoveStopToBreakeven: true,
+		},
+	}
+	payload := buildHunterV7PromptPayload(coin)
+	if payload.ExecutionContract.ExitPolicy != "mfe_fast_protect_then_partial_tp0_then_breakeven_runner_to_tp1_tp2" {
+		t.Fatalf("exit policy = %q", payload.ExecutionContract.ExitPolicy)
+	}
+}
+
 func TestHunterV7PromptReadinessKeepsCompleteForExecutionQuality(t *testing.T) {
 	data := &market.Data{
 		Symbol:        "READYUSDT",
@@ -2591,7 +2653,7 @@ func hunterV7AltLadderTierCases() []v7TierCase {
 			wantReason: "needs_confirmation",
 		},
 		{
-			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/early alt ladder short low taker soft release",
+			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/early alt ladder short low taker without new shorts stays watch",
 			coin: v7Candidate("alt_ladder_breakdown_short",
 				withSymbol("ALTSUSDT"),
 				withDirection("SHORT"),
@@ -2603,8 +2665,8 @@ func hunterV7AltLadderTierCases() []v7TierCase {
 				withInvalidation(102.1),
 				withTaker(0.37),
 			),
-			wantTier:   "REVIEWABLE",
-			wantReason: "alt_ladder_short_reviewable_confirmed",
+			wantTier:   "WATCH",
+			wantReason: "needs_confirmation",
 		},
 		{
 			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/mid alt ladder short new shorts OI soft release",
@@ -2619,8 +2681,91 @@ func hunterV7AltLadderTierCases() []v7TierCase {
 				withInvalidation(102.1),
 				withDerivatives(1.4, 0.3, 0.41),
 			),
+			wantTier:   "WATCH",
+			wantReason: "needs_confirmation",
+		},
+		{
+			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/mid alt ladder short new shorts strong flow soft release",
+			coin: v7Candidate("alt_ladder_breakdown_short",
+				withSymbol("ALTQUSDT"),
+				withDirection("SHORT"),
+				withQuality("near_confirm"),
+				withScores(58, 70, 62, 20, 80),
+				withRiskLevel("LOW"),
+				withReasons("alt_ladder_breakdown_short", "alt_ladder_downshift_mid", "alt_ladder_taker_sell", "alt_ladder_new_shorts"),
+				withZone(100, 101),
+				withInvalidation(102.1),
+				withPriceCtx(&local.V7PriceContext{Last: 100.3}),
+				withDerivatives(0.8, 0.3, 0.38),
+			),
 			wantTier:   "REVIEWABLE",
 			wantReason: "alt_ladder_short_reviewable_confirmed",
+		},
+		{
+			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/alt ladder short missing zone data blocks soft release",
+			coin: v7Candidate("alt_ladder_breakdown_short",
+				withSymbol("ALTYUSDT"),
+				withDirection("SHORT"),
+				withQuality("near_confirm"),
+				withScores(58, 70, 62, 20, 80),
+				withRiskLevel("LOW"),
+				withReasons("alt_ladder_breakdown_short", "alt_ladder_downshift_mid", "alt_ladder_taker_sell", "alt_ladder_new_shorts"),
+				withDerivatives(0.8, 0.3, 0.33),
+			),
+			wantTier:   "WATCH",
+			wantReason: "needs_confirmation",
+		},
+		{
+			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/alt ladder short strong low-zone new shorts tolerates wider stop",
+			coin: v7Candidate("alt_ladder_breakdown_short",
+				withSymbol("ALTPUSDT"),
+				withDirection("SHORT"),
+				withQuality("ready"),
+				withScores(64, 66, 62, 10, 80),
+				withRiskLevel("LOW"),
+				withReasons("alt_ladder_breakdown_short", "alt_ladder_downshift_early", "alt_ladder_taker_sell", "alt_ladder_new_shorts"),
+				withConfirms("5m_or_15m_close_below_trigger"),
+				withConfirmSummary(&local.V7ConfirmationSummary{
+					PassedHard:        true,
+					EntryZonePosition: 32,
+					MissingReview: []local.V7ConfirmationCheck{{
+						Code:   "5m_or_15m_close_below_trigger",
+						Passed: false,
+					}},
+				}),
+				withZone(0.01045, 0.01067),
+				withInvalidation(0.010768),
+				withPriceCtx(&local.V7PriceContext{Last: 0.01052}),
+				withDerivatives(0.98, 0.3, 0.18),
+			),
+			wantTier:   "REVIEWABLE",
+			wantReason: "live_reviewable_5m_or_15m_close_below_trigger",
+		},
+		{
+			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/alt ladder short high zone remains watch despite low taker",
+			coin: v7Candidate("alt_ladder_breakdown_short",
+				withSymbol("ALTZUSDT"),
+				withDirection("SHORT"),
+				withQuality("ready"),
+				withScores(64, 66, 62, 10, 80),
+				withRiskLevel("LOW"),
+				withReasons("alt_ladder_breakdown_short", "alt_ladder_downshift_early", "alt_ladder_taker_sell", "alt_ladder_new_shorts"),
+				withConfirms("5m_or_15m_close_below_trigger"),
+				withConfirmSummary(&local.V7ConfirmationSummary{
+					PassedHard:        true,
+					EntryZonePosition: 62,
+					MissingReview: []local.V7ConfirmationCheck{{
+						Code:   "5m_or_15m_close_below_trigger",
+						Passed: false,
+					}},
+				}),
+				withZone(100, 101),
+				withInvalidation(102.1),
+				withPriceCtx(&local.V7PriceContext{Last: 100.6}),
+				withDerivatives(1.2, 0.3, 0.25),
+			),
+			wantTier:   "WATCH",
+			wantReason: "alt_ladder_short_rebound_pending",
 		},
 		{
 			name: "TestClassifyHunterV7CandidateTierAllowsAltLadderRoutes/alt ladder short missing close trigger also needs rebound failure",
@@ -2663,8 +2808,8 @@ func hunterV7AltLadderTierCases() []v7TierCase {
 				}),
 				withZone(100, 101),
 				withInvalidation(102.1),
-				withPriceCtx(&local.V7PriceContext{Last: 100.5}),
-				withTaker(0.37),
+				withPriceCtx(&local.V7PriceContext{Last: 100.4}),
+				withDerivatives(0.9, 0.2, 0.37),
 			),
 			wantTier:   "REVIEWABLE",
 			wantReason: "live_reviewable_5m_or_15m_close_below_trigger",

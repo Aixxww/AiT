@@ -146,6 +146,9 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	)
 
 	if decision != nil {
+		if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
+			hydrateHunterV7DecisionExecutionPlans(decision.Decisions, ctx.CandidateCoins)
+		}
 		decision.Timestamp = time.Now()
 		decision.SystemPrompt = systemPrompt
 		decision.UserPrompt = userPrompt
@@ -171,6 +174,31 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	}
 
 	return decision, nil
+}
+
+// hydrateHunterV7DecisionExecutionPlans copies price targets only from the
+// backend candidate selected by signal ID. The model never supplies these
+// fields, preventing a free-form response from changing the protector plan.
+func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []CandidateCoin) {
+	byID := make(map[string]CandidateCoin, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.V7SignalID != "" {
+			byID[candidate.V7SignalID] = candidate
+		}
+	}
+	for i := range decisions {
+		decision := &decisions[i]
+		if decision.Action != "open_long" && decision.Action != "open_short" {
+			continue
+		}
+		candidate, ok := byID[decision.SelectedHunterV7SignalID]
+		if !ok {
+			continue
+		}
+		decision.HunterV7TP0Price = candidate.V7TP0Price
+		decision.HunterV7TP1Price = candidate.V7TP1Price
+		decision.HunterV7TP2Price = candidate.V7TP2Price
+	}
 }
 
 const hunterV7DecisionMaxOutputTokens = 1600

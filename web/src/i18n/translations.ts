@@ -1192,6 +1192,12 @@ export const translations = {
       hardConfirms: 'HARD',
       reviewConfirms: 'REVIEW',
       protectedStop: 'PROTECTED',
+      summaryOpenRate: 'OPEN RATE',
+      summaryActionable: 'OPEN REVIEW',
+      summaryWatch: 'WATCH',
+      summaryRejected: 'REJECTED',
+      summaryOutcomes: 'PROT/WIN / STOP',
+      summaryAvgPnl: 'AVG PNL',
     },
 
     // TraderDashboardPage
@@ -2593,6 +2599,12 @@ export const translations = {
       hardConfirms: '硬确认',
       reviewConfirms: '复核确认',
       protectedStop: '保护',
+      summaryOpenRate: '开仓率',
+      summaryActionable: '开仓复核',
+      summaryWatch: '观察',
+      summaryRejected: '否决',
+      summaryOutcomes: '保护/胜 / 止损',
+      summaryAvgPnl: '平均盈亏',
     },
 
     traderDashboard: {
@@ -3936,6 +3948,12 @@ export const translations = {
       hardConfirms: 'HARD',
       reviewConfirms: 'REVIEW',
       protectedStop: 'TERLINDUNG',
+      summaryOpenRate: 'OPEN RATE',
+      summaryActionable: 'OPEN REVIEW',
+      summaryWatch: 'WATCH',
+      summaryRejected: 'DITOLAK',
+      summaryOutcomes: 'PROT/WIN / STOP',
+      summaryAvgPnl: 'AVG PNL',
     },
 
     traderDashboard: {

@@ -571,3 +571,42 @@ func TestSignalOutcomeTrackerWatchTP0CreatesMissedOpportunityAudit(t *testing.T)
 		t.Fatalf("watch audit must not count as real win stats: %+v", stats)
 	}
 }
+
+func TestSignalOutcomeTrackerPartialTargetsKeepRunnerThroughTP2(t *testing.T) {
+	signalTime := time.Now().Add(-5 * time.Minute).Truncate(time.Second)
+	tracker := NewSignalOutcomeTracker(&TrackerConfig{
+		PollInterval:          time.Hour,
+		TimeoutDuration:       time.Hour,
+		MaxTracked:            10,
+		EnableDynamicStop:     false,
+		TrackPartialTargets:   true,
+		ActiveOutcomeInterval: time.Hour,
+	}, nil)
+	tracker.SetCandleHistorySource(func(string, time.Time) []TrackedCandle {
+		return []TrackedCandle{
+			{T: signalTime.Add(time.Minute), Open: 100, High: 101.2, Low: 100.1, Close: 101},
+			{T: signalTime.Add(2 * time.Minute), Open: 101, High: 103.2, Low: 100.8, Close: 103},
+			{T: signalTime.Add(3 * time.Minute), Open: 103, High: 106.2, Low: 102.8, Close: 106},
+			{T: signalTime.Add(4 * time.Minute), Open: 106, High: 106.1, Low: 99.9, Close: 100},
+		}
+	})
+	var outcomes []TrackedOutcome
+	tracker.SetOutcomeCallback(func(o TrackedOutcome) { outcomes = append(outcomes, o) })
+	_, _ = tracker.Register(31, "RUNNERUSDT", string(local.V7DirLong), string(local.V7SetupRangeExpansion), "EXECUTABLE", 100, 95, 101, 103, 106, signalTime)
+	tracker.TickNow()
+	if len(outcomes) != 1 || outcomes[0].Status != TrackedProtectedStop {
+		t.Fatalf("outcomes = %+v, want a protected terminal runner", outcomes)
+	}
+	// TP0: 35%% at +1%%; TP1: 40%% of the remaining 65%% at +3%%;
+	// TP2: 50%% of the remaining 39%% at +6%%; final 19.5%% exits at flat.
+	if got, want := outcomes[0].PnLPct, 2.30; got < want-0.0001 || got > want+0.0001 {
+		t.Fatalf("combined pnl = %.4f, want %.4f", got, want)
+	}
+	completed := tracker.GetByStatus(TrackedProtectedStop)
+	if len(completed) != 1 || !completed[0].TP0Done || !completed[0].TP1Done || !completed[0].TP2Done {
+		t.Fatalf("target state = %+v, want all partial targets recorded", completed)
+	}
+	if got, want := completed[0].RemainingRatio, 0.195; got < want-0.0001 || got > want+0.0001 {
+		t.Fatalf("remaining ratio = %.4f, want %.4f", got, want)
+	}
+}

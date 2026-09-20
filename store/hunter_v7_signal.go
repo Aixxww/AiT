@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -62,6 +63,11 @@ type HunterV7SignalRecord struct {
 	TrackExitPrice    float64    `gorm:"column:track_exit_price" json:"track_exit_price"`
 	TrackStopPrice    float64    `gorm:"column:track_stop_price" json:"track_stop_price"`
 	TrackPnLPct       float64    `gorm:"column:track_pnl_pct" json:"track_pnl_pct"`
+	TrackTP0Done      bool       `gorm:"column:track_tp0_done" json:"track_tp0_done"`
+	TrackTP1Done      bool       `gorm:"column:track_tp1_done" json:"track_tp1_done"`
+	TrackTP2Done      bool       `gorm:"column:track_tp2_done" json:"track_tp2_done"`
+	TrackRemaining    float64    `gorm:"column:track_remaining_ratio" json:"track_remaining_ratio"`
+	TrackRealizedPnL  float64    `gorm:"column:track_realized_pnl_pct" json:"track_realized_pnl_pct"`
 	TrackMFE          float64    `gorm:"column:track_mfe" json:"track_mfe"`
 	TrackMAE          float64    `gorm:"column:track_mae" json:"track_mae"`
 	TrackExitTime     *time.Time `gorm:"column:track_exit_time" json:"track_exit_time,omitempty"`
@@ -98,6 +104,11 @@ type HunterV7SignalTrackUpdate struct {
 	ExitPrice    float64
 	StopPrice    float64
 	PnLPct       float64
+	TP0Done      bool
+	TP1Done      bool
+	TP2Done      bool
+	Remaining    float64
+	RealizedPnL  float64
 	MFE          float64
 	MAE          float64
 	ExitTime     *time.Time
@@ -110,12 +121,31 @@ type HunterV7OutcomeWindowStats struct {
 	WindowDuration string  `json:"window_duration"`
 	Total          int     `json:"total"`
 	Wins           int     `json:"wins"`
+	Protected      int     `json:"protected_exits"`
 	Stops          int     `json:"stops"`
 	Timeouts       int     `json:"timeouts"`
 	WinRate        float64 `json:"win_rate"`
 	AvgPnL         float64 `json:"avg_pnl"`
 	AvgMFE         float64 `json:"avg_mfe"`
 	AvgMAE         float64 `json:"avg_mae"`
+}
+
+// HunterV7LatestCycleSummary is an auditable summary of the latest persisted
+// cycle. It intentionally does not claim full-market coverage: only a cycle
+// metadata recorder can provide that denominator.
+type HunterV7LatestCycleSummary struct {
+	Timestamp     *time.Time              `json:"timestamp,omitempty"`
+	CycleNumber   int                     `json:"cycle_number"`
+	Records       int                     `json:"persisted_records"`
+	TierCounts    map[string]int          `json:"tier_counts"`
+	StatusCounts  map[string]int          `json:"status_counts"`
+	QualityCounts map[string]int          `json:"data_quality_counts"`
+	TopVetoes     []HunterV7CountedReason `json:"top_vetoes"`
+}
+
+type HunterV7CountedReason struct {
+	Code  string `json:"code"`
+	Count int    `json:"count"`
 }
 
 // HunterV7SetupRegimeOutcomeStats summarizes outcomes per setup×regime cell.
@@ -138,14 +168,19 @@ func (s *HunterV7SignalStore) UpdateTrackOutcome(recordID int64, update HunterV7
 		return nil
 	}
 	values := map[string]interface{}{
-		"track_status":        update.Status,
-		"track_current_price": update.CurrentPrice,
-		"track_exit_price":    update.ExitPrice,
-		"track_stop_price":    update.StopPrice,
-		"track_pnl_pct":       update.PnLPct,
-		"track_mfe":           update.MFE,
-		"track_mae":           update.MAE,
-		"track_exit_time":     update.ExitTime,
+		"track_status":           update.Status,
+		"track_current_price":    update.CurrentPrice,
+		"track_exit_price":       update.ExitPrice,
+		"track_stop_price":       update.StopPrice,
+		"track_pnl_pct":          update.PnLPct,
+		"track_tp0_done":         update.TP0Done,
+		"track_tp1_done":         update.TP1Done,
+		"track_tp2_done":         update.TP2Done,
+		"track_remaining_ratio":  update.Remaining,
+		"track_realized_pnl_pct": update.RealizedPnL,
+		"track_mfe":              update.MFE,
+		"track_mae":              update.MAE,
+		"track_exit_time":        update.ExitTime,
 	}
 	if update.Snapshots != "" {
 		values["track_snapshots"] = update.Snapshots
@@ -165,7 +200,10 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 		winStatuses = []string{"WIN_TP0", "WIN_TP1", "WIN_TP2"}
 	}
 	var records []HunterV7SignalRecord
-	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "STOP", "TIMEOUT"}
+	// PROTECTED_STOP is a terminal, non-loss outcome after the protection plan
+	// has moved the runner to breakeven or better. BOTH_SAME_1M deliberately
+	// stays out: OHLC data cannot establish its path and must not calibrate.
+	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "PROTECTED_STOP", "STOP", "TIMEOUT"}
 	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
 		Find(&records).Error
 	if err != nil {
@@ -183,7 +221,9 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 			continue
 		}
 		stats.Total++
-		if _, ok := winSet[rec.TrackStatus]; ok {
+		if rec.TrackStatus == "PROTECTED_STOP" {
+			stats.Protected++
+		} else if _, ok := winSet[rec.TrackStatus]; ok {
 			stats.Wins++
 		}
 		switch rec.TrackStatus {
@@ -210,7 +250,7 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 // regime weighting.
 func (s *HunterV7SignalStore) SetupRegimeOutcomeStats(from, to time.Time, minSamples int) ([]HunterV7SetupRegimeOutcomeStats, error) {
 	var records []HunterV7SignalRecord
-	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "STOP", "TIMEOUT"}
+	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "PROTECTED_STOP", "STOP", "TIMEOUT"}
 	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
 		Find(&records).Error
 	if err != nil {
@@ -257,6 +297,61 @@ func (s *HunterV7SignalStore) SetupRegimeOutcomeStats(from, to time.Time, minSam
 		out = append(out, b.HunterV7SetupRegimeOutcomeStats)
 	}
 	return out, nil
+}
+
+// LatestCycleSummary returns explainable counts for the newest persisted
+// timestamp. It is safe for the dashboard and deliberately labels its scope
+// so a partial database page cannot be mistaken for a full exchange scan.
+func (s *HunterV7SignalStore) LatestCycleSummary() (HunterV7LatestCycleSummary, error) {
+	summary := HunterV7LatestCycleSummary{
+		TierCounts: map[string]int{}, StatusCounts: map[string]int{},
+		QualityCounts: map[string]int{},
+	}
+	var latest HunterV7SignalRecord
+	if err := s.db.Order("timestamp DESC").Limit(1).Find(&latest).Error; err != nil {
+		return summary, err
+	}
+	if latest.Timestamp.IsZero() {
+		return summary, nil
+	}
+	var records []HunterV7SignalRecord
+	if err := s.db.Where("timestamp = ?", latest.Timestamp).Order("ai_priority DESC").Find(&records).Error; err != nil {
+		return summary, err
+	}
+	stamp := latest.Timestamp
+	summary.Timestamp, summary.CycleNumber, summary.Records = &stamp, latest.CycleNumber, len(records)
+	vetoes := map[string]int{}
+	for _, record := range records {
+		tier := record.ExecutionTier
+		if tier == "" {
+			tier = "REJECTED"
+		}
+		summary.TierCounts[tier]++
+		summary.StatusCounts[record.Status]++
+		quality := record.DataQuality
+		if quality == "" {
+			quality = "UNREPORTED"
+		}
+		summary.QualityCounts[quality]++
+		if record.BlockedGate != "" {
+			vetoes[record.BlockedGate]++
+		} else if tier == "REJECTED" && record.TierReason != "" {
+			vetoes[record.TierReason]++
+		}
+	}
+	for code, count := range vetoes {
+		summary.TopVetoes = append(summary.TopVetoes, HunterV7CountedReason{Code: code, Count: count})
+	}
+	sort.Slice(summary.TopVetoes, func(i, j int) bool {
+		if summary.TopVetoes[i].Count == summary.TopVetoes[j].Count {
+			return summary.TopVetoes[i].Code < summary.TopVetoes[j].Code
+		}
+		return summary.TopVetoes[i].Count > summary.TopVetoes[j].Count
+	})
+	if len(summary.TopVetoes) > 8 {
+		summary.TopVetoes = summary.TopVetoes[:8]
+	}
+	return summary, nil
 }
 
 // QueryBySymbol returns signal records for a given symbol within a time range.

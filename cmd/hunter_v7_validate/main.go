@@ -124,15 +124,44 @@ type validationOptions struct {
 }
 
 type validationOutcomeSummary struct {
-	GeneratedAt       string                          `json:"generated_at"`
-	PostTrackDuration string                          `json:"post_track_duration"`
-	PostTrackInterval string                          `json:"post_track_interval"`
-	TrackActiveOnly   bool                            `json:"track_active_only"`
-	ActiveCount       int                             `json:"active_count"`
-	TrackedCount      int                             `json:"tracked_count"`
-	Status            []validationStatusOutcome       `json:"status"`
-	Setup             []validationSetupOutcome        `json:"setup"`
-	CompletedStats    map[string]aittrader.SetupStats `json:"completed_stats_by_setup"`
+	GeneratedAt        string                          `json:"generated_at"`
+	PostTrackDuration  string                          `json:"post_track_duration"`
+	PostTrackInterval  string                          `json:"post_track_interval"`
+	TrackActiveOnly    bool                            `json:"track_active_only"`
+	ActiveCount        int                             `json:"active_count"`
+	TrackedCount       int                             `json:"tracked_count"`
+	Status             []validationStatusOutcome       `json:"status"`
+	Setup              []validationSetupOutcome        `json:"setup"`
+	CompletedStats     map[string]aittrader.SetupStats `json:"completed_stats_by_setup"`
+	Details            []validationOutcomeDetail       `json:"details,omitempty"`
+	TP0PartialCount    int                             `json:"tp0_partial_count"`
+	RunnerTP1PlusCount int                             `json:"runner_tp1_plus_count"`
+	MFE1LossStopCount  int                             `json:"mfe_gt_1_loss_stop_count"`
+}
+
+// validationOutcomeDetail preserves the per-signal evidence needed to audit a
+// setup change. Aggregates alone cannot distinguish a good entry with a tight
+// runner from a bad entry that happened to receive a protected exit.
+type validationOutcomeDetail struct {
+	Symbol       string  `json:"symbol"`
+	Direction    string  `json:"direction"`
+	SetupType    string  `json:"setup_type"`
+	Tier         string  `json:"tier"`
+	Status       string  `json:"status"`
+	EntryPrice   float64 `json:"entry_price"`
+	ExitPrice    float64 `json:"exit_price,omitempty"`
+	StopPrice    float64 `json:"stop_price,omitempty"`
+	TP0Price     float64 `json:"tp0_price,omitempty"`
+	TP1Price     float64 `json:"tp1_price,omitempty"`
+	TP2Price     float64 `json:"tp2_price,omitempty"`
+	PnLPct       float64 `json:"pnl_pct"`
+	MFE          float64 `json:"mfe_pct"`
+	MAE          float64 `json:"mae_pct"`
+	TP0Done      bool    `json:"tp0_done,omitempty"`
+	TP1Done      bool    `json:"tp1_done,omitempty"`
+	TP2Done      bool    `json:"tp2_done,omitempty"`
+	RemainingPct float64 `json:"remaining_pct,omitempty"`
+	RealizedPnL  float64 `json:"realized_pnl_pct,omitempty"`
 }
 
 type validationRunSummary struct {
@@ -250,6 +279,7 @@ func main() {
 				SnapshotLimit:         180,
 				ActiveOutcomeInterval: time.Second,
 				EnableDynamicStop:     true,
+				TrackPartialTargets:   true,
 			}, nil)
 			tracker.SetOutcomeCallback(func(outcome aittrader.TrackedOutcome) {
 				if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, store.HunterV7SignalTrackUpdate{
@@ -258,6 +288,11 @@ func main() {
 					ExitPrice:    outcome.ExitPrice,
 					StopPrice:    outcome.StopUsed,
 					PnLPct:       outcome.PnLPct,
+					TP0Done:      outcome.TP0Done,
+					TP1Done:      outcome.TP1Done,
+					TP2Done:      outcome.TP2Done,
+					Remaining:    outcome.RemainingRatio,
+					RealizedPnL:  outcome.RealizedPnLPct,
 					MFE:          outcome.MaxFavorable,
 					MAE:          outcome.MaxAdverse,
 					ExitTime:     outcome.ExitTime,
@@ -286,9 +321,27 @@ func main() {
 		if opts.rounds > 1 {
 			fmt.Printf("Hunter v7 validation round %d/%d\n", round, opts.rounds)
 		}
-		report, err := runValidation(opts, round)
+		const maxRoundAttempts = 3
+		var report validationReport
+		var err error
+		for attempt := 1; attempt <= maxRoundAttempts; attempt++ {
+			// Score into an isolated state copy. A rejected attempt must not count
+			// as another watch cycle or advance the module dry-run breaker.
+			attemptOpts := opts
+			attemptOpts.watchState = opts.watchState.Clone()
+			report, err = runValidation(attemptOpts, round)
+			if err == nil {
+				opts.watchState.ReplaceFrom(attemptOpts.watchState)
+				break
+			}
+			if attempt < maxRoundAttempts {
+				backoff := time.Duration(attempt*5) * time.Second
+				log.Printf("validation round %d attempt %d/%d failed: %v; retrying in %s", round, attempt, maxRoundAttempts, err, backoff)
+				time.Sleep(backoff)
+			}
+		}
 		if err != nil {
-			log.Fatalf("validation round %d failed: %v", round, err)
+			log.Fatalf("validation round %d failed after %d attempts: %v", round, maxRoundAttempts, err)
 		}
 		reports = append(reports, report)
 		if round < opts.rounds {
@@ -331,6 +384,15 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
 		return report, fmt.Errorf("fetch snapshot failed: %w", err)
+	}
+	// Gate transport quality before scoring. In particular, do not turn a
+	// failed retry into a synthetic watch/breaker cycle or persisted outcome.
+	preflight := annotateSnapshotQuality(snapshotSummary{
+		SymbolCount: snap.Meta.SymbolCount,
+		RestErrors:  snap.Meta.RestErrors,
+	})
+	if err := snapshotAcceptanceError(preflight); err != nil {
+		return report, err
 	}
 
 	cfg := local.DefaultV7Config()
@@ -430,6 +492,9 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	}
 	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
 		return report, fmt.Errorf("write markdown report failed: %w", err)
+	}
+	if err := reportAcceptanceError(report); err != nil {
+		return report, err
 	}
 	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, now.UTC(), snap); err != nil {
 		return report, err
@@ -777,6 +842,7 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 		aittrader.TrackedWinTP1,
 		aittrader.TrackedWinTP2,
 		aittrader.TrackedProtectedStop,
+		aittrader.TrackedAmbiguousIntrabar,
 		aittrader.TrackedStop,
 		aittrader.TrackedTimeout,
 	}
@@ -803,6 +869,24 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 				setupBuckets[setup] = bucket
 			}
 			addSignalToSetupOutcome(bucket, sig)
+			summary.Details = append(summary.Details, validationOutcomeDetail{
+				Symbol: sig.Symbol, Direction: sig.Direction, SetupType: sig.SetupType,
+				Tier: sig.Tier, Status: string(sig.Status), EntryPrice: sig.SignalPrice,
+				ExitPrice: sig.ExitPrice, StopPrice: sig.StopPrice, TP0Price: sig.TP0Price,
+				TP1Price: sig.TP1Price, TP2Price: sig.TP2Price,
+				PnLPct: opts.outcomeTracker.FinalPnLPctForReport(sig), MFE: sig.MaxFavorable, MAE: sig.MaxAdverse,
+				TP0Done: sig.TP0Done, TP1Done: sig.TP1Done, TP2Done: sig.TP2Done,
+				RemainingPct: sig.RemainingRatio * 100, RealizedPnL: sig.RealizedPnLPct,
+			})
+			if sig.TP0Done {
+				summary.TP0PartialCount++
+			}
+			if sig.TP0Done && (sig.Status == aittrader.TrackedWinTP1 || sig.Status == aittrader.TrackedWinTP2) {
+				summary.RunnerTP1PlusCount++
+			}
+			if sig.Status == aittrader.TrackedStop && sig.MaxFavorable > 1.0 {
+				summary.MFE1LossStopCount++
+			}
 		}
 	}
 	sort.Slice(summary.Status, func(i, j int) bool {
@@ -819,6 +903,12 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 	}
 	sort.Slice(summary.Setup, func(i, j int) bool {
 		return summary.Setup[i].SetupType < summary.Setup[j].SetupType
+	})
+	sort.Slice(summary.Details, func(i, j int) bool {
+		if summary.Details[i].SetupType == summary.Details[j].SetupType {
+			return summary.Details[i].Symbol < summary.Details[j].Symbol
+		}
+		return summary.Details[i].SetupType < summary.Details[j].SetupType
 	})
 	return summary
 }
@@ -891,14 +981,19 @@ func trackedSignalPnLPct(sig *aittrader.TrackedSignal) float64 {
 	if price <= 0 {
 		return 0
 	}
+	var unrealized float64
 	switch strings.ToUpper(sig.Direction) {
 	case string(local.V7DirLong):
-		return (price - sig.SignalPrice) / sig.SignalPrice * 100
+		unrealized = (price - sig.SignalPrice) / sig.SignalPrice * 100
 	case string(local.V7DirShort):
-		return (sig.SignalPrice - price) / sig.SignalPrice * 100
+		unrealized = (sig.SignalPrice - price) / sig.SignalPrice * 100
 	default:
 		return 0
 	}
+	if sig.RemainingRatio > 0 && sig.RemainingRatio <= 1 {
+		return sig.RealizedPnLPct + sig.RemainingRatio*unrealized
+	}
+	return unrealized
 }
 
 func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath string) string {
@@ -911,7 +1006,10 @@ func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath stri
 	sb.WriteString(fmt.Sprintf("| tracked | %d |\n", summary.TrackedCount))
 	sb.WriteString(fmt.Sprintf("| active | %d |\n", summary.ActiveCount))
 	sb.WriteString(fmt.Sprintf("| post_track_duration | %s |\n", summary.PostTrackDuration))
-	sb.WriteString(fmt.Sprintf("| post_track_interval | %s |\n\n", summary.PostTrackInterval))
+	sb.WriteString(fmt.Sprintf("| post_track_interval | %s |\n", summary.PostTrackInterval))
+	sb.WriteString("| TP0 partial exits | " + strconv.Itoa(summary.TP0PartialCount) + " |\n")
+	sb.WriteString("| TP0→TP1/TP2 runners | " + strconv.Itoa(summary.RunnerTP1PlusCount) + " |\n")
+	sb.WriteString("| MFE>1% then STOP alerts | " + strconv.Itoa(summary.MFE1LossStopCount) + " |\n\n")
 	sb.WriteString("## 2. 状态分布\n\n")
 	if len(summary.Status) == 0 {
 		sb.WriteString("- 无 tracked outcome。\n\n")
@@ -935,6 +1033,19 @@ func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath stri
 		sb.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %d | %d | %d | %d | %.3f | %.3f | %.3f |\n",
 			setup.SetupType, setup.Count, setup.Active, setup.Wins, setup.LossStops, setup.ProtectedStops,
 			setup.Timeouts, setup.ActiveProfit, setup.ActiveLoss, setup.AvgPnLPct, setup.AvgMFE, setup.AvgMAE))
+	}
+	sb.WriteString("\n## 4. 逐笔 Outcome 明细\n\n")
+	if len(summary.Details) == 0 {
+		sb.WriteString("- 无逐笔 outcome。\n")
+		return sb.String()
+	}
+	sb.WriteString("| Symbol | Dir | Setup | Tier | Status | Entry | Exit | TP0/TP1/TP2 | PnL% | Realized% | MFE% | MAE% | TP0/TP1/TP2 | Remaining |\n")
+	sb.WriteString("|---|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---|---:|\n")
+	for _, item := range summary.Details {
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %.6g | %.6g | %.6g / %.6g / %.6g | %.3f | %.3f | %.3f | %.3f | %t/%t/%t | %.1f%% |\n",
+			item.Symbol, item.Direction, item.SetupType, item.Tier, item.Status, item.EntryPrice, item.ExitPrice,
+			item.TP0Price, item.TP1Price, item.TP2Price, item.PnLPct, item.RealizedPnL, item.MFE, item.MAE,
+			item.TP0Done, item.TP1Done, item.TP2Done, item.RemainingPct))
 	}
 	return sb.String()
 }
@@ -1292,7 +1403,7 @@ func snapshotIssues(s snapshotSummary) []issue {
 		issues = append(issues, issue{
 			Severity: "medium",
 			Code:     "universe_coverage_low",
-			Detail: fmt.Sprintf("Hunter v7 universe=%d/%d (%.1f%%); validate REST stability and top-detail breadth before judging no-opportunity cycles",
+			Detail: fmt.Sprintf("Hunter v7 routeable universe=%d/%d (%.1f%%); this is a routing observation, not a REST success-rate gate",
 				s.UniverseCount, s.SymbolCount, coverage*100),
 		})
 	}
@@ -1315,11 +1426,41 @@ func annotateSnapshotQuality(s snapshotSummary) snapshotSummary {
 		s.Degraded = true
 		s.DegradationReasons = append(s.DegradationReasons, fmt.Sprintf("rest_error_rate_gt_20pct(%.1f%%)", s.RestErrorRate*100))
 	}
-	if s.SymbolCount > 0 && s.UniverseCoverage < 0.30 {
-		s.Degraded = true
-		s.DegradationReasons = append(s.DegradationReasons, fmt.Sprintf("universe_coverage_lt_30pct(%.1f%%)", s.UniverseCoverage*100))
-	}
 	return s
+}
+
+func snapshotAcceptanceError(s snapshotSummary) error {
+	if s.SymbolCount <= 0 {
+		return fmt.Errorf("snapshot quality rejected: no Binance symbols returned")
+	}
+	if s.Degraded {
+		return fmt.Errorf("snapshot quality rejected: %s", strings.Join(s.DegradationReasons, ", "))
+	}
+	return nil
+}
+
+// reportAcceptanceError blocks persistence only for broken contract data. A
+// legitimate no-signal round remains valid evidence; it is not retried or
+// silently converted into an artificial open-rate observation.
+func reportAcceptanceError(report validationReport) error {
+	check := report.FormatCheck
+	if !check.JSONMarshalOK || !check.JSONUnmarshalOK || check.MissingFieldCount > 0 {
+		return fmt.Errorf("validation contract rejected: json marshal=%v unmarshal=%v missing_fields=%d",
+			check.JSONMarshalOK, check.JSONUnmarshalOK, check.MissingFieldCount)
+	}
+	if check.ExecutableGapCount > 0 {
+		return fmt.Errorf("validation contract rejected: executable_field_gaps=%d", check.ExecutableGapCount)
+	}
+	openReview := reportOpenReviewCount(report)
+	if openReview > 0 && (!report.AIRecognition.PromptContainsV7JSON ||
+		!report.AIRecognition.PromptContainsSetupType ||
+		!report.AIRecognition.PromptContainsEntryMode ||
+		!report.AIRecognition.PromptContainsRiskLevel ||
+		!report.AIRecognition.PromptContainsConfirms ||
+		!report.AIRecognition.PromptContainsInvalid) {
+		return fmt.Errorf("validation contract rejected: prompt missing required v7 fields for %d open-review candidates", openReview)
+	}
+	return nil
 }
 
 func priceChange24h(snap *datafetch.Snapshot, symbol string) float64 {

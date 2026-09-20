@@ -70,6 +70,94 @@ func NewV7SignalStateManager() *V7SignalStateManager {
 	}
 }
 
+// Clone returns an isolated copy of the cross-cycle state.  Live validation
+// uses this to score a retry without allowing a rejected fetch to advance
+// watch promotion or a module circuit breaker.
+func (m *V7SignalStateManager) Clone() *V7SignalStateManager {
+	if m == nil {
+		return NewV7SignalStateManager()
+	}
+	clone := &V7SignalStateManager{
+		entries:        make(map[string]*v7WatchEntry, len(m.entries)),
+		triggerEntries: make(map[string]*v7TriggerMemoryEntry, len(m.triggerEntries)),
+		lastCycle:      m.lastCycle,
+		expireGap:      m.expireGap,
+		moduleBreaker:  make(map[V7SetupType]*v7ModuleBreakerEntry, len(m.moduleBreaker)),
+		breakerRegime:  m.breakerRegime,
+	}
+	for key, entry := range m.entries {
+		if entry == nil {
+			continue
+		}
+		copy := *entry
+		copy.LastSignal = cloneV7StateSignal(entry.LastSignal)
+		clone.entries[key] = &copy
+	}
+	for key, entry := range m.triggerEntries {
+		if entry == nil {
+			continue
+		}
+		copy := *entry
+		copy.LastSignal = cloneV7StateSignal(entry.LastSignal)
+		clone.triggerEntries[key] = &copy
+	}
+	for setup, entry := range m.moduleBreaker {
+		if entry == nil {
+			continue
+		}
+		copy := *entry
+		clone.moduleBreaker[setup] = &copy
+	}
+	return clone
+}
+
+// ReplaceFrom commits a previously isolated scoring attempt.  Callers must
+// only use it after the snapshot has passed quality gates and persistence has
+// succeeded.
+func (m *V7SignalStateManager) ReplaceFrom(next *V7SignalStateManager) {
+	if m == nil || next == nil {
+		return
+	}
+	*m = *next.Clone()
+}
+
+func cloneV7StateSignal(sig V7SignalOutput) V7SignalOutput {
+	clone := sig
+	clone.ReasonCodes = append([]string(nil), sig.ReasonCodes...)
+	clone.RiskTags = append([]string(nil), sig.RiskTags...)
+	clone.RequiredConfirms = append([]string(nil), sig.RequiredConfirms...)
+	clone.Targets = append([]V7Target(nil), sig.Targets...)
+	if sig.PriceCtx != nil {
+		copy := *sig.PriceCtx
+		clone.PriceCtx = &copy
+	}
+	if sig.DerivativesCtx != nil {
+		copy := *sig.DerivativesCtx
+		clone.DerivativesCtx = &copy
+	}
+	if sig.ConfirmSummary != nil {
+		copy := *sig.ConfirmSummary
+		clone.ConfirmSummary = &copy
+	}
+	if sig.ExecutionReadiness != nil {
+		copy := *sig.ExecutionReadiness
+		copy.MissingHard = append([]string(nil), sig.ExecutionReadiness.MissingHard...)
+		copy.MissingExecution = append([]string(nil), sig.ExecutionReadiness.MissingExecution...)
+		copy.MissingContext = append([]string(nil), sig.ExecutionReadiness.MissingContext...)
+		copy.NextConfirm = append([]string(nil), sig.ExecutionReadiness.NextConfirm...)
+		clone.ExecutionReadiness = &copy
+	}
+	if sig.ExecutionContext != nil {
+		copy := *sig.ExecutionContext
+		copy.Timeframes = make(map[string]V7ExecutionTimeframeSummary, len(sig.ExecutionContext.Timeframes))
+		for timeframe, summary := range sig.ExecutionContext.Timeframes {
+			copy.Timeframes[timeframe] = summary
+		}
+		clone.ExecutionContext = &copy
+	}
+	return clone
+}
+
 // Process takes the full ScoreHunterV7 output for a cycle and updates watch
 // states. It returns upgraded signals that have reached REVIEWABLE or higher.
 func (m *V7SignalStateManager) Process(signals []V7SignalOutput, cycleNumber int) []V7SignalOutput {

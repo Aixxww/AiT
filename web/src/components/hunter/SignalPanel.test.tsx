@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import {
   SignalPanel,
+  buildSignalSummary,
   groupLatestCycleByTier,
   takerLadderCodes,
   zonePositionPct,
@@ -158,6 +159,36 @@ describe('zonePositionPct', () => {
   })
 })
 
+describe('buildSignalSummary', () => {
+  it('computes latest-cycle open review and outcome quality metrics', () => {
+    const grouped = groupLatestCycleByTier([
+      makeRow({ id: 1, execution_tier: 'EXECUTABLE' }),
+      makeRow({
+        id: 2,
+        execution_tier: 'REVIEWABLE',
+        track_status: 'PROTECTED_STOP',
+        track_pnl_pct: 0.24,
+      }),
+      makeRow({
+        id: 3,
+        execution_tier: 'WATCH',
+        track_status: 'STOP',
+        track_pnl_pct: -1.1,
+      }),
+      makeRow({ id: 4, execution_tier: 'REJECTED' }),
+    ])
+
+    const summary = buildSignalSummary(grouped)
+
+    expect(summary.total).toBe(4)
+    expect(summary.actionable).toBe(2)
+    expect(summary.openRate).toBe(50)
+    expect(summary.protected).toBe(1)
+    expect(summary.stops).toBe(1)
+    expect(summary.avgPnl).toBeCloseTo(-0.43)
+  })
+})
+
 describe('SignalPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -260,9 +291,11 @@ describe('SignalPanel', () => {
 
     // Expanded cards for the actionable tiers
     expect(await screen.findByTestId('signal-card-BTCUSDT')).toBeInTheDocument()
+    expect(screen.getByText('40.0%')).toBeInTheDocument()
+    expect(screen.getByText('2/5')).toBeInTheDocument()
     expect(screen.getByTestId('signal-card-SOLUSDT')).toBeInTheDocument()
     expect(screen.getByText('PROTECTED')).toBeInTheDocument()
-    expect(screen.getByText('+0.18%')).toBeInTheDocument()
+    expect(screen.getAllByText('+0.18%').length).toBeGreaterThan(0)
     // Direction badge is separate from the tier badge
     expect(screen.getAllByText('LONG').length).toBeGreaterThan(0)
     expect(screen.getAllByText('SHORT').length).toBeGreaterThan(0)

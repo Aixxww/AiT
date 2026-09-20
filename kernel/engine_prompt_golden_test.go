@@ -78,15 +78,41 @@ func TestHunterV7GoldenPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read golden (run with -update-prompt-golden to record): %v", err)
 	}
-	if prompt == string(want) {
+	expected := injectHunterV7ExecutionContractGolden(string(want))
+	if prompt == expected {
 		return
 	}
 	gotLines := strings.Split(prompt, "\n")
-	wantLines := strings.Split(string(want), "\n")
+	wantLines := strings.Split(expected, "\n")
 	for i := 0; i < len(gotLines) && i < len(wantLines); i++ {
 		if gotLines[i] != wantLines[i] {
 			t.Fatalf("prompt diverged at line %d:\n want: %s\n got:  %s", i+1, wantLines[i], gotLines[i])
 		}
 	}
 	t.Fatalf("prompt diverged in length: %d -> %d lines", len(wantLines), len(gotLines))
+}
+
+func injectHunterV7ExecutionContractGolden(prompt string) string {
+	// Frozen contract for universe-20260726: both replayed MMS candidates are
+	// REVIEWABLE, share the same required confirmations, and carry the backend
+	// TP0 runner policy. Contract drift now fails the complete prompt replay.
+	const contract = `,"execution_contract":{"entry_permission":"live_confirmation_required","must_confirm":["5m_price_holds_ema20_or_trailing_support","taker_flow_not_flipping_against_direction","live_price_in_entry_zone"],"size_policy":"normal_if_backend_rr_and_confirmations_pass","exit_policy":"partial_tp0_then_breakeven_runner_to_tp1_tp2"}`
+	const anchor = `,"tag_semantics":`
+	lines := strings.Split(prompt, "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "hunter_v7_signal_json: ") || strings.Contains(line, `"execution_contract":`) {
+			continue
+		}
+		if at := strings.Index(line, anchor); at >= 0 {
+			lines[i] = line[:at] + contract + line[at:]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestInjectHunterV7ExecutionContractGolden(t *testing.T) {
+	in := `hunter_v7_signal_json: {"symbol":"X","tag_semantics":[]}`
+	if got := injectHunterV7ExecutionContractGolden(in); !strings.Contains(got, `"execution_contract":`) {
+		t.Fatalf("golden contract was not injected: %q", got)
+	}
 }

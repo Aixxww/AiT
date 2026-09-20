@@ -123,6 +123,60 @@ func TestHunterV7TierRuleReasonFuncFallsThrough(t *testing.T) {
 	}
 }
 
+func TestHunterV7MMSLongLiveSupportGuardBlocksWeak5mRetest(t *testing.T) {
+	coin := v7Candidate("mms_trend_ride_long",
+		withDirection("LONG"),
+		withQuality("ready"),
+		withScores(80, 85, 70, 10, 90),
+		withReasons("mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "mms_low_volume_retest", "shape_clean_momentum", "entry_open_now"),
+		withPriceCtx(&local.V7PriceContext{Last: 2.32}),
+		withExecutionContext(&local.V7ExecutionContext{
+			DataQuality: "complete_for_execution",
+			Timeframes: map[string]local.V7ExecutionTimeframeSummary{
+				"5m": {
+					Timeframe:        "5m",
+					CandleCount:      50,
+					HasEMA20:         true,
+					CloseVsEMA20Pct:  -0.18,
+					HasVWAP20:        true,
+					CloseVsVWAP20Pct: -0.26,
+					VolumeVsAvg5:     0.52,
+				},
+			},
+		}),
+	)
+	if hunterV7MMSLongLiveSupportOK(coin) {
+		t.Fatalf("weak 5m retest should fail live support gate")
+	}
+}
+
+func TestHunterV7MMSLongLiveSupportGuardAllowsHealthyRetest(t *testing.T) {
+	coin := v7Candidate("mms_trend_ride_long",
+		withDirection("LONG"),
+		withQuality("ready"),
+		withScores(80, 85, 70, 10, 90),
+		withReasons("mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "shape_clean_momentum", "entry_open_now"),
+		withPriceCtx(&local.V7PriceContext{Last: 2.32}),
+		withExecutionContext(&local.V7ExecutionContext{
+			DataQuality: "complete_for_execution",
+			Timeframes: map[string]local.V7ExecutionTimeframeSummary{
+				"5m": {
+					Timeframe:        "5m",
+					CandleCount:      50,
+					HasEMA20:         true,
+					CloseVsEMA20Pct:  0.21,
+					HasVWAP20:        true,
+					CloseVsVWAP20Pct: 0.14,
+					VolumeVsAvg5:     1.04,
+				},
+			},
+		}),
+	)
+	if !hunterV7MMSLongLiveSupportOK(coin) {
+		t.Fatalf("healthy 5m retest should pass live support gate")
+	}
+}
+
 // TestHunterV7TierSpecShape validates registered specs: every rule must emit
 // a reason or delegate to a reason func (OpenRateFloor rules excepted — the
 // caller only consumes the match).

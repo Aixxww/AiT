@@ -105,6 +105,9 @@ type DecisionAction struct {
 	FinalRR                  float64          `json:"final_rr,omitempty"`
 	FinalEffectiveTakeProfit float64          `json:"final_effective_take_profit,omitempty"`
 	FinalStopLoss            float64          `json:"final_stop_loss,omitempty"`
+	HunterV7TP0Price         float64          `json:"hunter_v7_tp0_price,omitempty"`
+	HunterV7TP1Price         float64          `json:"hunter_v7_tp1_price,omitempty"`
+	HunterV7TP2Price         float64          `json:"hunter_v7_tp2_price,omitempty"`
 	BlockedReasonCode        string           `json:"blocked_reason_code,omitempty"`
 	Trigger                  *DecisionTrigger `json:"trigger,omitempty"`
 	OrderID                  int64            `json:"order_id"`

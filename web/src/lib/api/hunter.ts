@@ -47,6 +47,26 @@ export interface V7ExecutionReadiness {
   next_confirmations?: string[]
 }
 
+export interface V7PriceContext {
+  last?: number
+  change_1h?: number
+  change_4h?: number
+  change_24h?: number
+  atr_1h?: number
+  atr_4h?: number
+  vwap_15m?: number
+}
+
+export interface V7DerivativesContext {
+  oi_value?: number
+  oi_change_1h?: number
+  oi_change_4h?: number
+  funding_rate?: number
+  lsr_oldest?: number
+  lsr_newest?: number
+  taker_buy_ratio_15m?: number
+}
+
 export interface V7Signal {
   signal_id?: string
   symbol: string
@@ -68,6 +88,8 @@ export interface V7Signal {
   confirmation_summary?: V7ConfirmationSummary
   market_regime?: string
   execution_readiness?: V7ExecutionReadiness
+  price_context?: V7PriceContext
+  derivatives_context?: V7DerivativesContext
   tp0_price?: number
   tp0_rr?: number
   tp1_price?: number
@@ -85,13 +107,34 @@ export interface V7SignalRow {
   blocked_gate?: string
   track_status?: string
   track_pnl_pct: number
+  track_tp0_done?: boolean
+  track_tp1_done?: boolean
+  track_tp2_done?: boolean
+  track_remaining_ratio?: number
+  track_realized_pnl_pct?: number
   signal: V7Signal
 }
 
 export interface V7SignalsResponse {
   count: number
   signals: V7SignalRow[]
+  cycle?: V7LatestCycleSummary
   window_source: string
+}
+
+export interface V7CountedReason {
+  code: string
+  count: number
+}
+
+export interface V7LatestCycleSummary {
+  timestamp?: string
+  cycle_number: number
+  persisted_records: number
+  tier_counts: Partial<Record<V7Tier, number>>
+  status_counts: Record<string, number>
+  data_quality_counts: Record<string, number>
+  top_vetoes: V7CountedReason[]
 }
 
 /** One entry of the Hunter v7 tag catalog (GET /api/hunter/v7/tag-catalog). */

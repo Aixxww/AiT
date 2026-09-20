@@ -1220,6 +1220,21 @@ func TestProtectionStateRememberPlannedTakeProfitKeepsNearestTarget(t *testing.T
 	}
 }
 
+func TestHunterV7PlannedTargetsTriggerTP1AndTP2ByPrice(t *testing.T) {
+	if !shouldTriggerPlannedTarget("long", 103, 103, false) {
+		t.Fatal("long TP1 price should trigger at target")
+	}
+	if shouldTriggerPlannedTarget("long", 102.9, 103, false) {
+		t.Fatal("long TP1 price should not trigger below target")
+	}
+	if !shouldTriggerPlannedTarget("short", 97, 97, false) {
+		t.Fatal("short TP2 price should trigger at target")
+	}
+	if shouldTriggerPlannedTarget("short", 96, 97, true) {
+		t.Fatal("completed target must not trigger again")
+	}
+}
+
 func TestChoosePositionProtectionActionHardLossClose(t *testing.T) {
 	state := &positionProtectionState{
 		InitialQuantity: 100,

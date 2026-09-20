@@ -208,17 +208,22 @@ type Decision struct {
 	OrderID    string  `json:"order_id,omitempty"`    // Order ID (for cancel)
 
 	// Common parameters
-	Confidence               int              `json:"confidence,omitempty"` // Confidence level (0-100)
-	RiskUSD                  float64          `json:"risk_usd,omitempty"`   // Maximum USD risk
-	Reasoning                string           `json:"reasoning"`
-	BlockedReasonCode        string           `json:"blocked_reason_code,omitempty"`          // Structured wait reason enum (hunter_v7)
-	SelectedHunterV7SignalID string           `json:"selected_hunter_v7_signal_id,omitempty"` // Exact Hunter v7 signal selected for open.
-	SelectedHunterV7Tier     string           `json:"selected_hunter_v7_tier,omitempty"`
-	SelectedHunterV7Setup    string           `json:"selected_hunter_v7_setup,omitempty"`
-	BlockedSignalSymbol      string           `json:"blocked_signal_symbol,omitempty"`
-	EffectiveRRAfterCap      float64          `json:"effective_rr_after_cap,omitempty"`
-	SignalAgeMs              int64            `json:"signal_age_ms,omitempty"`
-	Trigger                  *DecisionTrigger `json:"trigger,omitempty"` // Structured wait trigger (hunter_v7)
+	Confidence               int     `json:"confidence,omitempty"` // Confidence level (0-100)
+	RiskUSD                  float64 `json:"risk_usd,omitempty"`   // Maximum USD risk
+	Reasoning                string  `json:"reasoning"`
+	BlockedReasonCode        string  `json:"blocked_reason_code,omitempty"`          // Structured wait reason enum (hunter_v7)
+	SelectedHunterV7SignalID string  `json:"selected_hunter_v7_signal_id,omitempty"` // Exact Hunter v7 signal selected for open.
+	SelectedHunterV7Tier     string  `json:"selected_hunter_v7_tier,omitempty"`
+	SelectedHunterV7Setup    string  `json:"selected_hunter_v7_setup,omitempty"`
+	BlockedSignalSymbol      string  `json:"blocked_signal_symbol,omitempty"`
+	EffectiveRRAfterCap      float64 `json:"effective_rr_after_cap,omitempty"`
+	SignalAgeMs              int64   `json:"signal_age_ms,omitempty"`
+	// Server-derived execution plan. These fields are hydrated from the selected
+	// Hunter v7 signal after response validation; they are not LLM inputs.
+	HunterV7TP0Price float64          `json:"hunter_v7_tp0_price,omitempty"`
+	HunterV7TP1Price float64          `json:"hunter_v7_tp1_price,omitempty"`
+	HunterV7TP2Price float64          `json:"hunter_v7_tp2_price,omitempty"`
+	Trigger          *DecisionTrigger `json:"trigger,omitempty"` // Structured wait trigger (hunter_v7)
 }
 
 type DecisionTrigger struct {
@@ -3067,12 +3072,13 @@ func hunterV7AltLadderLongExecutable(coin CandidateCoin) bool {
 	return true
 }
 
-func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
+func hunterV7AltLadderShortReviewableClassicOK(coin CandidateCoin) bool {
 	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
 	}
-	if !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") &&
-		!hunterV7AltLadderShortLayeredReleaseOK(coin) {
+	// Soft-release is table-driven (altLadderShortSoftRelease*); classic
+	// reviewable still requires rebound-failure confirmation.
+	if !hunterV7ConfirmationPassed(coin, "no_new_high_after_rejection") {
 		return false
 	}
 	hasFlowLeg := containsAnyStringValue(coin.V7ReasonCodes, []string{
@@ -3102,32 +3108,21 @@ func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
 	return hasTakerSell && hunterV7TakerBuyConfirmedAtMost(coin, 0.46)
 }
 
+// Deprecated name kept as alias for any residual call sites / tests.
+func hunterV7AltLadderShortReviewableOK(coin CandidateCoin) bool {
+	if hunterV7TierRuleMatches(coin, &altLadderShortSoftReleaseStandard) ||
+		hunterV7TierRuleMatches(coin, &altLadderShortSoftReleaseStrong) {
+		return true
+	}
+	return hunterV7AltLadderShortReviewableClassicOK(coin)
+}
+
 func hunterV7AltLadderShortLayeredReleaseOK(coin CandidateCoin) bool {
 	if coin.V7SetupType != "alt_ladder_breakdown_short" || !strings.EqualFold(coin.Direction, "SHORT") {
 		return false
 	}
-	if hunterV7AltLadderShortLayeredReleaseHardBlock(coin) {
-		return false
-	}
-	earlyOrMid := containsAnyStringValue(coin.V7ReasonCodes, []string{
-		"alt_ladder_downshift_early",
-		"alt_ladder_downshift_mid",
-	})
-	if !earlyOrMid {
-		return false
-	}
-	if coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < 70 {
-		return false
-	}
-	stopDistancePct := hunterV7StopDistancePct(coin)
-	if stopDistancePct > 0 && stopDistancePct > 2.2 {
-		return false
-	}
-	lowTakerSell := hunterV7TakerBuyConfirmedAtMost(coin, 0.38)
-	newShortsWithOI := containsStringValue(coin.V7ReasonCodes, "alt_ladder_new_shorts") &&
-		coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.OIChange1h > 1.0 &&
-		hunterV7TakerBuyConfirmedAtMost(coin, 0.42)
-	return lowTakerSell || newShortsWithOI
+	return hunterV7TierRuleMatches(coin, &altLadderShortSoftReleaseStandard) ||
+		hunterV7TierRuleMatches(coin, &altLadderShortSoftReleaseStrong)
 }
 
 func hunterV7AltLadderShortLayeredReleaseHardBlock(coin CandidateCoin) bool {
@@ -3151,6 +3146,28 @@ func hunterV7AltLadderShortLayeredReleaseHardBlock(coin CandidateCoin) bool {
 		return true
 	}
 	return coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0.42
+}
+
+func hunterV7EntryZonePositionPct(coin CandidateCoin) (float64, bool) {
+	entryZonePos := 0.0
+	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.EntryZonePosition > 0 {
+		entryZonePos = coin.V7ConfirmSummary.EntryZonePosition
+	}
+	if coin.V7Readiness != nil && coin.V7Readiness.EntryZonePos > entryZonePos {
+		entryZonePos = coin.V7Readiness.EntryZonePos
+	}
+	if entryZonePos > 0 {
+		return entryZonePos, true
+	}
+	if coin.V7PriceContext == nil || coin.V7PriceContext.Last <= 0 {
+		return 0, false
+	}
+	lower := coin.V7EntryZone.Lower
+	upper := coin.V7EntryZone.Upper
+	if lower <= 0 || upper <= lower {
+		return 0, false
+	}
+	return (coin.V7PriceContext.Last - lower) / (upper - lower) * 100, true
 }
 
 func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {
@@ -3242,6 +3259,23 @@ func hunterV7MMSLongExecutableFreshEnough(coin CandidateCoin) bool {
 		return false
 	}
 	return true
+}
+
+func hunterV7MMSLongLiveSupportOK(coin CandidateCoin) bool {
+	if coin.V7SetupType != "mms_trend_ride_long" || !strings.EqualFold(coin.Direction, "LONG") {
+		return true
+	}
+	if coin.V7ExecutionContext == nil {
+		return true
+	}
+	tf, ok := coin.V7ExecutionContext.Timeframes["5m"]
+	if !ok || tf.CandleCount == 0 {
+		return true
+	}
+	weakVWAP := tf.HasVWAP20 && tf.CloseVsVWAP20Pct < 0
+	weakEMA := tf.HasEMA20 && tf.CloseVsEMA20Pct < 0
+	thinRetest := tf.VolumeVsAvg5 > 0 && tf.VolumeVsAvg5 < 0.8
+	return !(weakVWAP && weakEMA && thinRetest)
 }
 
 func hunterV7PriceInsideEntryZone(coin CandidateCoin) bool {

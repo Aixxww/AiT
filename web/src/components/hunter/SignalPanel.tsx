@@ -14,7 +14,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
-import type { V7Signal, V7SignalRow, V7Tier } from '../../lib/api/hunter'
+import type {
+  V7LatestCycleSummary,
+  V7Signal,
+  V7SignalRow,
+  V7Tier,
+} from '../../lib/api/hunter'
 import { SignalTierBadge, type SignalTier } from './SignalTierBadge'
 import { VetoChip } from './VetoChip'
 import { tagTooltip, useTagCatalog } from '../../lib/tagCatalog'
@@ -78,6 +83,67 @@ export function zonePositionPct(signal: V7Signal): number | null {
   return Math.min(100, Math.max(0, pos))
 }
 
+export interface SignalSummary {
+  total: number
+  actionable: number
+  openRate: number
+  executable: number
+  reviewable: number
+  watch: number
+  rejected: number
+  tracked: number
+  active: number
+  protected: number
+  wins: number
+  stops: number
+  ambiguous: number
+  avgPnl: number
+}
+
+export function buildSignalSummary(
+  grouped: Record<V7Tier, V7SignalRow[]>
+): SignalSummary {
+  const rows = TIER_ORDER.flatMap((tier) => grouped[tier] ?? [])
+  const actionable =
+    (grouped.EXECUTABLE?.length ?? 0) + (grouped.REVIEWABLE?.length ?? 0)
+  const tracked = rows.filter((row) => row.track_status)
+  // ACTIVE and same-candle TP/SL paths are not completed trade evidence. Keep
+  // them visible, but do not let them bias the panel's outcome average.
+  const pnlRows = tracked.filter(
+    (row) =>
+      Number.isFinite(row.track_pnl_pct) &&
+      row.track_status !== 'ACTIVE' &&
+      row.track_status !== 'BOTH_SAME_1M'
+  )
+  const avgPnl =
+    pnlRows.length > 0
+      ? pnlRows.reduce((sum, row) => sum + row.track_pnl_pct, 0) /
+        pnlRows.length
+      : 0
+  return {
+    total: rows.length,
+    actionable,
+    openRate: rows.length > 0 ? (actionable / rows.length) * 100 : 0,
+    executable: grouped.EXECUTABLE?.length ?? 0,
+    reviewable: grouped.REVIEWABLE?.length ?? 0,
+    watch: grouped.WATCH?.length ?? 0,
+    rejected: grouped.REJECTED?.length ?? 0,
+    tracked: tracked.length,
+    active: tracked.filter((row) => row.track_status === 'ACTIVE').length,
+    protected: tracked.filter((row) => row.track_status === 'PROTECTED_STOP')
+      .length,
+    wins: tracked.filter((row) => row.track_status?.startsWith('WIN_')).length,
+    stops: tracked.filter((row) => row.track_status === 'STOP').length,
+    ambiguous: tracked.filter((row) => row.track_status === 'BOTH_SAME_1M')
+      .length,
+    avgPnl,
+  }
+}
+
+function copy(language: Language, en: string, zh: string) {
+  return language === 'zh' ? zh : en
+}
+
 function DirectionBadge({ direction }: { direction: 'LONG' | 'SHORT' }) {
   // Direction is the one place semantic green/red is allowed in this panel.
   return (
@@ -90,6 +156,198 @@ function DirectionBadge({ direction }: { direction: 'LONG' | 'SHORT' }) {
     >
       {direction}
     </span>
+  )
+}
+
+function SummaryCell({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value: string
+  tone?: 'default' | 'action' | 'profit' | 'loss'
+}) {
+  const toneClass =
+    tone === 'action'
+      ? 'text-tier-executable'
+      : tone === 'profit'
+        ? 'text-profit'
+        : tone === 'loss'
+          ? 'text-loss'
+          : 'text-foreground'
+  return (
+    <div className="min-w-0 px-3 py-2">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${toneClass}`}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function SignalSummaryStrip({
+  summary,
+  language,
+}: {
+  summary: SignalSummary
+  language: Language
+}) {
+  if (summary.total === 0) return null
+  const pnlTone =
+    summary.avgPnl > 0 ? 'profit' : summary.avgPnl < 0 ? 'loss' : 'default'
+  return (
+    <div className="grid grid-cols-2 overflow-hidden rounded border border-border/60 bg-surface/30 md:grid-cols-4 xl:grid-cols-6">
+      <SummaryCell
+        label={t('v7Signals.summaryOpenRate', language)}
+        value={`${summary.openRate.toFixed(1)}%`}
+        tone={summary.actionable > 0 ? 'action' : 'default'}
+      />
+      <SummaryCell
+        label={t('v7Signals.summaryActionable', language)}
+        value={`${summary.actionable}/${summary.total}`}
+        tone={summary.actionable > 0 ? 'action' : 'default'}
+      />
+      <SummaryCell
+        label={t('v7Signals.summaryWatch', language)}
+        value={String(summary.watch)}
+      />
+      <SummaryCell
+        label={t('v7Signals.summaryRejected', language)}
+        value={String(summary.rejected)}
+      />
+      <SummaryCell
+        label={t('v7Signals.summaryOutcomes', language)}
+        value={`${summary.protected + summary.wins}/${summary.stops}`}
+        tone={
+          summary.stops > summary.protected + summary.wins ? 'loss' : 'profit'
+        }
+      />
+      <SummaryCell
+        label={t('v7Signals.summaryAvgPnl', language)}
+        value={`${summary.avgPnl >= 0 ? '+' : ''}${summary.avgPnl.toFixed(2)}%`}
+        tone={pnlTone}
+      />
+      {summary.ambiguous > 0 && (
+        <SummaryCell
+          label={copy(language, 'AMBIGUOUS', '同K线歧义')}
+          value={String(summary.ambiguous)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A compact, deliberately bounded funnel: it explains the persisted latest
+ * cycle rather than pretending to be the full exchange universe. Full-universe
+ * and REST-quality metrics require the forthcoming cycle-metadata endpoint.
+ */
+function SignalFunnel({
+  summary,
+  cycle,
+  language,
+}: {
+  summary: SignalSummary
+  cycle?: V7LatestCycleSummary
+  language: Language
+}) {
+  const tierCount = (tier: V7Tier, fallback: number) =>
+    cycle?.tier_counts?.[tier] ?? fallback
+  const steps = [
+    [
+      copy(language, 'PERSISTED', '已持久化'),
+      cycle?.persisted_records ?? summary.total,
+      'text-foreground',
+    ],
+    [
+      copy(language, 'OPEN REVIEW', '开仓复核'),
+      summary.actionable,
+      'text-tier-reviewable',
+    ],
+    [
+      copy(language, 'WATCH', '等待确认'),
+      tierCount('WATCH', summary.watch),
+      'text-tier-watch',
+    ],
+    [
+      copy(language, 'VETOED', '已否决'),
+      tierCount('REJECTED', summary.rejected),
+      'text-tier-rejected',
+    ],
+  ] as const
+  return (
+    <div className="rounded-lg border border-border/60 bg-surface/35 px-3 py-2.5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
+          {copy(language, 'LATEST-CYCLE SIGNAL FUNNEL', '最新轮次信号漏斗')}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {copy(language, 'persisted cycle only', '仅已持久化轮次')}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded border border-border/40 bg-border/40 sm:grid-cols-4">
+        {steps.map(([label, value, tone]) => (
+          <div key={label} className="bg-panel/75 px-2.5 py-2">
+            <div className="font-mono text-[9px] tracking-wider text-muted-foreground">
+              {label}
+            </div>
+            <div
+              className={`mt-0.5 font-mono text-base font-semibold tabular-nums ${tone}`}
+            >
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+      {(cycle?.top_vetoes?.length ?? 0) > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] font-mono text-muted-foreground">
+          <span>{copy(language, 'TOP VETOES', '主要否决')}:</span>
+          {cycle!.top_vetoes.slice(0, 3).map((veto) => (
+            <VetoChip key={veto.code} code={`${veto.code} ×${veto.count}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CycleQuality({
+  rows,
+  language,
+}: {
+  rows: V7SignalRow[]
+  language: Language
+}) {
+  const timestamp = rows[0]?.timestamp ? new Date(rows[0].timestamp) : null
+  const partial = rows.filter(
+    (row) => row.signal.execution_readiness?.data_quality === 'PARTIAL'
+  ).length
+  const stale = rows.filter(
+    (row) => row.signal.execution_readiness?.data_quality === 'STALE'
+  ).length
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-border/70 pl-3 font-mono text-[10px] text-muted-foreground">
+      {timestamp && (
+        <span>
+          {copy(language, 'signal time', '信号时间')}{' '}
+          {timestamp.toLocaleTimeString()}
+        </span>
+      )}
+      <span>
+        {copy(language, 'quality', '数据质量')}{' '}
+        {stale > 0 ? 'STALE' : partial > 0 ? 'PARTIAL' : 'REPORTED'}
+      </span>
+      {(partial > 0 || stale > 0) && (
+        <span>
+          {copy(language, 'affected', '受影响')} {partial + stale}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -106,6 +364,7 @@ function OutcomeBadge({
   const isProtected = status === 'PROTECTED_STOP'
   const isWin = status.startsWith('WIN_')
   const isStop = status === 'STOP'
+  const isAmbiguous = status === 'BOTH_SAME_1M'
   const classes = isProtected
     ? 'border-tier-reviewable/40 bg-tier-reviewable-bg text-tier-reviewable'
     : isWin
@@ -120,15 +379,226 @@ function OutcomeBadge({
     >
       {isProtected && <ShieldCheck className="h-3 w-3 shrink-0" />}
       <span className="truncate">
-        {isProtected
-          ? t('v7Signals.protectedStop', language)
-          : status.replace('_', ' ')}
+        {isAmbiguous
+          ? copy(language, 'AMBIGUOUS 1M', '同K线歧义')
+          : isProtected
+            ? t('v7Signals.protectedStop', language)
+            : status.replace('_', ' ')}
       </span>
       <span className="tabular-nums">
         {pnl >= 0 ? '+' : ''}
         {pnl.toFixed(2)}%
       </span>
     </span>
+  )
+}
+
+function EvidenceStrip({
+  signal,
+  language,
+}: {
+  signal: V7Signal
+  language: Language
+}) {
+  const derivative = signal.derivatives_context
+  const price = signal.price_context
+  const reasons = (signal.reason_codes ?? []).filter(
+    (code) =>
+      !code.startsWith('flow_taker_buy_') &&
+      !code.startsWith('flow_taker_sell_')
+  )
+  const metric = (label: string, value: string | null) =>
+    value === null ? null : (
+      <span key={label}>
+        <span className="text-muted-foreground">{label} </span>
+        {value}
+      </span>
+    )
+  const percent = (value?: number) =>
+    value === undefined || !Number.isFinite(value)
+      ? null
+      : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+  if (!derivative && !price && reasons.length === 0) return null
+  return (
+    <div className="space-y-1.5 rounded border border-border/50 bg-surface/20 px-2.5 py-2">
+      <div className="font-mono text-[9px] font-semibold tracking-[0.14em] text-muted-foreground">
+        {copy(language, 'ROUTING EVIDENCE', '路由证据')}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] text-foreground/85">
+        {metric('ΔP 1h', percent(price?.change_1h))}
+        {metric('ΔP 4h', percent(price?.change_4h))}
+        {metric('ΔOI 1h', percent(derivative?.oi_change_1h))}
+        {metric('ΔOI 4h', percent(derivative?.oi_change_4h))}
+        {metric('Funding', percent(derivative?.funding_rate))}
+        {metric(
+          'LSR',
+          derivative?.lsr_newest !== undefined
+            ? derivative.lsr_newest.toFixed(2)
+            : null
+        )}
+        {metric(
+          'Taker',
+          derivative?.taker_buy_ratio_15m !== undefined
+            ? derivative.taker_buy_ratio_15m.toFixed(2)
+            : null
+        )}
+      </div>
+      {reasons.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {reasons.slice(0, 7).map((code) => (
+            <VetoChip key={code} code={code} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TrackProgress({
+  row,
+  language,
+}: {
+  row: V7SignalRow
+  language: Language
+}) {
+  if (!row.track_status) return null
+  const steps = [
+    ['TP0', row.track_tp0_done],
+    ['TP1', row.track_tp1_done],
+    ['TP2', row.track_tp2_done],
+  ] as const
+  return (
+    <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] text-muted-foreground">
+      <span>{copy(language, 'exit progress', '退出进度')}</span>
+      {steps.map(([label, done]) => (
+        <span key={label} className={done ? 'text-tier-executable' : ''}>
+          {done ? '●' : '○'} {label}
+        </span>
+      ))}
+      {row.track_remaining_ratio !== undefined && (
+        <span>
+          {copy(language, 'runner', '剩余仓位')}{' '}
+          {(row.track_remaining_ratio * 100).toFixed(0)}%
+        </span>
+      )}
+      {row.track_realized_pnl_pct !== undefined && (
+        <span>
+          {copy(language, 'realized', '已实现')}{' '}
+          {row.track_realized_pnl_pct >= 0 ? '+' : ''}
+          {row.track_realized_pnl_pct.toFixed(2)}%
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Shows captured derivatives context as an analytical aid, never as a
+// standalone trade trigger. Market-cap/OI-MC and 3d fields remain absent until
+// a source with freshness guarantees is added to the backend contract.
+function StructureMonitor({
+  rows,
+  language,
+}: {
+  rows: V7SignalRow[]
+  language: Language
+}) {
+  const structuralRows = rows
+    .filter((row) => row.signal.derivatives_context || row.signal.price_context)
+    .sort((a, b) => b.signal.ai_priority - a.signal.ai_priority)
+    .slice(0, 12)
+  if (structuralRows.length === 0) return null
+  const pct = (value?: number) =>
+    value === undefined || !Number.isFinite(value)
+      ? '--'
+      : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+  const oi = (value?: number) =>
+    value === undefined || value <= 0
+      ? '--'
+      : value >= 1_000_000
+        ? `$${(value / 1_000_000).toFixed(1)}M`
+        : `$${(value / 1000).toFixed(0)}K`
+  return (
+    <div className="overflow-hidden rounded-lg border border-border/60 bg-surface/25">
+      <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
+        <div>
+          <div className="font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
+            {copy(language, 'DERIVATIVES STRUCTURE', '合约结构监控')}
+          </div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground">
+            {copy(
+              language,
+              'Snapshot evidence — not a standalone entry signal',
+              '快照证据，不构成独立开仓信号'
+            )}
+          </div>
+        </div>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          TOP {structuralRows.length}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] font-mono text-[10px] tabular-nums">
+          <thead className="bg-panel/40 text-muted-foreground">
+            <tr className="border-b border-border/40">
+              {[
+                'SYMBOL',
+                'SETUP',
+                'ΔP 1H',
+                'OI',
+                'ΔOI 1H',
+                'FUNDING',
+                'LSR',
+                'TAKER',
+              ].map((label) => (
+                <th
+                  key={label}
+                  className="px-3 py-2 text-right font-medium tracking-wider first:text-left"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {structuralRows.map((row) => {
+              const derivative = row.signal.derivatives_context
+              const price = row.signal.price_context
+              return (
+                <tr
+                  key={row.id}
+                  className="border-b border-border/30 last:border-0 hover:bg-panel/35"
+                >
+                  <td className="px-3 py-2 text-left font-semibold text-foreground">
+                    {row.signal.symbol}
+                  </td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">
+                    {row.signal.setup_type}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {pct(price?.change_1h)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {oi(derivative?.oi_value)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {pct(derivative?.oi_change_1h)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {pct(derivative?.funding_rate)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {derivative?.lsr_newest?.toFixed(2) ?? '--'}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {derivative?.taker_buy_ratio_15m?.toFixed(2) ?? '--'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 
@@ -146,9 +616,9 @@ function ScoreQuad({
     [t('v7Signals.scoreRisk', language), signal.risk_score],
   ]
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 divide-x divide-border/50 overflow-hidden rounded border border-border/50 bg-surface/20">
       {cells.map(([label, value]) => (
-        <div key={label} className="rounded bg-muted/20 px-2 py-1.5">
+        <div key={label} className="min-w-0 px-2 py-1.5">
           <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             {label}
           </div>
@@ -323,6 +793,8 @@ function SignalCard({
         )}
       </div>
       <ConfirmationState row={row} language={language} />
+      <EvidenceStrip signal={signal} language={language} />
+      <TrackProgress row={row} language={language} />
       {(signal.risk_tags?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">
           {signal.risk_tags!.map((tag) => (
@@ -346,15 +818,19 @@ function WatchRow({ row, language }: { row: V7SignalRow; language: Language }) {
   return (
     <div
       data-testid={`watch-row-${row.signal.symbol}`}
-      className="flex items-center gap-2 px-3 py-1.5 rounded bg-tier-watch-bg text-muted-foreground"
+      className="grid min-h-9 grid-cols-[minmax(84px,1fr)_auto_minmax(120px,1.4fr)_minmax(92px,auto)] items-center gap-2 rounded border border-transparent bg-tier-watch-bg px-3 py-1.5 text-muted-foreground md:grid-cols-[minmax(96px,1fr)_auto_minmax(180px,1.8fr)_minmax(150px,auto)_minmax(120px,1.2fr)]"
     >
-      <span className="font-mono font-semibold text-[11px] text-foreground/80">
-        {row.signal.symbol}
-      </span>
-      <DirectionBadge direction={row.signal.direction} />
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate font-mono text-[11px] font-semibold text-foreground/80">
+          {row.signal.symbol}
+        </span>
+        <DirectionBadge direction={row.signal.direction} />
+      </div>
       <OutcomeBadge row={row} language={language} />
-      <span className="font-mono text-[10px]">{row.signal.setup_type}</span>
-      <span className="ml-auto font-mono text-[10px] tabular-nums">
+      <span className="truncate font-mono text-[10px]">
+        {row.signal.setup_type}
+      </span>
+      <span className="text-right font-mono text-[10px] tabular-nums">
         {t('v7Signals.scoreAiPriority', language)}{' '}
         {row.signal.ai_priority.toFixed(0)}
         {pos !== null && (
@@ -365,10 +841,19 @@ function WatchRow({ row, language }: { row: V7SignalRow; language: Language }) {
       </span>
       {row.tier_reason && (
         <span
-          className="font-mono text-[10px] max-w-[220px] truncate hidden md:inline"
+          className="hidden truncate font-mono text-[10px] md:inline"
           title={row.tier_reason}
         >
           {row.tier_reason}
+        </span>
+      )}
+      {(row.signal.required_confirmations?.length ?? 0) > 0 && (
+        <span
+          className="hidden truncate font-mono text-[10px] text-tier-reviewable xl:inline"
+          title={row.signal.required_confirmations!.join(', ')}
+        >
+          {copy(language, 'next:', '下一步：')}{' '}
+          {row.signal.required_confirmations![0]}
         </span>
       )}
     </div>
@@ -452,6 +937,7 @@ export function SignalPanel({
   refreshInterval = 60000,
 }: SignalPanelProps) {
   const [rows, setRows] = useState<V7SignalRow[] | null>(null)
+  const [cycle, setCycle] = useState<V7LatestCycleSummary | undefined>()
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -461,6 +947,7 @@ export function SignalPanel({
     try {
       const res = await api.getV7Signals(120)
       setRows(res.signals ?? [])
+      setCycle(res.cycle)
       setUpdatedAt(new Date())
       setFailed(false)
     } catch {
@@ -477,6 +964,7 @@ export function SignalPanel({
   }, [fetchSignals, refreshInterval])
 
   const grouped = useMemo(() => groupLatestCycleByTier(rows ?? []), [rows])
+  const summary = useMemo(() => buildSignalSummary(grouped), [grouped])
   const actionable = [...grouped.EXECUTABLE, ...grouped.REVIEWABLE]
   const total =
     actionable.length + grouped.WATCH.length + grouped.REJECTED.length
@@ -541,8 +1029,20 @@ export function SignalPanel({
         </div>
       </div>
 
+      {rows !== null && rows.length > 0 && (
+        <div className="mt-2 flex justify-end">
+          <CycleQuality
+            rows={TIER_ORDER.flatMap((tier) => grouped[tier])}
+            language={language}
+          />
+        </div>
+      )}
+
       {!collapsed && (
         <div className="mt-4 space-y-3">
+          <SignalSummaryStrip summary={summary} language={language} />
+          <SignalFunnel summary={summary} cycle={cycle} language={language} />
+
           {/* Loading state */}
           {loading && rows === null && !failed && (
             <div className="text-center py-10 text-muted-foreground">
@@ -585,6 +1085,11 @@ export function SignalPanel({
               ))}
             </div>
           )}
+
+          <StructureMonitor
+            rows={TIER_ORDER.flatMap((tier) => grouped[tier])}
+            language={language}
+          />
 
           {/* Watch summary rows */}
           {grouped.WATCH.length > 0 && (

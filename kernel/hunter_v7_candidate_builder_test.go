@@ -145,6 +145,10 @@ func withReadiness(readiness *local.V7ExecutionReadiness) func(*CandidateCoin) {
 	return func(c *CandidateCoin) { c.V7Readiness = readiness }
 }
 
+func withExecutionContext(ctx *local.V7ExecutionContext) func(*CandidateCoin) {
+	return func(c *CandidateCoin) { c.V7ExecutionContext = ctx }
+}
+
 // v7TierCase is one row of a classifier tier table. Assertions mirror the
 // original per-function tests exactly:
 //   - wantTier / wantReason assert an exact match when non-empty.

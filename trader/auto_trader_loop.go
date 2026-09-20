@@ -326,6 +326,9 @@ func (at *AutoTrader) runCycle() error {
 			Price:             0,
 			StopLoss:          d.StopLoss,
 			TakeProfit:        d.TakeProfit,
+			HunterV7TP0Price:  d.HunterV7TP0Price,
+			HunterV7TP1Price:  d.HunterV7TP1Price,
+			HunterV7TP2Price:  d.HunterV7TP2Price,
 			Confidence:        d.Confidence,
 			Reasoning:         d.Reasoning,
 			BlockedReasonCode: d.BlockedReasonCode,
@@ -942,6 +945,9 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 type plannedPositionRisk struct {
 	stopLoss   float64
 	takeProfit float64
+	tp0Price   float64
+	tp1Price   float64
+	tp2Price   float64
 }
 
 func (at *AutoTrader) latestOpenDecisionRiskByPosition(limit int) map[string]plannedPositionRisk {
@@ -979,6 +985,9 @@ func (at *AutoTrader) latestOpenDecisionRiskByPosition(limit int) map[string]pla
 			risks[key] = plannedPositionRisk{
 				stopLoss:   decision.StopLoss,
 				takeProfit: decision.TakeProfit,
+				tp0Price:   decision.HunterV7TP0Price,
+				tp1Price:   decision.HunterV7TP1Price,
+				tp2Price:   decision.HunterV7TP2Price,
 			}
 		}
 	}

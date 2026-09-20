@@ -29,7 +29,11 @@ const (
 	TrackedWinTP2        TrackedStatus = "WIN_TP2"
 	TrackedStop          TrackedStatus = "STOP"
 	TrackedProtectedStop TrackedStatus = "PROTECTED_STOP"
-	TrackedTimeout       TrackedStatus = "TIMEOUT"
+	// TrackedAmbiguousIntrabar means one 1m OHLC candle crossed both the active
+	// stop and a target. Without trade-path data, classifying it as a loss or a
+	// win would bias setup calibration, so it is terminal but excluded from both.
+	TrackedAmbiguousIntrabar TrackedStatus = "BOTH_SAME_1M"
+	TrackedTimeout           TrackedStatus = "TIMEOUT"
 )
 
 // PriceSnapshot captures a single point-in-time price observation.
@@ -63,6 +67,11 @@ type TrackedOutcome struct {
 	MaxFavorable            float64       `json:"max_favorable"`
 	MaxAdverse              float64       `json:"max_adverse"`
 	PnLPct                  float64       `json:"pnl_pct"`
+	TP0Done                 bool          `json:"tp0_done,omitempty"`
+	TP1Done                 bool          `json:"tp1_done,omitempty"`
+	TP2Done                 bool          `json:"tp2_done,omitempty"`
+	RemainingRatio          float64       `json:"remaining_ratio,omitempty"`
+	RealizedPnLPct          float64       `json:"realized_pnl_pct,omitempty"`
 	MissedOpportunityAudit  bool          `json:"missed_opportunity_audit,omitempty"`
 	MissedOpportunityReason string        `json:"missed_opportunity_reason,omitempty"`
 	MissedOpportunityAt     *time.Time    `json:"missed_opportunity_at,omitempty"`
@@ -93,6 +102,15 @@ type TrackedSignal struct {
 	ExitTime      *time.Time      `json:"exit_time,omitempty"`
 	ExitPrice     float64         `json:"exit_price"`
 	Snapshots     []PriceSnapshot `json:"snapshots,omitempty"`
+
+	// Partial-exit state mirrors the live protector: TP0 realizes a slice,
+	// moves the remaining thesis to breakeven, and must not end outcome
+	// tracking before TP1/TP2 or the protected stop resolves it.
+	TP0Done        bool    `json:"tp0_done,omitempty"`
+	TP1Done        bool    `json:"tp1_done,omitempty"`
+	TP2Done        bool    `json:"tp2_done,omitempty"`
+	RemainingRatio float64 `json:"remaining_ratio,omitempty"`
+	RealizedPnLPct float64 `json:"realized_pnl_pct,omitempty"`
 
 	TP0TouchStreak          int        `json:"tp0_touch_streak,omitempty"`
 	MissedOpportunityAudit  bool       `json:"missed_opportunity_audit,omitempty"`
@@ -134,6 +152,7 @@ type TrackerConfig struct {
 	EnableDynamicStop           bool          // default true
 	ATRPercentile               float64       // default 50 when no volatility percentile is available
 	MissedOpportunityMinTouches int           // default 2 consecutive TP0 touches for WATCH audit
+	TrackPartialTargets         bool          // keep the TP0 remainder alive for TP1/TP2 outcome attribution
 }
 
 // DefaultTrackerConfig returns sensible defaults.
@@ -149,6 +168,7 @@ func DefaultTrackerConfig() *TrackerConfig {
 		EnableDynamicStop:           true,
 		ATRPercentile:               50,
 		MissedOpportunityMinTouches: 2,
+		TrackPartialTargets:         true,
 	}
 }
 
@@ -286,19 +306,20 @@ func (t *SignalOutcomeTracker) Register(
 	}
 
 	t.activeSignals[recordID] = &TrackedSignal{
-		RecordID:    recordID,
-		Symbol:      symbol,
-		Direction:   direction,
-		SetupType:   setupType,
-		Tier:        tier,
-		SignalTime:  registeredAt,
-		SignalPrice: signalPrice,
-		StopPrice:   stopPrice,
-		TP0Price:    tp0,
-		TP1Price:    tp1,
-		TP2Price:    tp2,
-		Status:      TrackedActive,
-		Snapshots:   make([]PriceSnapshot, 0, 8),
+		RecordID:       recordID,
+		Symbol:         symbol,
+		Direction:      direction,
+		SetupType:      setupType,
+		Tier:           tier,
+		SignalTime:     registeredAt,
+		SignalPrice:    signalPrice,
+		StopPrice:      stopPrice,
+		TP0Price:       tp0,
+		TP1Price:       tp1,
+		TP2Price:       tp2,
+		Status:         TrackedActive,
+		RemainingRatio: 1,
+		Snapshots:      make([]PriceSnapshot, 0, 8),
 	}
 	if key != "" {
 		t.activeThesis[key] = recordID
@@ -392,7 +413,7 @@ func (t *SignalOutcomeTracker) tick() {
 				exitTime := candle.T
 				sig.ExitTime = &exitTime
 				sig.ExitPrice = exitPrice
-				pnlPct = t.calcPnLPct(sig, sig.ExitPrice)
+				pnlPct = t.finalPnLPct(sig, sig.ExitPrice)
 				break
 			}
 		}
@@ -402,7 +423,7 @@ func (t *SignalOutcomeTracker) tick() {
 			sig.Status = TrackedTimeout
 			sig.ExitTime = &now
 			sig.ExitPrice = sig.CurrentPrice
-			pnlPct = t.calcPnLPct(sig, sig.ExitPrice)
+			pnlPct = t.finalPnLPct(sig, sig.ExitPrice)
 			terminal = true
 		}
 		if !processed && !terminal {
@@ -416,6 +437,12 @@ func (t *SignalOutcomeTracker) tick() {
 			if t.activeThesis[key] == sig.RecordID {
 				delete(t.activeThesis, key)
 			}
+		}
+		if !terminal {
+			// A partial target may have been crossed during this pass. Report the
+			// same blended value that a later terminal outcome will use, rather
+			// than the stale full-position mark-to-market value.
+			pnlPct = t.finalPnLPct(sig, sig.CurrentPrice)
 		}
 
 		if terminal || auditChanged || t.shouldEmitActiveOutcome(sig, now) {
@@ -437,6 +464,30 @@ func (t *SignalOutcomeTracker) tick() {
 			outcomeFunc(outcome)
 		}
 	}
+}
+
+func (t *SignalOutcomeTracker) finalPnLPct(sig *TrackedSignal, exitPrice float64) float64 {
+	if sig == nil {
+		return 0
+	}
+	remaining := sig.RemainingRatio
+	if remaining <= 0 || remaining > 1 {
+		remaining = 1
+	}
+	return sig.RealizedPnLPct + remaining*t.calcPnLPct(sig, exitPrice)
+}
+
+// FinalPnLPctForReport exposes the tracker-consistent blended result for
+// validation reporting without duplicating partial-exit arithmetic in callers.
+func (t *SignalOutcomeTracker) FinalPnLPctForReport(sig *TrackedSignal) float64 {
+	if sig == nil {
+		return 0
+	}
+	price := sig.ExitPrice
+	if price <= 0 {
+		price = sig.CurrentPrice
+	}
+	return t.finalPnLPct(sig, price)
 }
 
 func (t *SignalOutcomeTracker) shouldEmitActiveOutcome(sig *TrackedSignal, now time.Time) bool {
@@ -571,6 +622,9 @@ func (t *SignalOutcomeTracker) appendSnapshot(sig *TrackedSignal, candle Tracked
 func (t *SignalOutcomeTracker) updateDynamicStop(sig *TrackedSignal, currentPrice float64, now time.Time) float64 {
 	stopUsed := sig.StopPrice
 	if t.config == nil || !t.config.EnableDynamicStop || t.dynamicStop == nil {
+		if sig.DynamicStop > 0 {
+			return sig.DynamicStop
+		}
 		return stopUsed
 	}
 	isLong := sig.Direction == string(local.V7DirLong)
@@ -684,6 +738,92 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 	if sig.Tier == "WATCH" {
 		return false, 0
 	}
+	if v7CandleHasStopAndTarget(sig, candle, stopUsed) {
+		sig.Status = TrackedAmbiguousIntrabar
+		return true, candle.Close
+	}
+	if !t.partialTargetTrackingEnabled() {
+		return checkTerminalWithCandleLegacyTargets(sig, candle, stopUsed)
+	}
+	switch sig.Direction {
+	case string(local.V7DirLong):
+		if stopUsed > 0 && candle.Low <= stopUsed {
+			sig.Status = trackedStopStatus(sig, stopUsed)
+			return true, stopUsed
+		}
+		if !sig.TP0Done && sig.TP0Price > 0 && candle.High >= sig.TP0Price {
+			if t.recordPartialTarget(sig, 0) {
+				if sig.TP1Price > 0 && candle.High >= sig.TP1Price {
+					t.recordPartialTarget(sig, 1)
+				}
+				if sig.TP2Price > 0 && candle.High >= sig.TP2Price {
+					t.recordPartialTarget(sig, 2)
+				}
+				return false, 0
+			}
+			sig.Status = TrackedWinTP0
+			return true, sig.TP0Price
+		}
+		if !sig.TP1Done && sig.TP1Price > 0 && candle.High >= sig.TP1Price {
+			if t.recordPartialTarget(sig, 1) {
+				return false, 0
+			}
+			sig.Status = TrackedWinTP1
+			return true, sig.TP1Price
+		}
+		if !sig.TP2Done && sig.TP2Price > 0 && candle.High >= sig.TP2Price {
+			if t.recordPartialTarget(sig, 2) {
+				return false, 0
+			}
+			sig.Status = TrackedWinTP2
+			return true, sig.TP2Price
+		}
+	case string(local.V7DirShort):
+		if stopUsed > 0 && candle.High >= stopUsed {
+			sig.Status = trackedStopStatus(sig, stopUsed)
+			return true, stopUsed
+		}
+		if !sig.TP0Done && sig.TP0Price > 0 && candle.Low <= sig.TP0Price {
+			if t.recordPartialTarget(sig, 0) {
+				if sig.TP1Price > 0 && candle.Low <= sig.TP1Price {
+					t.recordPartialTarget(sig, 1)
+				}
+				if sig.TP2Price > 0 && candle.Low <= sig.TP2Price {
+					t.recordPartialTarget(sig, 2)
+				}
+				return false, 0
+			}
+			sig.Status = TrackedWinTP0
+			return true, sig.TP0Price
+		}
+		if !sig.TP1Done && sig.TP1Price > 0 && candle.Low <= sig.TP1Price {
+			if t.recordPartialTarget(sig, 1) {
+				return false, 0
+			}
+			sig.Status = TrackedWinTP1
+			return true, sig.TP1Price
+		}
+		if !sig.TP2Done && sig.TP2Price > 0 && candle.Low <= sig.TP2Price {
+			if t.recordPartialTarget(sig, 2) {
+				return false, 0
+			}
+			sig.Status = TrackedWinTP2
+			return true, sig.TP2Price
+		}
+	}
+	return false, 0
+}
+
+func (t *SignalOutcomeTracker) partialTargetTrackingEnabled() bool {
+	return t != nil && t.config != nil && t.config.TrackPartialTargets
+}
+
+// checkTerminalWithCandleLegacyTargets preserves the historical all-at-target
+// outcome semantics when callers explicitly disable partial target tracking.
+func checkTerminalWithCandleLegacyTargets(sig *TrackedSignal, candle TrackedCandle, stopUsed float64) (bool, float64) {
+	if sig == nil {
+		return false, 0
+	}
 	switch sig.Direction {
 	case string(local.V7DirLong):
 		if stopUsed > 0 && candle.Low <= stopUsed {
@@ -723,6 +863,67 @@ func (t *SignalOutcomeTracker) checkTerminalWithCandle(sig *TrackedSignal, candl
 	return false, 0
 }
 
+func v7CandleHasStopAndTarget(sig *TrackedSignal, candle TrackedCandle, stop float64) bool {
+	if sig == nil || stop <= 0 {
+		return false
+	}
+	if sig.Direction == string(local.V7DirLong) {
+		if candle.Low > stop {
+			return false
+		}
+		return (!sig.TP2Done && sig.TP2Price > 0 && candle.High >= sig.TP2Price) ||
+			(!sig.TP1Done && sig.TP1Price > 0 && candle.High >= sig.TP1Price) ||
+			(!sig.TP0Done && sig.TP0Price > 0 && candle.High >= sig.TP0Price)
+	}
+	if sig.Direction == string(local.V7DirShort) {
+		if candle.High < stop {
+			return false
+		}
+		return (!sig.TP2Done && sig.TP2Price > 0 && candle.Low <= sig.TP2Price) ||
+			(!sig.TP1Done && sig.TP1Price > 0 && candle.Low <= sig.TP1Price) ||
+			(!sig.TP0Done && sig.TP0Price > 0 && candle.Low <= sig.TP0Price)
+	}
+	return false
+}
+
+// recordPartialTarget mirrors the live protector's sequential scale-out
+// ratios. Ratios are applied to the then-current remaining position, exactly
+// as protectionCloseQuantity receives the post-partial exchange quantity.
+func (t *SignalOutcomeTracker) recordPartialTarget(sig *TrackedSignal, target int) bool {
+	if sig == nil || t.config == nil || !t.config.TrackPartialTargets {
+		return false
+	}
+	price, ratio := 0.0, 0.0
+	switch target {
+	case 0:
+		if sig.TP0Done || sig.TP0Price <= 0 {
+			return false
+		}
+		price, ratio, sig.TP0Done = sig.TP0Price, 0.35, true
+	case 1:
+		if sig.TP1Done || sig.TP1Price <= 0 {
+			return false
+		}
+		price, ratio, sig.TP1Done = sig.TP1Price, 0.40, true
+	case 2:
+		if sig.TP2Done || sig.TP2Price <= 0 {
+			return false
+		}
+		price, ratio, sig.TP2Done = sig.TP2Price, 0.50, true
+	default:
+		return false
+	}
+	if sig.RemainingRatio <= 0 || sig.RemainingRatio > 1 {
+		sig.RemainingRatio = 1
+	}
+	sig.RealizedPnLPct += sig.RemainingRatio * ratio * t.calcPnLPct(sig, price)
+	sig.RemainingRatio *= 1 - ratio
+	// Every planned scale-out has a no-loss floor on the remaining runner.
+	// DynamicStop only moves toward protection and cannot widen the original SL.
+	sig.DynamicStop = sig.SignalPrice
+	return true
+}
+
 func trackedStopStatus(sig *TrackedSignal, stopPrice float64) TrackedStatus {
 	if sig == nil || sig.SignalPrice <= 0 || stopPrice <= 0 {
 		return TrackedStop
@@ -759,6 +960,11 @@ func (t *SignalOutcomeTracker) buildOutcome(sig *TrackedSignal, pnlPct float64) 
 		MaxFavorable:            sig.MaxFavorable,
 		MaxAdverse:              sig.MaxAdverse,
 		PnLPct:                  pnlPct,
+		TP0Done:                 sig.TP0Done,
+		TP1Done:                 sig.TP1Done,
+		TP2Done:                 sig.TP2Done,
+		RemainingRatio:          sig.RemainingRatio,
+		RealizedPnLPct:          sig.RealizedPnLPct,
 		MissedOpportunityAudit:  sig.MissedOpportunityAudit,
 		MissedOpportunityReason: sig.MissedOpportunityReason,
 		MissedOpportunityAt:     sig.MissedOpportunityAt,
@@ -823,13 +1029,16 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 		if sig.Status == TrackedActive {
 			continue // only count completed
 		}
+		if sig.Status == TrackedAmbiguousIntrabar {
+			continue // do not calibrate setup expectancy from unknown intra-candle path
+		}
 		st, ok := buckets[sig.SetupType]
 		if !ok {
 			st = &SetupStats{SetupType: sig.SetupType}
 			buckets[sig.SetupType] = st
 		}
 		st.Total++
-		pnl := t.calcPnLPct(sig, sig.ExitPrice)
+		pnl := t.finalPnLPct(sig, sig.ExitPrice)
 		switch sig.Status {
 		case TrackedWinTP0:
 			st.Wins++
@@ -845,11 +1054,25 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 			st.TP2Wins++
 		case TrackedProtectedStop:
 			st.Wins++
+		case TrackedAmbiguousIntrabar:
+			// Excluded from wins/losses; OHLC cannot establish which level traded first.
 		case TrackedStop:
 			st.Losses++
 			st.Stops++
 		case TrackedTimeout:
 			st.Timeouts++
+		}
+		// With partial-target tracking enabled, target touches do not end the
+		// thesis. Count those touches from state instead of relying on the final
+		// terminal status (normally PROTECTED_STOP or TIMEOUT for the last runner).
+		if sig.TP0Done && sig.Status != TrackedWinTP0 && sig.Status != TrackedWinTP1 && sig.Status != TrackedWinTP2 {
+			st.TP0Wins++
+		}
+		if sig.TP1Done && sig.Status != TrackedWinTP1 && sig.Status != TrackedWinTP2 {
+			st.TP1Wins++
+		}
+		if sig.TP2Done && sig.Status != TrackedWinTP2 {
+			st.TP2Wins++
 		}
 		st.AvgPnL += pnl
 		st.AvgMFE += sig.MaxFavorable

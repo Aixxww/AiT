@@ -68,6 +68,8 @@ type positionProtectionState struct {
 	ActiveStopLoss    float64
 	DynamicStop       float64
 	PlannedTakeProfit float64
+	PlannedTP1        float64
+	PlannedTP2        float64
 	OpenedAt          time.Time
 	LastActionAt      time.Time
 	LastStopUpdateAt  time.Time
@@ -152,9 +154,18 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
 		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
-		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 || plannedRisk.takeProfit > 0 {
+		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 || plannedRisk.takeProfit > 0 || plannedRisk.tp0Price > 0 || plannedRisk.tp1Price > 0 || plannedRisk.tp2Price > 0 {
 			state.rememberActiveStopLoss(side, plannedRisk.stopLoss)
-			state.rememberPlannedTakeProfit(side, plannedRisk.takeProfit)
+			// Hunter v7's TP0 is the first partial-exit price. Prefer it over
+			// the generic LLM take-profit, while preserving the latter as a
+			// backwards-compatible fallback for non-v7 decisions.
+			if plannedRisk.tp0Price > 0 {
+				state.rememberPlannedTakeProfit(side, plannedRisk.tp0Price)
+			} else {
+				state.rememberPlannedTakeProfit(side, plannedRisk.takeProfit)
+			}
+			state.rememberPlannedTarget(side, &state.PlannedTP1, plannedRisk.tp1Price)
+			state.rememberPlannedTarget(side, &state.PlannedTP2, plannedRisk.tp2Price)
 		}
 		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
 			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
@@ -163,6 +174,12 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		if action == protectionNone && shouldTriggerPlannedTP0Price(side, markPrice, currentPnLPct, state) {
 			action = protectionTP0
 			drawdownPct = protectionDrawdownPct(state, currentPnLPct)
+		}
+		if action == protectionNone && shouldTriggerPlannedTarget(side, markPrice, state.PlannedTP1, state.TP1Done) {
+			action = protectionTP1
+		}
+		if action == protectionNone && shouldTriggerPlannedTarget(side, markPrice, state.PlannedTP2, state.TP2Done) {
+			action = protectionTP2
 		}
 		if shouldUseFastProtectionInterval(state, currentPnLPct) {
 			nextInterval = positionProtectorFastInterval
@@ -270,6 +287,15 @@ func (state *positionProtectionState) rememberPlannedTakeProfit(side string, tak
 	}
 }
 
+func (state *positionProtectionState) rememberPlannedTarget(side string, target *float64, price float64) {
+	if state == nil || target == nil || price <= 0 {
+		return
+	}
+	if *target <= 0 || (side == "long" && price < *target) || (side == "short" && price > *target) {
+		*target = price
+	}
+}
+
 func mostProtectiveStop(side string, a, b float64) float64 {
 	if a <= 0 {
 		return b
@@ -374,6 +400,16 @@ func shouldTriggerPlannedTP0Price(side string, markPrice, currentPnLPct float64,
 		return markPrice <= state.PlannedTakeProfit
 	}
 	return false
+}
+
+func shouldTriggerPlannedTarget(side string, markPrice, target float64, done bool) bool {
+	if done || target <= 0 || markPrice <= 0 {
+		return false
+	}
+	if side == "long" {
+		return markPrice >= target
+	}
+	return side == "short" && markPrice <= target
 }
 
 func protectionDrawdownPct(state *positionProtectionState, currentPnLPct float64) float64 {

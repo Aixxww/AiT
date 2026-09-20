@@ -114,15 +114,20 @@ func (s *Server) handleHunterV7Outcomes(c *gin.Context) {
 // the frontend receives the complete field contract (targets, confirmation
 // summary, execution readiness, reason codes, ...).
 type hunterV7SignalRow struct {
-	ID            int64           `json:"id"`
-	CycleNumber   int             `json:"cycle_number"`
-	Timestamp     time.Time       `json:"timestamp"`
-	ExecutionTier string          `json:"execution_tier"`
-	TierReason    string          `json:"tier_reason"`
-	BlockedGate   string          `json:"blocked_gate,omitempty"`
-	TrackStatus   string          `json:"track_status,omitempty"`
-	TrackPnLPct   float64         `json:"track_pnl_pct"`
-	Signal        json.RawMessage `json:"signal"`
+	ID               int64           `json:"id"`
+	CycleNumber      int             `json:"cycle_number"`
+	Timestamp        time.Time       `json:"timestamp"`
+	ExecutionTier    string          `json:"execution_tier"`
+	TierReason       string          `json:"tier_reason"`
+	BlockedGate      string          `json:"blocked_gate,omitempty"`
+	TrackStatus      string          `json:"track_status,omitempty"`
+	TrackPnLPct      float64         `json:"track_pnl_pct"`
+	TrackTP0Done     bool            `json:"track_tp0_done"`
+	TrackTP1Done     bool            `json:"track_tp1_done"`
+	TrackTP2Done     bool            `json:"track_tp2_done"`
+	TrackRemaining   float64         `json:"track_remaining_ratio"`
+	TrackRealizedPnL float64         `json:"track_realized_pnl_pct"`
+	Signal           json.RawMessage `json:"signal"`
 }
 
 // handleHunterV7Signals returns the most recent persisted v7 signal records
@@ -152,6 +157,11 @@ func (s *Server) handleHunterV7Signals(c *gin.Context) {
 	rows, err := signalStore.RecentSignals(limit)
 	if err != nil {
 		SafeInternalError(c, "Hunter v7 signal list", err)
+		return
+	}
+	cycle, err := signalStore.LatestCycleSummary()
+	if err != nil {
+		SafeInternalError(c, "Hunter v7 latest cycle summary", err)
 		return
 	}
 
@@ -192,21 +202,27 @@ func (s *Server) handleHunterV7Signals(c *gin.Context) {
 			sig = b
 		}
 		out = append(out, hunterV7SignalRow{
-			ID:            row.ID,
-			CycleNumber:   row.CycleNumber,
-			Timestamp:     row.Timestamp,
-			ExecutionTier: row.ExecutionTier,
-			TierReason:    row.TierReason,
-			BlockedGate:   row.BlockedGate,
-			TrackStatus:   row.TrackStatus,
-			TrackPnLPct:   row.TrackPnLPct,
-			Signal:        sig,
+			ID:               row.ID,
+			CycleNumber:      row.CycleNumber,
+			Timestamp:        row.Timestamp,
+			ExecutionTier:    row.ExecutionTier,
+			TierReason:       row.TierReason,
+			BlockedGate:      row.BlockedGate,
+			TrackStatus:      row.TrackStatus,
+			TrackPnLPct:      row.TrackPnLPct,
+			TrackTP0Done:     row.TrackTP0Done,
+			TrackTP1Done:     row.TrackTP1Done,
+			TrackTP2Done:     row.TrackTP2Done,
+			TrackRemaining:   row.TrackRemaining,
+			TrackRealizedPnL: row.TrackRealizedPnL,
+			Signal:           sig,
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"count":         len(out),
 		"signals":       out,
+		"cycle":         cycle,
 		"window_source": "hunter_v7_signal_records",
 	})
 }

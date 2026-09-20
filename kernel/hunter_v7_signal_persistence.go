@@ -83,6 +83,10 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 			dataQuality = sig.ExecutionReadiness.DataQuality
 		}
 		rawJSON, _ := json.Marshal(sig)
+		recordTrackStatus := ""
+		if trackStatus != "" && HunterV7ShouldTrackSignal(rec) {
+			recordTrackStatus = trackStatus
+		}
 		dbRecords = append(dbRecords, store.HunterV7SignalRecord{
 			CycleNumber:       cycleNum,
 			Timestamp:         ts,
@@ -125,7 +129,7 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 			TP2RR:             sig.TP2RR,
 			ResonanceBonus:    sig.ResonanceBonus,
 			BlockedGate:       rec.BlockedGate,
-			TrackStatus:       trackStatus,
+			TrackStatus:       recordTrackStatus,
 			RawJSON:           string(rawJSON),
 		})
 	}
