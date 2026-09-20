@@ -158,3 +158,23 @@ reports/live-loss-*.md
 # Go build artifacts
 .pids/
 .logs/
+
+# macOS 资源分叉文件：从 macOS 拷到 Linux 时会生成，内容不是源码，
+# 但 vitest 会把 ._*.test.tsx 当成测试文件加载并直接报错。
+._*
+
+# 打补丁 / 手工编辑留下的备份。注意 *.bak 只匹配以 .bak 结尾的文件，
+# 覆盖不到 xxx.go.bak-before-xxx-<时间戳> 这种命名。
+*.bak-*
+*.orig
+*.orig-before-*
+*.orig2-before-*
+
+# 代理 / 隧道配置：含明文口令，禁止入库
+.proxy/sing-box-trojan.json
+.proxy/hysteria2.yaml
+.proxy/hysteria2.yaml.*
+
+# 一次性备份目录 / 环境变量备份（含 JWT_SECRET、RSA_PRIVATE_KEY）
+web/.mfa-frontend-backup-*/
+.env.env.bak*
