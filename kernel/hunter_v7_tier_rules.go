@@ -75,7 +75,13 @@ type hunterV7TierRule struct {
 
 	// RequireInsideZone demands hunterV7PriceInsideEntryZone.
 	RequireInsideZone bool
-	// RequireConfirmAll demands hunterV7ConfirmationPassed for each code.
+	// RequireConfirmAll is RESERVED and NOT evaluated by hunterV7TierRuleMatches
+	// (the rules below still assign it, but nothing reads it). Product decision:
+	// alt_ladder_breakdown_short keeps its early/mid short rows at REVIEWABLE
+	// without demanding no_new_high_after_rejection. Wiring this field up would
+	// tighten those rows to WATCH and fail
+	// TestClassifyHunterV7CandidateTierAltLadderTable — update that tier table in
+	// the same change if you ever enable it.
 	RequireConfirmAll []string
 
 	// Reason-code requirements over V7ReasonCodes.
