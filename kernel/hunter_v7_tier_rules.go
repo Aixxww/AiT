@@ -864,6 +864,16 @@ func hunterV7TierRuleMatches(coin CandidateCoin, rule *hunterV7TierRule) bool {
 			return false
 		}
 	}
+	// RequireConfirmAll is stricter than RequireAll: the code must be an
+	// actually-passed confirmation (see hunterV7ConfirmationPassed), not merely
+	// present in V7ReasonCodes. Without this loop the field was declared and
+	// assigned but never evaluated, so rules silently degraded to their
+	// unconfirmed (REVIEWABLE) branch.
+	for _, code := range rule.RequireConfirmAll {
+		if !hunterV7ConfirmationPassed(coin, code) {
+			return false
+		}
+	}
 	for _, group := range rule.RequireAny {
 		if !containsAnyStringValue(coin.V7ReasonCodes, group) {
 			return false
