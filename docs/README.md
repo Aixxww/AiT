@@ -70,6 +70,23 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 
 ---
 
+## 🔐 Security & Authentication / 安全与认证
+
+| Document | Description | 描述 |
+|----------|-------------|------|
+| [Two-Factor Authentication (TOTP MFA)](security/two-factor-auth.md) | Setup, login flow, error contract, rate-limit interaction, and lockout recovery | 两步验证的开启/登录流程、错误契约、限流交互与解锁处理 |
+| [Security Policy](../SECURITY.md) | Report security vulnerabilities | 报告安全漏洞 |
+
+---
+
+## 🛠️ Operations / 运维手册
+
+| Document | Description | 描述 |
+|----------|-------------|------|
+| [Square Monitor Runbook](operations/square-monitor.md) | Binance Square monitor topology, three-layer outage diagnosis, and the browser/API egress split | 广场监控链路、三层故障排查、浏览器与行情出口分离 |
+
+---
+
 ## 🎯 Hunter 选币模块 / Hunter Coin Selection
 
 **智能选币系统 — 基于资金流向、持仓异动、多空比的双向信号**
@@ -84,6 +101,16 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | [Hunter v7 架构与标签语义治理](hunter-v7-architecture-tag-taxonomy-20260609.md) | Tag catalog, LLM action semantics, and minimal-code architecture cleanup | 标签 catalog、LLM 行为语义和最小代码量架构治理 |
 | [Hunter v7 漏斗优化整改报告](hunter_v7_整改报告.md) | Signal records, mover audit, watch state, displacement setup, and prompt gating implementation | 信号归因、大波动审计、Watch 升级、位移 setup 与提示词分层落地 |
 | [Sniffer Gate 2 优化方案](sniffer-optimization-plan.md) | Flexible compression scoring plan for Sniffer Gate 2 | Sniffer Gate 2 弹性压缩评分优化方案 |
+| [alt_ladder_breakdown_short 平衡软升档实施](hunter-v7-alt-ladder-short-soft-release-implementation-20260803.md) | Balanced soft tier-release for `alt_ladder_breakdown_short`, plus two final review rounds | `alt_ladder_breakdown_short` 平衡软升档实施与最终两轮复核 |
+| [alt_ladder_short 软升档观察审计](hunter-v7-alt-ladder-short-soft-release-watch-audit-20260803.md) | Watch-state audit for the alt-ladder short soft release | alt_ladder_short 软升档的观察态审计 |
+| [信号看板专业化分级实施方案](hunter-v7-dashboard-professionalization-plan-20260807.md) | Tiered, professionalized signal dashboard plan | Hunter v7 信号看板专业化分级实施方案 |
+| [二次熵减方案（Lean Core Entropy Recoil）](hunter-v7-entropy-recoil-20260813.md) | Second entropy-reduction pass on the lean core | Hunter v7 二次熵减方案 |
+| [最新币安合约信号复盘与优化](hunter-v7-latest-binance-replay-optimization-20260802.md) | Binance replay review and the resulting optimization set | 最新币安合约信号复盘与优化方案 |
+| [实时 3 轮全链路复盘](hunter-v7-live-3round-5m-optimization-review-20260803.md) | Live 3-round full-chain review with actionable optimizations | 币安实时 3 轮全链路复盘与可实施优化报告 |
+| [实时三轮重跑跟踪与评估](hunter-v7-live-3round-5m-redo-optimization-report-20260805.md) | Re-run tracking and evaluation of the 3-round optimization | Binance 实时三轮重跑跟踪与优化评估报告 |
+| [优化成果两轮复核与前端规范](hunter-v7-optimization-design-2round-20260804.md) | Two-round verification of optimizations plus frontend product spec | 优化成果两轮复核与前端产品规范落地 |
+| [形态筛选/胜率/提示词/止盈止损审校](hunter-v7-route-prompt-outcome-analysis-20260804.md) | Audit of setup screening, win rate, prompts, and TP/SL | 形态筛选机制、开仓胜率、提示词与止盈止损审校报告 |
+| [信号复盘与优化（观察态审计）](hunter-v7-watch-audit-20260802.md) | Binance signal replay with watch-state audit | 最新币安合约信号复盘与优化方案 |
 
 ---
 
@@ -94,7 +121,7 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Document | Description | 描述 |
 |----------|-------------|------|
 | [2026-06-07 Session Review](reports/ait-session-review-20260607.md) | Hunter v7 candidate visibility, live open failure root causes, risk geometry fixes, and dashboard performance changes | Hunter v7 候选可见性、实盘开仓失败根因、风控几何修复与看板性能优化 |
-| [2026-06-08 Hunter v7 / VVV Live Monitor](hunter-v7-vvv-live-monitor-2026-06-08.md) | VVV live-trading review for Hunter v7 open rate, win-rate regressions, signal tags, and LLM execution quality | VVV 实盘复盘：Hunter v7 开仓率、胜率回归、信号标签和 LLM 执行质量 |
+| 2026-06-08 Hunter v7 / VVV Live Monitor *(local artifact — not in the repo)* | VVV live-trading review for Hunter v7 open rate, win-rate regressions, signal tags, and LLM execution quality | VVV 实盘复盘：Hunter v7 开仓率、胜率回归、信号标签和 LLM 执行质量（本地报告，未纳入版本库） |
 | [2026-07-04 Hunter v7 Fullchain Optimization](hunter-v7-fullchain-openrate-winrate-optimization-20260704.md) | Implemented open-rate, win-rate, micro-refresh, final RR, TP0, and close attribution optimizations | Hunter v7 开仓率、胜率、执行前刷新、final RR、TP0 与平仓归因实施记录 |
 | [2026-07-03 KKK 开仓率与盈利能力优化报告](../reports/kkk-open-rate-profitability-optimization-20260703.md) | KKK live-trading review, range expansion short loss causes, execution guard fixes, and close intent attribution | KKK 实盘复盘、事件追空亏损根因、执行前风控和平仓归因修复 |
 
@@ -159,7 +186,9 @@ Welcome to the AiT documentation! This page helps you find the right documentati
 | Community | ✅ Complete | 2026-05-23 |
 | Architecture | ✅ Complete | 2026-05-23 |
 | Roadmap | ✅ Complete | 2026-05-23 |
-| Hunter Docs | ✅ Complete | 2026-07-04 |
+| Hunter Docs | ✅ Complete | 2026-09-21 |
+| Security & Auth | ✅ Complete | 2026-09-21 |
+| Operations | ✅ Complete | 2026-09-21 |
 | API Reference | 📋 Planned | - |
 
 **Legend:**
@@ -197,5 +226,5 @@ Found an error or want to improve the docs?
 
 ---
 
-**Last Updated:** 2026-07-04
+**Last Updated:** 2026-09-21
 **Maintained by:** [AiT Community](https://github.com/Aixxww/AiT)

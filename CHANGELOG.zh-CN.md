@@ -14,6 +14,10 @@ AiT 项目的所有重要更改都将记录在此文件中。
 ## [未发布]
 
 ### 新增
+- 登录两步验证（TOTP）：`POST /api/mfa/setup|enable|disable` 与公开的 `POST /api/mfa/login/verify`，密钥按账号加密存储，附带 10 个一次性、bcrypt 哈希保存的恢复码，登录 challenge 有效期 5 分钟
+- 两步验证设置界面（设置 → 安全设置），支持扫码/手动录入密钥与 6 位分格验证码输入
+- 文档中心新增「安全与认证」与「运维手册」两个板块，含两步验证指南与 Square Monitor 运维手册
+- `.proxy/` 下的栈自启脚本纳入版本管理（含口令的代理配置仍由 `.gitignore` 排除）
 - Hunter v7 信号归因表：新增全周期 `hunter_v7_signal_records` 与每日 `hunter_v7_mover_labels`
 - 大波动每日审计命令 `cmd/hunter_v7_mover_audit`，用于对照 Binance 20%/30%/50% 振幅标的与 Hunter v7 历史召回
 - Hunter v7 Watch 跨周期状态机，支持 strengthening、near-confirm、reviewable、executable、expired、failed 状态
@@ -40,6 +44,9 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - 文档中心新增 Hunter 选币模块专区
 
 ### 变更
+- Square Monitor 拆分浏览器与行情出口：抓取浏览器改为直连（`SQUARE_BROWSER_PROXY`，默认不设），避开币安 AWS WAF 真人验证；行情仍走 `SQUARE_API_PROXY`，因为 `api.binance.com` 在受限地区直连返回 HTTP 451
+- 两步验证失败响应新增机器可读的 `reason`（`expired` / `unavailable` / `invalid_code` / `too_many_attempts`）与 `attempts_left`，登录页据此区分「可以重试的输错」和「已失效的 challenge」
+- 两步验证输错不再强制退回密码步骤，单个 challenge 最多可重试 `maxMFAAttempts`（5）次；来自共享 IP 限流器的 429 不带 `reason`，提示改为「请等待几分钟」而非「验证码错误」
 - Hunter v7 universe 构建新增独立 amplitude 与 range expansion 入口，提高大波动标的召回
 - Hunter v7 detail selector 为高振幅标的预留明细拉取配额，避免只按成交额/OI 漏掉启动标的
 - Hunter v7 实时验证工具新增 `--rounds`、`--round-interval`、`--max-workers`、`--watch-output`，支持低频安全轮测 Binance REST
@@ -66,6 +73,9 @@ AiT 项目的所有重要更改都将记录在此文件中。
 - Provider 模块优化（local client、Hunter、AI500 provider）
 
 ### 修复
+- 修复两步验证 challenge 在校验之前就被删除的问题：任何输错都会烧掉 challenge 并迫使重新走完整登录流程；现在只在兑换成功、超时或尝试耗尽时才丢弃
+- 修复 `is_square_web_up()` 在 `web.py` 已死时仍报健康的问题：socat 的 `[::1]:8000` 中继同样占着 8000 端口，健康检查改为要求 `web.py` 提供的真实 IPv4 监听
+- 修复 Square Monitor 抓取 0 条的问题：抓取浏览器经机房代理出口，触发币安 AWS WAF 真人验证
 - 修复 Hunter v7 OI 口径：将 Binance `openInterest` 数量转换为 USDT notional 后再参与流动性和 tier 判断
 - 修复高振幅标的因 OI detail 暂缺而在 Hunter v7 universe 前被丢弃的问题
 - 修复实时验证 tight loop 容易触发 Binance REST 限制的问题，降低默认并发并补充多轮间隔命令

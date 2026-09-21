@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- TOTP two-factor authentication for account login: `POST /api/mfa/setup|enable|disable` plus the public `POST /api/mfa/login/verify`, with per-account encrypted secrets, 10 single-use bcrypt-hashed recovery codes, and a 5-minute login challenge
+- Two-factor authentication settings UI (Settings → Security) with QR / manual secret entry and a six-box code input
+- `Security & Authentication` and `Operations` sections in the documentation center, including a TOTP MFA guide and a Square Monitor runbook
+- `.proxy/` stack autostart scripts under version control (secret-bearing proxy configs stay excluded via `.gitignore`)
 - Hunter v7 signal attribution tables for full-cycle `hunter_v7_signal_records` and daily `hunter_v7_mover_labels`
 - Daily mover audit command (`cmd/hunter_v7_mover_audit`) to compare Binance 20%/30%/50% amplitude movers against Hunter v7 recall history
 - Hunter v7 watch state manager for cross-cycle watch strengthening, near-confirm, reviewable, executable, expired, and failed states
@@ -40,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hunter module docs section in docs center
 
 ### Changed
+- Square Monitor now splits browser and API egress: the scraper browser runs direct (`SQUARE_BROWSER_PROXY`, unset by default) to avoid Binance's AWS WAF human-verification challenge, while market data keeps using `SQUARE_API_PROXY` because `api.binance.com` answers HTTP 451 from restricted regions
+- MFA verification failures now carry a machine-readable `reason` (`expired` / `unavailable` / `invalid_code` / `too_many_attempts`) and `attempts_left`, so the login screen can tell a retryable typo apart from a dead challenge
+- The MFA code step now survives a wrong code (up to `maxMFAAttempts` = 5) instead of forcing the user back through the password step; a 429 from the shared IP limiter carries no `reason` and is reported as "wait a few minutes" rather than "wrong code"
 - Hunter v7 universe construction now adds independent amplitude and range-expansion pools to improve large-move recall
 - Hunter v7 detail selection now reserves capacity for high-amplitude symbols before fetching per-symbol Binance details
 - Hunter v7 live validation now supports `--rounds`, `--round-interval`, `--max-workers`, and `--watch-output` for safer low-frequency Binance REST validation
@@ -66,6 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider module optimizations (local client, Hunter, AI500 provider)
 
 ### Fixed
+- Fixed MFA login challenges being deleted before the code was validated, which burned the challenge on any mistyped code and forced a full re-login; the challenge is now only dropped once redeemed, expired, or out of attempts
+- Fixed `is_square_web_up()` reporting healthy while `web.py` was dead, because the socat `[::1]:8000` relay also held port 8000; the check now requires the real IPv4 listener that `web.py` provides
+- Fixed Square Monitor collecting zero posts because the scraper browser egressed through a datacenter proxy and hit Binance's AWS WAF human-verification challenge
 - Fixed Hunter v7 OI handling by converting Binance `openInterest` quantity into USDT notional before liquidity and tier checks
 - Fixed high-amplitude symbols being dropped from the Hunter v7 universe when OI detail was not yet available
 - Fixed unsafe REST tight-loop validation by lowering default validation concurrency and documenting interval-based multi-round checks
