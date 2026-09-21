@@ -354,3 +354,29 @@ func snapshotIsFresh(snap *datafetch.Snapshot, maxAge time.Duration) bool {
 func (se *SnapshotEngine) GetEngine() *engine.MainEngine {
 	return se.mainEngine
 }
+
+// NewOneShotSnapshotEngine wraps an already-fetched Snapshot so test-run (and
+// other ephemeral callers) can score and build market.Data without re-fetching
+// klines. It does not start a DataCollector and must not be used for live loops.
+func NewOneShotSnapshotEngine(snap *datafetch.Snapshot) *SnapshotEngine {
+	store := datafetch.NewStore()
+	if snap != nil {
+		store.Swap(snap)
+	}
+	return &SnapshotEngine{
+		dataStore: store,
+		source: &snapshotDataSource{
+			store:  store,
+			maxAge: 5 * time.Minute,
+		},
+	}
+}
+
+// HasFreshSnapshot reports whether the engine currently holds a non-empty
+// snapshot within MaxSnapshotAge (no wait).
+func (se *SnapshotEngine) HasFreshSnapshot() bool {
+	if se == nil {
+		return false
+	}
+	return snapshotIsFresh(se.GetSnapshot(), se.MaxSnapshotAge())
+}

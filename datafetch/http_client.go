@@ -151,10 +151,9 @@ func NewHTTPClientWithTimeout(baseURL string, timeout time.Duration) *HTTPClient
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
-	// DisableKeepAlives forces a fresh TCP connection per request, preventing
-	// HTTP/2 multiplexing from collapsing all concurrent streams onto one TCP
-	// connection that cascades on failure. Also ensures ProxyFromEnvironment
-	// is re-evaluated per connection for proper proxy tunneling.
+	// A/B test (2026-09-14): retain idle connections through the stable local
+	// Trojan proxy. Concurrency, circuit breaking, and connection limits remain
+	// unchanged; this only avoids needless TCP/TLS setup on repeated requests.
 	transport := &http.Transport{
 		Proxy: binanceProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -167,7 +166,7 @@ func NewHTTPClientWithTimeout(baseURL string, timeout time.Duration) *HTTPClient
 		MaxConnsPerHost:     200,
 		TLSHandshakeTimeout: timeout,
 		ForceAttemptHTTP2:   true,
-		DisableKeepAlives:   true,
+		DisableKeepAlives:   false,
 	}
 	inner := &http.Client{
 		Transport: transport,

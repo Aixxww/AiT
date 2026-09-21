@@ -2295,6 +2295,13 @@ func (e *StrategyEngine) GetCandidateCoins() ([]CandidateCoin, error) {
 		}
 		return e.filterExcludedCoins(coins), nil
 
+	case "hunter_v7":
+		coins, err := e.getHunterV7Coins()
+		if err != nil {
+			return nil, err
+		}
+		return e.filterExcludedCoins(coins), nil
+
 	case "mixed":
 		// Market environment pre-classifier: detect ranging vs trending before source assembly
 		if coinSource.EnableADXPreClassifier {
@@ -2557,6 +2564,91 @@ func (e *StrategyEngine) getHunterCoins(limit int, direction string) ([]Candidat
 		}
 		candidates = append(candidates, cc)
 	}
+	return candidates, nil
+}
+
+// getHunterV7Coins scores Hunter v7 signals for callers without a live trader loop.
+// Prefer a hot/shared SnapshotEngine when attached (test-run attaches live/shared
+// snapshots). Cold path uses a lighter TopN + higher parallelism than the old
+// one-shot defaults so AI test-run stays under ~1–2 minutes without changing
+// live DataCollector defaults (TopN=100/MaxWorkers=50 in collector).
+func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
+	if e.snapshotEngine != nil {
+		snap := e.snapshotEngine.GetSnapshot()
+		maxAge := e.snapshotEngine.MaxSnapshotAge()
+		if !snapshotIsFresh(snap, maxAge) && snap != nil && len(snap.Symbols) > 0 {
+			// Brief wait only — do not block test-run for snapshotReadyTimeout (3m).
+			snap = e.snapshotEngine.WaitForFreshSnapshot(5*time.Second, maxAge)
+		}
+		if snapshotIsFresh(snap, maxAge) {
+			candidates, err := e.scoreFromSnapshot(snap)
+			if err == nil {
+				logger.Infof("🎯 Hunter v7 (hot snapshot): %d candidates (age=%s, symbols=%d)",
+					len(candidates), time.Since(snap.CreatedAt).Round(time.Second), len(snap.Symbols))
+				return candidates, nil
+			}
+			logger.Warnf("🎯 Hunter v7: hot snapshot score failed (%v); falling back to one-shot fetch", err)
+		} else if e.snapshotEngine.GetSnapshot() != nil {
+			logger.Infof("🎯 Hunter v7: attached snapshot stale/empty; using optimized one-shot fetch")
+		}
+	}
+
+	includeNonCrypto := false
+	if e.config.CoinSource.Hunter != nil {
+		includeNonCrypto = e.config.CoinSource.Hunter.IncludeNonCryptoFutures
+	}
+
+	// Test-run / ephemeral cold path only. Live traders use DataCollector defaults.
+	// TopN 100 matches live collector default (old test-run used 220 → ~3–4m).
+	// Tradeoff: slightly fewer detailed symbols vs live TopN=100 parity; scoring
+	// quality remains aligned with production collector depth.
+	fetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
+		TopNForDetail:           100,
+		MaxWorkers:              32,
+		Timeout:                 15 * time.Second,
+		IncludeNonCryptoFutures: includeNonCrypto,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	fetchStart := time.Now()
+	snap, err := fetcher.Fetch(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("hunter_v7: fetch snapshot failed: %w", err)
+	}
+	logger.Infof("🎯 Hunter v7 cold fetch done in %s (symbols=%d)", time.Since(fetchStart).Round(time.Millisecond), len(snap.Symbols))
+
+	// Keep the one-shot snapshot on the engine so prompt market-data can reuse
+	// klines/OI instead of sequential GetWithTimeframes (+ CoinAnk fallback).
+	e.SetSnapshotEngine(NewOneShotSnapshotEngine(snap))
+
+	v7cfg := local.DefaultV7Config()
+	coinSource := e.config.CoinSource
+	if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
+		v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
+	}
+	if coinSource.Hunter != nil && coinSource.Hunter.V7WatchOutput > 0 {
+		v7cfg.WatchOutput = coinSource.Hunter.V7WatchOutput
+	}
+	if coinSource.Hunter != nil && coinSource.Hunter.V7MinAIPriority > 0 {
+		v7cfg.MinAIPriority = coinSource.Hunter.V7MinAIPriority
+	}
+	if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
+		v7cfg.Aggressive = true
+	}
+	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
+		v7cfg.MaxOutput = coinSource.HunterLimit
+	}
+	e.v7CycleCounter++
+	v7cfg.CycleNumber = e.v7CycleCounter
+	if e.v7WatchState == nil {
+		e.v7WatchState = local.NewV7SignalStateManager()
+	}
+	v7cfg.WatchStateManager = e.v7WatchState
+
+	v7Result := local.ScoreHunterV7Detailed(snap, v7cfg)
+	candidates := e.hunterV7SignalsToCandidateCoins(v7Result.Signals, coinSource.HunterDirection)
+	logger.Infof("🎯 Hunter v7 (cold/test-run): %d candidates from one-shot snapshot (TopN=100, workers=32)", len(candidates))
 	return candidates, nil
 }
 

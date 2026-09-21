@@ -60,7 +60,7 @@ TOP_N_SHORT = 20                # 榜单显示前 N
 TOP_N = 30                      # 24h 榜单显示前 N
 
 # === Web 仪表盘 ===
-WEB_HOST = "127.0.0.1"
+WEB_HOST = "0.0.0.0"  # IPv4 all; socat bridges [::1] for Go localhost
 WEB_PORT = 8000
 
 # === 合约分析 ===

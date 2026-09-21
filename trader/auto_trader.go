@@ -945,6 +945,32 @@ func (at *AutoTrader) GetCandidateCoins() ([]kernel.CandidateCoin, error) {
 	return at.strategyEngine.GetCandidateCoinsWithSnapshot()
 }
 
+// GetSnapshotEngine returns the live SnapshotEngine if this trader was started
+// with a snapshot-backed coin source (hunter_v7 / hunter / ai500 / IndicatorHub).
+// Safe for read-only reuse by AI test-run; callers must not Start/Stop it.
+func (at *AutoTrader) GetSnapshotEngine() *kernel.SnapshotEngine {
+	if at == nil {
+		return nil
+	}
+	if at.snapshotEngine != nil {
+		return at.snapshotEngine
+	}
+	if at.strategyEngine != nil {
+		return at.strategyEngine.GetSnapshotEngine()
+	}
+	return nil
+}
+
+// IsRunning reports whether the auto-trader loop is active.
+func (at *AutoTrader) IsRunning() bool {
+	if at == nil {
+		return false
+	}
+	at.isRunningMutex.RLock()
+	defer at.isRunningMutex.RUnlock()
+	return at.isRunning
+}
+
 // GetStrategyConfig returns the current strategy config used by the trader.
 func (at *AutoTrader) GetStrategyConfig() *store.StrategyConfig {
 	if at.strategyEngine == nil {

@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/Aixxww/AiT/datafetch"
+	engpkg "github.com/Aixxww/AiT/engine"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/market"
@@ -544,10 +548,17 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 		req.PromptVariant = "balanced"
 	}
 
+	testRunStart := time.Now()
+
 	// Create strategy engine to build prompt (uses local Binance data provider)
 	engine := kernel.NewStrategyEngine(&req.Config)
 
+	// Prefer hot/shared SnapshotEngine for hunter_v7 (and other snapshot sources)
+	// so candidate selection skips the cold one-shot Fetch.
+	snapshotPath := s.attachTestRunSnapshotEngine(engine, &req.Config)
+
 	// Get candidate coins
+	candStart := time.Now()
 	candidates, err := engine.GetCandidateCoins()
 	if err != nil {
 		logger.Errorf("[API Error] Failed to get candidate coins: %v", err)
@@ -557,6 +568,8 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 		})
 		return
 	}
+	logger.Infof("⚡ test-run candidates ready in %s (snapshot_path=%s, count=%d)",
+		time.Since(candStart).Round(time.Millisecond), snapshotPathOrCold(snapshotPath, engine), len(candidates))
 
 	// Get timeframe configuration
 	timeframes := req.Config.Indicators.Klines.SelectedTimeframes
@@ -584,17 +597,10 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 
 	fmt.Printf("📊 Using timeframes: %v, primary: %s, kline count: %d\n", timeframes, primaryTimeframe, klineCount)
 
-	// Get real market data (using multiple timeframes)
-	marketDataMap := make(map[string]*market.Data)
-	for _, coin := range candidates {
-		data, err := market.GetWithTimeframes(coin.Symbol, timeframes, primaryTimeframe, klineCount)
-		if err != nil {
-			// If getting data for a coin fails, log but continue
-			fmt.Printf("⚠️  Failed to get market data for %s: %v\n", coin.Symbol, err)
-			continue
-		}
-		marketDataMap[coin.Symbol] = data
-	}
+	mdStart := time.Now()
+	marketDataMap := fetchTestRunMarketData(engine, candidates, timeframes, primaryTimeframe, klineCount)
+	logger.Infof("⚡ test-run market data ready in %s (%d/%d symbols)",
+		time.Since(mdStart).Round(time.Millisecond), len(marketDataMap), len(candidates))
 
 	// Fetch quantitative data for each candidate coin
 	symbols := make([]string, 0, len(candidates))
@@ -656,10 +662,14 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 				"ai_response":     fmt.Sprintf("❌ AI call failed: %s", aiErr.Error()),
 				"ai_error":        aiErr.Error(),
 				"note":            "AI call error",
+				"snapshot_path":   snapshotPathOrCold(snapshotPath, engine),
+				"elapsed_ms":      time.Since(testRunStart).Milliseconds(),
 			})
 			return
 		}
 
+		logger.Infof("⚡ test-run total wall time %s (real AI, snapshot_path=%s)",
+			time.Since(testRunStart).Round(time.Millisecond), snapshotPathOrCold(snapshotPath, engine))
 		c.JSON(http.StatusOK, gin.H{
 			"system_prompt":   systemPrompt,
 			"user_prompt":     userPrompt,
@@ -668,9 +678,14 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 			"prompt_variant":  req.PromptVariant,
 			"ai_response":     aiResponse,
 			"note":            "✅ Real AI test run successful",
+			"snapshot_path":   snapshotPathOrCold(snapshotPath, engine),
+			"elapsed_ms":      time.Since(testRunStart).Milliseconds(),
 		})
 		return
 	}
+
+	logger.Infof("⚡ test-run total wall time %s (prompt-only, snapshot_path=%s)",
+		time.Since(testRunStart).Round(time.Millisecond), snapshotPathOrCold(snapshotPath, engine))
 
 	// Return result (without actually calling AI, only return built prompt)
 	c.JSON(http.StatusOK, gin.H{
@@ -681,7 +696,150 @@ func (s *Server) handleStrategyTestRun(c *gin.Context) {
 		"prompt_variant":  req.PromptVariant,
 		"ai_response":     "Please select an AI model and click 'Run Test' to perform real AI analysis.",
 		"note":            "AI model not selected or real AI call not enabled",
+		"snapshot_path":   snapshotPathOrCold(snapshotPath, engine),
+		"elapsed_ms":      time.Since(testRunStart).Milliseconds(),
 	})
+}
+
+// attachTestRunSnapshotEngine tries to reuse a live or shared SnapshotEngine so
+// hunter_v7 test-run can score from hot data instead of a cold one-shot Fetch.
+// Returns "live", "shared", or "" (caller falls back to cold path).
+func (s *Server) attachTestRunSnapshotEngine(engine *kernel.StrategyEngine, cfg *store.StrategyConfig) string {
+	if engine == nil || cfg == nil {
+		return ""
+	}
+	src := strings.ToLower(cfg.CoinSource.SourceType)
+	switch src {
+	case "hunter_v7", "hunter", "hunter_sniff", "ai500":
+	default:
+		if !cfg.CoinSource.UseIndicatorHub {
+			return ""
+		}
+	}
+
+	wantNonCrypto := false
+	if cfg.CoinSource.Hunter != nil {
+		wantNonCrypto = cfg.CoinSource.Hunter.IncludeNonCryptoFutures
+	}
+
+	if s.traderManager != nil {
+		for _, at := range s.traderManager.GetAllTraders() {
+			se := at.GetSnapshotEngine()
+			if se == nil || !se.HasFreshSnapshot() {
+				continue
+			}
+			snap := se.GetSnapshot()
+			engine.SetSnapshotEngine(se)
+			logger.Infof("⚡ test-run: attached live SnapshotEngine from trader %s (symbols=%d, age=%s, running=%v)",
+				at.GetName(), len(snap.Symbols), time.Since(snap.CreatedAt).Round(time.Second), at.IsRunning())
+			return "live"
+		}
+	}
+
+	dataCfg := datafetch.CollectorConfig{IncludeNonCryptoFutures: wantNonCrypto}
+	se, err := kernel.NewSnapshotEngine(engpkg.DefaultHubConfig(), dataCfg)
+	if err != nil {
+		logger.Infof("⚡ test-run: shared SnapshotEngine unavailable: %v", err)
+		return ""
+	}
+	if !se.HasFreshSnapshot() {
+		return ""
+	}
+	snap := se.GetSnapshot()
+	engine.SetSnapshotEngine(se)
+	logger.Infof("⚡ test-run: attached shared SnapshotEngine (symbols=%d, age=%s)",
+		len(snap.Symbols), time.Since(snap.CreatedAt).Round(time.Second))
+	return "shared"
+}
+
+func snapshotPathOrCold(attached string, engine *kernel.StrategyEngine) string {
+	if attached != "" {
+		return attached
+	}
+	if engine != nil && engine.GetSnapshotEngine() != nil {
+		// Cold path installs a one-shot SnapshotEngine after Fetch.
+		return "cold_oneshot"
+	}
+	return "cold"
+}
+
+// fetchTestRunMarketData prefers SnapshotStore klines when available, then
+// parallelizes remaining GetWithTimeframes calls with a small worker pool.
+func fetchTestRunMarketData(engine *kernel.StrategyEngine, candidates []kernel.CandidateCoin, timeframes []string, primaryTimeframe string, klineCount int) map[string]*market.Data {
+	marketDataMap := make(map[string]*market.Data)
+	var mu sync.Mutex
+
+	type job struct {
+		symbol string
+	}
+	var needFetch []job
+
+	for _, coin := range candidates {
+		if engine != nil && engine.GetSnapshotEngine() != nil {
+			data, err := buildTestRunMarketDataFromSnapshot(engine, coin.Symbol, timeframes, primaryTimeframe, klineCount)
+			if err == nil && data != nil {
+				marketDataMap[coin.Symbol] = data
+				logger.Infof("✅ %s: test-run using SnapshotStore market data", coin.Symbol)
+				continue
+			}
+			if err != nil {
+				logger.Infof("⚠️  Snapshot data unavailable for %s, will fetch: %v", coin.Symbol, err)
+			}
+		}
+		needFetch = append(needFetch, job{symbol: coin.Symbol})
+	}
+
+	if len(needFetch) == 0 {
+		return marketDataMap
+	}
+
+	workers := 8
+	if len(needFetch) < workers {
+		workers = len(needFetch)
+	}
+	jobs := make(chan job, len(needFetch))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				data, err := market.GetWithTimeframes(j.symbol, timeframes, primaryTimeframe, klineCount)
+				if err != nil {
+					fmt.Printf("⚠️  Failed to get market data for %s: %v\n", j.symbol, err)
+					continue
+				}
+				mu.Lock()
+				marketDataMap[j.symbol] = data
+				mu.Unlock()
+			}
+		}()
+	}
+	for _, j := range needFetch {
+		jobs <- j
+	}
+	close(jobs)
+	wg.Wait()
+	return marketDataMap
+}
+
+func buildTestRunMarketDataFromSnapshot(engine *kernel.StrategyEngine, symbol string, timeframes []string, primaryTimeframe string, klineCount int) (*market.Data, error) {
+	if engine == nil || engine.GetSnapshotEngine() == nil {
+		return nil, fmt.Errorf("snapshot engine not configured")
+	}
+	snap := engine.GetSnapshotEngine().GetSnapshot()
+	if snap == nil || len(snap.Symbols) == 0 {
+		return nil, fmt.Errorf("snapshot is empty")
+	}
+	normalized := market.Normalize(symbol)
+	ss := snap.Symbols[normalized]
+	if ss == nil {
+		ss = snap.Symbols[symbol]
+	}
+	if ss == nil {
+		return nil, fmt.Errorf("%s not found in snapshot", normalized)
+	}
+	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount)
 }
 
 // runRealAITest Execute real AI test call

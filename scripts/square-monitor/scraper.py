@@ -10,6 +10,7 @@
 这样一轮能抓到的帖子比"打开-滚几十次-关闭"多几倍。
 """
 import asyncio
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -189,8 +190,10 @@ class SquareScraper:
 
         async with async_playwright() as p:
             context = None
+            page = None
+            attached_cdp = False
             try:
-                context = await p.chromium.launch_persistent_context(
+                launch_kwargs = dict(
                     user_data_dir=str(USER_DATA_DIR),
                     headless=config.HEADLESS,
                     user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -199,7 +202,36 @@ class SquareScraper:
                     viewport={"width": 1440, "height": 900},
                     args=["--disable-blink-features=AutomationControlled"],
                 )
-                page = context.pages[0] if context.pages else await context.new_page()
+                # Optional proxy for non-US / blocked egress (Hy2: http://127.0.0.1:10809)
+                # The browser must run on the direct egress. The proxy exits
+                # via a datacenter IP that Binance's AWS WAF answers with an
+                # interactive "Human Verification" CAPTCHA (zero posts
+                # captured), while the direct egress loads the real feed.
+                # Chromium ALSO honours HTTP_PROXY/HTTPS_PROXY from the
+                # environment, so the launcher unsets those; this knob is a
+                # dedicated name that stays unset.
+                proxy_server = (os.environ.get("SQUARE_BROWSER_PROXY") or "").strip()
+                if proxy_server.lower() in ("", "none", "off", "direct", "false", "0"):
+                    proxy_server = None
+                if proxy_server:
+                    launch_kwargs["proxy"] = {"server": proxy_server}
+                    print(f"[scraper] using proxy {proxy_server}")
+                else:
+                    print("[scraper] direct egress (no proxy)")
+                cdp_url = os.environ.get("SQUARE_CDP_URL")
+                if cdp_url:
+                    # Reuse a user-verified, visible Chrome session instead of a
+                    # separate headless profile. Do not take over the user's tab.
+                    browser = await p.chromium.connect_over_cdp(cdp_url)
+                    if not browser.contexts:
+                        raise RuntimeError("verified Chrome has no browser context")
+                    context = browser.contexts[0]
+                    attached_cdp = True
+                    print(f"[scraper] using verified Chrome session via {cdp_url}")
+                    page = await context.new_page()
+                else:
+                    context = await p.chromium.launch_persistent_context(**launch_kwargs)
+                    page = context.pages[0] if context.pages else await context.new_page()
                 page.on("response", self._handle_response)
 
                 await page.goto(SQUARE_URL, wait_until="domcontentloaded", timeout=60000)
@@ -235,7 +267,15 @@ class SquareScraper:
             except Exception as e:
                 print(f"[scraper] 出错：{e}")
             finally:
-                if context:
+                # In CDP mode the browser belongs to the user. Only close the
+                # dedicated scraper tab created for this round; never close the
+                # user's existing tabs or the browser context.
+                if attached_cdp and page:
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+                elif context:
                     try:
                         await context.close()
                     except Exception as e:

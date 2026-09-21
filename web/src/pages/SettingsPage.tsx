@@ -12,6 +12,7 @@ import {
   Pencil,
   Palette,
   Monitor,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -20,10 +21,17 @@ import { api } from '../lib/api'
 import { ExchangeConfigModal } from '../components/trader/ExchangeConfigModal'
 import { TelegramConfigModal } from '../components/trader/TelegramConfigModal'
 import { ModelConfigModal } from '../components/trader/ModelConfigModal'
+import { SecuritySettings } from '../components/settings/SecuritySettings'
 import type { Exchange, AIModel } from '../types'
 import { Button } from '../components/ui/Button'
 
-type Tab = 'account' | 'models' | 'exchanges' | 'telegram' | 'appearance'
+type Tab =
+  | 'account'
+  | 'security'
+  | 'models'
+  | 'exchanges'
+  | 'telegram'
+  | 'appearance'
 
 function configBadge(label: string, active: boolean) {
   return (
@@ -433,6 +441,7 @@ export function SettingsPage() {
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'account', label: 'Account', icon: <User size={16} /> },
+    { key: 'security', label: 'Security', icon: <ShieldCheck size={16} /> },
     { key: 'models', label: 'AI Models', icon: <Cpu size={16} /> },
     { key: 'exchanges', label: 'Exchanges', icon: <Building2 size={16} /> },
     { key: 'telegram', label: 'Telegram', icon: <MessageCircle size={16} /> },
@@ -445,7 +454,7 @@ export function SettingsPage() {
         <h1 className="text-xl font-bold text-foreground mb-6">Settings</h1>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-panel border border-border rounded-xl p-1">
+        <div className="flex flex-wrap gap-1 mb-6 bg-panel border border-border rounded-xl p-1">
           {tabs.map((tab) => (
             <Button
               variant="unstyled"
@@ -520,6 +529,9 @@ export function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && <SecuritySettings />}
 
           {/* AI Models Tab */}
           {activeTab === 'models' && (

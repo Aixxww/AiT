@@ -1,0 +1,408 @@
+#!/usr/bin/env bash
+# Keep the AiT stack alive across container start / hibernate wake.
+# Usage: ait-stack-autostart [--watch]
+# Does not kill healthy processes. Does not print secrets.
+set -uo pipefail
+
+# Optional workspace knobs (e.g. AIT_V7_PERSIST_TRACK=0). Survives better than /usr/local alone.
+AIT_STACK_ENV="${AIT_STACK_ENV:-/workspace/AiT/.proxy/ait-stack.env}"
+if [ -f "${AIT_STACK_ENV}" ]; then
+	# shellcheck disable=SC1090
+	set -a
+	# shellcheck source=/dev/null
+	. "${AIT_STACK_ENV}"
+	set +a
+fi
+
+SING_BOX_BIN="${SING_BOX_BIN:-/workspace/bin/sing-box}"
+SING_BOX_CFG="${SING_BOX_CFG:-/workspace/AiT/.proxy/sing-box-trojan.json}"
+SING_BOX_PID="${SING_BOX_PID:-/workspace/AiT/.pids/sing-box-trojan.pid}"
+AIT_BACKEND_SH="${AIT_BACKEND_SH:-/workspace/AiT/.proxy/start_backend.sh}"
+AIT_BIN="${AIT_BIN:-/workspace/AiT/bin/ait}"
+AIT_WEB_DIR="${AIT_WEB_DIR:-/workspace/AiT/web}"
+SQUARE_DIR="${SQUARE_DIR:-/workspace/AiT/scripts/square-monitor}"
+SQUARE_VENV_PY="${SQUARE_VENV_PY:-${SQUARE_DIR}/.venv/bin/python}"
+SQUARE_WORKER_PID="${SQUARE_WORKER_PID:-/workspace/AiT/.pids/square-monitor-worker.pid}"
+LOG_DIR="${LOG_DIR:-/workspace/AiT/.logs}"
+LOG_FILE="${LOG_FILE:-${LOG_DIR}/ait-stack-autostart.log}"
+WATCH_LOCK="${WATCH_LOCK:-/tmp/ait-stack-autostart.watch.lock}"
+WATCH_INTERVAL_S="${AIT_STACK_WATCH_INTERVAL_S:-20}"
+FUNNEL_TARGET="${FUNNEL_TARGET:-http://127.0.0.1:3000}"
+
+log() {
+	local ts line
+	ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+	line="[${ts}] [ait-stack-autostart] $*"
+	printf '%s\n' "${line}"
+	# When stdout is already redirected to LOG_FILE (boot/nohup), skip extra append.
+	if [ -t 1 ]; then
+		printf '%s\n' "${line}" >>"${LOG_FILE}" 2>/dev/null || true
+	fi
+}
+
+ensure_log() {
+	mkdir -p "${LOG_DIR}" 2>/dev/null || true
+	touch "${LOG_FILE}" 2>/dev/null || true
+	chmod a+rw "${LOG_FILE}" 2>/dev/null || true
+}
+ensure_log
+
+port_listening() {
+	local port="$1"
+	if command -v ss >/dev/null 2>&1; then
+		if ss -tlnH "sport = :${port}" 2>/dev/null | grep -q .; then
+			return 0
+		fi
+		ss -tlnH 2>/dev/null | grep -E "[:.\[]${port}([[:space:]]|$|\])" >/dev/null
+		return $?
+	fi
+	timeout 1 bash -c "echo >/dev/tcp/127.0.0.1/${port}" 2>/dev/null
+}
+
+is_sing_box_up() {
+	port_listening 10809 || port_listening 10808 || pgrep -f '/workspace/bin/sing-box run -c /workspace/AiT/.proxy/sing-box-trojan\.json' >/dev/null 2>&1
+}
+
+is_ait_up() {
+	port_listening 8080 || pgrep -x ait >/dev/null 2>&1 || pgrep -f '/workspace/AiT/bin/ait' >/dev/null 2>&1
+}
+
+is_vite_up() {
+	port_listening 3000 || pgrep -f 'node .*/AiT/web/node_modules/.bin/vite' >/dev/null 2>&1
+}
+
+is_square_web_up() {
+	pgrep -f '[.]venv/bin/python web\.py' >/dev/null 2>&1 && return 0
+	# The socat relay also binds :8000 (on [::1]), so a bare port check would
+	# report "healthy" and mask a dead web.py forever. Require the real IPv4
+	# listener that web.py (WEB_HOST=0.0.0.0) provides.
+	ss -tlnH 'sport = :8000' 2>/dev/null | grep -qE '(0\.0\.0\.0|127\.0\.0\.1):8000' && return 0
+	return 1
+}
+
+is_square_worker_up() {
+	if [ -f "${SQUARE_WORKER_PID}" ]; then
+		local pid args
+		pid="$(cat "${SQUARE_WORKER_PID}" 2>/dev/null || true)"
+		args="$(ps -p "${pid:-0}" -o args= 2>/dev/null || true)"
+		if [ -n "${pid}" ] && printf "%s" "${args}" | grep -Fq "${SQUARE_VENV_PY} worker.py"; then
+			return 0
+		fi
+		rm -f "${SQUARE_WORKER_PID}" 2>/dev/null || true
+	fi
+	return 1
+}
+
+is_socat_up() {
+	ss -tlnH 2>/dev/null | grep -q '\[::1\]:8000' && return 0
+	pgrep -f 'socat TCP6-LISTEN:8000,bind=\[::1\]' >/dev/null 2>&1
+}
+
+is_funnel_ok() {
+	local st
+	st="$(tailscale funnel status 2>/dev/null || true)"
+	printf '%s' "${st}" | grep -q '127.0.0.1:3000' && return 0
+	printf '%s' "${st}" | grep -qi 'Funnel on' && printf '%s' "${st}" | grep -q ':3000' && return 0
+	return 1
+}
+
+wait_port() {
+	local port="$1" tries="${2:-20}" i
+	for i in $(seq 1 "${tries}"); do
+		if port_listening "${port}"; then
+			return 0
+		fi
+		sleep 0.5
+	done
+	return 1
+}
+
+start_sing_box_if_needed() {
+	if is_sing_box_up; then
+		log "sing-box Trojan client already healthy (10808/10809); leaving it alone"
+		return 0
+	fi
+	if [ ! -x "${SING_BOX_BIN}" ]; then
+		log "warning: sing-box binary missing at ${SING_BOX_BIN}"
+		return 1
+	fi
+	if [ ! -r "${SING_BOX_CFG}" ]; then
+		log "warning: sing-box config missing/unreadable at ${SING_BOX_CFG}"
+		return 1
+	fi
+	mkdir -p /workspace/AiT/.pids 2>/dev/null || true
+	log "starting sing-box Trojan client"
+	setsid nohup "${SING_BOX_BIN}" run -c "${SING_BOX_CFG}" \
+		>>"${LOG_DIR}/sing-box-trojan.log" 2>&1 &
+	local pid=$!
+	echo "${pid}" >"${SING_BOX_PID}" 2>/dev/null || true
+	if wait_port 10809 30 && wait_port 10808 5; then
+		log "sing-box Trojan client is up"
+		return 0
+	fi
+	log "warning: sing-box did not become ready quickly"
+	return 1
+}
+start_ait_if_needed() {
+	if is_ait_up; then
+		log "ait backend already healthy (:8080); leaving it alone"
+		return 0
+	fi
+	if [ -x "${AIT_BACKEND_SH}" ]; then
+		log "starting ait backend via start_backend.sh"
+		setsid nohup "${AIT_BACKEND_SH}" \
+			>>"${LOG_DIR}/backend.log" 2>&1 &
+	elif [ -x "${AIT_BIN}" ]; then
+		log "starting ait backend via binary (start_backend.sh missing)"
+		setsid nohup env \
+			API_SERVER_PORT=8080 \
+			TZ=Asia/Shanghai \
+			AIT_PROXY_URL=http://127.0.0.1:10809 \
+			AIT_BINANCE_PROXY_URL=http://127.0.0.1:10809 \
+			HTTP_PROXY=http://127.0.0.1:10809 \
+			HTTPS_PROXY=http://127.0.0.1:10809 \
+			ALL_PROXY=socks5://127.0.0.1:10808 \
+			NO_PROXY=127.0.0.1,localhost,::1 \
+			http_proxy=http://127.0.0.1:10809 \
+			https_proxy=http://127.0.0.1:10809 \
+			all_proxy=socks5://127.0.0.1:10808 \
+			no_proxy=127.0.0.1,localhost,::1 \
+			"${AIT_BIN}" \
+			>>"${LOG_DIR}/backend.log" 2>&1 &
+	else
+		log "warning: ait backend starter/binary missing"
+		return 1
+	fi
+	if wait_port 8080 40; then
+		log "ait backend is up"
+		return 0
+	fi
+	log "warning: ait backend did not become ready quickly"
+	return 1
+}
+
+start_vite_if_needed() {
+	if is_vite_up; then
+		log "vite frontend already healthy (:3000); leaving it alone"
+		return 0
+	fi
+	if [ ! -d "${AIT_WEB_DIR}" ]; then
+		log "warning: vite web dir missing at ${AIT_WEB_DIR}"
+		return 1
+	fi
+
+	if [ ! -x "${AIT_WEB_DIR}/node_modules/.bin/vite" ] && ! command -v npm >/dev/null 2>&1; then
+		log "warning: vite/npm not available under ${AIT_WEB_DIR}"
+		return 1
+	fi
+	log "starting vite frontend on 0.0.0.0:3000"
+	(
+		cd "${AIT_WEB_DIR}" || exit 1
+		if [ -x ./node_modules/.bin/vite ]; then
+			setsid nohup ./node_modules/.bin/vite --host 0.0.0.0 --port 3000 \
+				>>"${LOG_DIR}/frontend.log" 2>&1 &
+		else
+			setsid nohup npm run dev -- --host 0.0.0.0 --port 3000 \
+				>>"${LOG_DIR}/frontend.log" 2>&1 &
+		fi
+	)
+	if wait_port 3000 60; then
+		log "vite frontend is up"
+		return 0
+	fi
+	log "warning: vite frontend did not become ready quickly"
+	return 1
+}
+
+
+start_square_web_if_needed() {
+	if is_square_web_up; then
+		log "square-monitor web.py already healthy (:8000); leaving it alone"
+		return 0
+	fi
+	if [ ! -x "${SQUARE_VENV_PY}" ]; then
+		log "warning: square-monitor venv python missing at ${SQUARE_VENV_PY}"
+		return 1
+	fi
+	log "starting square-monitor web.py"
+	(
+		cd "${SQUARE_DIR}" || exit 1
+		exec 9>&-
+		setsid nohup env \
+			\
+			SQUARE_PROXY=http://127.0.0.1:10809 \
+			HTTP_PROXY=http://127.0.0.1:10809 \
+			HTTPS_PROXY=http://127.0.0.1:10809 \
+			"${SQUARE_VENV_PY}" web.py \
+			>>"${LOG_DIR}/square-monitor.log" 2>&1 &
+	)
+	if wait_port 8000 30; then
+		log "square-monitor web.py is up"
+		return 0
+	fi
+	log "warning: square-monitor web.py did not become ready quickly"
+	return 1
+}
+
+start_square_worker_if_needed() {
+	if is_square_worker_up; then
+		log "square-monitor worker.py already running; leaving it alone"
+		return 0
+	fi
+	if [ ! -x "${SQUARE_VENV_PY}" ]; then
+		log "warning: square-monitor venv python missing at ${SQUARE_VENV_PY}"
+		return 1
+	fi
+	mkdir -p /workspace/AiT/.pids 2>/dev/null || true
+	log "starting square-monitor worker.py via verified Playwright profile (headless)"
+	(
+		cd "${SQUARE_DIR}" || exit 1
+		setsid nohup bash -c 'exec 9>&-; exec env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy SQUARE_CDP_URL= SQUARE_BROWSER_PROXY= SQUARE_API_PROXY=http://127.0.0.1:10809 NO_PROXY=127.0.0.1,localhost,::1 no_proxy=127.0.0.1,localhost,::1 "$0" worker.py' "${SQUARE_VENV_PY}" \
+			>>"${LOG_DIR}/square-monitor-worker.log" 2>&1 &
+		echo "$!" >"${SQUARE_WORKER_PID}"
+	)
+	sleep 1
+	if is_square_worker_up; then
+		log "square-monitor worker.py is up"
+		return 0
+	fi
+	log "warning: square-monitor worker.py did not stay up"
+	return 1
+}
+
+start_socat_if_needed() {
+	if is_socat_up; then
+		log "socat [::1]:8000 already up; leaving it alone"
+		return 0
+	fi
+	if ! command -v socat >/dev/null 2>&1; then
+		log "warning: socat not installed"
+		return 1
+	fi
+	log "starting socat [::1]:8000 -> 127.0.0.1:8000"
+	setsid nohup socat TCP6-LISTEN:8000,bind=[::1],fork,reuseaddr TCP4:127.0.0.1:8000 \
+		>>"${LOG_DIR}/square-monitor-socat.log" 2>&1 &
+	sleep 0.5
+	if is_socat_up; then
+		log "socat is up"
+		return 0
+	fi
+	log "warning: socat did not become ready"
+	return 1
+}
+
+ensure_funnel() {
+	if ! is_vite_up; then
+		log "funnel: frontend not up yet; skipping"
+		return 1
+	fi
+	if is_funnel_ok; then
+		log "tailscale funnel already proxying ${FUNNEL_TARGET}; leaving it alone"
+		return 0
+	fi
+	if ! command -v tailscale >/dev/null 2>&1; then
+		log "warning: tailscale CLI missing; cannot assert funnel"
+		return 1
+	fi
+	log "re-asserting: sudo tailscale funnel --bg --yes ${FUNNEL_TARGET}"
+	if sudo -n true 2>/dev/null; then
+		sudo -n tailscale funnel --bg --yes "${FUNNEL_TARGET}" >>"${LOG_FILE}" 2>&1 || true
+	else
+		tailscale funnel --bg --yes "${FUNNEL_TARGET}" >>"${LOG_FILE}" 2>&1 || true
+	fi
+	sleep 1
+	if is_funnel_ok; then
+		log "tailscale funnel is set"
+		return 0
+	fi
+	log "warning: funnel status not confirmed after re-assert"
+	return 1
+}
+
+
+V7_PERSIST_CTL="${V7_PERSIST_CTL:-/workspace/AiT/scripts/hunter_v7_persist_track_ctl.sh}"
+V7_PERSIST_PID="${V7_PERSIST_PID:-/workspace/AiT/.pids/hunter_v7_persist_track.pid}"
+
+is_v7_persist_up() {
+	if [ -f "${V7_PERSIST_PID}" ]; then
+		pid="$(cat "${V7_PERSIST_PID}" 2>/dev/null || true)"
+		if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+			return 0
+		fi
+	fi
+	pgrep -f 'hunter_v7_persist_track_loop\.sh' >/dev/null 2>&1
+}
+
+start_v7_persist_track_if_needed() {
+	if [ "${AIT_V7_PERSIST_TRACK:-1}" = "0" ]; then
+		log "hunter v7 persist/track disabled via AIT_V7_PERSIST_TRACK=0"
+		return 0
+	fi
+	if is_v7_persist_up; then
+		log "hunter v7 persist/track loop already running; leaving it alone"
+		return 0
+	fi
+	if [ ! -x "${V7_PERSIST_CTL}" ]; then
+		log "warning: v7 persist ctl missing at ${V7_PERSIST_CTL}"
+		return 1
+	fi
+	log "starting hunter v7 persist/track loop (signal-only, no live orders)"
+	setsid nohup bash "${V7_PERSIST_CTL}" start \
+		>>"${LOG_DIR}/v7_persist_autostart.log" 2>&1 &
+	sleep 1
+	if is_v7_persist_up; then
+		log "hunter v7 persist/track loop is up"
+		return 0
+	fi
+	log "warning: hunter v7 persist/track loop did not stay up"
+	return 1
+}
+
+ensure_stack() {
+	start_sing_box_if_needed || true
+	start_ait_if_needed || true
+	start_vite_if_needed || true
+	start_square_web_if_needed || true
+	start_square_worker_if_needed || true
+	start_socat_if_needed || true
+	ensure_funnel || true
+	start_v7_persist_track_if_needed || true
+}
+
+health_summary() {
+	local p a v sw sk so f v7p
+	is_sing_box_up && p=up || p=DOWN
+	is_ait_up && a=up || a=DOWN
+	is_vite_up && v=up || v=DOWN
+	is_square_web_up && sw=up || sw=DOWN
+	is_square_worker_up && sk=up || sk=DOWN
+	is_socat_up && so=up || so=DOWN
+	is_funnel_ok && f=up || f=DOWN
+	is_v7_persist_up && v7p=up || v7p=DOWN
+	log "health: sing-box=${p} ait=${a} vite=${v} square-web=${sw} square-worker=${sk} socat=${so} funnel=${f} v7-persist=${v7p}"
+}
+
+watch_loop() {
+	exec 9>"${WATCH_LOCK}"
+	if ! flock -n 9; then
+		log "another --watch instance holds ${WATCH_LOCK}; exiting"
+		exit 0
+	fi
+	log "watchdog started (interval=${WATCH_INTERVAL_S}s lock=${WATCH_LOCK})"
+	while true; do
+		ensure_stack
+		sleep "${WATCH_INTERVAL_S}"
+	done
+}
+
+MODE="once"
+if [ "${1:-}" = "--watch" ]; then
+	MODE="watch"
+fi
+
+ensure_stack
+health_summary
+
+if [ "${MODE}" = "watch" ]; then
+	watch_loop
+fi

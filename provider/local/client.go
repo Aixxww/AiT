@@ -87,7 +87,9 @@ func NewClient(binanceURL string) *Client {
 				IdleConnTimeout:     90 * time.Second,
 				TLSHandshakeTimeout: 10 * time.Second,
 				ForceAttemptHTTP2:   true,
-				DisableKeepAlives:   true,
+				// A/B test (2026-09-14): reuse healthy connections to the
+				// local Trojan proxy; preserve all existing limits/timeouts.
+				DisableKeepAlives: false,
 			},
 		},
 		parallelSem: make(chan struct{}, maxParallelRequests),

@@ -152,6 +152,21 @@ func (s *Server) handleLogin(c *gin.Context) {
 		return
 	}
 
+	// A password is only the first factor when the user opted into TOTP.
+	mfaCfg, err := s.mfaConfig(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check MFA status"})
+		return
+	}
+	if mfaCfg != nil && mfaCfg.Enabled {
+		c.JSON(http.StatusAccepted, gin.H{
+			"mfa_required": true,
+			"mfa_token":    s.createMFAChallenge(user.ID, user.Email),
+			"message":      "Authenticator code required",
+		})
+		return
+	}
+
 	// Issue token directly after password verification.
 	token, err := auth.GenerateJWT(user.ID, user.Email)
 	if err != nil {

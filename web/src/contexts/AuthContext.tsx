@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { getSystemConfig, invalidateSystemConfig } from '../lib/config'
 import { reset401Flag, httpClient } from '../lib/httpClient'
+import { mfaApi, normalizeCode, type MfaReason } from '../lib/mfa'
 import { getPostAuthPath, setUserMode, type UserMode } from '../lib/onboarding'
 import { ROUTES } from '../router/paths'
 import { useLanguage } from './LanguageContext'
@@ -22,7 +23,36 @@ interface AuthContextType {
   ) => Promise<{
     success: boolean
     message?: string
+    /**
+     * Set when the account has TOTP MFA enabled. The password was accepted but
+     * no session exists yet — the caller must collect a 6-digit (or recovery)
+     * code and pass `mfaToken` to `verifyMfa`.
+     */
+    mfaRequired?: boolean
+    mfaToken?: string
   }>
+  /**
+   * Second phase of an MFA login. Completes the session on success.
+   *
+   * On failure `reason` distinguishes a retryable typo (`invalid_code`, the
+   * challenge is still alive) from a terminal state that forces a fresh login.
+   */
+  verifyMfa: (
+    mfaToken: string,
+    code: string,
+    mode?: UserMode
+  ) => Promise<{
+    success: boolean
+    message?: string
+    reason?: MfaReason
+    attemptsLeft?: number
+    status?: number
+  }>
+  /**
+   * Persist a token the server rotated while the session was already live
+   * (currently only `POST /api/mfa/enable`, which returns a fresh JWT).
+   */
+  refreshSessionToken: (authToken: string) => void
   register: (
     email: string,
     password: string,
@@ -135,6 +165,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json()
 
       if (response.ok) {
+        // 202 Accepted + mfa_required — the password was correct but the
+        // account has TOTP enabled, so no session is issued yet. Hand the
+        // challenge token back to the caller to collect a code. `success`
+        // stays false so callers do not navigate or dismiss toasts.
+        if (data.mfa_required && data.mfa_token) {
+          return {
+            success: false,
+            mfaRequired: true,
+            mfaToken: data.mfa_token,
+            message: data.message,
+          }
+        }
+
         if (data.token) {
           const userInfo = { id: data.user_id, email: data.email }
           handlePostAuthSuccess(data.token, userInfo, mode)
@@ -156,6 +199,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       return { success: false, message: 'Login failed, please try again' }
     }
+  }
+
+  const verifyMfa = async (
+    mfaToken: string,
+    code: string,
+    mode?: UserMode
+  ): Promise<{
+    success: boolean
+    message?: string
+    reason?: MfaReason
+    attemptsLeft?: number
+    status?: number
+  }> => {
+    const result = await mfaApi.verifyLogin(mfaToken, normalizeCode(code))
+
+    if (!result.ok) {
+      return {
+        success: false,
+        message: result.error,
+        reason: result.reason,
+        attemptsLeft: result.attemptsLeft,
+        status: result.status,
+      }
+    }
+
+    const data = result.data
+    if (!data.token) {
+      return { success: false, message: 'Unexpected MFA response' }
+    }
+
+    handlePostAuthSuccess(
+      data.token,
+      { id: data.user_id, email: data.email },
+      mode
+    )
+
+    return { success: true, message: data.message }
+  }
+
+  const refreshSessionToken = (authToken: string) => {
+    localStorage.setItem('auth_token', authToken)
+    setToken(authToken)
   }
 
   const register = async (
@@ -266,6 +351,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         token,
         login,
+        verifyMfa,
+        refreshSessionToken,
         register,
         resetPassword,
         logout,

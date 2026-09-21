@@ -187,6 +187,7 @@ func (s *Server) setupRoutes() {
 		authGroup := api.Group("/", rateLimitAuthMiddleware())
 		s.route(authGroup, "POST", "/register", "Register new user", s.handleRegister)
 		s.route(authGroup, "POST", "/login", "User login, returns JWT token", s.handleLogin)
+		s.route(authGroup, "POST", "/mfa/login/verify", "Complete MFA login with TOTP or recovery code", s.handleMFALoginVerify)
 		s.route(authGroup, "POST", "/reset-password", "Reset password (localhost only)", s.handleResetPassword)
 
 		// Routes requiring authentication
@@ -197,6 +198,10 @@ func (s *Server) setupRoutes() {
 
 			// Logout (add to blacklist)
 			s.route(protected, "POST", "/logout", "Logout (blacklist token)", s.handleLogout)
+			s.route(protected, "GET", "/mfa/status", "Get current user's MFA status", s.handleMFAStatus)
+			s.route(protected, "POST", "/mfa/setup", "Create an authenticator setup secret", s.handleMFASetup)
+			s.route(protected, "POST", "/mfa/enable", "Confirm and enable TOTP MFA", s.handleMFAEnable)
+			s.route(protected, "POST", "/mfa/disable", "Disable TOTP MFA with a current code", s.handleMFADisable)
 			s.route(protected, "POST", "/onboarding/beginner", "Prepare beginner claw402 wallet and default model", s.handleBeginnerOnboarding)
 			s.route(protected, "GET", "/onboarding/beginner/current", "Get current beginner claw402 wallet", s.handleCurrentBeginnerWallet)
 			s.route(protected, "GET", "/agent/preferences", "Get persistent agent preferences", s.handleGetAgentPreferences)

@@ -17,12 +17,26 @@ import ssl
 import time
 from typing import Optional
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, build_opener, ProxyHandler, HTTPSHandler
+import os
 import certifi
 import config
 
 # macOS Python often can't find system certs; use certifi's bundle instead
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+
+def _build_opener():
+    """Use Hy2/local proxy when SQUARE_PROXY or HTTP(S)_PROXY is set (fapi is geo-blocked in US)."""
+    proxy = (os.environ.get("SQUARE_API_PROXY")
+             or os.environ.get("SQUARE_PROXY")
+             or os.environ.get("HTTPS_PROXY")
+             or os.environ.get("HTTP_PROXY"))
+    handlers = [HTTPSHandler(context=_SSL_CTX)]
+    if proxy:
+        handlers.insert(0, ProxyHandler({"http": proxy, "https": proxy}))
+    return build_opener(*handlers)
+
+_OPENER = _build_opener()
 
 
 SPOT_BASE = "https://api.binance.com"
@@ -65,7 +79,7 @@ def _http_get(url: str, params: dict = None, timeout: int = 15) -> Optional[dict
         url = f"{url}?{urlencode(params)}"
     try:
         req = Request(url, headers={"User-Agent": "Mozilla/5.0 market-monitor"})
-        with urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         # 检查是否是 418 IP ban

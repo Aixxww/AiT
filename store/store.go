@@ -33,6 +33,7 @@ type Store struct {
 	telegramConfig TelegramConfigStore
 	hunterV7Signal *HunterV7SignalStore
 	hunterV7Mover  *HunterV7MoverStore
+	mfa            *MFAStore
 
 	mu sync.RWMutex
 }
@@ -134,6 +135,9 @@ func (s *Store) initTables() error {
 	if err := s.User().initTables(); err != nil {
 		return fmt.Errorf("failed to initialize user tables: %w", err)
 	}
+	if err := s.MFA().initTables(); err != nil {
+		return fmt.Errorf("failed to initialize MFA tables: %w", err)
+	}
 	if err := s.AIModel().initTables(); err != nil {
 		return fmt.Errorf("failed to initialize AI model tables: %w", err)
 	}
@@ -204,6 +208,16 @@ func (s *Store) User() *UserStore {
 		s.user = NewUserStore(s.gdb)
 	}
 	return s.user
+}
+
+// MFA gets the per-user multi-factor authentication store.
+func (s *Store) MFA() *MFAStore {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.mfa == nil {
+		s.mfa = &MFAStore{db: s.gdb}
+	}
+	return s.mfa
 }
 
 // AIModel gets AI model storage
