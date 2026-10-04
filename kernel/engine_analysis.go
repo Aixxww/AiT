@@ -134,6 +134,15 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		}
 	}
 
+	// P0-2: build a symbol -> current market price map so the RR validation
+	// uses the real entry price instead of a fabricated one.
+	priceMap := make(map[string]float64, len(ctx.MarketDataMap))
+	for sym, md := range ctx.MarketDataMap {
+		if md != nil && md.CurrentPrice > 0 {
+			priceMap[market.Normalize(sym)] = md.CurrentPrice
+		}
+	}
+
 	decision, err := parseFullDecisionResponse(
 		aiResponse,
 		ctx.Account.TotalEquity,
@@ -143,6 +152,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		riskConfig.AltcoinMaxPositionValueRatio,
 		hunterScoreMap,
 		strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7"),
+		priceMap,
 	)
 
 	if decision != nil {
@@ -203,13 +213,24 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 
 const hunterV7DecisionMaxOutputTokens = 1600
 
+// hunterV7DecisionTemperature: 开仓决策降温到 0.15，提升可复现性——
+// 每次 AI 开仓决策是单次采样，全链路随机性的唯一入口。
+// 全局默认 MCPClientTemperature=0.5 保持不动（Telegram agent 等其他调用仍用它）。
+const hunterV7DecisionTemperature = 0.15
+
+// buildHunterV7DecisionRequest 构造 hunter_v7 开仓决策请求（降温版）。
+func buildHunterV7DecisionRequest(systemPrompt, userPrompt string) (*mcp.Request, error) {
+	return mcp.NewRequestBuilder().
+		WithSystemPrompt(systemPrompt).
+		WithUserPrompt(userPrompt).
+		WithTemperature(hunterV7DecisionTemperature).
+		WithMaxTokens(hunterV7DecisionMaxOutputTokens).
+		Build()
+}
+
 func callStrategyDecisionAI(mcpClient mcp.AIClient, engine *StrategyEngine, systemPrompt, userPrompt string) (string, error) {
 	if engine != nil && strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
-		req, err := mcp.NewRequestBuilder().
-			WithSystemPrompt(systemPrompt).
-			WithUserPrompt(userPrompt).
-			WithMaxTokens(hunterV7DecisionMaxOutputTokens).
-			Build()
+		req, err := buildHunterV7DecisionRequest(systemPrompt, userPrompt)
 		if err == nil {
 			logger.Infof("⚡ Hunter v7 decision output capped at %d tokens to reduce execution drift", hunterV7DecisionMaxOutputTokens)
 			return mcpClient.CallWithRequest(req)
@@ -436,7 +457,7 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 // AI Response Parsing
 // ============================================================================
 
-func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool) (*FullDecision, error) {
+func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -450,7 +471,7 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 	if hunterV7Mode {
 		normalizeHunterV7WaitReasons(decisions)
 	}
-	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap); err != nil {
+	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap); err != nil {
 		return &FullDecision{
 			CoTTrace:  cotTrace,
 			Decisions: decisions,
