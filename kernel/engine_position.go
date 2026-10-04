@@ -2,7 +2,9 @@ package kernel
 
 import (
 	"fmt"
+
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
 )
 
 // ============================================================================
@@ -16,16 +18,16 @@ type HunterScoreInfo struct {
 	Direction  string
 }
 
-func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo) error {
+func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64) error {
 	for i := range decisions {
-		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap); err != nil {
+		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap); err != nil {
 			return fmt.Errorf("decision #%d validation failed: %w", i+1, err)
 		}
 	}
 	return nil
 }
 
-func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo) error {
+func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64) error {
 	validActions := map[string]bool{
 		"open_long":   true,
 		"open_short":  true,
@@ -96,10 +98,21 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			}
 		}
 
+		// P0-2: the RR check below must use a REAL entry price. The legacy
+		// formula (SL + 0.2*(TP-SL)) always yields exactly 4.0, which made the
+		// RR>=3.0 gate dead code. Priority: trigger price (limit/trigger
+		// orders) > current market price > legacy fallback.
 		var entryPrice float64
-		if d.Action == "open_long" {
+		switch {
+		case d.Trigger != nil && d.Trigger.TriggerPrice > 0:
+			entryPrice = d.Trigger.TriggerPrice
+		case priceMap != nil && priceMap[d.Symbol] > 0:
+			entryPrice = priceMap[d.Symbol]
+		case priceMap != nil && priceMap[market.Normalize(d.Symbol)] > 0:
+			entryPrice = priceMap[market.Normalize(d.Symbol)]
+		case d.Action == "open_long":
 			entryPrice = d.StopLoss + (d.TakeProfit-d.StopLoss)*0.2
-		} else {
+		default:
 			entryPrice = d.StopLoss - (d.StopLoss-d.TakeProfit)*0.2
 		}
 
