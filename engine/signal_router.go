@@ -5,6 +5,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/Aixxww/AiT/logger"
 )
 
 // ============================================================================
@@ -36,6 +38,7 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 
 	snap := r.hub.store.Current()
 	if snap == nil {
+		logger.Debugf("[router] drop all: market snapshot is nil, reason=snapshot_nil")
 		return nil
 	}
 
@@ -43,9 +46,11 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 	filtered := make([]*IndicatorSet, 0, len(sets))
 	for _, set := range sets {
 		if set.Direction == 0 {
+			logger.Debugf("[router] drop symbol=%s score=%.2f reason=neutral_direction", set.Symbol, set.FinalScore)
 			continue // skip neutral
 		}
 		if set.FinalScore < r.cfg.MinScore {
+			logger.Debugf("[router] drop symbol=%s score=%.2f reason=below_minscore minscore=%.2f", set.Symbol, set.FinalScore, r.cfg.MinScore)
 			continue
 		}
 		filtered = append(filtered, set)
@@ -70,6 +75,7 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 		// Check cooldown
 		if lastTrade, ok := r.cooldown[set.Symbol]; ok {
 			if now.Sub(lastTrade) < cooldownDur {
+				logger.Debugf("[router] drop symbol=%s score=%.2f reason=cooldown", set.Symbol, set.FinalScore)
 				continue // still in cooldown
 			}
 		}
@@ -77,6 +83,7 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 		// Look up the original snapshot for this symbol
 		symSnap, ok := snap.Symbols[set.Symbol]
 		if !ok || symSnap == nil {
+			logger.Debugf("[router] drop symbol=%s score=%.2f reason=snapshot_missing", set.Symbol, set.FinalScore)
 			continue
 		}
 
@@ -84,7 +91,7 @@ func (r *SignalRouter) Route(sets []*IndicatorSet) []*TradeSignal {
 		sl, tp1, tp2, tp3 := calcSLTP(symSnap, set.Direction, set.ATR14, r.cfg)
 
 		// Step 6: Build signal reason strings
-		bullSignals, bearSignals, reasons := buildSignalReasons(set)
+		bullSignals, bearSignals, reasons := buildSignalReasons(set, symSnap.Price)
 
 		// Step 7: Assign grade
 		grade := determineGrade(set.FinalScore, r.cfg)
@@ -145,7 +152,8 @@ func (r *SignalRouter) ClearAllCooldowns() {
 // ============================================================================
 
 // buildSignalReasons generates human-readable signal descriptions.
-func buildSignalReasons(set *IndicatorSet) (bullSignals, bearSignals, reasons []string) {
+// price is the symbol's actual current price (used for BB band positioning).
+func buildSignalReasons(set *IndicatorSet, price float64) (bullSignals, bearSignals, reasons []string) {
 	bullSignals = make([]string, 0)
 	bearSignals = make([]string, 0)
 	reasons = make([]string, 0)
@@ -162,7 +170,6 @@ func buildSignalReasons(set *IndicatorSet) (bullSignals, bearSignals, reasons []
 	}
 
 	if set.BBLower > 0 && set.BBMiddle > 0 {
-		price := set.BBMiddle
 		bbRange := set.BBUpper - set.BBLower
 		if bbRange > 0 {
 			pos := (price - set.BBLower) / bbRange
@@ -188,7 +195,6 @@ func buildSignalReasons(set *IndicatorSet) (bullSignals, bearSignals, reasons []
 	}
 
 	if set.BBUpper > 0 && set.BBMiddle > 0 {
-		price := set.BBMiddle
 		bbRange := set.BBUpper - set.BBLower
 		if bbRange > 0 {
 			pos := (price - set.BBLower) / bbRange

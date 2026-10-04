@@ -115,6 +115,19 @@ func (cfg *BacktestConfig) Validate() error {
 		cfg.InitialBalance = 1000
 	}
 
+	if cfg.FeeBps < 0 {
+		return fmt.Errorf("fee_bps cannot be negative")
+	}
+	if cfg.FeeBps == 0 {
+		cfg.FeeBps = DefaultFeeBps
+	}
+	if cfg.SlippageBps < 0 {
+		return fmt.Errorf("slippage_bps cannot be negative")
+	}
+	if cfg.SlippageBps == 0 {
+		cfg.SlippageBps = DefaultSlippageBps
+	}
+
 	if cfg.FillPolicy == "" {
 		cfg.FillPolicy = FillPolicyNextOpen
 	}
@@ -165,6 +178,24 @@ func (cfg *BacktestConfig) Duration() time.Duration {
 }
 
 const (
+	// DefaultFeeBps is the default per-trade fee in basis points used when
+	// BacktestConfig.FeeBps is left unset. 5bps is a conservative estimate of
+	// the Binance futures taker fee rate. Before this default existed, an
+	// unset fee silently meant zero cost, which systematically inflated
+	// backtest returns (zero-cost trading).
+	//
+	// Note: under JSON deserialization an explicitly-set 0 is
+	// indistinguishable from "unset", so an unset field is treated as the
+	// conservative 5bps default; there is intentionally no way to request
+	// zero-cost trading through this config.
+	DefaultFeeBps = 5.0
+
+	// DefaultSlippageBps is the default per-trade slippage in basis points
+	// used when BacktestConfig.SlippageBps is left unset. Like the fee
+	// default, it is a conservative 5bps and follows the same
+	// "explicit 0 is indistinguishable from unset" caveat.
+	DefaultSlippageBps = 5.0
+
 	// FillPolicyNextOpen uses the open price of the next bar for execution.
 	FillPolicyNextOpen = "next_open"
 	// FillPolicyBarVWAP uses the approximate VWAP of the current bar for execution.

@@ -22,9 +22,12 @@ func TestDetermineDirection_Bullish(t *testing.T) {
 		SocialBearScore: 2,
 	}
 
-	dir := determineDirection(set, cfg)
+	dir, weak := determineDirection(set, cfg)
 	if dir != 1 {
 		t.Errorf("Expected LONG (+1), got %d", dir)
+	}
+	if weak {
+		t.Error("Expected decisive direction, got weak=true")
 	}
 }
 
@@ -40,12 +43,17 @@ func TestDetermineDirection_Bearish(t *testing.T) {
 		SocialBearScore: 15,
 	}
 
-	dir := determineDirection(set, cfg)
+	dir, weak := determineDirection(set, cfg)
 	if dir != -1 {
 		t.Errorf("Expected SHORT (-1), got %d", dir)
 	}
+	if weak {
+		t.Error("Expected decisive direction, got weak=true")
+	}
 }
 
+// P1-1 behavior: inside the neutral band the dominant side is kept
+// (weak=true) instead of returning NEUTRAL — downgrade, not veto.
 func TestDetermineDirection_Neutral(t *testing.T) {
 	cfg := DefaultHubConfig()
 
@@ -58,9 +66,12 @@ func TestDetermineDirection_Neutral(t *testing.T) {
 		SocialBearScore: 5,
 	}
 
-	dir := determineDirection(set, cfg)
-	if dir != 0 {
-		t.Errorf("Expected NEUTRAL (0), got %d", dir)
+	dir, weak := determineDirection(set, cfg)
+	if dir != 1 {
+		t.Errorf("Expected weak LONG (+1), got %d", dir)
+	}
+	if !weak {
+		t.Error("Expected weak=true inside neutral band, got false")
 	}
 }
 
@@ -68,7 +79,7 @@ func TestDetermineDirection_ExactMargin(t *testing.T) {
 	cfg := DefaultHubConfig()
 	cfg.DirectionMargin = 15
 
-	// Exactly at margin — should still be neutral (diff == margin, not > margin)
+	// Exactly at margin — |diff| <= margin, diff > 0: P1-1 keeps weak LONG.
 	set := &IndicatorSet{
 		TechBullScore:   20,
 		TechBearScore:   5,
@@ -78,10 +89,13 @@ func TestDetermineDirection_ExactMargin(t *testing.T) {
 		SocialBearScore: 0,
 	}
 
-	dir := determineDirection(set, cfg)
+	dir, weak := determineDirection(set, cfg)
 	// diff = 20 - 5 = 15, which equals margin but is not > margin
-	if dir != 0 {
-		t.Errorf("Expected NEUTRAL at exact margin, got %d", dir)
+	if dir != 1 {
+		t.Errorf("Expected weak LONG (+1) at exact margin, got %d", dir)
+	}
+	if !weak {
+		t.Error("Expected weak=true at exact margin, got false")
 	}
 }
 
@@ -581,7 +595,7 @@ func TestBuildSignalReasons(t *testing.T) {
 		FinalScore:      72,
 	}
 
-	bullSignals, bearSignals, reasons := buildSignalReasons(set)
+	bullSignals, bearSignals, reasons := buildSignalReasons(set, 100)
 
 	if len(bullSignals) == 0 {
 		t.Error("Expected bull signals for bullish indicator set")
