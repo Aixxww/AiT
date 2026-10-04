@@ -14,6 +14,10 @@ const (
 )
 
 // GetKlinesRange fetches K-line series within specified time range (closed interval), returns data sorted by time in ascending order.
+//
+// It tries fapi.binance.com first and automatically falls back to
+// data.binance.vision (official public archive, no geo restriction) when the
+// API is unreachable or geo-blocked — see historical_vision.go.
 func GetKlinesRange(symbol string, timeframe string, start, end time.Time) ([]Kline, error) {
 	symbol = Normalize(symbol)
 	normTF, err := NormalizeTimeframe(timeframe)
@@ -23,6 +27,17 @@ func GetKlinesRange(symbol string, timeframe string, start, end time.Time) ([]Kl
 	if !end.After(start) {
 		return nil, fmt.Errorf("end time must be after start time")
 	}
+
+	klines, err := getKlinesRangeViaFapi(symbol, normTF, start, end)
+	if err == nil {
+		return klines, nil
+	}
+	// fapi failed (network error, 451 restricted location, …) — try the
+	// public archive before giving up.
+	return getKlinesRangeViaVision(symbol, normTF, start, end)
+}
+
+func getKlinesRangeViaFapi(symbol string, normTF string, start, end time.Time) ([]Kline, error) {
 
 	startMs := start.UnixMilli()
 	endMs := end.UnixMilli()
