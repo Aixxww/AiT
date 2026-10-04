@@ -644,6 +644,11 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		tier, reason = hunterV7TierFromPromptReadiness(coin, tier, reason, readiness)
 		coin.V7ExecutionTier = tier
 		coin.V7TierReason = reason
+		// P1-4B shadow: observe whale_flow second-confirmation hypothesis
+		// across rounds. Shadow only — never changes the tier or the prompt.
+		if data != nil {
+			whaleShadowPoolObserve(coin, data.CurrentPrice)
+		}
 		items = append(items, hunterV7PromptCandidate{
 			Coin:   coin,
 			Data:   data,
