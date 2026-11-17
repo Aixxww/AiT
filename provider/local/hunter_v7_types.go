@@ -536,6 +536,8 @@ type V7ScoreResult struct {
 	Signals       []V7SignalOutput
 	PotentialPool []V7PotentialCandidate
 	Attribution   V7AttributionSummary
+	// ConflictResolutions lists the symbols the U3 final pass resolved.
+	ConflictResolutions []V7ConflictResolution
 }
 
 // V7AttributionSummary captures per-cycle funnel counts for diagnostics.
@@ -567,6 +569,9 @@ type V7Config struct {
 	T2       *V7T2Config      `json:"t2,omitempty"`
 	T2Store  *V7T2EventStore  `json:"-"` // Optional cross-cycle Task-2 trigger memory (isolated namespace)
 	T2Regime *V7T2RegimeInput `json:"-"` // Optional BTC RV24 input for section 6.1 modulation
+	// FinalConflict is the U3 one-direction-per-symbol final pass over the
+	// merged native + T2 list (enabled with the T2 module).
+	FinalConflict V7FinalConflictConfig `json:"-"`
 }
 
 // DefaultV7Config returns sensible defaults.

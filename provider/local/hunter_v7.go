@@ -79,6 +79,18 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 		}
 	}
 
+	// Step 5 (U3/P3): one direction per symbol per cycle across native and
+	// Task-2 signals. Runs only with the T2 module, on T2-carrying symbols.
+	if cfg.FinalConflict.Enabled {
+		var resolved []V7ConflictResolution
+		signals, resolved = ResolveV7FinalDirectionConflicts(signals, cfg.FinalConflict)
+		if len(resolved) > 0 {
+			signals = ensureV7SignalIDs(signals, cfg.CycleNumber)
+			result.ConflictResolutions = resolved
+			log.Printf("⚖ Hunter v7: final direction pass resolved %d symbol(s)", len(resolved))
+		}
+	}
+
 	elapsed := time.Since(start)
 	log.Printf("🎯 Hunter v7: %d symbols → %d signals (regime=%s, elapsed=%v)",
 		len(universe), len(signals), regime, elapsed)
