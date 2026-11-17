@@ -472,20 +472,12 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 	if hunterV7Mode {
 		normalizeHunterV7WaitReasons(decisions)
 	}
-	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR); err != nil {
-		return &FullDecision{
-			CoTTrace:  cotTrace,
-			Decisions: decisions,
-		}, fmt.Errorf("decision validation failed: %w", err)
-	}
-	if hunterV7Mode {
-		if err := validateHunterV7WaitReasons(decisions); err != nil {
-			return &FullDecision{
-				CoTTrace:  cotTrace,
-				Decisions: decisions,
-			}, fmt.Errorf("hunter_v7 wait reason validation failed: %w", err)
-		}
-	}
+	// F06: validate each decision on its own. A decision that fails is
+	// demoted to wait (backend_guard_risk) and the rest of the batch still
+	// executes; validation failures are no longer returned as an error, so
+	// they no longer count as AI failures or feed safe mode. Only an
+	// unparseable response (above) is an AI failure.
+	demoteInvalidDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR, hunterV7Mode)
 	fillMissingDecisionReasoning(decisions, cotTrace)
 
 	return &FullDecision{
@@ -515,6 +507,46 @@ func normalizeHunterV7WaitReasons(decisions []Decision) {
 			decisions[i].BlockedReasonCode = "backend_guard_risk"
 		}
 	}
+}
+
+// demoteInvalidDecisions replaces every decision that fails validation with
+// a wait carrying blocked_reason_code=backend_guard_risk, recording the
+// original action and the validator message. It returns the number demoted.
+func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, minRR float64, hunterV7Mode bool) int {
+	demoted := 0
+	for i := range decisions {
+		err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR)
+		if err == nil && hunterV7Mode {
+			err = validateHunterV7WaitReason(decisions[i])
+		}
+		if err == nil {
+			continue
+		}
+		d := &decisions[i]
+		logger.Warnf("⚠️ decision #%d %s %s rejected by validator, demoted to wait: %v", i+1, d.Symbol, d.Action, err)
+		d.RejectedAction = d.Action
+		d.ValidatorRejection = err.Error()
+		d.Action = "wait"
+		d.BlockedReasonCode = "backend_guard_risk"
+		if d.BlockedSignalSymbol == "" && d.Symbol != "" && d.Symbol != "ALL" {
+			d.BlockedSignalSymbol = d.Symbol
+		}
+		demoted++
+	}
+	return demoted
+}
+
+func validateHunterV7WaitReason(d Decision) error {
+	if d.Action != "wait" {
+		return nil
+	}
+	if d.BlockedReasonCode == "" {
+		return fmt.Errorf("wait missing blocked_reason_code")
+	}
+	if !hunterV7BlockedReasonCodes[d.BlockedReasonCode] {
+		return fmt.Errorf("invalid blocked_reason_code: %s", d.BlockedReasonCode)
+	}
+	return nil
 }
 
 func validateHunterV7WaitReasons(decisions []Decision) error {

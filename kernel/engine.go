@@ -224,6 +224,11 @@ type Decision struct {
 	HunterV7TP1Price float64          `json:"hunter_v7_tp1_price,omitempty"`
 	HunterV7TP2Price float64          `json:"hunter_v7_tp2_price,omitempty"`
 	Trigger          *DecisionTrigger `json:"trigger,omitempty"` // Structured wait trigger (hunter_v7)
+	// F06: set by the backend when this decision failed response validation
+	// and was demoted to wait. RejectedAction keeps the model's original
+	// action for audit; ValidatorRejection carries the validator message.
+	RejectedAction     string `json:"rejected_action,omitempty"`
+	ValidatorRejection string `json:"validator_rejection,omitempty"`
 }
 
 type DecisionTrigger struct {
