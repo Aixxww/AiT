@@ -155,6 +155,30 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 				ss.LSRPrev = lsrData[len(lsrData)-2]
 			}
 		}
+
+		// 4. Task-2 module inputs (only when IncludeT2Inputs): order-book
+		// depth (weight: 10 at limit=100 — the heaviest per-symbol call in
+		// this package) and the 5m OI history series (weight: 2). They ride
+		// this slow-derivative cadence deliberately: the 5m OI series gains
+		// a new point only every 5 minutes, and per-cycle depth for every
+		// detail symbol would add ~1000 weight per 30s cycle. A failed
+		// fetch leaves the fields empty, which consumers read as
+		// "unavailable" (fail-closed), never as a zero book/series.
+		if f.cfg.IncludeT2Inputs {
+			bids, asks, err := f.fetchDepth(ctx, symbol)
+			if err != nil {
+				errs++
+			} else {
+				ss.DepthBids = bids
+				ss.DepthAsks = asks
+			}
+			oi5m, err := f.fetchOIHistorySeries(ctx, symbol, "5m", 30)
+			if err != nil {
+				errs++
+			} else {
+				ss.OI5mHistory = oi5m
+			}
+		}
 	}
 
 	// 4. Klines — configured timeframes (weight: 1 each)
@@ -194,6 +218,9 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	totalFetches := 1 + len(klineIntervals)
 	if refreshSlowDerivatives {
 		totalFetches += 2
+		if f.cfg.IncludeT2Inputs {
+			totalFetches += 2
+		}
 	}
 	if errs > 0 {
 		return ss, fmt.Errorf("%s: %d/%d fetches failed", symbol, errs, totalFetches)
@@ -294,6 +321,18 @@ func cloneSymbolSnapshot(src *SymbolSnapshot) *SymbolSnapshot {
 		cp.OISpikeData = make([]float64, len(src.OISpikeData))
 		copy(cp.OISpikeData, src.OISpikeData)
 	}
+	if src.DepthBids != nil {
+		cp.DepthBids = make([]DepthLevel, len(src.DepthBids))
+		copy(cp.DepthBids, src.DepthBids)
+	}
+	if src.DepthAsks != nil {
+		cp.DepthAsks = make([]DepthLevel, len(src.DepthAsks))
+		copy(cp.DepthAsks, src.DepthAsks)
+	}
+	if src.OI5mHistory != nil {
+		cp.OI5mHistory = make([]OIHistoryPoint, len(src.OI5mHistory))
+		copy(cp.OI5mHistory, src.OI5mHistory)
+	}
 	return &cp
 }
 
@@ -328,6 +367,50 @@ func (f *DataFetcher) fetchOIHistory(ctx context.Context, symbol, period string,
 		}
 	}
 	return deltas, nil
+}
+
+// fetchDepth fetches an order-book depth snapshot (GET /fapi/v1/depth,
+// limit=100 — the same request the task-2 scanner made). Levels are
+// returned best-first, exactly as the endpoint orders them.
+func (f *DataFetcher) fetchDepth(ctx context.Context, symbol string) ([]DepthLevel, []DepthLevel, error) {
+	path := fmt.Sprintf("/fapi/v1/depth?symbol=%s&limit=100", symbol)
+	raw, err := fetchJSON[depthRaw](f.client, path)
+	if err != nil {
+		return nil, nil, err
+	}
+	parse := func(rows [][]string) []DepthLevel {
+		out := make([]DepthLevel, 0, len(rows))
+		for _, r := range rows {
+			if len(r) < 2 {
+				continue
+			}
+			out = append(out, DepthLevel{Price: parseFloat(r[0]), Qty: parseFloat(r[1])})
+		}
+		return out
+	}
+	return parse(raw.Bids), parse(raw.Asks), nil
+}
+
+// fetchOIHistorySeries fetches raw openInterestHist entries (oldest-first)
+// for the given period. Unlike fetchOIHistory it returns the parsed series
+// itself — notional value AND contract count — because the task-2 detector
+// applies its own series selection (spec section 2.4: positive notional
+// values preferred, contract count as fallback).
+func (f *DataFetcher) fetchOIHistorySeries(ctx context.Context, symbol, period string, limit int) ([]OIHistoryPoint, error) {
+	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", symbol, period, limit)
+	entries, err := fetchJSON[[]oiHistEntry](f.client, path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OIHistoryPoint, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, OIHistoryPoint{
+			Timestamp:            e.Timestamp,
+			SumOpenInterest:      parseFloat(e.SumOpenInterest),
+			SumOpenInterestValue: parseFloat(e.SumOpenInterestValue),
+		})
+	}
+	return out, nil
 }
 
 // fetchLSR fetches top trader long/short ratio entries.

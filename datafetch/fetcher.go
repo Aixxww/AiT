@@ -17,6 +17,12 @@ type FetcherConfig struct {
 	Timeout                 time.Duration // default 10s
 	KlineIntervals          []KlineInterval
 	IncludeNonCryptoFutures bool // include Binance futures stock/commodity/ETF/RWA perps; default false
+	// IncludeT2Inputs also fetches the two extra per-symbol feeds the
+	// Hunter v7 task-2 module consumes — order-book depth (weight 10 per
+	// call at limit=100) and the 5m openInterestHist series — on the
+	// slow-derivative cadence for detail symbols only. Default false:
+	// zero extra requests, snapshots carry neither series.
+	IncludeT2Inputs bool
 }
 
 // DataFetcher performs one complete REST data fetch cycle.

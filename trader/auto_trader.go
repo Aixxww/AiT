@@ -445,6 +445,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		}
 		if coinSrc.Hunter != nil {
 			dataCfg.IncludeNonCryptoFutures = coinSrc.Hunter.IncludeNonCryptoFutures
+			dataCfg.IncludeT2Inputs = coinSrc.Hunter.V7T2Enabled
 		}
 
 		se, err := kernel.NewSnapshotEngine(hubCfg, dataCfg)

@@ -16,16 +16,27 @@ import (
 // unavailable (gates that need it then fail) — never by substituting a
 // different signal:
 //
-//   - Order-book depth: datafetch carries no depth book. Depth.Available
-//     stays false, so every depth-reading gate fails and the module emits
-//     nothing on live snapshots until datafetch grows a depth feed.
-//     (datafetch's Spread field is a mark/index basis, NOT the book
-//     spread; using it would be a silent signal substitution.)
-//   - 5m OI series: datafetch carries hourly OI deltas only. oi_5m_pct /
-//     oi_15m_pct stay unavailable (OI5mAvailable=false); oi_1h_pct is the
-//     hourly figure and oi_4h_pct is compounded from the 13 hourly spike
-//     changes over the last 7 intervals, matching the scanner's 8-point
-//     1h window (spec section 2.5).
+//   - Order-book depth: when the datafetch snapshot carries a book
+//     (fetched only with datafetch's IncludeT2Inputs), the raw levels go
+//     through the detector's own BuildV7T2DepthFeatures referenced to
+//     the mark price — the scanner's exact construction (spec sections
+//     2.1/2.7). Without a book, Depth.Available stays false and every
+//     depth-reading gate fails. (datafetch's Spread field is a
+//     mark/index basis, NOT the book spread; it is never substituted.)
+//   - 5m OI series: when the snapshot carries the 5m openInterestHist
+//     series, oi_5m_pct / oi_15m_pct / oi_1h_pct are computed from it by
+//     BuildV7T2OIFeatures after the scanner's series selection (spec
+//     section 2.4). The series counts as available only with >= 13
+//     selected points: oi_1h_pct looks back 12 bars, and upstream a
+//     shorter series died inside oi_features (index error -> snapshot
+//     skipped), so a short series fails closed here instead of reading
+//     fabricated zeros. Without the series, oi_1h_pct falls back to the
+//     hourly figure and the 5m/15m gates stay failed. oi_4h_pct is
+//     compounded from the 13 hourly spike changes over the last 7
+//     intervals, matching the scanner's 8-point 1h window (spec
+//     section 2.5) — compounding consecutive hourly changes of the same
+//     value series is the endpoint ratio, not an approximation of a
+//     different quantity.
 //   - Global long/short account ratio: datafetch's LongShortRatio is the
 //     TOP-position ratio (the scanner's top_lsr, which upstream fetched
 //     but never gated on). It is carried as TopLSR; GlobalLSR takes the
@@ -109,15 +120,21 @@ func BuildV7T2SnapshotFromDatafetch(ss *datafetch.SymbolSnapshot) *V7T2Snapshot 
 		}
 	}
 
-	// OI: hourly-only in datafetch (see header for the gap semantics).
+	// OI (see header for the availability semantics).
 	price := ss.MarkPrice
 	if price <= 0 {
 		price = ss.Price
 	}
-	s.OI.NotionalUSD = ss.OI * price
-	s.OI.Pct1h = ss.OIDelta1h
-	s.OI5mAvailable = false
-	s.OIPct1hFrom5mSeries = false
+	if series := v7t2OI5mSeriesFromDatafetch(ss.OI5mHistory); len(series) >= 13 {
+		s.OI = BuildV7T2OIFeatures(series)
+		s.OI5mAvailable = true
+		s.OIPct1hFrom5mSeries = true
+	} else {
+		s.OI.NotionalUSD = ss.OI * price
+		s.OI.Pct1h = ss.OIDelta1h
+		s.OI5mAvailable = false
+		s.OIPct1hFrom5mSeries = false
+	}
 	// oi_acc: price window from 1h bars; Pct4h compounded from spike data.
 	s.OIAcc = BuildV7T2OIAccFeatures(nil, rows1h)
 	if len(ss.OISpikeData) > 0 {
@@ -131,9 +148,36 @@ func BuildV7T2SnapshotFromDatafetch(ss *datafetch.SymbolSnapshot) *V7T2Snapshot 
 		}
 		s.OIAcc.Pct4h = (prod - 1) * 100
 	}
-	// Depth stays unavailable (see header).
-	s.Depth.Available = false
+	// Depth (see header): raw book through the detector's own builder,
+	// referenced to the mark price (fallback: last price), as upstream.
+	if len(ss.DepthBids) > 0 && len(ss.DepthAsks) > 0 {
+		bids := make([]V7T2DepthLevel, len(ss.DepthBids))
+		for i, l := range ss.DepthBids {
+			bids[i] = V7T2DepthLevel{Price: l.Price, Qty: l.Qty}
+		}
+		asks := make([]V7T2DepthLevel, len(ss.DepthAsks))
+		for i, l := range ss.DepthAsks {
+			asks[i] = V7T2DepthLevel{Price: l.Price, Qty: l.Qty}
+		}
+		s.Depth = BuildV7T2DepthFeatures(bids, asks, price)
+	}
 	return s
+}
+
+// v7t2OI5mSeriesFromDatafetch splits the fetched 5m OI history into the
+// notional-value and contract-count series and applies the scanner's
+// selection (spec section 2.4, via V7T2OIValueSeries).
+func v7t2OI5mSeriesFromDatafetch(hist []datafetch.OIHistoryPoint) []float64 {
+	if len(hist) == 0 {
+		return nil
+	}
+	vals := make([]float64, len(hist))
+	cts := make([]float64, len(hist))
+	for i, p := range hist {
+		vals[i] = p.SumOpenInterestValue
+		cts[i] = p.SumOpenInterest
+	}
+	return V7T2OIValueSeries(vals, cts)
 }
 
 // RunV7T2Module evaluates the transplanted detector over every symbol of

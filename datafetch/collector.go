@@ -19,6 +19,7 @@ type CollectorConfig struct {
 	TopNForWS               int           // 30 (top symbols for WS kline/aggTrade streams)
 	FastKlines              []KlineInterval
 	IncludeNonCryptoFutures bool // include Binance futures stock/commodity/ETF/RWA perps; default false
+	IncludeT2Inputs         bool // fetch depth + 5m OI history for detail symbols (task-2 module); default false
 }
 
 // DataCollector is the main orchestrator that manages REST fetching,
@@ -64,6 +65,7 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 		TopNForDetail:           cfg.TopNForDetail,
 		KlineIntervals:          DefaultKlineIntervals,
 		IncludeNonCryptoFutures: cfg.IncludeNonCryptoFutures,
+		IncludeT2Inputs:         cfg.IncludeT2Inputs,
 	})
 
 	ws := NewWSManager(cfg.BinanceWSURL, store, cfg.TopNForWS)
@@ -248,6 +250,9 @@ func mergeCarriedSlowDerivatives(current, fresh *Snapshot) {
 		newSS.LongShortRatio = curSS.LongShortRatio
 		newSS.LSRPrev = curSS.LSRPrev
 		newSS.LSROldest = curSS.LSROldest
+		newSS.DepthBids = append([]DepthLevel{}, curSS.DepthBids...)
+		newSS.DepthAsks = append([]DepthLevel{}, curSS.DepthAsks...)
+		newSS.OI5mHistory = append([]OIHistoryPoint{}, curSS.OI5mHistory...)
 	}
 }
 
@@ -393,6 +398,18 @@ func copySnapshot(src *Snapshot) *Snapshot {
 		if v.OISpikeData != nil {
 			cp.OISpikeData = make([]float64, len(v.OISpikeData))
 			copy(cp.OISpikeData, v.OISpikeData)
+		}
+		if v.DepthBids != nil {
+			cp.DepthBids = make([]DepthLevel, len(v.DepthBids))
+			copy(cp.DepthBids, v.DepthBids)
+		}
+		if v.DepthAsks != nil {
+			cp.DepthAsks = make([]DepthLevel, len(v.DepthAsks))
+			copy(cp.DepthAsks, v.DepthAsks)
+		}
+		if v.OI5mHistory != nil {
+			cp.OI5mHistory = make([]OIHistoryPoint, len(v.OI5mHistory))
+			copy(cp.OI5mHistory, v.OI5mHistory)
 		}
 		dst.Symbols[k] = &cp
 	}

@@ -36,6 +36,14 @@ type SymbolSnapshot struct {
 	LSROldest      float64   // Oldest LSR (from 12-entry fetch, for Hunter reversal detection)
 	TakerBuyRatio  float64   // Taker buy ratio 0-1
 
+	// Task-2 module inputs — populated only when the fetcher runs with
+	// FetcherConfig.IncludeT2Inputs (slow-derivative cadence, carried
+	// between refreshes like OISpikeData). Empty means "not fetched",
+	// and consumers must treat the series as unavailable, never as zero.
+	DepthBids   []DepthLevel     // order-book bids, best-first (GET /fapi/v1/depth, limit=100)
+	DepthAsks   []DepthLevel     // order-book asks, best-first
+	OI5mHistory []OIHistoryPoint // openInterestHist period=5m, limit=30, oldest-first
+
 	// Klines by timeframe: "1m","5m","15m","1h","4h","1d"
 	Klines map[string][]Kline
 
@@ -143,6 +151,27 @@ type oiHistEntry struct {
 	SumOpenInterest      string `json:"sumOpenInterest"`
 	SumOpenInterestValue string `json:"sumOpenInterestValue"`
 	Timestamp            int64  `json:"timestamp"`
+}
+
+// DepthLevel is one parsed order-book level (price, base-asset quantity).
+type DepthLevel struct {
+	Price float64
+	Qty   float64
+}
+
+// OIHistoryPoint is one parsed entry from GET /futures/data/openInterestHist.
+type OIHistoryPoint struct {
+	Timestamp            int64
+	SumOpenInterest      float64 // contract count
+	SumOpenInterestValue float64 // notional USD
+}
+
+// depthRaw is the raw response from GET /fapi/v1/depth. Levels are
+// [price, quantity] string pairs, best-first.
+type depthRaw struct {
+	LastUpdateID int64      `json:"lastUpdateId"`
+	Bids         [][]string `json:"bids"`
+	Asks         [][]string `json:"asks"`
 }
 
 // lsrEntry is a single entry from GET /futures/data/topLongShortPositionRatio.

@@ -718,8 +718,10 @@ func (s *Server) attachTestRunSnapshotEngine(engine *kernel.StrategyEngine, cfg 
 	}
 
 	wantNonCrypto := false
+	wantT2Inputs := false
 	if cfg.CoinSource.Hunter != nil {
 		wantNonCrypto = cfg.CoinSource.Hunter.IncludeNonCryptoFutures
+		wantT2Inputs = cfg.CoinSource.Hunter.V7T2Enabled
 	}
 
 	if s.traderManager != nil {
@@ -736,7 +738,7 @@ func (s *Server) attachTestRunSnapshotEngine(engine *kernel.StrategyEngine, cfg 
 		}
 	}
 
-	dataCfg := datafetch.CollectorConfig{IncludeNonCryptoFutures: wantNonCrypto}
+	dataCfg := datafetch.CollectorConfig{IncludeNonCryptoFutures: wantNonCrypto, IncludeT2Inputs: wantT2Inputs}
 	se, err := kernel.NewSnapshotEngine(engpkg.DefaultHubConfig(), dataCfg)
 	if err != nil {
 		logger.Infof("⚡ test-run: shared SnapshotEngine unavailable: %v", err)

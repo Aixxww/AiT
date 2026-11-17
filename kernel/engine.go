@@ -2606,8 +2606,10 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	}
 
 	includeNonCrypto := false
+	includeT2Inputs := false
 	if e.config.CoinSource.Hunter != nil {
 		includeNonCrypto = e.config.CoinSource.Hunter.IncludeNonCryptoFutures
+		includeT2Inputs = e.config.CoinSource.Hunter.V7T2Enabled
 	}
 
 	// Test-run / ephemeral cold path only. Live traders use DataCollector defaults.
@@ -2619,6 +2621,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 		MaxWorkers:              32,
 		Timeout:                 15 * time.Second,
 		IncludeNonCryptoFutures: includeNonCrypto,
+		IncludeT2Inputs:         includeT2Inputs,
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
