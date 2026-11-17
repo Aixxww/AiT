@@ -54,6 +54,19 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 	signals = ensureV7SignalIDs(signals, cfg.CycleNumber)
 	rawSignals = ensureV7SignalIDs(rawSignals, cfg.CycleNumber)
 
+	// Step 3b: Task-2 transplanted setup module (M3). Opt-in via
+	// cfg.T2.Enabled; when disabled (the default everywhere) this block
+	// is skipped and pipeline output is unchanged.
+	if cfg.T2 != nil && cfg.T2.Enabled {
+		t2Out := RunV7T2Module(snap, cfg.T2, cfg.T2Store, cfg.T2Regime, regime, time.Now())
+		if len(t2Out) > 0 {
+			t2Out = ensureV7SignalIDs(t2Out, cfg.CycleNumber)
+			signals = append(signals, t2Out...)
+			rawSignals = append(rawSignals, t2Out...)
+			log.Printf("🧲 Hunter v7: Task-2 module emitted %d signals", len(t2Out))
+		}
+	}
+
 	// Step 4: Cross-cycle watch state upgrade (if state manager is configured)
 	if cfg.WatchStateManager != nil {
 		upgraded := cfg.WatchStateManager.Process(signals, cfg.CycleNumber)

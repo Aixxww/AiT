@@ -303,6 +303,18 @@ type HunterConfig struct {
 	// Include Binance Futures stock/commodity/ETF/RWA perpetuals in the Hunter universe.
 	// Default false preserves the crypto-only universe.
 	IncludeNonCryptoFutures bool `json:"include_non_crypto_futures,omitempty"`
+
+	// Task-2 scanner transplant module (hunter_v7_t2_setups). Only used
+	// when CoinSource.SourceType == "hunter_v7". Default off: the module
+	// must be enabled explicitly and never changes default routing.
+	V7T2Enabled bool `json:"v7_t2_enabled,omitempty"`
+	// V7T2Setups is the setup-family checklist (setup_type strings from
+	// the Task-2 spec section 4.6). Empty = all transplanted families.
+	V7T2Setups []string `json:"v7_t2_setups,omitempty"`
+	// V7T2SymbolValidityGate rejects symbols that do not match the
+	// Binance USDT-perpetual pattern. Default false (the upstream
+	// scanner has no such gate).
+	V7T2SymbolValidityGate bool `json:"v7_t2_symbol_validity_gate,omitempty"`
 }
 
 // SnifferConfig tunable parameters for the Hunter Sniff mode (institutional ambush detector).

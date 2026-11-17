@@ -291,6 +291,7 @@ type StrategyEngine struct {
 	v7SignalRecorder local.V7SignalRecorder      // optional callback for funnel attribution
 	v7CycleCounter   int                         // incremented each scoring call for recorder
 	v7WatchState     *local.V7SignalStateManager // cross-cycle watch upgrade tracker
+	v7T2Store        *local.V7T2EventStore       // cross-cycle Task-2 trigger memory (isolated)
 }
 
 // NewStrategyEngine creates strategy execution engine.
@@ -452,6 +453,17 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		}
 		if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
 			v7cfg.Aggressive = true
+		}
+		if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
+			v7cfg.T2 = &local.V7T2Config{
+				Enabled:            true,
+				EnabledSetups:      coinSource.Hunter.V7T2Setups,
+				SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
+			}
+			if e.v7T2Store == nil {
+				e.v7T2Store = local.NewV7T2EventStore()
+			}
+			v7cfg.T2Store = e.v7T2Store
 		}
 		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 			v7cfg.MaxOutput = coinSource.HunterLimit
@@ -2594,8 +2606,10 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	}
 
 	includeNonCrypto := false
+	includeT2Inputs := false
 	if e.config.CoinSource.Hunter != nil {
 		includeNonCrypto = e.config.CoinSource.Hunter.IncludeNonCryptoFutures
+		includeT2Inputs = e.config.CoinSource.Hunter.V7T2Enabled
 	}
 
 	// Test-run / ephemeral cold path only. Live traders use DataCollector defaults.
@@ -2607,6 +2621,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 		MaxWorkers:              32,
 		Timeout:                 15 * time.Second,
 		IncludeNonCryptoFutures: includeNonCrypto,
+		IncludeT2Inputs:         includeT2Inputs,
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -2635,6 +2650,17 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	}
 	if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
 		v7cfg.Aggressive = true
+	}
+	if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
+		v7cfg.T2 = &local.V7T2Config{
+			Enabled:            true,
+			EnabledSetups:      coinSource.Hunter.V7T2Setups,
+			SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
+		}
+		if e.v7T2Store == nil {
+			e.v7T2Store = local.NewV7T2EventStore()
+		}
+		v7cfg.T2Store = e.v7T2Store
 	}
 	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 		v7cfg.MaxOutput = coinSource.HunterLimit

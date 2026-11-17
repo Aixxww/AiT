@@ -238,6 +238,16 @@ type V7SymbolContext struct {
 	VolumeBurst5m    float64 // latest 5m volume / recent average
 	VolumeBurst15m   float64 // latest 15m volume / recent average
 	ExecutionContext *V7ExecutionContext
+
+	// Structural geometry (M2): GeometryMode overrides the process-wide
+	// geometry_mode flag for this symbol ("" = process default, legacy
+	// unless explicitly set). StructureBars* carry the closed-bar series
+	// the structure module reads when the mode is "structure"; they are
+	// populated by the caller and never serialized.
+	GeometryMode     string           `json:"-"`
+	StructureBars15m []V7StructureBar `json:"-"`
+	StructureBars1h  []V7StructureBar `json:"-"`
+
 	// 5m micro-structure data (v8 timing booster)
 	RSI5m         float64 // 5m RSI for timing booster
 	OI5m          float64 // 5m OI change
@@ -545,6 +555,12 @@ type V7Config struct {
 	SignalRecorder         V7SignalRecorder             `json:"-"` // Optional callback for signal persistence
 	CycleNumber            int                          `json:"-"` // Current cycle number for recorder
 	WatchStateManager      *V7SignalStateManager        `json:"-"` // Optional cross-cycle watch state tracker
+
+	// Task-2 transplanted setup module (M3). Nil or Enabled=false keeps
+	// the module fully off: routing output is then identical to before.
+	T2       *V7T2Config      `json:"t2,omitempty"`
+	T2Store  *V7T2EventStore  `json:"-"` // Optional cross-cycle Task-2 trigger memory (isolated namespace)
+	T2Regime *V7T2RegimeInput `json:"-"` // Optional BTC RV24 input for section 6.1 modulation
 }
 
 // DefaultV7Config returns sensible defaults.
