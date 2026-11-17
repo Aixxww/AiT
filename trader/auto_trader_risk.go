@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"errors"
 	"context"
 	"fmt"
 	"github.com/Aixxww/AiT/datafetch"
@@ -191,6 +192,11 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 			state.rememberPlannedTarget(side, &state.PlannedTP2, plannedRisk.tp2Price)
 		}
 		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
+			if errors.Is(err, errProtectionEmergencyClosed) {
+				logger.Errorf("🚨 Dynamic protection stop update emergency-closed %s %s: %v", symbol, side, err)
+				at.markProtectionAction(posKey, protectionHardLossClose, true)
+				continue
+			}
 			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
 		}
 		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct, currentPriceMovePct)
@@ -257,14 +263,9 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 	if candidateStop <= 0 || !isMoreProtectiveStop(side, candidateStop, activeStop) {
 		return nil
 	}
-	positionSide := "SHORT"
-	if isLong {
-		positionSide = "LONG"
-	}
-	if err := at.trader.CancelStopLossOrders(symbol); err != nil {
-		return err
-	}
-	if err := at.trader.SetStopLoss(symbol, positionSide, quantity, candidateStop); err != nil {
+	// F27/F28: side-scoped owned stop cancel (take-profit kept), then a
+	// confirmed replacement; an unprotected position is emergency-closed.
+	if placed, err := at.replaceDynamicStop(symbol, side, quantity, candidateStop); !placed {
 		return err
 	}
 	state.DynamicStop = candidateStop
@@ -667,10 +668,7 @@ func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, mar
 		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
-		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
-			logger.Infof("⚠️ Failed to rebuild stops after TP0 close (%s %s): %v", symbol, side, err)
-		}
-		return false, nil
+		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
 	case protectionTP1:
 		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP1CloseRatio)
 		logger.Infof("🟢 TP1 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
@@ -680,10 +678,7 @@ func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, mar
 		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
-		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
-			logger.Infof("⚠️ Failed to rebuild stops after TP1 close (%s %s): %v", symbol, side, err)
-		}
-		return false, nil
+		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
 	case protectionTP2:
 		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP2CloseRatio)
 		logger.Infof("🟢 TP2 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
@@ -693,10 +688,7 @@ func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, mar
 		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
-		if err := at.rebuildProtectionStops(symbol, side, quantity-closeQty, entryPrice); err != nil {
-			logger.Infof("⚠️ Failed to rebuild stops after TP2 close (%s %s): %v", symbol, side, err)
-		}
-		return false, nil
+		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
 	case protectionTrailClose, protectionGivebackClose:
 		// P0-3: giveback/trail no longer liquidates the whole position.
 		// Take a staged partial close and move the stop to breakeven with a
@@ -710,10 +702,7 @@ func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, mar
 		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
 			return false, err
 		}
-		if err := at.rebuildProtectionStopsWithBuffer(symbol, side, quantity-closeQty, entryPrice, protectorGivebackBreakevenBuffer); err != nil {
-			logger.Infof("⚠️ Failed to rebuild stops after giveback close (%s %s): %v", symbol, side, err)
-		}
-		return false, nil
+		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorGivebackBreakevenBuffer, action), nil
 	case protectionHardLossClose:
 		logger.Infof("🟢 Hard-loss protection triggered: %s %s | mark %.8f", symbol, side, markPrice)
 		return true, at.closeProtectedPosition(symbol, side, 0, string(action))
@@ -741,28 +730,21 @@ func (at *AutoTrader) minProtectionCloseNotional() float64 {
 	return protectorDefaultMinCloseNotional
 }
 
-func (at *AutoTrader) rebuildProtectionStops(symbol, side string, remainingQty, entryPrice float64) error {
-	return at.rebuildProtectionStopsWithBuffer(symbol, side, remainingQty, entryPrice, protectorBreakevenBufferPct)
-}
 
 // rebuildProtectionStopsWithBuffer moves the stop to breakeven +/- buffer
 // (as a fraction, e.g. 0.0015 = 0.15%). TP partials use the tight default
 // buffer; giveback partials use a wider one so the remainder survives a
 // normal pullback (P0-3).
-func (at *AutoTrader) rebuildProtectionStopsWithBuffer(symbol, side string, remainingQty, entryPrice, buffer float64) error {
+func (at *AutoTrader) rebuildProtectionStopsWithBuffer(symbol, side string, remainingQty, entryPrice, buffer float64) (bool, error) {
 	if remainingQty <= 0 {
-		return nil
+		return false, nil
 	}
-	if err := at.trader.CancelStopOrders(symbol); err != nil {
-		return err
-	}
-	stopPrice := entryPrice
+	stopPrice := entryPrice * (1 - buffer)
 	if side == "long" {
 		stopPrice = entryPrice * (1 + buffer)
-		return at.trader.SetStopLoss(symbol, "LONG", remainingQty, stopPrice)
 	}
-	stopPrice = entryPrice * (1 - buffer)
-	return at.trader.SetStopLoss(symbol, "SHORT", remainingQty, stopPrice)
+	// F27/F28: side-scoped owned cancel, then a confirmed replacement.
+	return at.replaceProtectiveStop(symbol, side, remainingQty, stopPrice, false)
 }
 
 func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float64, closeReason string) error {

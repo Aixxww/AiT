@@ -47,6 +47,7 @@ type ownedMockExchange struct {
 	orders        map[int64][2]string // orderId -> {clientOrderId, positionSide}
 	algos         map[int64][2]string // algoId  -> {clientAlgoId, positionSide}
 	ignoreCancel  map[int64]bool      // cancel returns 200 but the order stays
+	types         map[int64]string    // optional order type per id (regular "type", algo "orderType")
 	failListAlgos bool
 	canceled      []int64
 }
@@ -68,7 +69,7 @@ func (m *ownedMockExchange) handler(w http.ResponseWriter, r *http.Request) {
 		out := []map[string]interface{}{}
 		for id, v := range m.orders {
 			out = append(out, map[string]interface{}{
-				"symbol": "BTCUSDT", "orderId": id, "clientOrderId": v[0], "positionSide": v[1], "status": "NEW",
+				"symbol": "BTCUSDT", "orderId": id, "clientOrderId": v[0], "positionSide": v[1], "status": "NEW", "type": m.types[id],
 			})
 		}
 		json.NewEncoder(w).Encode(out)
@@ -81,7 +82,7 @@ func (m *ownedMockExchange) handler(w http.ResponseWriter, r *http.Request) {
 		out := []map[string]interface{}{}
 		for id, v := range m.algos {
 			out = append(out, map[string]interface{}{
-				"symbol": "BTCUSDT", "algoId": id, "clientAlgoId": v[0], "positionSide": v[1], "algoStatus": "NEW",
+				"symbol": "BTCUSDT", "algoId": id, "clientAlgoId": v[0], "positionSide": v[1], "algoStatus": "NEW", "orderType": m.types[id],
 			})
 		}
 		json.NewEncoder(w).Encode(out)
