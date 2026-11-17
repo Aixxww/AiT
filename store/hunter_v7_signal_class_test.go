@@ -29,7 +29,7 @@ func TestDefaultV7SignalClassRegistryApprovedVerdicts(t *testing.T) {
 		}
 	}
 	if reg["trend_breakout_long"].ShadowOnly() {
-		t.Errorf("native trend_breakout_long admission is held for owner confirmation (not enforced in U6a)")
+		t.Errorf("native trend_breakout_long stays tradable (owner decision 2026-11-18: OD-14 covers T2 confirmed_breakout only)")
 	}
 	if _, ok := reg["mms_trend_ride_long"]; ok {
 		t.Errorf("mms_trend_ride_long is UNASSIGNED (no H.3 verdict)")

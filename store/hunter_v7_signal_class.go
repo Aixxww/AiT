@@ -10,6 +10,12 @@ package store
 // shadow_only admission is enforced, as a cap that turns an EXECUTABLE or
 // REVIEWABLE tier into WATCH. Every default shadow_only entry is already
 // WATCH today, so U6a changes no tier.
+//
+// MF follow-up (owner direction 2026-11-18, not built in U6a): make this
+// registry, including which families are shadow_only, editable from the
+// frontend as checkbox controls, following the t2 setup checklist pattern
+// of MF item 1 (V7T2Setups / EnabledSetups). The config surface already
+// exists: HunterConfig.V7SignalClasses (json v7_signal_classes).
 
 // Signal classes (plan §3.1).
 const (
@@ -75,9 +81,10 @@ func DefaultV7SignalClassRegistry() map[string]V7SignalClassEntry {
 		"short_squeeze_long":         h(V7ClassImpulse),
 		"long_squeeze_short":         h(V7ClassImpulse),
 		"range_expansion_event":      h(V7ClassImpulse),
-		// trend_breakout_long is the native twin in OD-14; its admission is
-		// left tradable here pending owner confirmation that OD-14 covers the
-		// native side (enforcing it changes native trading).
+		// trend_breakout_long (native twin of confirmed_breakout) stays
+		// tradable: owner decision 2026-11-18, OD-14 shadow-only covers the
+		// T2 confirmed_breakout_long/_short only (currently trading family,
+		// 125 opens in 30 days).
 		"trend_breakout_long":         t(V7ClassTrigger),
 		"accumulation_breakout_long":  t(V7ClassTrigger),
 		"volatility_squeeze_breakout": t(V7ClassTrigger),
