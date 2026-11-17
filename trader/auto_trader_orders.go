@@ -137,6 +137,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	logger.Infof("  📈 Open long: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price
+	if err := at.enforceHunterV7EntryContract(decision); err != nil {
+		return err
+	}
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()
@@ -296,6 +299,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	logger.Infof("  📉 Open short: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price
+	if err := at.enforceHunterV7EntryContract(decision); err != nil {
+		return err
+	}
 
 	// ⚠️ Get current positions for multiple checks
 	positions, err := at.trader.GetPositions()

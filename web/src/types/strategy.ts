@@ -264,4 +264,5 @@ export interface RiskControlConfig {
   max_single_trade_loss_pct?: number // Max estimated stop-loss loss vs equity, percent (CODE ENFORCED)
   max_take_profit_price_move_pct?: number // Max TP1 price distance from executable entry, percent (CODE ENFORCED)
   min_stop_loss_price_move_pct?: number // Minimum stop-loss distance from executable entry, percent (CODE ENFORCED)
+  geometry_repair?: 'repair' | 'reject' // Hunter v7 open path: repair (default) or reject-not-repair (CODE ENFORCED)
 }

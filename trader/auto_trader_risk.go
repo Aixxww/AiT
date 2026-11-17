@@ -1155,8 +1155,38 @@ func (at *AutoTrader) enforceSingleTradeLossLimit(decision *kernel.Decision, cur
 	return maxPositionSize, true, nil
 }
 
+// hunterV7GeometryRejectMode reports whether the strategy runs the
+// reject-not-repair open contract (RiskControl.GeometryRepair == "reject";
+// F02/F05/F25).
+func (at *AutoTrader) hunterV7GeometryRejectMode() bool {
+	if !at.isHunterV7Strategy() {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(at.config.StrategyConfig.RiskControl.GeometryRepair), "reject")
+}
+
+// enforceHunterV7EntryContract applies the reject-mode drift contract
+// before any sizing or repair: the LLM's `price` is the entry reference
+// and must be present. It is never refreshed afterwards, so the drift
+// checks in validateOpenDecision and the micro refresh measure the
+// executable price against the price the LLM actually chose.
+func (at *AutoTrader) enforceHunterV7EntryContract(decision *kernel.Decision) error {
+	if decision == nil || !at.hunterV7GeometryRejectMode() {
+		return nil
+	}
+	if decision.Price <= 0 {
+		return fmt.Errorf("❌ [HUNTER V7 CONTRACT] %s %s rejected: `price` (entry reference) is required under geometry_repair=reject (entry_price_missing)",
+			decision.Symbol, decision.Action)
+	}
+	return nil
+}
+
 func (at *AutoTrader) repairHunterV7OpenDecision(decision *kernel.Decision, currentPrice float64, side string) bool {
 	if decision == nil || !at.isHunterV7Strategy() || currentPrice <= 0 {
+		return false
+	}
+	if at.hunterV7GeometryRejectMode() {
+		// F05/F25: never rewrite the LLM's price, stop or take-profit.
 		return false
 	}
 	if decision.Action != "open_long" && decision.Action != "open_short" {

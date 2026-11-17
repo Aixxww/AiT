@@ -187,6 +187,9 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence\n")
 	sb.WriteString("- `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.\n")
 	sb.WriteString("- `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price\n")
+	if strings.EqualFold(strings.TrimSpace(e.config.RiskControl.GeometryRepair), "reject") {
+		sb.WriteString("- The backend never repairs your geometry: an open without `price`, with the executable price beyond the max entry drift from your `price`, with a stop closer than the minimum stop distance, or with RR below the minimum after the take-profit cap is rejected, not adjusted.\n")
+	}
 	sb.WriteString("- `hold` and `wait` are no-op actions: they do not change stop-loss, take-profit, leverage, or position size. If profit protection requires action, output a risk-reducing `close_long`/`close_short`; otherwise output `hold` without claiming that stops were tightened.\n")
 	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
 		sb.WriteString("- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.\n")
