@@ -1,8 +1,8 @@
 package trader
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/kernel"
@@ -58,33 +58,33 @@ const (
 	// Fraction (0.0015 = 0.15% price buffer) for the breakeven stop rebuilt
 	// after a staged giveback close — wide enough to survive a normal
 	// pullback instead of being wicked out at cost (P0-3).
-	protectorGivebackBreakevenBuffer      = 0.0015
-	protectorDefaultMinCloseNotional      = 12.0
-	hunterV7MicroRefreshMaxSpreadPct      = 0.35
-	hunterV7MicroRefreshMaxDriftPct       = 0.45
-	hunterV7RESTRefreshTimeout            = 3500 * time.Millisecond
-	hunterV7RESTRefreshMaxAgeMs           = int64(120_000)
-	hunterV7RESTRefreshFlowFlipPct        = 0.50
+	protectorGivebackBreakevenBuffer = 0.0015
+	protectorDefaultMinCloseNotional = 12.0
+	hunterV7MicroRefreshMaxSpreadPct = 0.35
+	hunterV7MicroRefreshMaxDriftPct  = 0.45
+	hunterV7RESTRefreshTimeout       = 3500 * time.Millisecond
+	hunterV7RESTRefreshMaxAgeMs      = int64(120_000)
+	hunterV7RESTRefreshFlowFlipPct   = 0.50
 )
 
 type positionProtectionState struct {
-	InitialQuantity   float64
-	TP0Done           bool
-	TP1Done           bool
-	TP2Done           bool
-	PeakPnLPct        float64
-	ActiveStopLoss    float64
+	InitialQuantity float64
+	TP0Done         bool
+	TP1Done         bool
+	TP2Done         bool
+	PeakPnLPct      float64
+	ActiveStopLoss  float64
 	// PlannedStopLossROEPct is the LLM-planned stop distance expressed in
 	// leveraged PnL % (negative). Used to keep the fixed hard-loss backstop
 	// from preempting a wider planned stop (P0-2). Zero = unknown.
 	PlannedStopLossROEPct float64
-	DynamicStop       float64
-	PlannedTakeProfit float64
-	PlannedTP1        float64
-	PlannedTP2        float64
-	OpenedAt          time.Time
-	LastActionAt      time.Time
-	LastStopUpdateAt  time.Time
+	DynamicStop           float64
+	PlannedTakeProfit     float64
+	PlannedTP1            float64
+	PlannedTP2            float64
+	OpenedAt              time.Time
+	LastActionAt          time.Time
+	LastStopUpdateAt      time.Time
 }
 
 // protectionNow is the clock used by the position protector. It is a variable
@@ -729,7 +729,6 @@ func (at *AutoTrader) minProtectionCloseNotional() float64 {
 	}
 	return protectorDefaultMinCloseNotional
 }
-
 
 // rebuildProtectionStopsWithBuffer moves the stop to breakeven +/- buffer
 // (as a fraction, e.g. 0.0015 = 0.15%). TP partials use the tight default
