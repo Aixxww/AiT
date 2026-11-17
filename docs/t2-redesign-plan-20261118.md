@@ -2,6 +2,8 @@
 
 Date: 2026-11-18. Base: `t2/v7-selection` @ `1658b70`. Author: Kiro. Status: PLAN ONLY. Nothing in this document is implemented. Each item needs owner approval before it is built.
 
+Revision 2 (owner supplement): adds R6, post-entry position management (§7), fix units F27–F31, units U14–U15 and decisions OD-22 to OD-26.
+
 ## 0. How to read this plan
 
 ### 0.1 Evidence tags
@@ -32,7 +34,7 @@ Native repo reports (`DOC:`) are gross price-move percentages without fees. No r
 
 ## 1. Executive summary
 
-### 1.1 Five findings
+### 1.1 Six findings
 
 1. **The 82 threshold is not a calibrated threshold; it is a fatal one, and it blocks most of the opportunities the geometry eval admits.**
    - The port maps "score < 82" to WATCH [C:provider/local/hunter_v7_t2_setups.go:887-892]. WATCH has no onward path, because TRIGGERED is out of scope [C:provider/local/hunter_v7_t2_lifecycle.go:20-23].
@@ -57,6 +59,11 @@ Native repo reports (`DOC:`) are gross price-move percentages without fees. No r
    - The native AIPriority is a hand-weighted sum with hand bonuses [C:provider/local/hunter_v7_router.go:395-417].
    - 48 inline AIPriority checks use 13 distinct values [M:DOC:hunter-v7-lean-core-redesign-20260726.md:52].
    - The largest RR-band cell on the T2 side has n=13 [M:MEAS1]. No cell has enough samples to earn a looser gate on evidence. The owner's RR 1.2 setting is therefore a policy decision under probation (OD-9), not an evidence-earned one.
+6. **Post-entry protection turns would-be winners into about-0R exits by construction, and no measurement so far covers the rules that run live.**
+   - The live protector works in leveraged ROE, not R [C:trader/auto_trader_risk.go:18-60, 507-580].
+   - At 10x leverage and a 2% stop, it moves the stop to +0.15R after a +0.25R excursion. After the first partial at +0.40R, it replaces that stop with entry + 0.10%, which is +0.05R gross and about 0R after an assumed 0.10% round-trip fee [D, §7.2]. That is the owner's "+0.05R".
+   - The 694 replay and the T-EXIT study evaluate a different exit model [C:cmd/t2_replay/replay/engine.go:155-301]. So the live protector's cost is unmeasured.
+   - Mapping also found five protection defects (F27–F31). One of them is the F26 symbol-wide cancel hazard, in the protector's stop rebuild.
 
 ### 1.2 Proposed design in one paragraph
 
@@ -87,9 +94,10 @@ Every admitted signal is tagged with class, family, band, profile version, calib
 ### 1.3 What proceeds now and what changes
 
 - **P1 (lifecycle reachability) continues.** Every design here needs it. The R1 fact (the original scanner had a WATCH trigger path) resolves my earlier question D1 in favour of option A, WATCH→TRIGGERED on price. The data access and trigger-detail questions remain (OD-1, OD-3).
-- **P2a (RR 1.2 config plumbing) continues.** One overlap is flagged: the field should be readable per class later. §7 gives a shape that needs no rework.
-- **P2b (the stop-floor fix) is the one in-flight design this plan would replace.** R4 replaces the generic floor with per-class stop construction. I recommend shipping P2b only in a minimal form: one t2-scoped field read by both the assembly check and the executor. That form is forward-compatible with per-class profiles. I recommend against building any other stop-floor logic under P2b. See §7, overlap O-3.
+- **P2a (RR 1.2 config plumbing) continues.** One overlap is flagged: the field should be readable per class later. §8 gives a shape that needs no rework.
+- **P2b (the stop-floor fix) is the one in-flight design this plan would replace.** R4 replaces the generic floor with per-class stop construction. I recommend shipping P2b only in a minimal form: one t2-scoped field read by both the assembly check and the executor. That form is forward-compatible with per-class profiles. I recommend against building any other stop-floor logic under P2b. See §8, overlap O-3.
 - **P3 continues.** It is the safety net. This plan adds one design input: CONTEXT-class signals must not suppress a trade-class signal (OD-12).
+- **R6 adds correctness fixes that apply under any design.** F27 (symbol-wide cancel in the protector) and F28 (unconfirmed stop after a partial close) are live-safety defects of the same classes as F26 and F03. I recommend them as fix units before any pilot (OD-26).
 
 ### 1.4 What else is wrong with the native stack (R1, "beyond naming")
 
@@ -362,6 +370,7 @@ Proposed schema, under `RiskControl.ClassProfiles[class]` and versioned as `prof
 | target_model | R-multiple. T2 currently uses TP1 1.8R and TP2 3.0R [C:hunter_v7_t2_setups.go:96-112] | structural targets within the TP cap, spec v2 | structural |
 | max_tp_pct | current effective value. Today 4.0 at defaults [D: (2.0 + 0.5) × 1.5 + 0.25; C:engine.go:623-650] | same | same |
 | drift contract | §3.3 | §3.3 | §3.3 |
+| exit profile (R6) | §7.6, chosen per OD-22 | §7.6, chosen per OD-22 | §7.6, chosen per OD-22 |
 
 Initial values reproduce current behaviour, except for the owner's RR 1.2 for t2. U6 has a golden-replay acceptance check that enforces this.
 
@@ -491,7 +500,7 @@ Acceptance is offline replay plus code review, because the owner cancelled the f
 
 | Unit | Content | Acceptance criteria | Measurement gate before the next dependent unit |
 |---|---|---|---|
-| U0 | Evidence harness + data access. Tables U0-A (T2 calibration), U0-B (native calibration), U0-C (per-family delay cost and run-away, both stacks), U0-D (stop/ATR early stop-out), U0-E (twins arms) | Reproduces bit-identically: M2v2 9/694; MEAS1 19/32/90 and median 0.336; MEAS2 522/172 and 516/63; MEAS3 62/114 | Owner approves the eval conventions (OD-2) before U0 runs |
+| U0 | Evidence harness + data access. Tables U0-A (T2 calibration), U0-B (native calibration), U0-C (per-family delay cost and run-away, both stacks), U0-D (stop/ATR early stop-out), U0-E (twins arms), U0-F (exit counterfactuals, §7.4), U0-H (live exit attribution, §7.4) | Reproduces bit-identically: M2v2 9/694; MEAS1 19/32/90 and median 0.336; MEAS2 522/172 and 516/63; MEAS3 62/114 | Owner approves the eval conventions (OD-2) before U0 runs |
 | U1 = P1 | T2 TRIGGERED stage in the isolated store. Tiering constants and the observe-only list move into config at current values. | Re-run of the 694: recall 694/694; WATCH/ARMED/TRIGGERED counts per family; ignition demonstrably reaches TRIGGERED (needs forward klines, OD-1) | none (independent) |
 | U2 = P2a | RR floor 1.2 for t2 via config: validator, M2v2 admission and assembly read one value | M2v2 re-run admits 19 at 1.2 [M:MEAS1], or the difference is explained. No 1.5 literal left on the t2 path. Native unchanged. | none |
 | U3 = P3 | One direction per symbol per cycle, final pass, policy in config (OD-12) | 0 unresolved opposite pairs on the 694. Win/loss breakdown by family pair. | none |
@@ -506,10 +515,203 @@ Acceptance is offline replay plus code review, because the owner cancelled the f
 | U12 | Dashboards | Per-class tables match U5 records | U5 |
 | U13 | Regime-conditional yield target | Target set from U0 per-regime fire rates | U0 |
 | F08 | Daily-loss breaker (Task A remainder) | As specified earlier: armed only in pilot/live, records in shadow | Before any pilot |
+| F27, F28 | Protector stop rebuild: owned, side-scoped cancel; confirmed re-protection after a partial (F03 pattern) | Mock-exchange tests in the F26 / F03 pattern | Before any pilot (OD-26) |
+| U14 | Protector in R units and config at current behaviour; one shared code path for live and replay; fixes F29–F31 | Protector unit tests unchanged; replay walk A reproduces protector decisions | U0-F needs this port |
+| U15 | Adopt the exit variant chosen under OD-22 | Gate result from U0-F (§7.5) | U0-F |
 
 ---
 
-## 7. Overlap map
+## 7. R6: post-entry position management
+
+The owner's complaint, from live trading: positions that would have reached TP1 or TP2 on the original plan get their stop moved up, and then a normal pullback takes them out at about +0.05R, or net-negative after fees. This section maps the rules that do this, explains the mechanism from the code, states what the evidence on record can and cannot settle, and pre-registers the analyses and alternatives.
+
+### 7.1 What is implemented
+
+#### 7.1.1 Four exit models, none configurable
+
+| Model | Code | What it drives | Units |
+|---|---|---|---|
+| A. Live position protector | trader/auto_trader_risk.go:18-807, trader/hunter_v7_dynamic_stop.go | Real orders on the exchange | Leveraged ROE % and price % |
+| B. LLM re-evaluation | kernel/engine_position.go:36-43; kernel/engine_prompt.go:185, 193, 1373-1418 | Real orders: `hold` or a full `close_*` only. There is no stop-adjust or partial-close action. | Prompt hints in ROE |
+| C. Signal outcome tracker | trader/hunter_v7_pnl_tracker.go | Native outcome statistics (the DOC reports) | Unleveraged price % |
+| D. t2 replay exit | cmd/t2_replay/replay/engine.go:155-301 | The 694 replay, and the T-EXIT baseline | R |
+
+Configuration: `RiskControlConfig` has no protector, breakeven, trailing or partial fields [C:store/strategy.go:409-452]. Every constant below is a Go literal. The protector has no strategy-type branch, so native, Hunter v7 and t2 all share it.
+
+The Hunter v7 TP plan carries `MoveStopToBreakeven`, `TrailingStopMode` and `TrailingBasis` (5m EMA20, 15m VWAP, 0.8–1.2 × ATR15m) [C:provider/local/hunter_v7_multi_tp.go:258-273]. Those fields are only rendered into the prompt. Nothing in trader/ reads them, so no live EMA, VWAP or ATR trailing exists.
+
+#### 7.1.2 Model A: live protector rules
+
+**Cadence.** A goroutine separate from the decision cycle polls positions every 15, 30 or 60 s [C:auto_trader_risk.go:19-21, 107-126]. The 15 s interval applies near or after TP1.
+
+**Exit rules.** `choosePositionProtectionAction` applies the first match [C:auto_trader_risk.go:507-580]. All thresholds are leveraged ROE % unless marked as price:
+
+| Rule | Condition | Action |
+|---|---|---|
+| Hard loss | ROE ≤ −12, or ≤ planned-SL ROE × 1.1 when the plan's stop is wider; or age ≤ 15 min and ROE ≤ −8 | Close 100% |
+| Profit giveback to zero | peak ≥ 5 and ROE ≤ 0 | Close 50%, stop to entry ± 0.15% |
+| TP0 | peak ≥ 8 and ROE ≥ 8, or mark reaches the planned TP0 price | Close 35% of the remainder, stop to entry ± 0.10% |
+| High / mid profit lock | peak ≥ 15 with drawdown ≥ 45% of peak; peak ≥ 10 with drawdown ≥ 50% | Close 50%, stop to entry ± 0.15% |
+| TP1 | ROE ≥ 6 and price ≥ 1.0%; or after TP0 with peak ≥ 15 and ROE ≥ 8; or the planned TP1 price | Close 40%, stop to entry ± 0.10% |
+| TP2 | after TP1, ROE ≥ 12 and price ≥ 1.5%; or the planned TP2 price | Close 50%, stop to entry ± 0.10% |
+| Trail close | after TP1, peak ≥ 6, ROE > 0, drawdown ≥ 35% | Close 50%, stop to entry ± 0.15% |
+| Pre-TP1 givebacks | three rules gated on age ≥ 20 min, near-TP1 peak (≥ 5.7), and drawdown 45% or 80% | Close 50%, stop to entry ± 0.15% |
+
+The partial ratios are 0.35, 0.40 and 0.50 of the remaining quantity [C:27-29]. The breakeven buffers are 0.001 and 0.0015 of price [C:55, 60].
+
+**Dynamic stop updates.** At most every 30 s [C:228-275], the protector computes the more protective of two candidate stops:
+- **Profit floor:** active once peak ≥ 5% ROE. It locks the larger of 3% ROE, 0.30 × peak (when peak ≥ 10) and 0.45 × peak (when peak ≥ 15) [C:397-413].
+- **DynamicStopManager:** computed on a synthetic base stop of 35% ROE (`0.35/leverage`), not on the planned stop [C:383-395].
+  - Time decay: after 30 min, the stop moves toward entry by 2% of the gap per minute, capped at 50% of the gap.
+  - Trailing: once MFE ≥ 0.5 synthetic R, the stop sits at the current price − 0.4 synthetic R [C:hunter_v7_dynamic_stop.go:34-47, 95-139].
+  - The ATR percentile is hard-coded to 50, so the volatility multiplier is always 1.0 [C:auto_trader_risk.go:248].
+
+The candidate is placed only if it is tighter than `state.ActiveStopLoss`. The update is skipped during the first 10 min while peak < 8% ROE and the price move is < 0.60% [C:277-288].
+
+**Order mechanics.**
+- Breakeven rebuild: `CancelStopOrders(symbol)`, then `SetStopLoss` [C:auto_trader_risk.go:752-766].
+- Dynamic update: `CancelStopLossOrders(symbol)`, then `SetStopLoss` [C:262-268].
+- Both stop and take-profit are `ClosePosition(true)` algo orders, so each closes the whole side [C:trader/binance/futures_orders.go:699-734, 763].
+
+#### 7.1.3 The same rules expressed in R
+
+Because the rules are in ROE, their size in R is ROE / (100 · L · s), where L is leverage and s is the stop distance as a price fraction. The two columns below use L = 10 at two stop widths:
+- s = 2.0% is the assembly floor;
+- s = 1.0% is the T2 stop cluster [M:MEAS2].
+
+Fees assume taker 0.05% per side [H: replace with the owner's fee tier, OD-23].
+
+| Rule | Code level | R at s = 2.0% | R at s = 1.0% |
+|---|---|---|---|
+| Early-loss exit, first 15 min | ROE ≤ −8% | −0.40R | −0.80R |
+| Profit floor activates | peak ROE ≥ 5% | MFE +0.25R | MFE +0.50R |
+| Profit-floor stop level | +3% ROE | +0.15R | +0.30R |
+| TP0 partial (35%) | ROE ≥ 8%, or the micro-TP0 cap max(0.55%, 0.45·s) [C:auto_trader_risk.go:297-337], whichever comes first | +0.40R | +0.55R |
+| Breakeven stop after a TP partial | entry + 0.10% | +0.05R gross | +0.10R gross |
+| Round-trip taker fees (assumed) | 0.10% of price | 0.05R | 0.10R |
+| **Breakeven exit, fee-net** | | **≈ 0.00R** | **≈ 0.00R** |
+| TP1 partial (40%) | ROE ≥ 6% and price ≥ 1.0%, or the planned TP1 | +0.50R | +1.00R |
+| Synthetic trailing activation | MFE ≥ 0.5 × 3.5% | +0.875R | +1.75R |
+| T2 planned TP1, for comparison | 1.8R [C:hunter_v7_t2_setups.go:96-112] | +1.8R | +1.8R |
+
+Two points follow. First, the same trade is managed differently depending on leverage and stop width. Second, at both stop widths, a stop moved to "breakeven" exits at about 0R after fees.
+
+#### 7.1.4 Defects found while mapping
+
+These are correctness defects, not design choices. They exist whatever R6 verdict the owner picks.
+
+| ID | Defect | Code | Effect |
+|---|---|---|---|
+| F27 | The protector's stop rebuild cancels symbol-wide. `CancelStopOrders` calls `NewCancelAllAlgoOpenOrdersService().Symbol(symbol)`. | auto_trader_risk.go:752-766; futures_orders.go:581-635 | It removes the opposite hedge side's stop and the take-profit, then re-places a stop only for the managed side. This is the same hazard class as F26; PR #11 did not cover this path. |
+| F28 | Protection is not confirmed after a partial close. `CancelStopOrders` returns nil even when cancels fail, and a `SetStopLoss` failure after a partial is only logged. | futures_orders.go:581-635; auto_trader_risk.go:670, 683, 696, 713 | The remainder can be left with no stop. This is the failure class F03 fixed for opens. |
+| F29 | Exchange stop and protector state disagree. The breakeven rebuild does not write its stop to state, and it cancels the existing stop whatever its level. | auto_trader_risk.go:228-275, 290-295, 752-766 | (a) It can loosen a stop: a +0.15R profit-floor stop is replaced by +0.05R at TP0 [D, s = 2%, L = 10]. State still holds +0.15R, so the floor is not re-placed. (b) If no dynamic update ran before the partial, state still holds the planned stop. A later time-decay candidate below entry then counts as "more protective" and replaces the breakeven stop with one below entry. |
+| F30 | Giveback and trail closes repeat. `markProtectionAction` sets no done-flag for them. | auto_trader_risk.go:650-655 | Each poll that still meets the condition halves the remainder again. |
+| F31 | The take-profit order is not re-placed after a partial. The rebuild sets only a stop. | auto_trader_risk.go:752-766 | After the first partial, TP1 and TP2 depend on the 15–30 s software poll. |
+
+Recommendation (OD-26): ship F27 and F28 as fix units before any pilot, and F29 to F31 together with U14. They change behaviour only to match the stated intent.
+
+### 7.2 Why the complaint happens (mechanism, derived from code)
+
+Worked example at L = 10, s = 2% [D, from §7.1.3 and F29]:
+1. The trade reaches +0.25R MFE. The profit-floor stop moves to +0.15R.
+2. It reaches +0.40R. TP0 closes 35%, and the rebuild replaces the stop with +0.05R on the remaining 65%.
+3. A pullback of about 0.35R from that peak exits the 65% at +0.05R gross, about 0R fee-net.
+
+At s = 1% the same sequence starts at +0.50R and exits at +0.10R gross, again about 0R fee-net. This matches the owner's "+0.05R" report.
+
+The structural point is that a trade can only reach TP1 (1.8R for T2) by surviving every pullback deeper than the distance from peak to the moved stop, and model A moves the stop at 0.25–0.55R of MFE. How often this happens on real fills is not yet measured (U0-F on the 694, U0-H on live records).
+
+### 7.3 What the evidence on record can and cannot settle
+
+| Evidence | What it shows | Why it is insufficient for R6 |
+|---|---|---|
+| Direction audit: 140 of 254 stop-outs (55.1%) later touched TP1 [M:owner R6 brief, 380 fills] | There is a large killed-winner pool | It mixes stop types. Also, the replay engine moves stops only in two exit modes [C:engine.go:155-163, 181-301]: FULL locks +1R after a 2R peak, and SPLIT_BE has the Phase-8 ladder (breakeven after a 1R peak). SPLIT, the mode for most setups, never moves the stop. If the audit used this engine, most of the 254 are exits at the original stop, not protection kills. Muse needs to confirm which exit model the audit used. |
+| T-EXIT: three ladder or RSI variants, ΔR +0.004 to +0.010 per trade, all failed the gate [M:owner brief] | Ladder tweaks around replay baseline D change little | It compares variants with model D, not with live model A. It does not measure the cost of what runs live. |
+| trader/protector_ab_sim_test.go [C] | Compares two versions of model A | The entries are EMA20/50 crosses on BTC, ETH, SOL and DOGE 15m bars, and stops are checked at the bar close. These are not the 694 entries, and the checks are not intrabar. |
+| Native DOC outcomes (model C) | Statistics with an exact-entry breakeven at MFE ≥ 0.60% for listed setups only [C:hunter_v7_pnl_tracker.go:665-705] | It is a different rule from model A, and gross of fees (§0.1). |
+
+**Conclusion:** no existing measurement quantifies what the live protector costs. The first step is to run model A itself on the 694 paths. Reuse `choosePositionProtectionAction` and the stop-update functions from the replay walker as shared code, not as a copy (U0-F).
+
+### 7.4 Pre-registered quantification
+
+**U0-F.** Uses the 380 current-config fills, 1m paths, fee-net R under the OD-2 convention, and the owner's live leverage and fee tier (OD-23). Each fill is walked three times on the same path:
+
+| Walk | Definition |
+|---|---|
+| P (the plan) | Original structural stop, planned TP1 and TP2, no stop moves |
+| A (live protector) | Model A as implemented |
+| D (replay baseline) | Model D, the T-EXIT baseline |
+
+Each fill is classified under A:
+
+| Group | Definition | Reported |
+|---|---|---|
+| K: killed winner | A exited through a moved stop or a protection exit (breakeven, floor, dynamic, giveback, trail, early-loss), and P reached TP1 or TP2 before its original stop | n; mean R under A; mean R under P on the same fills; ΔR = A − P |
+| S: saved | A exited through a moved stop or protection exit, and P hit its original stop | n; R saved = A − P |
+| N: neutral | Protection never acted, or P ended in time-out | n; A − P |
+| Net | K + S + N | Σ(A − P) and per-trade mean; also A − D |
+
+Splits:
+- by class (§3), and by family where n ≥ 15;
+- by stop-width band, because the R-equivalents depend on s;
+- by exit mechanism within K and S.
+
+Also reported, for fills where P reached TP1: the distribution of pullback depth, in R and in ATR15m units, between first reaching +0.25R and reaching TP1; and the distribution of time to TP1. These two distributions supply every parameter in §7.5. No parameter is set by hand.
+
+**U0-H (live attribution).** This needs no replay data. Take the owner's live DB: decision records, protector close reasons (`system_protector` with the action name [C:auto_trader_risk.go:768-803]), and exchange fills. Attribute each live exit to its mechanism, and count exits within ±0.1R fee-net by mechanism.
+
+**Sample-size limit.** 380 fills split into tertile folds gives about 127 per fold. The class splits will be thin, and per-class verdicts may fail to reach the gate for lack of n rather than lack of effect. The report must say so wherever it applies.
+
+### 7.5 Alternatives, all judged on the T-EXIT gate
+
+**Gate (owner, unchanged):** ΔR ≥ +0.05 per trade vs the baseline, P ≥ 0.9, all folds positive. The baseline is replay model D, as in T-EXIT. Every variant is also reported against A, so the owner sees the live cost.
+
+**Parameter rule:** a variant's parameter comes from the U0-F distributions computed on training folds only. It is then tested on the held-out fold (nested), and all variants are reported, pass or fail.
+
+| ID | Variant | Mechanism | Parameter source |
+|---|---|---|---|
+| E0 | Keep the live protector (null) | Model A as in §7.1 | none. Its cost is A − D and A − P from U0-F. |
+| E0b | Replay baseline | Model D | none |
+| E1 | No stop move until TP1; protect with partial size only | TP0 partial kept; the stop stays structural until TP1, then moves to a fee-covered breakeven | TP0 fraction stays at the current 0.35 |
+| E2 | Fee- and volatility-covered breakeven | The stop moves only once MFE ≥ fee offset + buffer, and is placed at entry + round-trip fees + slippage | buffer = p90 of the pre-TP1 pullback depth of eventual winners |
+| E3 | ATR trailing instead of ROE or R steps | After TP1, stop = peak − k · ATR15m | k = p90 of the post-TP1 pullback depth in ATR units |
+| E4 | Time-based invalidation | Exit if TP1 has not been reached by time T and the current R ≤ 0 | T = p90 of time-to-TP1 among winners |
+| E5 | Class-dependent | Each class chooses among E1–E4 on inner folds | nested |
+| E6 | Structural only | No stop moves and no partials; exit at TP2, the stop, or a time stop | none |
+
+**Expected outcomes [H; U0-F settles them]:**
+- E1 and E6 remove group K by construction. Whether they pass depends on the size of group S.
+- T-EXIT showed variants around D moving R by only +0.004 to +0.010 per trade. The most likely result against D is therefore that no variant passes, and the real choice becomes D-like behaviour vs live A.
+
+**Recommendation:**
+- If a variant passes against D, adopt it.
+- If none passes and A − D < 0 on U0-F, make the live protector follow D's semantics. Then the exit that runs live is the exit that the 694 results describe. Today it is not (§7.3).
+- If A − D ≥ 0, keep A and fix only F27–F31.
+
+**Multiple comparisons:** R6 adds seven variants (E1–E6 plus E0b) to T-EXIT's three. Without control, the chance of a false pass rises. I recommend requiring a passing variant to also pass the nested hold-out (OD-24).
+
+### 7.6 Interaction with R2 and R4
+
+- The exit profile becomes part of each class profile (§5.1), in R units, in config and versioned:
+  - `exit_model`: replay_baseline, no_move_until_tp1, fee_vol_be, atr_trail, time_invalidation or structural_only;
+  - partial fractions;
+  - breakeven trigger and offset, in R;
+  - trailing basis;
+  - time stop.
+- The outcome record (§5.4) gains `exit_mechanism`.
+- The replay already varies exit by setup: FULL for ignition_early and momentum_continuation_long, SPLIT_BE for momentum_continuation_watch_long, SPLIT otherwise [C:engine.go:155-163]. A class split is meaningful only if U0-F shows the K/S balance differs by class [H].
+- The calibration in §2.4 is defined on realized R under the exit model actually used. Changing the exit model changes that target, so a change requires re-estimation and a `calibration_version` bump.
+
+### 7.7 Units and decisions added by R6
+
+- **U14:** express the protector in R units and in config, keeping current behaviour, and make the same code drive the replay walker. Acceptance: the existing protector unit tests are unchanged, and replay walk A reproduces protector decisions on synthetic paths. Fixes F29–F31 ship here.
+- **U15:** adopt the exit variant chosen under OD-22. Acceptance: the gate result from U0-F, or the owner's OD-22 choice if nothing passes.
+- **F27 and F28:** fix units, before any pilot (OD-26).
+- **Decisions:** OD-22 to OD-26 in §9.
+
+---
+
+## 8. Overlap map
 
 | In-flight or queued item | Relation | Detail |
 |---|---|---|
@@ -523,11 +725,13 @@ Acceptance is offline replay plus code review, because the owner cancelled the f
 | Task C (naming pass 1) | **Builds-on; resequence (O-6)** | Naming should use the class/family vocabulary and fix the reclaim collision. Recommendation: run Task C after OD-6, so nothing is renamed twice. |
 | Task D (M2v2 spec, merged) | Builds-on | It becomes the TRIGGER-class geometry. The pending M2 A/B decision becomes per-class (OD-16). |
 | F13 (hidden literals) | Builds-on | U1 (tiering constants), U6 (geometry overrides) and U9 (drift 0.45) move F13 literals into config. |
+| F26 (PR #11, merged) and F03 (PR #9, merged) | Builds-on | F27 is the F26 hazard in the protector path; F28 is the F03 failure class after partial closes. Both reuse the merged helpers (`CancelOwnedOrders`, verified re-protection). |
+| T-EXIT study | Builds-on | Its gate and its baseline (model D) are reused unchanged in §7.5 |
 | Earlier open questions D1–D4, B1, B2 | Folded in | D1 is resolved by the R1 fact (option A). B1 becomes OD-1, B2 becomes OD-3, D2 becomes OD-10, D3 becomes OD-11, D4 becomes OD-12. |
 
 ---
 
-## 8. Owner decision list
+## 9. Owner decision list
 
 Each entry gives the options, my recommendation, and the evidence behind it.
 
@@ -554,3 +758,8 @@ Each entry gives the options, my recommendation, and the evidence behind it.
 | OD-19 | F22 broker prefix | (pending from before) | — | F-audit |
 | OD-20 | G3 yield target | keep ≥ 170; regime-conditional (SSA §I) | Regime-conditional, set from U0 | 170 unreachable: 19 at 1.2, 90 at 0.5 [M:MEAS1] |
 | OD-21 | Cycle alignment to bar close (also changes native cadence) | keep the 3-minute wall clock; align to 5m close + settle | Align, gated on the U10 parity test | [C:auto_trader.go:717]; 18.6R one-bar cost [M:LAT] |
+| OD-22 | Exit management (R6) | (a) keep the live protector (E0); (b) align live to replay baseline D; (c) adopt a variant E1–E6 only if it passes the T-EXIT gate; (d) class-dependent (E5) | Run U0-F first. Then (c) if any variant passes against D; otherwise (b) if A − D < 0; otherwise (a) with F27–F31 fixed | Mechanism §7.2 [C, D]; T-EXIT ΔR +0.004 to +0.010 per trade [M]; no measurement of live model A exists (§7.3) |
+| OD-23 | Inputs for U0-F | actual live leverage; fee tier (maker/taker) | Owner supplies both | R-equivalents scale with 1/(L·s) (§7.1.3) |
+| OD-24 | Multiple-comparison control for R6 | gate per variant only; gate plus nested hold-out | Gate plus nested hold-out | Seven new variants on top of T-EXIT's three (§7.5) |
+| OD-25 | Units of exit rules | keep ROE; convert to R | Convert to R (U14) | The same rule is −0.40R or −0.80R depending on stop width (§7.1.3) |
+| OD-26 | Protection defect fixes | approve F27–F31 as fix units; ordering relative to Task E | F27 and F28 before any pilot; F29–F31 with U14 | §7.1.4 code facts |
