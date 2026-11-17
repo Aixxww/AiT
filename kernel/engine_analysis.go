@@ -153,6 +153,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		hunterScoreMap,
 		strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7"),
 		priceMap,
+		riskConfig.MinRiskRewardRatio,
 	)
 
 	if decision != nil {
@@ -457,7 +458,7 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 // AI Response Parsing
 // ============================================================================
 
-func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64) (*FullDecision, error) {
+func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, minRR float64) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -471,7 +472,7 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 	if hunterV7Mode {
 		normalizeHunterV7WaitReasons(decisions)
 	}
-	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap); err != nil {
+	if err := validateDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR); err != nil {
 		return &FullDecision{
 			CoTTrace:  cotTrace,
 			Decisions: decisions,
