@@ -262,7 +262,7 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	}
 
 	// Open position
-	order, err := at.trader.OpenLong(decision.Symbol, quantity, decision.Leverage)
+	order, err := at.openMarketPosition(decision, "long", quantity)
 	if err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	}
 
 	// Open position
-	order, err := at.trader.OpenShort(decision.Symbol, quantity, decision.Leverage)
+	order, err := at.openMarketPosition(decision, "short", quantity)
 	if err != nil {
 		return err
 	}

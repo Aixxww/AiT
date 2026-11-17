@@ -2,17 +2,52 @@ package binance
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/trader/types"
 	"strconv"
 	"strings"
 
+	"github.com/adshao/go-binance/v2/common"
 	"github.com/adshao/go-binance/v2/futures"
 )
 
-// OpenLong opens a long position
+// OpenLong opens a long position with a fresh client order id.
 func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
+	return t.openMarket(symbol, quantity, leverage, true, getBrOrderID())
+}
+
+// OpenShort opens a short position with a fresh client order id.
+func (t *FuturesTrader) OpenShort(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
+	return t.openMarket(symbol, quantity, leverage, false, getBrOrderID())
+}
+
+// OpenLongWithClientID opens a long position under a caller-chosen client
+// order id, so an ambiguous result can be read back by that id (F04).
+func (t *FuturesTrader) OpenLongWithClientID(symbol string, quantity float64, leverage int, clientOrderID string) (map[string]interface{}, error) {
+	return t.openMarket(symbol, quantity, leverage, true, clientOrderID)
+}
+
+// OpenShortWithClientID is the short counterpart of OpenLongWithClientID.
+func (t *FuturesTrader) OpenShortWithClientID(symbol string, quantity float64, leverage int, clientOrderID string) (map[string]interface{}, error) {
+	return t.openMarket(symbol, quantity, leverage, false, clientOrderID)
+}
+
+// openMarket is the single market-entry implementation behind the four
+// Open* methods. Behaviour is unchanged from the previous OpenLong /
+// OpenShort bodies except that the client order id is a parameter; the
+// -4411 retry reuses the same id (the first submission was rejected).
+func (t *FuturesTrader) openMarket(symbol string, quantity float64, leverage int, long bool, clientOrderID string) (map[string]interface{}, error) {
+	label := "short"
+	side, posSide := futures.SideTypeSell, futures.PositionSideTypeShort
+	if long {
+		label = "long"
+		side, posSide = futures.SideTypeBuy, futures.PositionSideTypeLong
+	}
+
 	// First cancel all pending orders for this symbol (clean up old stop-loss and take-profit orders)
 	if err := t.CancelAllOrders(symbol); err != nil {
 		logger.Infof("  ⚠ Failed to cancel old pending orders (may not have any): %v", err)
@@ -42,119 +77,88 @@ func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) 
 		return nil, err
 	}
 
-	// Create market buy order (using br ID)
-	order, err := t.client.NewCreateOrderService().
-		Symbol(symbol).
-		Side(futures.SideTypeBuy).
-		PositionSide(futures.PositionSideTypeLong).
-		Type(futures.OrderTypeMarket).
-		Quantity(quantityStr).
-		NewClientOrderID(getBrOrderID()).
-		Do(context.Background())
-
+	submit := func() (*futures.CreateOrderResponse, error) {
+		return t.client.NewCreateOrderService().
+			Symbol(symbol).
+			Side(side).
+			PositionSide(posSide).
+			Type(futures.OrderTypeMarket).
+			Quantity(quantityStr).
+			NewClientOrderID(clientOrderID).
+			Do(context.Background())
+	}
+	order, err := submit()
 	if err != nil {
 		// Auto-retry on TradFi-Perps agreement error (-4411)
 		if strings.Contains(err.Error(), "-4411") {
 			logger.Infof("  ⚠ TradFi-Perps agreement not signed, signing now...")
 			if signErr := t.signTradFiAgreement(); signErr != nil {
-				return nil, fmt.Errorf("failed to open long position (TradFi agreement signing failed): %w", signErr)
+				return nil, fmt.Errorf("failed to open %s position (TradFi agreement signing failed): %w", label, signErr)
 			}
 			// Retry the order after signing agreement
-			order, err = t.client.NewCreateOrderService().
-				Symbol(symbol).
-				Side(futures.SideTypeBuy).
-				PositionSide(futures.PositionSideTypeLong).
-				Type(futures.OrderTypeMarket).
-				Quantity(quantityStr).
-				NewClientOrderID(getBrOrderID()).
-				Do(context.Background())
+			order, err = submit()
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to open long position: %w", err)
+			return nil, fmt.Errorf("failed to open %s position: %w", label, err)
 		}
 	}
 
-	logger.Infof("✓ Opened long position successfully: %s quantity: %s", symbol, quantityStr)
+	logger.Infof("✓ Opened %s position successfully: %s quantity: %s", label, symbol, quantityStr)
 	logger.Infof("  Order ID: %d", order.OrderID)
 
 	result := make(map[string]interface{})
 	result["orderId"] = order.OrderID
 	result["symbol"] = order.Symbol
 	result["status"] = order.Status
+	result["clientOrderId"] = clientOrderID
 	return result, nil
 }
 
-// OpenShort opens a short position
-func (t *FuturesTrader) OpenShort(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
-	// First cancel all pending orders for this symbol (clean up old stop-loss and take-profit orders)
-	if err := t.CancelAllOrders(symbol); err != nil {
-		logger.Infof("  ⚠ Failed to cancel old pending orders (may not have any): %v", err)
-	}
-
-	// Set leverage
-	if err := t.SetLeverage(symbol, leverage); err != nil {
-		return nil, err
-	}
-
-	// Note: Margin mode should be set by the caller (AutoTrader) before opening position via SetMarginMode
-
-	// Format quantity to correct precision
-	quantityStr, err := t.FormatQuantity(symbol, quantity)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if formatted quantity is 0 (prevent rounding errors)
-	quantityFloat, parseErr := strconv.ParseFloat(quantityStr, 64)
-	if parseErr != nil || quantityFloat <= 0 {
-		return nil, fmt.Errorf("position size too small, rounded to 0 (original: %.8f → formatted: %s). Suggest increasing position amount or selecting a lower-priced coin", quantity, quantityStr)
-	}
-
-	// Check minimum notional value (Binance requires at least 10 USDT)
-	if err := t.CheckMinNotional(symbol, quantityFloat); err != nil {
-		return nil, err
-	}
-
-	// Create market sell order (using br ID)
-	order, err := t.client.NewCreateOrderService().
+// LookupOrderByClientID reads one order by client order id (F04 read-back).
+// found=false with err=nil means Binance reported -2013 (order does not
+// exist); any other failure is returned as err (state unknown).
+func (t *FuturesTrader) LookupOrderByClientID(symbol, clientOrderID string) (map[string]interface{}, bool, error) {
+	order, err := t.client.NewGetOrderService().
 		Symbol(symbol).
-		Side(futures.SideTypeSell).
-		PositionSide(futures.PositionSideTypeShort).
-		Type(futures.OrderTypeMarket).
-		Quantity(quantityStr).
-		NewClientOrderID(getBrOrderID()).
+		OrigClientOrderID(clientOrderID).
 		Do(context.Background())
-
 	if err != nil {
-		// Auto-retry on TradFi-Perps agreement error (-4411)
-		if strings.Contains(err.Error(), "-4411") {
-			logger.Infof("  ⚠ TradFi-Perps agreement not signed, signing now...")
-			if signErr := t.signTradFiAgreement(); signErr != nil {
-				return nil, fmt.Errorf("failed to open short position (TradFi agreement signing failed): %w", signErr)
-			}
-			// Retry the order after signing agreement
-			order, err = t.client.NewCreateOrderService().
-				Symbol(symbol).
-				Side(futures.SideTypeSell).
-				PositionSide(futures.PositionSideTypeShort).
-				Type(futures.OrderTypeMarket).
-				Quantity(quantityStr).
-				NewClientOrderID(getBrOrderID()).
-				Do(context.Background())
+		var apiErr *common.APIError
+		if errors.As(err, &apiErr) && apiErr.Code == -2013 {
+			return nil, false, nil
 		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to open short position: %w", err)
-		}
+		return nil, false, err
 	}
+	return map[string]interface{}{
+		"orderId":       order.OrderID,
+		"symbol":        order.Symbol,
+		"status":        string(order.Status),
+		"clientOrderId": order.ClientOrderID,
+	}, true, nil
+}
 
-	logger.Infof("✓ Opened short position successfully: %s quantity: %s", symbol, quantityStr)
-	logger.Infof("  Order ID: %d", order.OrderID)
+// IsAmbiguousOrderError reports whether an order submission error leaves
+// the order's state unknown: anything that is not a Binance API rejection
+// (transport errors, timeouts, decode failures), plus -1007 ("timeout
+// waiting for response from backend server; execution status unknown")
+// and -1001 (internal disconnect).
+func (t *FuturesTrader) IsAmbiguousOrderError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *common.APIError
+	if !errors.As(err, &apiErr) {
+		return true
+	}
+	return apiErr.Code == -1007 || apiErr.Code == -1001
+}
 
-	result := make(map[string]interface{})
-	result["orderId"] = order.OrderID
-	result["symbol"] = order.Symbol
-	result["status"] = order.Status
-	return result, nil
+// ClientOrderIDForIntent derives a deterministic client order id from an
+// intent key: broker prefix + first 21 hex chars of sha256(key) = 31
+// characters, inside the futures client-id limit used by getBrOrderID.
+func (t *FuturesTrader) ClientOrderIDForIntent(intentKey string) string {
+	sum := sha256.Sum256([]byte(intentKey))
+	return "x-KzrpZaP9" + hex.EncodeToString(sum[:])[:21]
 }
 
 // CloseLong closes a long position

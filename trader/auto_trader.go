@@ -170,14 +170,15 @@ type AutoTrader struct {
 	lastResetTime          time.Time
 	stopUntil              time.Time
 	isRunning              bool
-	isRunningMutex         sync.RWMutex       // Mutex to protect isRunning flag
-	startTime              time.Time          // System start time
-	callCount              int                // AI call count
-	positionFirstSeenTime  map[string]int64   // Position first seen time (symbol_side -> timestamp in milliseconds)
-	stopMonitorCh          chan struct{}      // Used to stop monitoring goroutine
-	monitorWg              sync.WaitGroup     // Used to wait for monitoring goroutine to finish
-	peakPnLCache           map[string]float64 // Peak profit cache (symbol -> peak P&L percentage)
-	peakPnLCacheMutex      sync.RWMutex       // Cache read-write lock
+	isRunningMutex         sync.RWMutex        // Mutex to protect isRunning flag
+	startTime              time.Time           // System start time
+	callCount              int                 // AI call count
+	readBackSleep          func(time.Duration) // F04 read-back delay hook (nil = time.Sleep; tests override)
+	positionFirstSeenTime  map[string]int64    // Position first seen time (symbol_side -> timestamp in milliseconds)
+	stopMonitorCh          chan struct{}       // Used to stop monitoring goroutine
+	monitorWg              sync.WaitGroup      // Used to wait for monitoring goroutine to finish
+	peakPnLCache           map[string]float64  // Peak profit cache (symbol -> peak P&L percentage)
+	peakPnLCacheMutex      sync.RWMutex        // Cache read-write lock
 	protectionState        map[string]*positionProtectionState
 	protectionStateMutex   sync.Mutex
 	lastBalanceSyncTime    time.Time                // Last balance sync time
