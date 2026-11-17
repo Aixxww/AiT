@@ -196,26 +196,27 @@ func TestV7StructurePlanLong(t *testing.T) {
 	if math.Abs(plan.ChosenStop.Price-wantSA) > 1e-9 {
 		t.Fatalf("S_A price = %v, want %v", plan.ChosenStop.Price, wantSA)
 	}
-	// Targets: TP0 = 103 pivot front-run; TP1 = the within-cap 104.7
-	// wall; TP2 = the 108 wall, capped at E * 1.05 = 105. The 105
-	// TF_s cluster (2 touches) is a non-role menu entry.
+	// Targets (spec v2): TP0 = 103 pivot front-run; TP1 = the within-cap
+	// 104.7 wall. The 108 wall lies beyond the 5% cap, so it is not
+	// clamped into TP2 and is not on the menu: TP2 = 0. The 105 TF_s
+	// cluster (2 touches) is a non-role menu entry.
 	if plan.TP0 < 102.5 || plan.TP0 > 103.0 {
 		t.Fatalf("TP0 = %v, want ~102.9", plan.TP0)
 	}
 	if plan.TP1 < 104.3 || plan.TP1 > 104.6 {
 		t.Fatalf("TP1 = %v, want ~104.5 (wall)", plan.TP1)
 	}
-	if math.Abs(plan.TP2-105.0) > 1e-9 {
-		t.Fatalf("TP2 = %v, want capped 105", plan.TP2)
+	if plan.TP2 != 0 {
+		t.Fatalf("TP2 = %v, want 0 (108 wall beyond cap is never clamped)", plan.TP2)
 	}
-	if len(plan.TargetCandidates) != 4 {
-		t.Fatalf("target menu = %+v, want 4 entries", plan.TargetCandidates)
+	if len(plan.TargetCandidates) != 3 {
+		t.Fatalf("target menu = %+v, want 3 within-cap entries", plan.TargetCandidates)
 	}
 	roles := map[string]string{}
 	for _, tc := range plan.TargetCandidates {
 		roles[tc.Role] = tc.Method
 	}
-	if roles["TP1"] != "wall_tfh" || roles["TP2"] != "wall_tfh" {
+	if roles["TP1"] != "wall_tfh" {
 		t.Fatalf("roles = %+v", roles)
 	}
 	if plan.RRMeasTP1 < 1.5 {
@@ -258,8 +259,8 @@ func TestV7StructurePlanRRInfeasible(t *testing.T) {
 	if plan.Feasible {
 		t.Fatalf("plan should be infeasible, got %+v", plan.ChosenStop)
 	}
-	if plan.Reason != "backend_guard_risk" {
-		t.Fatalf("reason = %q, want backend_guard_risk", plan.Reason)
+	if plan.Reason != "backend_guard_risk" || plan.RejectDetail != "s_a_fails_rr" {
+		t.Fatalf("reason = %q/%q, want backend_guard_risk/s_a_fails_rr", plan.Reason, plan.RejectDetail)
 	}
 }
 
@@ -337,7 +338,7 @@ func TestV7StructurePlanIntegration(t *testing.T) {
 		return &V7SignalOutput{
 			Symbol:       "FIXUSDT",
 			Direction:    V7DirLong,
-			SetupType:    V7SetupRangeExpansion,
+			SetupType:    V7SetupDisplacementLong, // FAST class: 15m/1h bars
 			EntryZone:    V7PriceZone{Lower: 99, Upper: 101},
 			Invalidation: V7InvalidationRule{Price: 99}, // nearer than the 98 anchor: anchor stands
 			TP0Price:     101, // legacy placeholder; structure must override
