@@ -149,12 +149,16 @@ type hunterV7ExecutionContract struct {
 	HardBlocks      []string `json:"hard_blocks,omitempty"`
 	SizePolicy      string   `json:"size_policy"`
 	ExitPolicy      string   `json:"exit_policy"`
+	// MinRR is this candidate's RR admission floor when it differs from the
+	// strategy floor (Task-2 candidates, U2/P2a). Omitted for native.
+	MinRR float64 `json:"min_rr,omitempty"`
 }
 
 func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContract {
 	contract := hunterV7ExecutionContract{
 		MustConfirm: append([]string{}, coin.V7RequiredConfirms...),
 		ExitPolicy:  "backend_stop_and_target_only",
+		MinRR:       coin.V7RequiredRR,
 	}
 
 	switch coin.V7ExecutionTier {

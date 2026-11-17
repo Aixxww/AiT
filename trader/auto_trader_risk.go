@@ -1336,14 +1336,26 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 	return true
 }
 
+// decisionMinRiskRewardRatio is the executor's RR floor for one decision:
+// the selected candidate's own floor when the kernel hydrated one (Task-2
+// candidates, U2/P2a: Decision.HunterV7MinRR, from the same
+// RiskControlConfig.EffectiveT2MinRiskRewardRatio the validator used), else
+// the strategy's MinRiskRewardRatio as before.
+func (at *AutoTrader) decisionMinRiskRewardRatio(decision *kernel.Decision) float64 {
+	if decision != nil && decision.HunterV7MinRR > 0 {
+		return decision.HunterV7MinRR
+	}
+	if at == nil || at.config.StrategyConfig == nil {
+		return 0
+	}
+	return at.config.StrategyConfig.RiskControl.MinRiskRewardRatio
+}
+
 func (at *AutoTrader) repairHunterV7RiskReward(decision *kernel.Decision, currentPrice float64, side string) bool {
 	if decision == nil || currentPrice <= 0 || decision.StopLoss <= 0 || decision.TakeProfit <= 0 {
 		return false
 	}
-	minRR := 0.0
-	if at.config.StrategyConfig != nil {
-		minRR = at.config.StrategyConfig.RiskControl.MinRiskRewardRatio
-	}
+	minRR := at.decisionMinRiskRewardRatio(decision)
 	if minRR <= 0 {
 		return false
 	}
@@ -2485,7 +2497,7 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 				decision.Leverage, maxLeverage, decision.Symbol)
 		}
 
-		minRiskRewardRatio = riskControl.MinRiskRewardRatio
+		minRiskRewardRatio = at.decisionMinRiskRewardRatio(decision)
 	}
 
 	if decision.StopLoss <= 0 || decision.TakeProfit <= 0 {

@@ -42,6 +42,7 @@ import (
 
 	"github.com/Aixxww/AiT/cmd/t2_replay/replay"
 	local "github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 const minuteMs = int64(60000)
@@ -221,6 +222,7 @@ type report struct {
 	MinClosed1h      int                    `json:"min_closed_1h_bars"`
 	MinClosed4h      int                    `json:"min_closed_4h_bars"`
 	SpecVersion      string                 `json:"spec_version"`
+	RRMin            float64                `json:"rr_min"`
 	RejectDetails    map[string]int         `json:"structure_reject_details"`
 	ByClass          map[string]*group      `json:"by_class"`
 	ByFold           map[string]*group      `json:"by_fold"`
@@ -289,7 +291,15 @@ func main() {
 	dataDir := flag.String("data", "/home/hatch/workspace/ait-t2-data/entry_study", "entry-study directory")
 	lbDir := flag.String("lookback", "/home/hatch/workspace/ait-t2-data/lookback", "lookback directory")
 	outPath := flag.String("out", "/home/hatch/workspace/goals/goal-4/hidden_files/kiro-pkg-20261117/m2v2_eval_results.json", "JSON output path")
+	// U2/P2a: the structural RR admission floor of the t2 path defaults to
+	// the same config default the kernel and executor read
+	// (store.DefaultT2MinRiskRewardRatio). Pass -rr-min 1.5 to reproduce the
+	// pre-U2 spec v2 run (9/694).
+	rrMin := flag.Float64("rr-min", store.DefaultT2MinRiskRewardRatio, "measured-RR admission floor (RRMin) for the structure arm")
 	flag.Parse()
+	if *rrMin <= 0 {
+		fatal("-rr-min must be > 0, got %v", *rrMin)
+	}
 
 	events, err := replay.LoadEvents(*dataDir)
 	if err != nil {
@@ -312,6 +322,7 @@ func main() {
 	rep := &report{
 		Events:        len(events),
 		SpecVersion:   "geometry-v2",
+		RRMin:         *rrMin,
 		RejectDetails: map[string]int{},
 		ByClass:       map[string]*group{},
 		ByFold:        map[string]*group{},
@@ -338,6 +349,7 @@ func main() {
 			}
 		}
 		cfg := local.V7StructureConfigForSetup(ev.Setup)
+		cfg.RRMin = *rrMin
 		groups := []*group{&rep.Overall, grp(rep.ByDirection, ev.Direction), grp(rep.BySetup, ev.Setup), grp(rep.ByFamily, familyOf(ev.Setup)),
 			grp(rep.ByClass, cfg.Class), grp(rep.ByFold, foldOf[i])}
 		for _, g := range groups {

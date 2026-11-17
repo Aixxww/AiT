@@ -106,6 +106,22 @@ type Strategy struct {
 func (Strategy) TableName() string { return "strategies" }
 
 // StrategyConfig strategy configuration details (JSON structure)
+// DefaultT2MinRiskRewardRatio is the owner-approved RR floor for Task-2
+// signals (redesign plan OD-9: provisional, with a pre-registered revert to
+// 1.5 if the t2 [1.2,1.5) cell's 90% upper bound is < 0 at n >= 30).
+const DefaultT2MinRiskRewardRatio = 1.2
+
+// EffectiveT2MinRiskRewardRatio is the single accessor for the T2 RR floor
+// (plan overlap O-1). Every T2 RR admission reads it: the kernel assembly
+// check, the decision validator and the executor (via the candidate's
+// V7RequiredRR), and the structural geometry evaluation default.
+func (rc RiskControlConfig) EffectiveT2MinRiskRewardRatio() float64 {
+	if rc.T2MinRiskRewardRatio > 0 {
+		return rc.T2MinRiskRewardRatio
+	}
+	return DefaultT2MinRiskRewardRatio
+}
+
 type StrategyConfig struct {
 	// Strategy type: "ai_trading" (default) or "grid_trading"
 	StrategyType string `json:"strategy_type,omitempty"`
@@ -427,6 +443,11 @@ type RiskControlConfig struct {
 
 	// Min take_profit / stop_loss ratio (AI guided)
 	MinRiskRewardRatio float64 `json:"min_risk_reward_ratio"`
+	// T2MinRiskRewardRatio is the RR admission floor for Task-2 (T2)
+	// signals only (redesign plan U2/P2a, OD-9). Native signals keep
+	// MinRiskRewardRatio. 0 = DefaultT2MinRiskRewardRatio. Read it through
+	// EffectiveT2MinRiskRewardRatio.
+	T2MinRiskRewardRatio float64 `json:"t2_min_risk_reward_ratio,omitempty"`
 	// Min AI confidence to open position (AI guided)
 	MinConfidence int `json:"min_confidence"`
 	// Max allowed deviation between AI decision price and execution reference price (CODE ENFORCED, percent)
@@ -545,6 +566,7 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 			MaxMarginUsage:               0.9, // Max 90% margin usage (CODE ENFORCED)
 			MinPositionSize:              12,  // Min 12 USDT per position (CODE ENFORCED)
 			MinRiskRewardRatio:           3.0, // Min 3:1 profit/loss ratio (AI guided)
+			T2MinRiskRewardRatio:         DefaultT2MinRiskRewardRatio,
 			MinConfidence:                75,  // Min 75% confidence (AI guided)
 			MaxEntryPriceDeviationPct:    0.5, // Max AI decision price vs execution price drift (CODE ENFORCED)
 			MaxSingleTradeLossPct:        8.0, // Max estimated stop-loss impact per trade (CODE ENFORCED)

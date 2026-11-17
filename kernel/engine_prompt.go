@@ -221,6 +221,12 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		minRR = 1.5
 	}
 	sb.WriteString(hunterV7DoctrinePrompt(e.GetLanguage(), maxTPMovePct, minSLMovePct, maxDriftPct, minRR))
+	if e.hunterV7T2Enabled() {
+		// U2/P2a: Task-2 candidates carry their own RR floor. Emitted only
+		// when the Task-2 module is on, so native prompts are unchanged.
+		sb.WriteString(fmt.Sprintf("- Task-2 candidates: when a candidate's execution_contract carries `min_rr`, that value (currently %.2f) replaces the RR floor above for that candidate only; the backend validates the same value.\n",
+			e.config.RiskControl.EffectiveT2MinRiskRewardRatio()))
+	}
 }
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
 	if configured <= 0 {
@@ -242,13 +248,20 @@ func (e *StrategyEngine) hunterV7ExecutionGeometry() HunterV7ExecutionGeometry {
 		return HunterV7ExecutionGeometry{}
 	}
 	riskControl := e.config.RiskControl
-	return HunterV7EffectiveExecutionGeometry(
+	geometry := HunterV7EffectiveExecutionGeometry(
 		riskControl.MaxTakeProfitPriceMovePct,
 		riskControl.MinStopLossPriceMovePct,
 		riskControl.MaxEntryPriceDeviationPct,
 		riskControl.MinRiskRewardRatio,
 		strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7"),
 	)
+	geometry.T2MinRR = riskControl.EffectiveT2MinRiskRewardRatio()
+	return geometry
+}
+
+// hunterV7T2Enabled reports whether this strategy runs the Task-2 module.
+func (e *StrategyEngine) hunterV7T2Enabled() bool {
+	return e != nil && e.config != nil && e.config.CoinSource.Hunter != nil && e.config.CoinSource.Hunter.V7T2Enabled
 }
 
 func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
