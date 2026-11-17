@@ -478,6 +478,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 				e.v7T2Store = local.NewV7T2EventStore()
 			}
 			v7cfg.T2Store = e.v7T2Store
+			v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
 		}
 		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 			v7cfg.MaxOutput = coinSource.HunterLimit
@@ -2702,6 +2703,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 			e.v7T2Store = local.NewV7T2EventStore()
 		}
 		v7cfg.T2Store = e.v7T2Store
+		v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
 	}
 	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 		v7cfg.MaxOutput = coinSource.HunterLimit
@@ -3500,4 +3502,23 @@ func hunterV7ClassRegistry(geometry HunterV7ExecutionGeometry) map[string]store.
 		return geometry.Classes
 	}
 	return store.DefaultV7SignalClassRegistry()
+}
+
+// hunterV7FinalConflictConfig builds the U3 final direction pass config:
+// threshold and tie winner from strategy config, CONTEXT setups from the
+// U6a class registry.
+func hunterV7FinalConflictConfig(h *store.HunterConfig) local.V7FinalConflictConfig {
+	ctxSetups := map[string]bool{}
+	for setup, entry := range h.EffectiveV7SignalClasses() {
+		if entry.Class == store.V7ClassContext {
+			ctxSetups[setup] = true
+		}
+	}
+	return local.V7FinalConflictConfig{
+		Enabled:          true,
+		MinAIPriority:    h.EffectiveV7FinalConflictMinAIPriority(),
+		TieWinner:        local.V7Direction(h.EffectiveV7FinalConflictTieWinner()),
+		ContextNonVoting: h.V7ContextNonVoting(),
+		ContextSetups:    ctxSetups,
+	}
 }

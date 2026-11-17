@@ -328,6 +328,12 @@ type HunterConfig struct {
 	// (U6a; defaults: DefaultV7SignalClassRegistry). Read it through
 	// EffectiveV7SignalClasses.
 	V7SignalClasses map[string]V7SignalClassEntry `json:"v7_signal_classes,omitempty"`
+	// U3 final direction pass (runs with the T2 module). 0 / "" / false
+	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
+	// non-voting (OD-12).
+	V7FinalConflictMinAIPriority float64 `json:"v7_final_conflict_min_ai_priority,omitempty"`
+	V7FinalConflictTieWinner     string  `json:"v7_final_conflict_tie_winner,omitempty"`
+	V7ConflictContextVotes       bool    `json:"v7_conflict_context_votes,omitempty"`
 	// V7T2Setups is the setup-family checklist (setup_type strings from
 	// the Task-2 spec section 4.6). Empty = all transplanted families.
 	V7T2Setups []string `json:"v7_t2_setups,omitempty"`

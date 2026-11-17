@@ -54,26 +54,7 @@ func ResolveV7Conflicts(signals []V7SignalOutput) []V7SignalOutput {
 			// Both directions — check for conflict
 			if bestLong.AIPriority > 60 && bestShort.AIPriority > 60 {
 				// High conflict: mark as conflict_watch
-				conflict := V7SignalOutput{
-					Symbol:         bestLong.Symbol,
-					Direction:      bestLong.Direction, // primary direction
-					SetupType:      bestLong.SetupType,
-					Status:         V7StatusConflictWatch,
-					SetupScore:     maxFloat(bestLong.SetupScore, bestShort.SetupScore),
-					AIPriority:     (bestLong.AIPriority + bestShort.AIPriority) / 2,
-					MarketRegime:   bestLong.MarketRegime,
-					Confidence:     "C",
-					ReasonCodes:    []string{"directional_conflict"},
-					RiskTags:       []string{"do_not_market_chase"},
-					EntryMode:      V7EntryWaitConfirm,
-					PriceCtx:       bestLong.PriceCtx,
-					DerivativesCtx: bestLong.DerivativesCtx,
-					RequiredConfirms: []string{
-						"wait_for_directional_break",
-						"long_trigger: break_high_with_oi_increase",
-						"short_trigger: lose_vwap_with_taker_sell",
-					},
-				}
+				conflict := newV7ConflictWatchSignal(bestLong, bestShort)
 				result = append(result, conflict)
 			} else if bestLong.AIPriority > bestShort.AIPriority {
 				result = append(result, *bestLong)
@@ -108,4 +89,29 @@ func maxFloat(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+// newV7ConflictWatchSignal builds the conflict_watch row the native resolver
+// emits when both directions are strong (shared with the U3 final pass).
+func newV7ConflictWatchSignal(bestLong, bestShort *V7SignalOutput) V7SignalOutput {
+	return V7SignalOutput{
+		Symbol:         bestLong.Symbol,
+		Direction:      bestLong.Direction, // primary direction
+		SetupType:      bestLong.SetupType,
+		Status:         V7StatusConflictWatch,
+		SetupScore:     maxFloat(bestLong.SetupScore, bestShort.SetupScore),
+		AIPriority:     (bestLong.AIPriority + bestShort.AIPriority) / 2,
+		MarketRegime:   bestLong.MarketRegime,
+		Confidence:     "C",
+		ReasonCodes:    []string{"directional_conflict"},
+		RiskTags:       []string{"do_not_market_chase"},
+		EntryMode:      V7EntryWaitConfirm,
+		PriceCtx:       bestLong.PriceCtx,
+		DerivativesCtx: bestLong.DerivativesCtx,
+		RequiredConfirms: []string{
+			"wait_for_directional_break",
+			"long_trigger: break_high_with_oi_increase",
+			"short_trigger: lose_vwap_with_taker_sell",
+		},
+	}
 }
