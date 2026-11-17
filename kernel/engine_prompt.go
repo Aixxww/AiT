@@ -256,6 +256,7 @@ func (e *StrategyEngine) hunterV7ExecutionGeometry() HunterV7ExecutionGeometry {
 		strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7"),
 	)
 	geometry.T2MinRR = riskControl.EffectiveT2MinRiskRewardRatio()
+	geometry.Classes = e.config.CoinSource.Hunter.EffectiveV7SignalClasses()
 	return geometry
 }
 

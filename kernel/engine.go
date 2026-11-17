@@ -122,6 +122,8 @@ type CandidateCoin struct {
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
 	V7Stack            string                       `json:"-"` // "" native, local.V7StackT2 for Task-2 signals
+	V7SignalClass      string                       `json:"-"` // U6a registry class ("" = unassigned)
+	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
@@ -609,6 +611,9 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 		if cc.V7Stack == local.V7StackT2 {
 			cc.V7RequiredRR = hunterV7T2MinRR(geometry)
 		}
+		if entry, ok := hunterV7ClassRegistry(geometry)[cc.V7SetupType]; ok {
+			cc.V7SignalClass, cc.V7ClassAdmission = entry.Class, entry.Admission
+		}
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
 
 		if sig.Direction == local.V7DirLong {
@@ -633,6 +638,9 @@ type HunterV7ExecutionGeometry struct {
 	// from RiskControlConfig.EffectiveT2MinRiskRewardRatio. 0 falls back to
 	// store.DefaultT2MinRiskRewardRatio, never to the native 1.5.
 	T2MinRR float64
+	// Classes is the signal-class registry used at assembly (U6a). nil
+	// means store.DefaultV7SignalClassRegistry.
+	Classes map[string]store.V7SignalClassEntry
 }
 
 func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct, minRR float64, hunterV7 bool) HunterV7ExecutionGeometry {
@@ -665,7 +673,17 @@ func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct,
 	return geometry
 }
 
+// classifyHunterV7CandidateTierWithGeometry applies the tier rules and then
+// the U6a class admission cap: a shadow_only class never rises above WATCH.
 func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
+	tier, reason := classifyHunterV7CandidateTierRules(coin, geometry)
+	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly && (tier == "EXECUTABLE" || tier == "REVIEWABLE") {
+		return "WATCH", "class_shadow_only"
+	}
+	return tier, reason
+}
+
+func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	if coin.V7SetupType == "" {
 		return "", ""
 	}
@@ -3474,4 +3492,12 @@ func hunterV7T2MinRR(geometry HunterV7ExecutionGeometry) float64 {
 		return geometry.T2MinRR
 	}
 	return store.DefaultT2MinRiskRewardRatio
+}
+
+// hunterV7ClassRegistry returns the assembly's class registry (U6a).
+func hunterV7ClassRegistry(geometry HunterV7ExecutionGeometry) map[string]store.V7SignalClassEntry {
+	if geometry.Classes != nil {
+		return geometry.Classes
+	}
+	return store.DefaultV7SignalClassRegistry()
 }
