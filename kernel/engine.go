@@ -121,6 +121,8 @@ type CandidateCoin struct {
 	V7VWAP15m          float64                      `json:"-"`
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
+	V7Stack            string                       `json:"-"` // "" native, local.V7StackT2 for Task-2 signals
+	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
@@ -229,6 +231,11 @@ type Decision struct {
 	// action for audit; ValidatorRejection carries the validator message.
 	RejectedAction     string `json:"rejected_action,omitempty"`
 	ValidatorRejection string `json:"validator_rejection,omitempty"`
+	// HunterV7MinRR is the RR floor of the selected backend candidate when it
+	// differs from the strategy floor (Task-2 candidates, U2/P2a). Set only
+	// by hydrateHunterV7DecisionExecutionPlans; json "-" so a model response
+	// can never supply it.
+	HunterV7MinRR float64 `json:"-"`
 }
 
 type DecisionTrigger struct {
@@ -555,6 +562,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			ShortTags:  nil,
 
 			V7SignalID:         sig.SignalID,
+			V7Stack:            sig.Stack,
 			V7SetupType:        string(sig.SetupType),
 			V7Status:           string(sig.Status),
 			V7AIPriority:       sig.AIPriority,
@@ -598,6 +606,9 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
+		if cc.V7Stack == local.V7StackT2 {
+			cc.V7RequiredRR = hunterV7T2MinRR(geometry)
+		}
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
 
 		if sig.Direction == local.V7DirLong {
@@ -618,6 +629,10 @@ type HunterV7ExecutionGeometry struct {
 	MinSLMovePct float64
 	MaxDriftPct  float64
 	MinRR        float64
+	// T2MinRR is the RR admission floor for Task-2 candidates (U2/P2a),
+	// from RiskControlConfig.EffectiveT2MinRiskRewardRatio. 0 falls back to
+	// store.DefaultT2MinRiskRewardRatio, never to the native 1.5.
+	T2MinRR float64
 }
 
 func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct, minRR float64, hunterV7 bool) HunterV7ExecutionGeometry {
@@ -1907,6 +1922,9 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 		return ""
 	}
 	geometry = hunterV7SetupExecutionGeometry(coin, geometry)
+	if coin.V7Stack == local.V7StackT2 {
+		geometry.MinRR = hunterV7T2MinRR(geometry)
+	}
 	if geometry.MinRR <= 0 {
 		geometry.MinRR = hunterV7BackendMinRR
 	}
@@ -3446,4 +3464,14 @@ func hunterV7TrendBreakoutStrongFlowReviewable(coin CandidateCoin) bool {
 		return false
 	}
 	return true
+}
+
+// hunterV7T2MinRR returns the Task-2 RR admission floor carried by the
+// execution geometry, falling back to the store default (never to the
+// native 1.5 literal).
+func hunterV7T2MinRR(geometry HunterV7ExecutionGeometry) float64 {
+	if geometry.T2MinRR > 0 {
+		return geometry.T2MinRR
+	}
+	return store.DefaultT2MinRiskRewardRatio
 }

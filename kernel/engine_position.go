@@ -22,16 +22,16 @@ type HunterScoreInfo struct {
 	Direction  string
 }
 
-func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, minRR float64) error {
+func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor) error {
 	for i := range decisions {
-		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR); err != nil {
+		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor); err != nil {
 			return fmt.Errorf("decision #%d validation failed: %w", i+1, err)
 		}
 	}
 	return nil
 }
 
-func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, minRR float64) error {
+func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor) error {
 	validActions := map[string]bool{
 		"open_long":   true,
 		"open_short":  true,
@@ -139,7 +139,12 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		// (RiskControl.MinRiskRewardRatio). legacyMinRiskRewardRatio applies
 		// only when the strategy leaves the field unset, preserving the
 		// historical behaviour of configs that never set it.
-		requiredRR := minRR
+		// U2/P2a: the floor is resolved per decision, so a Task-2
+		// candidate's own floor applies to the decision that selects it.
+		requiredRR := 0.0
+		if rrFloor != nil {
+			requiredRR = rrFloor(d)
+		}
 		if requiredRR <= 0 {
 			requiredRR = legacyMinRiskRewardRatio
 		}

@@ -398,8 +398,13 @@ type V7ExecutionReadiness struct {
 // V7SignalOutput is the structured output from a single signal module.
 // This is the primary output of the Hunter v7 engine — it contains everything
 // the AI trading engine needs to make a decision.
+// V7StackT2 marks signals produced by the transplanted Task-2 module
+// (V7SignalOutput.Stack). Native signals leave Stack empty.
+const V7StackT2 = "t2"
+
 type V7SignalOutput struct {
 	SignalID  string         `json:"signal_id,omitempty"`
+	Stack     string         `json:"stack,omitempty"` // "" = native, V7StackT2 = Task-2 module
 	Symbol    string         `json:"symbol"`
 	Direction V7Direction    `json:"direction"`
 	SetupType V7SetupType    `json:"setup_type"`

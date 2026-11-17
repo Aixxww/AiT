@@ -23,26 +23,26 @@ func TestValidateDecisionRRUsesRealPrice(t *testing.T) {
 	// Real RR at market 100: risk 2% (SL 98), reward 4% (TP 104) -> RR=2.0 < 3.0 -> reject.
 	// (Legacy formula would compute exactly 4.0 and pass.)
 	d := mk(98, 104)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, 0); err == nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0)); err == nil {
 		t.Errorf("expected rejection for real RR=2.0 (< 3.0), got pass (P0-2a regression)")
 	}
 
 	// Real RR: risk 2% (SL 98), reward 8% (TP 108) -> RR=4.0 >= 3.0 -> pass.
 	d = mk(98, 108)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, 0); err != nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0)); err != nil {
 		t.Errorf("expected pass for real RR=4.0, got %v", err)
 	}
 
 	// Trigger price takes precedence over market price.
 	d = mk(98, 104)
 	d.Trigger = &DecisionTrigger{TriggerPrice: 90} // entry 90: risk 8.9%, reward 15.6% -> RR 1.75
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, 0); err == nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0)); err == nil {
 		t.Errorf("expected rejection using trigger price as entry (RR~1.75), got pass")
 	}
 
 	// No price map: legacy fallback keeps old behavior (pass, RR fabricated 4.0).
 	d = mk(98, 104)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, 0); err != nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(0)); err != nil {
 		t.Errorf("legacy fallback without priceMap should pass as before, got %v", err)
 	}
 }
@@ -53,11 +53,11 @@ func TestValidateDecisionRRUsesConfiguredMinimum(t *testing.T) {
 		StopLoss: 98, TakeProfit: 104, Confidence: 80, Reasoning: "test"}
 	priceMap := map[string]float64{"BTCUSDT": 100.0}
 	// RR 2.0 passes a configured 1.5 floor (t2 default) ...
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, 1.5); err != nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(1.5)); err != nil {
 		t.Fatalf("RR 2.0 must pass configured min 1.5, got %v", err)
 	}
 	// ... and fails a configured 2.5 floor.
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, 2.5); err == nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(2.5)); err == nil {
 		t.Fatalf("RR 2.0 must fail configured min 2.5")
 	}
 }

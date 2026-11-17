@@ -1592,6 +1592,7 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 		Symbol:         sig.Symbol,
 		Direction:      V7Direction(sig.Direction),
 		SetupType:      V7SetupType(sig.SetupType),
+		Stack:          V7StackT2,
 		SetupScore:     sig.Score,
 		AIPriority:     sig.Score,
 		ReasonCodes:    append([]string(nil), sig.Reasons...),

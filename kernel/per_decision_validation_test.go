@@ -16,7 +16,7 @@ const f06Response = "<reasoning>r</reasoning><decision>```json\n[" +
 
 func TestF06InvalidDecisionDemotedBatchKept(t *testing.T) {
 	priceMap := map[string]float64{"BBBUSDT": 100, "CCCUSDT": 100}
-	fd, err := parseFullDecisionResponse(f06Response, 10000, 20, 10, 10, 1.5, nil, false, priceMap, 1.5)
+	fd, err := parseFullDecisionResponse(f06Response, 10000, 20, 10, 10, 1.5, nil, false, priceMap, FixedDecisionRRFloor(1.5))
 	if err != nil {
 		t.Fatalf("validation failure must not be returned as an error, got %v", err)
 	}
@@ -41,7 +41,7 @@ func TestF06HunterV7BadWaitCodeDemotedNotFatal(t *testing.T) {
 		`{"symbol":"AAAUSDT","action":"wait","blocked_reason_code":"taker_weak","reasoning":"echo"},` +
 		`{"symbol":"BBBUSDT","action":"wait","blocked_reason_code":"rr_insufficient","reasoning":"ok"}` +
 		"]\n```</decision>"
-	fd, err := parseFullDecisionResponse(resp, 10000, 20, 10, 10, 1.5, nil, true, nil, 1.5)
+	fd, err := parseFullDecisionResponse(resp, 10000, 20, 10, 10, 1.5, nil, true, nil, FixedDecisionRRFloor(1.5))
 	if err != nil {
 		t.Fatalf("bad wait code must not be fatal, got %v", err)
 	}
@@ -57,7 +57,7 @@ func TestF06HunterV7BadWaitCodeDemotedNotFatal(t *testing.T) {
 func TestF06NoJSONKeepsExistingSafeWait(t *testing.T) {
 	// Pre-existing behaviour (unchanged by F06): a response without a JSON
 	// array becomes one ALL/wait fallback and is not a validator rejection.
-	fd, err := parseFullDecisionResponse("no json here", 10000, 20, 10, 10, 1.5, nil, true, nil, 1.5)
+	fd, err := parseFullDecisionResponse("no json here", 10000, 20, 10, 10, 1.5, nil, true, nil, FixedDecisionRRFloor(1.5))
 	if err != nil || len(fd.Decisions) != 1 {
 		t.Fatalf("expected single safe-wait fallback, got %v / %+v", err, fd)
 	}
