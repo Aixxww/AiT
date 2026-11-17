@@ -439,6 +439,16 @@ type RiskControlConfig struct {
 	MinStopLossPriceMovePct float64 `json:"min_stop_loss_price_move_pct,omitempty"`
 	// Per-setup execution guard thresholds (optional override, keyed by setup_type)
 	SetupGuard map[string]SetupGuardConfig `json:"setup_guard,omitempty"`
+	// GeometryRepair selects what the Hunter v7 open path does with LLM
+	// geometry that misses a backend constraint (CODE ENFORCED):
+	//   "" or "repair" — historical behaviour: refresh the decision price,
+	//                    normalise the stop distance and move TP to meet RR;
+	//   "reject"       — never rewrite price, stop or RR; a missing `price`,
+	//                    drift beyond max_entry_price_deviation_pct, a stop
+	//                    closer than min_stop_loss_price_move_pct or RR below
+	//                    min_risk_reward_ratio rejects the open. The TP cap
+	//                    (max_take_profit_price_move_pct) still clamps.
+	GeometryRepair string `json:"geometry_repair,omitempty"`
 }
 
 // SetupGuardConfig defines execution guard thresholds for a specific Hunter v7 setup type.
