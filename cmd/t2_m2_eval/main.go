@@ -189,6 +189,13 @@ type rejectCounts struct {
 
 type eventRecord struct {
 	Index     int     `json:"index"`
+	Class     string  `json:"class"`
+	Fold      string  `json:"fold"`
+	Detail    string  `json:"reject_detail,omitempty"`
+	Fallback  bool    `json:"tp1_fallback,omitempty"`
+	NearDist  float64 `json:"nearest_candidate_dist_pct,omitempty"`
+	RRMeas    float64 `json:"rr_meas_tp1,omitempty"`
+	NetR      float64 `json:"fee_net_r,omitempty"`
 	EventID   string  `json:"event_id"`
 	Symbol    string  `json:"symbol"`
 	Direction string  `json:"direction"`
@@ -212,6 +219,14 @@ type report struct {
 	LookbackMissing  int                    `json:"lookback_missing"`
 	MinClosed15m     int                    `json:"min_closed_15m_bars"`
 	MinClosed1h      int                    `json:"min_closed_1h_bars"`
+	MinClosed4h      int                    `json:"min_closed_4h_bars"`
+	SpecVersion      string                 `json:"spec_version"`
+	RejectDetails    map[string]int         `json:"structure_reject_details"`
+	ByClass          map[string]*group      `json:"by_class"`
+	ByFold           map[string]*group      `json:"by_fold"`
+	TP1Fallback      armAgg                 `json:"structure_tp1_fallback_subset"`
+	NearestDist      map[string]distStats   `json:"nearest_candidate_dist_pct"`
+	FeeNetR          map[string]float64     `json:"structure_fee_net_r"`
 	Rejects          rejectCounts           `json:"structure_rejects"`
 	ControlDegenStop int                    `json:"control_degenerate_stop_at_e"`
 	ControlDegenTP1  int                    `json:"control_degenerate_tp1_at_e"`
@@ -221,6 +236,25 @@ type report struct {
 	ByFamily         map[string]*group      `json:"by_family"`
 	Records          []eventRecord          `json:"records"`
 	Gates            map[string]interface{} `json:"gates"`
+}
+
+// distStats summarises a distance distribution (percent).
+type distStats struct {
+	N   int     `json:"n"`
+	P10 float64 `json:"p10"`
+	P25 float64 `json:"p25"`
+	P50 float64 `json:"p50"`
+	P75 float64 `json:"p75"`
+	P90 float64 `json:"p90"`
+}
+
+func summarise(v []float64) distStats {
+	if len(v) == 0 {
+		return distStats{}
+	}
+	sort.Float64s(v)
+	q := func(p float64) float64 { return v[int(math.Round(p*float64(len(v)-1)))] }
+	return distStats{N: len(v), P10: q(0.10), P25: q(0.25), P50: q(0.50), P75: q(0.75), P90: q(0.90)}
 }
 
 func familyOf(setup string) string {
@@ -254,18 +288,37 @@ func grp(m map[string]*group, key string) *group {
 func main() {
 	dataDir := flag.String("data", "/home/hatch/workspace/ait-t2-data/entry_study", "entry-study directory")
 	lbDir := flag.String("lookback", "/home/hatch/workspace/ait-t2-data/lookback", "lookback directory")
-	outPath := flag.String("out", "/home/hatch/workspace/goals/goal-4/hidden_files/kiro-pkg-20261117/m2_eval_results.json", "JSON output path")
+	outPath := flag.String("out", "/home/hatch/workspace/goals/goal-4/hidden_files/kiro-pkg-20261117/m2v2_eval_results.json", "JSON output path")
 	flag.Parse()
 
 	events, err := replay.LoadEvents(*dataDir)
 	if err != nil {
 		fatal("load events: %v", err)
 	}
-	cfg := local.V7FASTStructureConfig()
+	// Spec v2 folds: events in trigger-time order, split into three
+	// equal-count tertiles F1/F2/F3 (report only).
+	order := make([]int, len(events))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return events[order[a]].TrigMs < events[order[b]].TrigMs })
+	foldOf := make([]string, len(events))
+	for rank, i := range order {
+		foldOf[i] = "F" + fmt.Sprint(1+rank*3/len(events))
+	}
+	nearDist := map[string][]float64{}
+	g4Breaches := 0
+	netR := map[string]float64{"sum": 0, "tp1_first": 0, "stopped": 0, "unresolved": 0}
 	rep := &report{
-		Events:      len(events),
-		MinClosed15m: 1 << 30,
-		MinClosed1h:  1 << 30,
+		Events:        len(events),
+		SpecVersion:   "geometry-v2",
+		RejectDetails: map[string]int{},
+		ByClass:       map[string]*group{},
+		ByFold:        map[string]*group{},
+		NearestDist:   map[string]distStats{},
+		MinClosed15m:  1 << 30,
+		MinClosed1h:   1 << 30,
+		MinClosed4h:   1 << 30,
 		ByDirection: map[string]*group{},
 		BySetup:     map[string]*group{},
 		ByFamily:    map[string]*group{},
@@ -284,7 +337,9 @@ func main() {
 				break
 			}
 		}
-		groups := []*group{&rep.Overall, grp(rep.ByDirection, ev.Direction), grp(rep.BySetup, ev.Setup), grp(rep.ByFamily, familyOf(ev.Setup))}
+		cfg := local.V7StructureConfigForSetup(ev.Setup)
+		groups := []*group{&rep.Overall, grp(rep.ByDirection, ev.Direction), grp(rep.BySetup, ev.Setup), grp(rep.ByFamily, familyOf(ev.Setup)),
+			grp(rep.ByClass, cfg.Class), grp(rep.ByFold, foldOf[i])}
 		for _, g := range groups {
 			g.Structure.N++
 			g.Control.N++
@@ -297,20 +352,40 @@ func main() {
 		decisionMs := placeMin + minuteMs
 		long := ev.Direction == "LONG"
 
-		sBars, errS := loadLookback(*lbDir, ev.Symbol, "15m")
-		hBars, errH := loadLookback(*lbDir, ev.Symbol, "1h")
+		tfS, tfH := "15m", "1h"
+		if cfg.Class == "SWING" {
+			tfS, tfH = "1h", "4h"
+		}
+		sBars, errS := loadLookback(*lbDir, ev.Symbol, tfS)
+		hBars, errH := loadLookback(*lbDir, ev.Symbol, tfH)
 		if errS != nil || errH != nil {
 			rep.LookbackMissing++
 			continue
 		}
-		if n := closedCount(sBars, 15*minuteMs, decisionMs); n < rep.MinClosed15m {
-			rep.MinClosed15m = n
-		}
-		if n := closedCount(hBars, 60*minuteMs, decisionMs); n < rep.MinClosed1h {
-			rep.MinClosed1h = n
+		for _, sb := range []struct {
+			tf   string
+			bars []local.V7StructureBar
+			ms   int64
+		}{{tfS, sBars, cfg.TFSIntervalMs}, {tfH, hBars, cfg.TFHIntervalMs}} {
+			n := closedCount(sb.bars, sb.ms, decisionMs)
+			switch sb.tf {
+			case "15m":
+				if n < rep.MinClosed15m {
+					rep.MinClosed15m = n
+				}
+			case "1h":
+				if n < rep.MinClosed1h {
+					rep.MinClosed1h = n
+				}
+			case "4h":
+				if n < rep.MinClosed4h {
+					rep.MinClosed4h = n
+				}
+			}
 		}
 
-		rec := eventRecord{Index: i, EventID: ev.EventID, Symbol: ev.Symbol, Direction: ev.Direction, Setup: ev.Setup, E: E}
+		rec := eventRecord{Index: i, EventID: ev.EventID, Symbol: ev.Symbol, Direction: ev.Direction, Setup: ev.Setup, E: E,
+			Class: cfg.Class, Fold: foldOf[i]}
 
 		// Structure arm. Family is recorded faithfully, but with no
 		// invalidation timestamp in the cache the builder applies
@@ -328,9 +403,15 @@ func main() {
 			DecisionTimeMs: decisionMs, Family: fam,
 			BarsTFS: sBars, BarsTFH: hBars, Config: cfg,
 		})
+		rec.Detail, rec.Fallback, rec.NearDist, rec.RRMeas = plan.RejectDetail, plan.TP1Fallback, plan.NearestCandidateDistPct, plan.RRMeasTP1
+		if plan.NearestCandidateDistPct > 0 {
+			nearDist["all"] = append(nearDist["all"], plan.NearestCandidateDistPct)
+			nearDist[cfg.Class] = append(nearDist[cfg.Class], plan.NearestCandidateDistPct)
+		}
 		if !plan.Feasible || plan.ChosenStop == nil {
 			rec.Feasible = false
 			rec.Reason = plan.Reason
+			rep.RejectDetails[plan.RejectDetail]++
 			switch plan.Reason {
 			case "rr_insufficient":
 				rep.Rejects.RRInsufficient++
@@ -351,6 +432,32 @@ func main() {
 			for _, g := range groups {
 				g.Structure.add(r)
 			}
+			if plan.TP1Fallback {
+				rep.TP1Fallback.N++
+				rep.TP1Fallback.add(r)
+			}
+			// G4: the admitted stop must lie beyond S_struct.
+			sd := 1.0
+			if !long {
+				sd = -1.0
+			}
+			if plan.SStruct <= 0 || sd*(plan.SStruct-plan.ChosenStop.Price) <= 0 {
+				g4Breaches++
+			}
+			// Fee-net R if fully exited at the first of {TP1, stop}; the
+			// risk unit includes the fee, so a stop is -1 and TP1 is
+			// RR_meas. Unresolved events contribute 0 and are counted.
+			switch r.First {
+			case "tp1":
+				rec.NetR = plan.RRMeasTP1
+				netR["tp1_first"]++
+			case "stop":
+				rec.NetR = -1
+				netR["stopped"]++
+			default:
+				netR["unresolved"]++
+			}
+			netR["sum"] += rec.NetR
 		}
 
 		// Control arm (legacy geometry, market at E, all admitted).
@@ -377,8 +484,38 @@ func main() {
 		rep.Records = append(rep.Records, rec)
 	}
 
+	for k, v := range nearDist {
+		rep.NearestDist[k] = summarise(v)
+	}
+	rep.FeeNetR = netR
+	if a := rep.Overall.Structure.Admitted; a > 0 {
+		rep.FeeNetR["mean_per_admitted"] = netR["sum"] / float64(a)
+	}
+
 	s := rep.Overall.Structure
+	// Spec v2 pre-registered gates. G3 (admitted >= 170) decides whether
+	// G1/G2 are judged at all; below it the verdict is UNRESOLVED.
+	g1 := s.pTP1First() > 0.40
+	g2 := s.stopThenRate() < 0.35
+	g3 := s.Admitted >= 170
+	g4 := g4Breaches == 0
+	verdict := "UNRESOLVED"
+	switch {
+	case !g4:
+		verdict = "FAIL"
+	case g3 && g1 && g2:
+		verdict = "PASS"
+	case g3:
+		verdict = "FAIL"
+	}
 	rep.Gates = map[string]interface{}{
+		"spec":                       "geometry-v2",
+		"g1_p_tp1_first_gt_0.40":     g1,
+		"g2_stop_then_lt_0.35":       g2,
+		"g3_admitted_ge_170":         g3,
+		"g4_stops_beyond_s_struct":   g4,
+		"g4_breaches":                g4Breaches,
+		"verdict":                    verdict,
 		"p_tp1_first_structure":      s.pTP1First(),
 		"gate_p_tp1_first_gt_0.40":   s.pTP1First() > 0.40,
 		"stop_then_tp1_structure":    s.stopThenRate(),
@@ -389,6 +526,12 @@ func main() {
 		"historical_note":            "limit-fill walk caliber; not directly comparable to either arm here",
 	}
 
+	// Rates are NaN when their denominator is 0; JSON cannot encode NaN.
+	for k, v := range rep.Gates {
+		if f, ok := v.(float64); ok && math.IsNaN(f) {
+			rep.Gates[k] = nil
+		}
+	}
 	raw, err := json.MarshalIndent(rep, "", "  ")
 	if err != nil {
 		fatal("marshal: %v", err)
@@ -431,8 +574,8 @@ func printArm(name string, a armAgg) {
 }
 
 func printSummary(rep *report) {
-	fmt.Printf("events=%d anchor_missing=%d lookback_missing=%d min_closed_15m=%d min_closed_1h=%d\n",
-		rep.Events, rep.AnchorMissing, rep.LookbackMissing, rep.MinClosed15m, rep.MinClosed1h)
+	fmt.Printf("spec=%s events=%d anchor_missing=%d lookback_missing=%d min_closed_15m=%d min_closed_1h=%d min_closed_4h=%d\n",
+		rep.SpecVersion, rep.Events, rep.AnchorMissing, rep.LookbackMissing, rep.MinClosed15m, rep.MinClosed1h, rep.MinClosed4h)
 	fmt.Printf("structure rejects: rr_insufficient=%d backend_guard_risk=%d other=%d\n",
 		rep.Rejects.RRInsufficient, rep.Rejects.BackendGuardRisk, rep.Rejects.Other)
 	fmt.Printf("control degenerate at E: stop=%d tp1=%d\n\n", rep.ControlDegenStop, rep.ControlDegenTP1)
@@ -472,8 +615,33 @@ func printSummary(rep *report) {
 		printArm("control", g.Control)
 	}
 	s := rep.Overall.Structure
-	fmt.Printf("\nGATES: P(TP1 first)=%s (need >40%%) -> %v ; stop->TP1=%s (need <35%%) -> %v\n",
-		pct(s.pTP1First()), s.pTP1First() > 0.40, pct(s.stopThenRate()), s.stopThenRate() < 0.35)
+	for _, title := range []string{"class", "fold"} {
+		m := rep.ByClass
+		if title == "fold" {
+			m = rep.ByFold
+		}
+		fmt.Printf("\n== by %s ==\n", title)
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Printf("[%s]\n", k)
+			printArm("structure", m[k].Structure)
+			printArm("control", m[k].Control)
+		}
+	}
+	fmt.Println("\n== structure reject details ==")
+	for k, v := range rep.RejectDetails {
+		fmt.Printf("  %-32s %d\n", k, v)
+	}
+	printArm("tp1_fallback", rep.TP1Fallback)
+	fmt.Printf("nearest candidate dist (all): %+v\n", rep.NearestDist["all"])
+	fmt.Printf("fee-net R: %+v\n", rep.FeeNetR)
+	fmt.Printf("\nGATES (spec v2): G1 P(TP1 first)=%s (>40%%) %v | G2 stop->TP1=%s (<35%%) %v | G3 admitted=%d (>=170) %v | G4 breaches=%v | verdict=%v\n",
+		pct(s.pTP1First()), rep.Gates["g1_p_tp1_first_gt_0.40"], pct(s.stopThenRate()), rep.Gates["g2_stop_then_lt_0.35"],
+		s.Admitted, rep.Gates["g3_admitted_ge_170"], rep.Gates["g4_breaches"], rep.Gates["verdict"])
 }
 
 func fatal(format string, args ...interface{}) {
