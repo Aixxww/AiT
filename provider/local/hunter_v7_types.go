@@ -247,6 +247,7 @@ type V7SymbolContext struct {
 	GeometryMode     string           `json:"-"`
 	StructureBars15m []V7StructureBar `json:"-"`
 	StructureBars1h  []V7StructureBar `json:"-"`
+	StructureBars4h  []V7StructureBar `json:"-"` // SWING class TF_h (spec v2)
 
 	// 5m micro-structure data (v8 timing booster)
 	RSI5m         float64 // 5m RSI for timing booster

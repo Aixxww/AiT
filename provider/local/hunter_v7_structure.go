@@ -100,6 +100,55 @@ func V7FASTStructureConfig() V7StructureConfig {
 	}
 }
 
+// V7SWINGStructureConfig returns the spec v2 V2-1 SWING class constants:
+// TF_s 1h, TF_h 4h, cap 10%, pivot k 2/2, lookback 168 x 1h and 90 x 4h,
+// noise horizon 2h (2 x 1h) over a 7d window of 1h closes. Every other
+// constant equals FAST.
+func V7SWINGStructureConfig() V7StructureConfig {
+	c := V7FASTStructureConfig()
+	c.Class = "SWING"
+	c.TFSIntervalMs = 60 * 60 * 1000
+	c.TFHIntervalMs = 4 * 60 * 60 * 1000
+	c.PivotKTFS = 2
+	c.PivotKTFH = 2
+	c.LookbackTFS = 168
+	c.LookbackTFH = 90
+	c.NoiseHorizonBars = 2
+	c.NoiseWindowBars = 7 * 24
+	c.TPCapPct = 0.10
+	return c
+}
+
+// v7SwingSetupPrefixes lists the setup families plan §3.1 / spec v2 V2-1
+// assign to the SWING class; every other setup is FAST.
+var v7SwingSetupPrefixes = []string{
+	// task-2 ambush families
+	"bb_oi_", "compression_", "confirmed_", "reclaim_", "trend_",
+	// native hunter_v7 families (plan §3.1)
+	"accumulation_breakout", "trend_breakout", "short_squeeze", "long_squeeze",
+	"volatility_squeeze", "pullback_reversal", "panic_reversal", "range_",
+	"funding_reversal", "distribution",
+}
+
+// V7StructureClassForSetup returns "SWING" or "FAST" for a setup type.
+func V7StructureClassForSetup(setup string) string {
+	s := strings.ToLower(setup)
+	for _, p := range v7SwingSetupPrefixes {
+		if strings.HasPrefix(s, p) {
+			return "SWING"
+		}
+	}
+	return "FAST"
+}
+
+// V7StructureConfigForSetup returns the class configuration for a setup.
+func V7StructureConfigForSetup(setup string) V7StructureConfig {
+	if V7StructureClassForSetup(setup) == "SWING" {
+		return V7SWINGStructureConfig()
+	}
+	return V7FASTStructureConfig()
+}
+
 func (c V7StructureConfig) withDefaults() V7StructureConfig {
 	def := V7FASTStructureConfig()
 	if c.Class == "" {
@@ -196,8 +245,8 @@ type V7TargetCandidate struct {
 	ID       string  `json:"id"` // "T1", "T2", ... by ascending distance
 	Price    float64 `json:"price"`
 	RawLevel float64 `json:"raw_level"` // structural level before front-run
-	SourceTF string  `json:"source_tf"` // "15m" | "1h"
-	Method   string  `json:"method"`    // pivot_tfs | wall_tfh | extreme_24h | extreme_7d
+	SourceTF string  `json:"source_tf"` // TF label of the source bars, e.g. "15m", "1h", "4h"
+	Method   string  `json:"method"`    // pivot_tfs | wall_tfh | extreme_tfs | extreme_tfh
 	Touches  int     `json:"touches"`
 	Role     string  `json:"role"` // "TP0" | "TP1" | "TP2" | ""
 }
@@ -228,6 +277,18 @@ type V7StructurePlan struct {
 
 	ChosenStop *V7StopCandidate `json:"chosen_stop,omitempty"`
 	RRMeasTP1  float64          `json:"rr_meas_tp1,omitempty"`
+
+	// Spec v2 report fields (never gates).
+	Class       string `json:"class"`
+	TP1Fallback bool   `json:"tp1_fallback,omitempty"` // TP1 is a 1-touch TF_s pivot
+	// RejectDetail refines Reason: no_candidate_in_direction,
+	// nearest_candidate_beyond_cap, no_tp1_eligible_within_cap,
+	// no_structural_anchor, no_stop_in_band, s_a_fails_rr.
+	RejectDetail string `json:"reject_detail,omitempty"`
+	// NearestCandidateDistPct is the distance E -> nearest adjusted target
+	// candidate in the trade direction, in percent, before the cap
+	// (0 when there is none). Input for any future cap revision.
+	NearestCandidateDistPct float64 `json:"nearest_candidate_dist_pct,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +495,7 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 	plan := &V7StructurePlan{
 		EntryPrice: in.EntryPrice,
 		Direction:  string(in.Direction),
+		Class:      cfg.Class,
 	}
 	E := in.EntryPrice
 	if E <= 0 {
@@ -445,6 +507,7 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 		dir = -1.0
 	}
 	isLong := dir > 0
+	tfsLabel, tfhLabel := v7TFLabel(cfg.TFSIntervalMs), v7TFLabel(cfg.TFHIntervalMs)
 
 	sAll := v7ClosedBars(in.BarsTFS, cfg.TFSIntervalMs, in.DecisionTimeMs)
 	hAll := v7ClosedBars(in.BarsTFH, cfg.TFHIntervalMs, in.DecisionTimeMs)
@@ -503,15 +566,16 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 	var raws []rawCand
 	for _, p := range tPivots {
 		if dir*(p.Price-E) > 0 {
-			raws = append(raws, rawCand{p.Price, "15m", "pivot_tfs", p.Touches, atrS})
+			raws = append(raws, rawCand{p.Price, tfsLabel, "pivot_tfs", p.Touches, atrS})
 		}
 	}
 	for _, w := range walls {
 		if w.Touches >= 2 && dir*(w.Level-E) > 0 {
-			raws = append(raws, rawCand{w.Level, "1h", "wall_tfh", w.Touches, atrH})
+			raws = append(raws, rawCand{w.Level, tfhLabel, "wall_tfh", w.Touches, atrH})
 		}
 	}
-	// Trailing extremes: 24h from TF_s bars, 7d from TF_h bars.
+	// Trailing extremes over the TF_s and TF_h lookbacks (FAST: 24h / 7d;
+	// SWING: 7d / 15d).
 	if len(sBars) > 0 {
 		ext := sBars[0].High
 		if !isLong {
@@ -526,7 +590,7 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 			}
 		}
 		if dir*(ext-E) > 0 {
-			raws = append(raws, rawCand{ext, "15m", "extreme_24h", 1, atrS})
+			raws = append(raws, rawCand{ext, tfsLabel, "extreme_tfs", 1, atrS})
 		}
 	}
 	if len(hBars) > 0 {
@@ -543,7 +607,7 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 			}
 		}
 		if dir*(ext-E) > 0 {
-			raws = append(raws, rawCand{ext, "1h", "extreme_7d", 1, atrH})
+			raws = append(raws, rawCand{ext, tfhLabel, "extreme_tfh", 1, atrH})
 		}
 	}
 	// Front-run adjustment and the cost+0.25% drop rule.
@@ -557,9 +621,9 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 			return 0
 		case c.method == "pivot_tfs" && c.touches >= 2:
 			return 1
-		case c.method == "extreme_7d":
+		case c.method == "extreme_tfh":
 			return 2
-		case c.method == "extreme_24h":
+		case c.method == "extreme_tfs":
 			return 3
 		default:
 			return 4
@@ -602,55 +666,63 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 			Touches:  c.touches,
 		}
 	}
-	// Roles: TP0 = nearest; TP1 = first wall or TF_s pivot with >= 2
-	// touches; TP2 = first TF_h-sourced candidate above TP1.
-	idxTP0, idxTP1, idxTP2 := -1, -1, -1
+	// Spec v2 V2-2. Only candidates whose adjusted price lies within the
+	// class cap are eligible for any role or for the menu; a target beyond
+	// the cap is never clamped (a clamped target is the cap, an arithmetic
+	// level). Extremes may be TP0 or TP2, never TP1.
 	if len(targets) > 0 {
+		plan.NearestCandidateDistPct = dir * (targets[0].Price - E) / E * 100
+	}
+	capPrice := E * (1 + dir*cfg.TPCapPct)
+	var eligible []V7TargetCandidate
+	for _, t := range targets {
+		if dir*(t.Price-capPrice) <= 0 {
+			eligible = append(eligible, t)
+		}
+	}
+	isTFH := func(t V7TargetCandidate) bool { return t.Method == "wall_tfh" || t.Method == "extreme_tfh" }
+	idxTP0, idxTP1, idxTP2 := -1, -1, -1
+	if len(eligible) > 0 {
 		idxTP0 = 0
 	}
-	for i, t := range targets {
+	for i, t := range eligible {
 		if t.Method == "wall_tfh" || (t.Method == "pivot_tfs" && t.Touches >= 2) {
 			idxTP1 = i
 			break
 		}
 	}
+	if idxTP1 < 0 {
+		for i, t := range eligible {
+			if t.Method == "pivot_tfs" {
+				idxTP1 = i
+				plan.TP1Fallback = true
+				break
+			}
+		}
+	}
 	if idxTP1 >= 0 {
-		for i := idxTP1 + 1; i < len(targets); i++ {
-			if targets[i].SourceTF == "1h" {
+		for i := idxTP1 + 1; i < len(eligible); i++ {
+			if isTFH(eligible[i]) {
 				idxTP2 = i
 				break
 			}
 		}
 	}
-	capPrice := E * (1 + dir*cfg.TPCapPct)
-	eff := func(adj float64) float64 {
-		if isLong {
-			return math.Min(adj, capPrice)
-		}
-		return math.Max(adj, capPrice)
-	}
-	tfhWithinCap := false
-	for _, t := range targets {
-		if t.SourceTF == "1h" && dir*(t.Price-capPrice) <= 0 {
-			tfhWithinCap = true
-			break
-		}
-	}
 	if idxTP0 >= 0 {
-		targets[idxTP0].Role = "TP0"
-		plan.TP0 = eff(targets[idxTP0].Price)
+		eligible[idxTP0].Role = "TP0"
+		plan.TP0 = eligible[idxTP0].Price
 	}
 	if idxTP1 >= 0 {
-		targets[idxTP1].Role = "TP1"
-		plan.TP1 = eff(targets[idxTP1].Price)
+		eligible[idxTP1].Role = "TP1"
+		plan.TP1 = eligible[idxTP1].Price
 	}
 	if idxTP2 >= 0 {
-		targets[idxTP2].Role = "TP2"
-		plan.TP2 = eff(targets[idxTP2].Price)
+		eligible[idxTP2].Role = "TP2"
+		plan.TP2 = eligible[idxTP2].Price
 	}
-	// Target menu: at most 4 entries, role holders always included.
+	// Target menu: at most 4 eligible entries, role holders always included.
 	menuIdx := map[int]bool{}
-	for i := 0; i < len(targets) && i < 4; i++ {
+	for i := 0; i < len(eligible) && i < 4; i++ {
 		menuIdx[i] = true
 	}
 	for _, ix := range []int{idxTP0, idxTP1, idxTP2} {
@@ -659,7 +731,6 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 		}
 	}
 	for len(menuIdx) > 4 {
-		// Drop the farthest non-role entry.
 		best := -1
 		for ix := range menuIdx {
 			if ix != idxTP0 && ix != idxTP1 && ix != idxTP2 && ix > best {
@@ -672,7 +743,7 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 		delete(menuIdx, best)
 	}
 	var menu []V7TargetCandidate
-	for i, t := range targets {
+	for i, t := range eligible {
 		if menuIdx[i] {
 			menu = append(menu, t)
 		}
@@ -722,18 +793,29 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 	}
 	plan.SStruct = sStruct
 
+	// Spec v2 V2-3: every listed stop lies beyond S_struct.
 	buffer := plan.Buffer
 	inBand := func(d float64) bool { return d >= dMin && d <= dMax }
 	var stops []V7StopCandidate
-	if sStruct > 0 {
-		sA := sStruct - dir*buffer
-		if dA := dir * (E - sA) / E; inBand(dA) {
-			stops = append(stops, V7StopCandidate{
-				ID: "S_A", Price: sA, DistPct: dA * 100,
-				Anchor: "structural anchor " + ftoa(sStruct) + " minus 0.30*ATR14(TF_s)",
-			})
+	sAIdx := -1
+	if sStruct > 0 && dir*(E-sStruct) > 0 {
+		priceA := sStruct - dir*buffer
+		dA := dir * (E - priceA) / E
+		idA, anchorA := "S_A", "structural anchor "+ftoa(sStruct)+" minus buffer"
+		dFinal := dA
+		if dA < dMin {
+			// Pushed outward to the noise floor, never inward. dFinal is
+			// set to d_min exactly so float rounding of the recomputed
+			// distance cannot drop the floored stop out of the band.
+			priceA, idA, dFinal = E*(1-dir*dMin), "S_A_floor", dMin
+			anchorA = "structural anchor " + ftoa(sStruct) + " pushed out to d_min"
 		}
-		// S_B: next adverse pivot beyond S_struct, minus buffer.
+		if inBand(dFinal) {
+			c := V7StopCandidate{ID: idA, Price: priceA, DistPct: dFinal * 100, Anchor: anchorA}
+			stops = append(stops, c)
+			sAIdx = len(stops) - 1
+		}
+		// S_B: next TF_s pivot beyond S_struct, minus buffer (menu only).
 		var next float64
 		for _, p := range aPivots {
 			if dir*(sStruct-p.Price) > 0 && (next == 0 || dir*(p.Price-next) > 0) {
@@ -741,44 +823,74 @@ func BuildV7StructurePlan(in V7StructureInput) *V7StructurePlan {
 			}
 		}
 		if next > 0 {
-			sB := next - dir*buffer
-			if dB := dir * (E - sB) / E; inBand(dB) {
+			priceB := next - dir*buffer
+			if dB := dir * (E - priceB) / E; inBand(dB) {
 				stops = append(stops, V7StopCandidate{
-					ID: "S_B", Price: sB, DistPct: dB * 100,
-					Anchor: "next TF_s pivot beyond anchor " + ftoa(next) + " minus 0.30*ATR14(TF_s)",
+					ID: "S_B", Price: priceB, DistPct: dB * 100,
+					Anchor: "next TF_s pivot beyond anchor " + ftoa(next) + " minus buffer",
 				})
 			}
 		}
-	}
-	// S_C: fixed distance max(d_min, N_H + 0.10%).
-	dC := math.Max(dMin, nh+cfg.SCSlackPct)
-	if dC <= dMax {
-		stops = append(stops, V7StopCandidate{
-			ID: "S_C", Price: E * (1 - dir*dC), DistPct: dC * 100,
-			Anchor: "noise floor: max(d_min, N_H + 0.10%) from E",
-		})
+		// S_C = E*(1 - dir*(max(d_min, d_A) + slack)), listed only if it
+		// lies beyond S_struct and differs from S_A (menu only).
+		dC := math.Max(dMin, dA) + cfg.SCSlackPct
+		priceC := E * (1 - dir*dC)
+		if inBand(dC) && dir*(sStruct-priceC) > 0 && (sAIdx < 0 || priceC != stops[sAIdx].Price) {
+			stops = append(stops, V7StopCandidate{
+				ID: "S_C", Price: priceC, DistPct: dC * 100,
+				Anchor: "max(d_min, d_A) + slack from E",
+			})
+		}
 	}
 	plan.StopCandidates = stops
 
-	// ---- Admission (§3.5) ----------------------------------------------
-	if idxTP1 < 0 || !tfhWithinCap {
+	// ---- Admission (spec v2 V2-4) --------------------------------------
+	if idxTP1 < 0 {
 		plan.Reason = "rr_insufficient"
+		switch {
+		case len(targets) == 0:
+			plan.RejectDetail = "no_candidate_in_direction"
+		case len(eligible) == 0:
+			plan.RejectDetail = "nearest_candidate_beyond_cap"
+		default:
+			plan.RejectDetail = "no_tp1_eligible_within_cap"
+		}
+		return plan
+	}
+	if sAIdx < 0 {
+		plan.Reason = "backend_guard_risk"
+		if sStruct <= 0 || dir*(E-sStruct) <= 0 {
+			plan.RejectDetail = "no_structural_anchor"
+		} else {
+			plan.RejectDetail = "no_stop_in_band"
+		}
 		return plan
 	}
 	fee := E * cfg.CostPct
-	for i := range stops {
-		s := stops[i]
-		rr := (dir*(plan.TP1-E) - fee) / (dir*(E-s.Price) + fee)
-		if rr >= cfg.RRMin {
-			chosen := s
-			plan.ChosenStop = &chosen
-			plan.RRMeasTP1 = rr
-			plan.Feasible = true
-			return plan
-		}
+	sA := stops[sAIdx]
+	rr := (dir*(plan.TP1-E) - fee) / (dir*(E-sA.Price) + fee)
+	plan.RRMeasTP1 = rr
+	if rr < cfg.RRMin {
+		plan.Reason = "backend_guard_risk"
+		plan.RejectDetail = "s_a_fails_rr"
+		return plan
 	}
-	plan.Reason = "backend_guard_risk"
+	chosen := sA
+	plan.ChosenStop = &chosen
+	plan.Feasible = true
 	return plan
+}
+
+// v7TFLabel renders a bar interval as the exchange-style label.
+func v7TFLabel(ms int64) string {
+	switch {
+	case ms > 0 && ms%(24*3600*1000) == 0:
+		return v7Itoa(int(ms/(24*3600*1000))) + "d"
+	case ms > 0 && ms%(3600*1000) == 0:
+		return v7Itoa(int(ms/(3600*1000))) + "h"
+	default:
+		return v7Itoa(int(ms/60000)) + "m"
+	}
 }
 
 // V7StructureSize implements §3.6 sizing: a wider structural stop gives
@@ -891,20 +1003,25 @@ func applyV7StructurePlan(sig *V7SignalOutput, ctx *V7SymbolContext, entry float
 	if v7ResolveGeometryMode(ctx) != V7GeometryModeStructure {
 		return false
 	}
-	if len(ctx.StructureBars15m) == 0 || len(ctx.StructureBars1h) == 0 {
+	cfg := V7StructureConfigForSetup(string(sig.SetupType))
+	barsS, barsH := ctx.StructureBars15m, ctx.StructureBars1h
+	if cfg.Class == "SWING" {
+		barsS, barsH = ctx.StructureBars1h, ctx.StructureBars4h
+	}
+	if len(barsS) == 0 || len(barsH) == 0 {
 		return false
 	}
-	last := ctx.StructureBars15m[len(ctx.StructureBars15m)-1]
-	decisionMs := last.OpenTimeMs + V7FASTStructureConfig().TFSIntervalMs
+	last := barsS[len(barsS)-1]
+	decisionMs := last.OpenTimeMs + cfg.TFSIntervalMs
 	plan := BuildV7StructurePlan(V7StructureInput{
 		Direction:         sig.Direction,
 		EntryPrice:        entry,
 		DecisionTimeMs:    decisionMs,
-		BarsTFS:           ctx.StructureBars15m,
-		BarsTFH:           ctx.StructureBars1h,
+		BarsTFS:           barsS,
+		BarsTFH:           barsH,
 		Family:            v7StructureFamilyForSetup(sig.SetupType),
 		InvalidationPrice: sig.Invalidation.Price,
-		Config:            V7FASTStructureConfig(),
+		Config:            cfg,
 	})
 	if !plan.Feasible || plan.ChosenStop == nil {
 		sig.TPPlan = nil
