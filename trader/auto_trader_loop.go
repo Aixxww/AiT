@@ -337,6 +337,12 @@ func (at *AutoTrader) runCycle() error {
 			Success:           false,
 		}
 
+		if d.ValidatorRejection != "" {
+			// F06: kept visible in the decision record so validator
+			// rejections can be counted separately from AI failures.
+			actionRecord.Error = fmt.Sprintf("validator_rejected(%s): %s", d.RejectedAction, d.ValidatorRejection)
+			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⚠️ %s %s demoted to wait by validator: %s", d.Symbol, d.RejectedAction, d.ValidatorRejection))
+		}
 		if err := at.validateHunterV7ExecutionGuard(ctx, &d); err != nil {
 			at.logErrorf("❌ Hunter v7 execution guard blocked (%s %s): %v", d.Symbol, d.Action, err)
 			actionRecord.Error = err.Error()
