@@ -6,6 +6,7 @@ import (
 	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/provider/local"
 	"math"
 	"regexp"
@@ -1761,16 +1762,26 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: MMS squeeze-engine short ban active", decision.Symbol)
 	}
 
+	// F01 (candidate-set enforcement, design after Nofx
+	// trader/auto_trader_loop.go::filterDecisionsToStrategyUniverse, exact-match
+	// only): a Hunter v7 open must target a symbol/direction the funnel produced
+	// this cycle. Previously a missing candidate with an empty signal id passed.
 	candidate := hunterV7CandidateForDecision(ctx, decision)
 	if candidate == nil {
 		if strings.TrimSpace(decision.SelectedHunterV7SignalID) != "" {
 			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q does not match any current candidate (signal_contract_mismatch)",
 				decision.Symbol, decision.SelectedHunterV7SignalID)
 		}
-		return nil
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: symbol/direction is not in this cycle's candidate set (outside_candidate_set)",
+			decision.Symbol, decision.Action)
+	}
+	if !strings.EqualFold(market.Normalize(candidate.Symbol), market.Normalize(decision.Symbol)) {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q belongs to %s (signal_contract_mismatch)",
+			decision.Symbol, decision.SelectedHunterV7SignalID, candidate.Symbol)
 	}
 	if candidate.V7SetupType == "" {
-		return nil
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: candidate carries no Hunter v7 setup (outside_candidate_set)",
+			decision.Symbol, decision.Action)
 	}
 
 	// Stage A (pure eligibility): tier gate, tag action gate, signal contract.

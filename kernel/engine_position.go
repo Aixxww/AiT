@@ -12,22 +12,26 @@ import (
 // ============================================================================
 
 // HunterScoreInfo carries Hunter bidirectional scores for cross-validation.
+// legacyMinRiskRewardRatio is the pre-D1 literal, used only when
+// RiskControl.MinRiskRewardRatio is unset (<= 0).
+const legacyMinRiskRewardRatio = 3.0
+
 type HunterScoreInfo struct {
 	LongScore  float64
 	ShortScore float64
 	Direction  string
 }
 
-func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64) error {
+func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, minRR float64) error {
 	for i := range decisions {
-		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap); err != nil {
+		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, minRR); err != nil {
 			return fmt.Errorf("decision #%d validation failed: %w", i+1, err)
 		}
 	}
 	return nil
 }
 
-func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64) error {
+func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, minRR float64) error {
 	validActions := map[string]bool{
 		"open_long":   true,
 		"open_short":  true,
@@ -131,9 +135,17 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			}
 		}
 
-		if riskRewardRatio < 3.0 {
-			return fmt.Errorf("risk/reward ratio too low (%.2f:1), must be ≥3.0:1 [risk: %.2f%% reward: %.2f%%] [stop loss: %.2f take profit: %.2f]",
-				riskRewardRatio, riskPercent, rewardPercent, d.StopLoss, d.TakeProfit)
+		// F07/D1: the RR floor comes from strategy config
+		// (RiskControl.MinRiskRewardRatio). legacyMinRiskRewardRatio applies
+		// only when the strategy leaves the field unset, preserving the
+		// historical behaviour of configs that never set it.
+		requiredRR := minRR
+		if requiredRR <= 0 {
+			requiredRR = legacyMinRiskRewardRatio
+		}
+		if riskRewardRatio < requiredRR {
+			return fmt.Errorf("risk/reward ratio too low (%.2f:1), must be ≥%.2f:1 [risk: %.2f%% reward: %.2f%%] [stop loss: %.2f take profit: %.2f]",
+				riskRewardRatio, requiredRR, riskPercent, rewardPercent, d.StopLoss, d.TakeProfit)
 		}
 
 		// Confidence cross-validation with Hunter scores
