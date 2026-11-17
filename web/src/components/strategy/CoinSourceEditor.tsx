@@ -19,6 +19,28 @@ import { coinSource, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
 import { Button } from '../ui/Button'
 
+// Canonical setup_type list for the Task-2 transplant module checklist.
+// Source of truth: V7T2SetupTypes in provider/local/hunter_v7_t2_setups.go
+// (dispatcher evaluation order) — keep this mirror in sync with the Go registry.
+const V7_T2_SETUP_TYPES = [
+  'momentum_continuation_long',
+  'momentum_continuation_short',
+  'momentum_continuation_watch_long',
+  'momentum_continuation_watch_short',
+  'bb_oi_accumulation_long',
+  'bb_oi_accumulation_short',
+  'confirmed_breakout_long',
+  'confirmed_breakout_short',
+  'reclaim_breakout_long',
+  'reclaim_breakout_short',
+  'trend_pullback_long',
+  'trend_pullback_short',
+  'ignition_early_long',
+  'ignition_early_short',
+  'compression_oi_watch_long',
+  'compression_oi_watch_short',
+]
+
 interface CoinSourceEditorProps {
   config: CoinSourceConfig
   onChange: (config: CoinSourceConfig) => void
@@ -34,6 +56,23 @@ export function CoinSourceEditor({
 }: CoinSourceEditorProps) {
   const [newCoin, setNewCoin] = useState('')
   const [newExcludedCoin, setNewExcludedCoin] = useState('')
+
+  // Toggle one setup family in the Task-2 module checklist ([]string round-trip;
+  // empty list means all families enabled on the backend)
+  const toggleT2Setup = (setup: string) => {
+    if (disabled) return
+    const current = config.hunter_config?.v7_t2_setups || []
+    const next = current.includes(setup)
+      ? current.filter((s) => s !== setup)
+      : [...current, setup]
+    onChange({
+      ...config,
+      hunter_config: {
+        ...(config.hunter_config || {}),
+        v7_t2_setups: next,
+      },
+    })
+  }
 
   const sourceTypes = [
     { value: 'static', icon: List, color: 'var(--color-muted-fg)' },
@@ -1220,6 +1259,99 @@ export function CoinSourceEditor({
                 {ts(coinSource.v7ExcludeNonCryptoFuturesDesc, language)}
               </span>
             </label>
+
+            {/* Task-2 transplant module (hunter_v7_t2_setups) */}
+            <div className="pt-3 border-t border-accent/20 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={config.hunter_config?.v7_t2_enabled ?? false}
+                  onChange={(e) =>
+                    !disabled &&
+                    onChange({
+                      ...config,
+                      hunter_config: {
+                        ...(config.hunter_config || {}),
+                        v7_t2_enabled: e.target.checked,
+                      },
+                    })
+                  }
+                  disabled={disabled}
+                  className="w-5 h-5 rounded accent-accent"
+                />
+                <span className="text-sm text-foreground">
+                  {ts(coinSource.v7T2Enabled, language)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {ts(coinSource.v7T2EnabledDesc, language)}
+                </span>
+              </label>
+
+              {(config.hunter_config?.v7_t2_enabled ?? false) && (
+                <>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {ts(coinSource.v7T2Setups, language)}:
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {ts(coinSource.v7T2SetupsDesc, language)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {V7_T2_SETUP_TYPES.map((setup) => {
+                        const isSelected = (
+                          config.hunter_config?.v7_t2_setups || []
+                        ).includes(setup)
+                        return (
+                          <Button
+                            variant="unstyled"
+                            key={setup}
+                            onClick={() => toggleT2Setup(setup)}
+                            disabled={disabled}
+                            className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                              isSelected
+                                ? 'ring-1 ring-accent bg-accent/10 text-foreground'
+                                : 'opacity-50 hover:opacity-80 text-muted-foreground'
+                            } border border-primary/20`}
+                          >
+                            {setup}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={
+                        config.hunter_config?.v7_t2_symbol_validity_gate ??
+                        false
+                      }
+                      onChange={(e) =>
+                        !disabled &&
+                        onChange({
+                          ...config,
+                          hunter_config: {
+                            ...(config.hunter_config || {}),
+                            v7_t2_symbol_validity_gate: e.target.checked,
+                          },
+                        })
+                      }
+                      disabled={disabled}
+                      className="w-5 h-5 rounded accent-accent"
+                    />
+                    <span className="text-sm text-foreground">
+                      {ts(coinSource.v7T2SymbolValidityGate, language)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {ts(coinSource.v7T2SymbolValidityGateDesc, language)}
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
 
             <p className="text-xs text-muted-foreground">
               {ts(coinSource.hunter_v7Desc, language)}

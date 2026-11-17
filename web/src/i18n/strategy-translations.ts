@@ -173,6 +173,36 @@ export const coinSource = {
     en: 'On by default. Filters stock, commodity, ETF/RWA USDT perps; turn off to include them',
     es: 'Activado por defecto. Filtra perpetuos USDT de acciones, materias primas y ETF/RWA',
   },
+  v7T2Enabled: {
+    zh: '任务二形态模块',
+    en: 'Task-2 Setup Module',
+    es: 'Módulo de Setups Tarea-2',
+  },
+  v7T2EnabledDesc: {
+    zh: '移植自任务二扫描器的形态家族，默认关闭',
+    en: 'Setup families transplanted from the Task-2 scanner; off by default',
+    es: 'Familias de setup del escáner Tarea-2; desactivado por defecto',
+  },
+  v7T2Setups: {
+    zh: '形态家族',
+    en: 'Setup Families',
+    es: 'Familias de Setup',
+  },
+  v7T2SetupsDesc: {
+    zh: '不选 = 全部家族启用',
+    en: 'None selected = all families enabled',
+    es: 'Ninguno = todas las familias activas',
+  },
+  v7T2SymbolValidityGate: {
+    zh: '符号合法性过滤',
+    en: 'Symbol Validity Gate',
+    es: 'Filtro de Validez de Símbolo',
+  },
+  v7T2SymbolValidityGateDesc: {
+    zh: '拒绝不符合币安 USDT 永续命名规则的符号',
+    en: 'Reject symbols not matching the Binance USDT-perpetual pattern',
+    es: 'Rechaza símbolos que no coinciden con el patrón USDT perpetuo de Binance',
+  },
   mixedDesc: {
     zh: '组合多种数据源',
     en: 'Combine multiple sources',

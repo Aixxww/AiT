@@ -172,6 +172,10 @@ export interface HunterConfig {
   v7_min_ai_priority?: number
   v7_aggressive?: boolean
   include_non_crypto_futures?: boolean
+  // Task-2 scanner transplant module fields (hunter_v7_t2_setups)
+  v7_t2_enabled?: boolean
+  v7_t2_setups?: string[]
+  v7_t2_symbol_validity_gate?: boolean
 }
 
 export interface IndicatorConfig {
