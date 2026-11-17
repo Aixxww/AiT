@@ -324,6 +324,10 @@ type HunterConfig struct {
 	// when CoinSource.SourceType == "hunter_v7". Default off: the module
 	// must be enabled explicitly and never changes default routing.
 	V7T2Enabled bool `json:"v7_t2_enabled,omitempty"`
+	// V7SignalClasses overrides entries of the signal-class registry
+	// (U6a; defaults: DefaultV7SignalClassRegistry). Read it through
+	// EffectiveV7SignalClasses.
+	V7SignalClasses map[string]V7SignalClassEntry `json:"v7_signal_classes,omitempty"`
 	// V7T2Setups is the setup-family checklist (setup_type strings from
 	// the Task-2 spec section 4.6). Empty = all transplanted families.
 	V7T2Setups []string `json:"v7_t2_setups,omitempty"`
