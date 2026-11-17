@@ -4,6 +4,8 @@ Date: 2026-11-18. Base: `t2/v7-selection` @ `1658b70`. Author: Kiro. Status: PLA
 
 Revision 2 (owner supplement): adds R6, post-entry position management (§7), fix units F27–F31, units U14–U15 and decisions OD-22 to OD-26.
 
+Revision 3: checks the §3 class assignments against SSA §H.3 (new §3.4), adds the SSA §I yield numbers (§6.2, OD-20), records the confirmed exit model of the direction audit (§7.3), and adds decisions OD-27 and OD-28.
+
 ## 0. How to read this plan
 
 ### 0.1 Evidence tags
@@ -27,7 +29,7 @@ Native repo reports (`DOC:`) are gross price-move percentages without fees. No r
 ### 0.2 Gaps in what I hold
 
 1. **The 694 data is not in the sandbox.** I searched the whole filesystem for the M3 `snapshots.jsonl`, the entry-study `events.json` and the 1m klines. None of them are there. So I cannot compute the new tables R1(a), R3 and R4 myself. I have specified them as pre-registered analyses in Unit U0 (§6), with acceptance checks that tie them to numbers already measured. Wherever a table is required but not yet computed, the plan says "PENDING U0" and does not guess a value.
-2. **SSA §H.3 and §I are not in my working context.** The per-family lag verdict table (SSA §H.3) and the section-I yield text were delivered earlier in this session as chat text, and that text was later compacted out of my context. Where this plan depends on them it cites them by reference. U0 re-derives the H.3 table from the 694 so that the class assignments in §3 can be checked against it. I ask Muse to attach the H.3 table to the PR so that check can happen now.
+2. **SSA §H.3 and §I (resolved in revision 3).** These sections had dropped out of my working context. Muse transcribed the H.3 per-family verdicts and the §I headline numbers from my original addendum message. §3.4 records the check of the class assignments against H.3, and §6.2 and OD-20 use the §I numbers. U0-C still re-derives H.3 from the 694 data.
 3. **The T2 scanner spec is missing.** `T2_SCANNER_RULES_SPEC.md` is not in any commit on any branch. The R1 brief states that WATCH had its own trigger-promotion path in the original scanner. This plan takes that as owner-provided fact. The trigger details (which price counts, what a cross is, whether the event ends on trigger) are still open questions (OD-3).
 
 ---
@@ -258,8 +260,10 @@ The "Evidence" column cites what decides the assignment. Rows marked [H] are pro
 
 | Family / setup | Class | Evidence |
 |---|---|---|
-| momentum_continuation_* (incl. _watch) | IMPULSE | 0/218 structural [M:M2v2]. 46 RR rejects touched TP1 first 78.3% of the time yet averaged −0.031R, a near-TP1 / far-stop asymmetry [M:MEAS1]. Trigger = current price [C:…:917-1067]. |
-| ignition_* | TRIGGER | 7/396 structural admits, and the best cell is +0.651R at [1.2,1.5) [M:M2v2, MEAS1]. The trigger is K15 resistance/support [C:…:1304-1374]. |
+| momentum_continuation_long / _short | IMPULSE | H.3: freshness condition [SSA §H.3]. 0/218 structural [M:M2v2]. 46 RR rejects touched TP1 first 78.3% of the time yet averaged −0.031R, a near-TP1 / far-stop asymmetry [M:MEAS1]. Trigger = current price [C:…:917-1067]. |
+| momentum_continuation_watch_long | IMPULSE, shadow-only (OD-28) | H.3: filter out [SSA §H.3]. Score ceiling 79 < 82, so it never arms [C:…:1002-1025]. |
+| ignition_early_long | TRIGGER; drift measured from the trigger price | H.3: pass, with a freshness condition [SSA §H.3]. 7/396 structural admits, and the best cell is +0.651R at [1.2,1.5) [M:M2v2, MEAS1]. The trigger is K15 resistance/support [C:…:1304-1374]. The direction split of the 7 admits and of the +0.651R cell is PENDING U0. |
+| ignition_early_short | TRIGGER, shadow-only or regime-gated (OD-27) | H.3: filter out or regime-gate [SSA §H.3] |
 | bb_oi_accumulation_* | TRIGGER | The trigger is K15 resistance/support [C]. Part of SWING 2/80 [M:M2v2]. Per-family split PENDING U0. |
 | confirmed_breakout_* | TRIGGER | Trigger at a level [C]. Both directions are on the observe-only list [C:…:87-93]. |
 | reclaim_breakout_* | TRIGGER | Trigger at a level [C]. The long side is observe-only. |
@@ -281,7 +285,8 @@ The "Evidence" column cites what decides the assignment. Rows marked [H] are pro
 | accumulation_breakout_long | TRIGGER | wait_breakout entry mode [DOC §6.1]. No measured outcomes [M:DOC search]. |
 | volatility_squeeze_breakout | TRIGGER | Squeeze breakout. It has a single REJECTED row in the docs [M:DOC:3round-0802]. |
 | intraday_scalp_long | TRIGGER [H] | Held back by `5m_or_15m_close_above_trigger` twice [M:DOC:6round-0727]. No outcomes. |
-| mms_* (bottom_wake, trend_ride, squeeze_engine) | [H] UNASSIGNED | Fixed timing scores of 68 and 72 [C:hunter_v7_mod_mms.go:176,242]. mms_trend_ride outcomes n=3–6, weak [M:DOC:3round-0731, 9round]. U0-C decides. |
+| mms_bottom_wake_long | REVERSAL [H] | H.3: pass (lag-tolerant) [SSA §H.3], which rules out IMPULSE. |
+| mms_trend_ride_long, mms_squeeze_engine_long | [H] UNASSIGNED | No H.3 verdict. Fixed timing scores of 68 and 72 [C:hunter_v7_mod_mms.go:176,242]. mms_trend_ride outcomes n=3–6, weak [M:DOC:3round-0731, 9round]. U0-C decides. |
 | panic_reversal_long, pullback_reversal_long | REVERSAL | wait_reclaim / wait_confirm entry modes [C, DOC §6.1]. No outcomes. |
 | distribution_short | REVERSAL | wait_reject entry mode. No measured numbers [M:DOC search]. It is the #2 co-fire leader with 21 [M:MEAS3]. |
 | range_reversion | REVERSAL | range_edge_only entry mode [DOC §6.1]. |
@@ -298,9 +303,47 @@ Every limit in this table is config. Values marked [H] are set from the U0-C mea
 |---|---|---|---|---|
 | Screening path | Detector → freshness check → chase-ATR geometry → cell gate → conflict pass → candidate | Detector → T2/V7 event store (WATCH / ARMED with the 2h / 4h lifetimes) → TRIGGERED on price cross → structural geometry (spec v2) → cell gate → conflict pass → candidate | Detector → confirmation (native state manager, cycle-based) → structural geometry → cell gate → conflict pass → candidate | Detector → annotation on candidates for the same symbol |
 | Latency budget | Detection to order inside one bar of the signal timeframe. Budget value [H, U0-C]. The 18.6R one-bar cost [M:LAT] sets the order of magnitude. | Zero bars after the trigger cross. Achieving it needs a resting conditional entry or a trigger check at bar close (U9). | Budget [H, U0-C] | n/a |
-| Freshness contract (via the drift contract, D3) | Maximum adverse drift between signal price and fill, as a fraction of the planned stop distance. Value [H], set from the consumed-band run-away curve (0/32/85% [M:LAT]) re-expressed as drift. | Drift measured from the trigger price, not the detection price | Drift measured from the confirmation price | n/a |
+| Freshness contract (via the drift contract, D3) | Mechanism per SSA §H.3: the existing drift contract in reject mode (PR #8). It rejects when abs(executable − LLM price) / LLM price > `max_entry_price_deviation_pct`, set per class. Value [H], set from the consumed-band run-away curve (0/32/85% [M:LAT]). U0-C also reports drift as a fraction of stop distance, so a stop-relative limit can be tested later [H]. | Drift measured from the trigger price, not the detection price | Drift measured from the confirmation price | n/a |
 | Geometry | Chase-ATR / hybrid [H, U0-D] | Structural, M2v2 spec | Structural | none |
 | LLM role | Veto-only, with a timeout: no answer within budget means no trade. [H]: the delay cost suggests a full LLM round trip is too slow. U0-C measures how many bars an LLM round trip spends. | Full decision at ARMED/WATCH, made before the trigger. The backend executes on the cross without a second LLM call. | Full decision | Not involved as a candidate. Visible as context. |
+
+### 3.4 Cross-check against SSA §H.3 (revision 3)
+
+H.3 gives a lag verdict per family [SSA §H.3, transcribed by Muse]:
+- **Pass:** lag-tolerant.
+- **Freshness condition:** lag-sensitive, so a drift contract is required.
+- **Filter out:** do not trade.
+
+The class definitions in §3.1 imply two consistency rules:
+- Every IMPULSE member must be freshness-sensitive.
+- A TRIGGER or REVERSAL member may be either. When it is freshness-sensitive, drift is measured from its trigger price or confirmation price (§3.3).
+
+| Family | §3 class | H.3 verdict | Consistent? | Change |
+|---|---|---|---|---|
+| momentum_continuation_short | IMPULSE | Pass, with freshness | Yes | none |
+| momentum_continuation_long | IMPULSE | Freshness | Yes | none |
+| momentum_continuation_watch_long | IMPULSE | Filter out | Class yes; admission no | Shadow-only (OD-28) |
+| ignition_early_long | TRIGGER | Pass, with freshness | Yes; drift from the trigger price | none |
+| ignition_early_short | TRIGGER | Filter out or regime-gate | Class yes; admission no | Shadow-only or regime-gated (OD-27) |
+| bb_oi_accumulation | TRIGGER | Pass (lag-tolerant) | Yes | none |
+| compression_oi_watch | TRIGGER | Pass | Yes | The long side stays observe-only (OD-5). A lag verdict does not lift the observe-only list. |
+| confirmed_breakout / reclaim_breakout | TRIGGER | Long: filter out (observe-only). Short: freshness. | Yes for reclaim_breakout_short. **Conflict** for confirmed_breakout_short: H.3 lets it pass with freshness, but the port lists it as observe-only [C:hunter_v7_t2_setups.go:87-93]. | Keep OD-14 (shadow-only). The code is the binding fact until the owner decides otherwise. |
+| trend_pullback_long / _short | REVERSAL [H] | Long: filter (observe-only). Short: pass. | Yes | The [H] on the short side is resolved to REVERSAL. |
+| displacement_momentum_long, range_expansion_event, alt_ladder_* | IMPULSE ([H] for range_expansion and alt_ladder_breakdown_short) | Freshness, or filter if the H.4 test shows decay | Yes | alt_ladder_breakdown_short's TRIGGER alternative stays open. H.3 does not separate the two classes, and both carry freshness. |
+| intraday_scalp_long | TRIGGER [H] | Freshness, or filter if H.4 shows decay | Yes; drift from the trigger price (it waits for a close above the trigger) | none |
+| leader_momentum_long, short_squeeze_long, long_squeeze_short, breakdown_momentum_short | IMPULSE | Freshness | Yes | none |
+| panic_reversal_long | REVERSAL | Freshness (V-reversals reprice fast) | Yes; drift from the confirmation price | The REVERSAL latency budget must be set per family. panic_reversal is lag-sensitive; the other REVERSAL members pass. |
+| accumulation_breakout_long, volatility_squeeze_breakout | TRIGGER | Pass | Yes | none |
+| mms_quiet / mms_bottom_wake | was UNASSIGNED | Pass | Not IMPULSE | mms_bottom_wake_long → REVERSAL [H]. No setup type named mms_quiet exists in code [C:provider/local/hunter_v7_types.go:47-52], so that H.3 label cannot be mapped. |
+| pullback_reversal_long, range_reversion, relative_weakness_short, distribution_short | REVERSAL | Pass | Yes | none |
+| funding_reversal | CONTEXT | Pass | No conflict | none. The CONTEXT assignment rests on 0/2,809 opens, not on lag. H.3 judged only lag. OD-13 stands. |
+| trend_breakout_long, whale_flow_reversal, mms_trend_ride_long, mms_squeeze_engine_long | as §3.2 | No H.3 verdict | n/a | U0-C decides |
+
+**Result:**
+- No IMPULSE member is lag-tolerant in H.3, so the IMPULSE boundary holds.
+- Three admissions change: momentum_continuation_watch_long and ignition_early_short become shadow-only or regime-gated (OD-27, OD-28), and confirmed_breakout_short stays shadow-only.
+- One family is assigned: mms_bottom_wake_long → REVERSAL [H].
+- There is one code-vs-H.3 conflict, confirmed_breakout_short, and the code governs.
 
 ---
 
@@ -491,7 +534,7 @@ Recommendation: by cell status. It is the only option tied to evidence.
 | LLM payload | Add `signal_class`, `lifecycle_state`, `cell_status` and `doctrine_version`. Per-class role text. Thresholds move out of prose into fields. | Doctrine has no version string [C:kernel/hunter_v7_prompt_doctrine.go:14]. Threshold prose in §3 [DOC:route-prompt §5] | U11 + Task C |
 | Execution: drift | Per-class drift contract in config. Replace the literal 0.45. | `hunterV7MicroRefreshMaxDriftPct` 0.45 literal [C:trader/auto_trader_risk.go:63] (F13) | U9 |
 | Execution: trigger entry | Resting conditional entry at the trigger for the TRIGGER class, or a trigger check at bar close. Needs the F04 idempotency. | Entry today is market only [C:trader/binance/futures_orders.go:43] | U9 |
-| Yield target | G3 (≥ 170) becomes a regime-conditional target (SSA §I), set from per-regime fire rates measured in U0 | G3 unreachable: 19 at 1.2, 90 even at 0.5 [M:MEAS1] | U13 |
+| Yield target | G3 (≥ 170) becomes a regime-conditional target (SSA §I), set from per-regime fire rates measured in U0 | 694 triggered events in 48 days, about 0.05 per 5-minute round. After v2 geometry: 9, about 0.00065 per round. Zero-event probability per round: 95% at trigger, 99.4% under v1 geometry, 99.9% under v2 [M:SSA §I]. At RR 1.2: 19 / (48 × 288 = 13,824 rounds) ≈ 0.0014 per round, about 0.40 per day. G3 = 170 would need about 0.0123 per round [D]. G3 unreachable: 19 at 1.2, 90 even at 0.5 [M:MEAS1]. | U13 |
 | Observability | Dashboards per class × cell × regime: n, fee-net R, CI, cell status, calibration drift | §5.4 tags | U12 |
 
 ### 6.3 Migration sequence
@@ -625,7 +668,7 @@ The structural point is that a trade can only reach TP1 (1.8R for T2) by survivi
 
 | Evidence | What it shows | Why it is insufficient for R6 |
 |---|---|---|
-| Direction audit: 140 of 254 stop-outs (55.1%) later touched TP1 [M:owner R6 brief, 380 fills] | There is a large killed-winner pool | It mixes stop types. Also, the replay engine moves stops only in two exit modes [C:engine.go:155-163, 181-301]: FULL locks +1R after a 2R peak, and SPLIT_BE has the Phase-8 ladder (breakeven after a 1R peak). SPLIT, the mode for most setups, never moves the stop. If the audit used this engine, most of the 254 are exits at the original stop, not protection kills. Muse needs to confirm which exit model the audit used. |
+| Direction audit: 140 of 254 stop-outs (55.1%) later touched TP1 [M:owner R6 brief, 380 fills] | There is a large killed-winner pool | It mixes stop types. Also, the replay engine moves stops only in two exit modes [C:engine.go:155-163, 181-301]: FULL locks +1R after a 2R peak, and SPLIT_BE has the Phase-8 ladder (breakeven after a 1R peak). SPLIT, the mode for most setups, never moves the stop. Confirmed (revision 3): the audit was computed by the replay engine (`sim_live_replay.py`), using the replay exit family (SPLIT / FULL / SPLIT_BE), not the live protector [owner/Muse confirmation]. So most of the 254 are exits at the original stop, not protection kills. The live protector's killed-winner count is still unmeasured; U0-F measures it. |
 | T-EXIT: three ladder or RSI variants, ΔR +0.004 to +0.010 per trade, all failed the gate [M:owner brief] | Ladder tweaks around replay baseline D change little | It compares variants with model D, not with live model A. It does not measure the cost of what runs live. |
 | trader/protector_ab_sim_test.go [C] | Compares two versions of model A | The entries are EMA20/50 crosses on BTC, ETH, SOL and DOGE 15m bars, and stops are checked at the bar close. These are not the 694 entries, and the checks are not intrabar. |
 | Native DOC outcomes (model C) | Statistics with an exact-entry breakeven at MFE ≥ 0.60% for listed setups only [C:hunter_v7_pnl_tracker.go:665-705] | It is a different rule from model A, and gross of fees (§0.1). |
@@ -756,10 +799,12 @@ Each entry gives the options, my recommendation, and the evidence behind it.
 | OD-17 | Forward calibration data, given the shadow phase is cancelled | (a) record tags and outcomes in shadow mode without trading; (b) wait for pilot/live; (c) build a native fee-net replay corpus | (a) + (c) | No fee-net native corpus exists [M:DOC search]. MEAS3 covers T2 moments only. |
 | OD-18 | Task C sequencing and T2 naming | run now vs after OD-6; `t2_` prefix for T2 setup types; reclaim rename | After OD-6. Add the prefix and fix the reclaim rename. | Reclaim collision (§4.1) |
 | OD-19 | F22 broker prefix | (pending from before) | — | F-audit |
-| OD-20 | G3 yield target | keep ≥ 170; regime-conditional (SSA §I) | Regime-conditional, set from U0 | 170 unreachable: 19 at 1.2, 90 at 0.5 [M:MEAS1] |
+| OD-20 | G3 yield target | keep ≥ 170; regime-conditional (SSA §I) | Regime-conditional, set from U0 | 170 unreachable: 19 at 1.2, 90 at 0.5 [M:MEAS1]. After v2 geometry the yield is about 0.00065 per round, with a 99.9% zero-event probability per round [M:SSA §I]. At RR 1.2 it is about 0.40 events per day [D]. |
 | OD-21 | Cycle alignment to bar close (also changes native cadence) | keep the 3-minute wall clock; align to 5m close + settle | Align, gated on the U10 parity test | [C:auto_trader.go:717]; 18.6R one-bar cost [M:LAT] |
 | OD-22 | Exit management (R6) | (a) keep the live protector (E0); (b) align live to replay baseline D; (c) adopt a variant E1–E6 only if it passes the T-EXIT gate; (d) class-dependent (E5) | Run U0-F first. Then (c) if any variant passes against D; otherwise (b) if A − D < 0; otherwise (a) with F27–F31 fixed | Mechanism §7.2 [C, D]; T-EXIT ΔR +0.004 to +0.010 per trade [M]; no measurement of live model A exists (§7.3) |
 | OD-23 | Inputs for U0-F | actual live leverage; fee tier (maker/taker) | Owner supplies both | R-equivalents scale with 1/(L·s) (§7.1.3) |
 | OD-24 | Multiple-comparison control for R6 | gate per variant only; gate plus nested hold-out | Gate plus nested hold-out | Seven new variants on top of T-EXIT's three (§7.5) |
 | OD-25 | Units of exit rules | keep ROE; convert to R | Convert to R (U14) | The same rule is −0.40R or −0.80R depending on stop width (§7.1.3) |
 | OD-26 | Protection defect fixes | approve F27–F31 as fix units; ordering relative to Task E | F27 and F28 before any pilot; F29–F31 with U14 | §7.1.4 code facts |
+| OD-27 | ignition_early_short admission | shadow-only; regime-gated (the regime rule set from U0 per-regime outcomes); admit like ignition_early_long | Shadow-only until U0 has per-regime outcomes for it; then decide on a regime gate | H.3: filter out or regime-gate [SSA §H.3] |
+| OD-28 | momentum_continuation_watch_long admission | shadow-only; admit | Shadow-only | H.3: filter out [SSA §H.3]; ceiling 79 < 82, so it never arms [C] |
