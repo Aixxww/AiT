@@ -240,6 +240,13 @@ func ApplyV7TakeProfitPlan(sig *V7SignalOutput, ctx *V7SymbolContext) {
 		return
 	}
 
+	// M2: structural geometry branch. Inert unless geometry_mode is
+	// "structure" and structure bars were supplied on the context;
+	// the legacy path below is otherwise executed unchanged.
+	if applyV7StructurePlan(sig, ctx, entry) {
+		return
+	}
+
 	if isV7HighVelocitySetup(sig.SetupType) {
 		minPct, maxPct := v7TP0DistanceBounds(sig)
 		ensureV7TP0Distance(sig, entry, minPct, maxPct)
