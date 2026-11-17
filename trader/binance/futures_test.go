@@ -223,6 +223,10 @@ func NewBinanceFuturesTestSuite(t *testing.T) *BinanceFuturesTestSuite {
 			respBody = []map[string]interface{}{}
 
 		// Mock CancelAllOrders - /fapi/v1/allOpenOrders (DELETE)
+		// Mock ListOpenAlgoOrders - /fapi/v1/openAlgoOrders (F26 owned-order cancel)
+		case path == "/fapi/v1/openAlgoOrders":
+			respBody = []interface{}{}
+
 		case path == "/fapi/v1/allOpenOrders" && r.Method == "DELETE":
 			respBody = map[string]interface{}{
 				"code": 200,

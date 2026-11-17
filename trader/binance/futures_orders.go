@@ -48,9 +48,12 @@ func (t *FuturesTrader) openMarket(symbol string, quantity float64, leverage int
 		side, posSide = futures.SideTypeBuy, futures.PositionSideTypeLong
 	}
 
-	// First cancel all pending orders for this symbol (clean up old stop-loss and take-profit orders)
-	if err := t.CancelAllOrders(symbol); err != nil {
-		logger.Infof("  ⚠ Failed to cancel old pending orders (may not have any): %v", err)
+	// F26: cancel only this bot's own leftover orders on THIS position side
+	// (old closePosition stops/take-profits would otherwise act on the new
+	// position). The opposite side's protection and manual orders are left
+	// alone. An unconfirmed cancel aborts the open.
+	if err := t.CancelOwnedOrders(symbol, strings.ToUpper(label)); err != nil {
+		return nil, fmt.Errorf("failed to open %s position: %w", label, err)
 	}
 
 	// Set leverage
@@ -204,9 +207,9 @@ func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]i
 
 	logger.Infof("✓ Closed long position successfully: %s quantity: %s", symbol, quantityStr)
 
-	// After closing position, cancel all pending orders for this symbol (stop-loss and take-profit orders)
-	if err := t.CancelAllOrders(symbol); err != nil {
-		logger.Infof("  ⚠ Failed to cancel pending orders: %v", err)
+	// F26: after closing, cancel only this bot's own orders on the long side.
+	if err := t.CancelOwnedOrders(symbol, "LONG"); err != nil {
+		logger.Errorf("  ⚠ Owned-order cleanup after closing long %s not confirmed: %v", symbol, err)
 	}
 
 	result := make(map[string]interface{})
@@ -259,9 +262,9 @@ func (t *FuturesTrader) CloseShort(symbol string, quantity float64) (map[string]
 
 	logger.Infof("✓ Closed short position successfully: %s quantity: %s", symbol, quantityStr)
 
-	// After closing position, cancel all pending orders for this symbol (stop-loss and take-profit orders)
-	if err := t.CancelAllOrders(symbol); err != nil {
-		logger.Infof("  ⚠ Failed to cancel pending orders: %v", err)
+	// F26: after closing, cancel only this bot's own orders on the short side.
+	if err := t.CancelOwnedOrders(symbol, "SHORT"); err != nil {
+		logger.Errorf("  ⚠ Owned-order cleanup after closing short %s not confirmed: %v", symbol, err)
 	}
 
 	result := make(map[string]interface{})
