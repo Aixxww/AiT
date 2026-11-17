@@ -284,11 +284,16 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
 
 	// Set stop loss and take profit
+	// F03: the stop is mandatory. If it cannot be placed the position is
+	// emergency-closed and verified flat; the take-profit is not placed.
 	if err := at.trader.SetStopLoss(decision.Symbol, "LONG", quantity, decision.StopLoss); err != nil {
-		logger.Infof("  ⚠ Failed to set stop loss: %v", err)
+		return at.closeUnprotectedPosition(decision.Symbol, "long", quantity, fmt.Errorf("failed to set mandatory stop loss: %w", err))
 	}
+	// A missing take-profit leaves the position protected by its stop; it is
+	// reported, not fatal.
 	if err := at.trader.SetTakeProfit(decision.Symbol, "LONG", quantity, decision.TakeProfit); err != nil {
-		logger.Infof("  ⚠ Failed to set take profit: %v", err)
+		logger.Errorf("  ⚠ Failed to set take profit for %s LONG (stop is in place): %v", decision.Symbol, err)
+		actionRecord.Error = fmt.Sprintf("take_profit_not_placed: %v", err)
 	}
 
 	return nil
@@ -446,11 +451,16 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
 
 	// Set stop loss and take profit
+	// F03: the stop is mandatory. If it cannot be placed the position is
+	// emergency-closed and verified flat; the take-profit is not placed.
 	if err := at.trader.SetStopLoss(decision.Symbol, "SHORT", quantity, decision.StopLoss); err != nil {
-		logger.Infof("  ⚠ Failed to set stop loss: %v", err)
+		return at.closeUnprotectedPosition(decision.Symbol, "short", quantity, fmt.Errorf("failed to set mandatory stop loss: %w", err))
 	}
+	// A missing take-profit leaves the position protected by its stop; it is
+	// reported, not fatal.
 	if err := at.trader.SetTakeProfit(decision.Symbol, "SHORT", quantity, decision.TakeProfit); err != nil {
-		logger.Infof("  ⚠ Failed to set take profit: %v", err)
+		logger.Errorf("  ⚠ Failed to set take profit for %s SHORT (stop is in place): %v", decision.Symbol, err)
+		actionRecord.Error = fmt.Sprintf("take_profit_not_placed: %v", err)
 	}
 
 	return nil
