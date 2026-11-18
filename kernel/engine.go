@@ -127,7 +127,7 @@ type CandidateCoin struct {
 	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
-	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile differs from the strategy cap (U6)
+	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
 	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
@@ -247,8 +247,8 @@ type Decision struct {
 	// HunterV7MinRR.
 	HunterV7MinStopPct float64 `json:"-"`
 	// HunterV7MaxTPPct is the TP1 distance cap of the selected candidate
-	// when its class profile differs from the strategy cap (U6). Same
-	// hydration and json "-" contract as HunterV7MinRR.
+	// when its class profile or setup override differs from the strategy cap
+	// (U6). Same hydration and json "-" contract as HunterV7MinRR.
 	HunterV7MaxTPPct float64 `json:"-"`
 }
 
@@ -1986,10 +1986,10 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
 		return ""
 	}
-	// U6: the candidate's class profile replaces the stack values; the
-	// per-setup relaxations then apply on top, as before.
+	// U6: the candidate's own values (class profile over the stack values,
+	// then the per-setup relaxation) — the same values the validator and the
+	// executor receive through the candidate stamps.
 	geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct = hunterV7CandidateRisk(coin, geometry)
-	geometry = hunterV7SetupExecutionGeometry(coin, geometry)
 	if geometry.MinRR <= 0 {
 		geometry.MinRR = hunterV7BackendMinRR
 	}
@@ -3557,7 +3557,9 @@ func hunterV7T2MinSLMovePct(geometry HunterV7ExecutionGeometry) float64 {
 // T2 floors) apply unless the candidate's class profile sets a field. A
 // profile TP cap is raised to the feasible minimum for the profile's own
 // stop and RR, the same rule HunterV7EffectiveExecutionGeometry applies to
-// the strategy cap.
+// the strategy cap. The per-setup relaxation (setup_geometry_overrides)
+// applies last, so the kernel RR check, the validator and the executor all
+// see the same per-setup values.
 func hunterV7CandidateRisk(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (minRR, minSL, maxTP float64) {
 	minRR, minSL, maxTP = geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct
 	stack := store.V7StackNative
@@ -3579,13 +3581,17 @@ func hunterV7CandidateRisk(coin CandidateCoin, geometry HunterV7ExecutionGeometr
 	if p.MaxTakeProfitPriceMovePct > 0 {
 		maxTP = HunterV7EffectiveExecutionGeometry(p.MaxTakeProfitPriceMovePct, minSL, geometry.MaxDriftPct, minRR, true).MaxTPMovePct
 	}
-	return minRR, minSL, maxTP
+	g := geometry
+	g.MinRR, g.MinSLMovePct, g.MaxTPMovePct = minRR, minSL, maxTP
+	g = hunterV7SetupExecutionGeometry(coin, g)
+	return g.MinRR, g.MinSLMovePct, g.MaxTPMovePct
 }
 
 // hunterV7StampCandidateRisk stamps the candidate's own risk values for the
 // validator, the executor and the prompt contract. T2 candidates always
 // carry their RR floor and minimum stop (U2, U4); any candidate carries a
-// value whose class profile differs from the strategy geometry (U6).
+// value that its class profile or per-setup override makes differ from the
+// strategy geometry (U6).
 func hunterV7StampCandidateRisk(cc *CandidateCoin, geometry HunterV7ExecutionGeometry) {
 	minRR, minSL, maxTP := hunterV7CandidateRisk(*cc, geometry)
 	if cc.V7Stack == local.V7StackT2 || minRR != geometry.MinRR {

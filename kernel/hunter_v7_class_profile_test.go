@@ -133,3 +133,61 @@ func TestEngineGeometryCarriesClassProfiles(t *testing.T) {
 		t.Fatalf("nil config")
 	}
 }
+
+// setupSig is a native signal at price 100, stop 98 (2%, at the native
+// floor so it is not widened) and TP1 at 100+rewardPct.
+func setupSig(id, setup string, rewardPct float64) local.V7SignalOutput {
+	return local.V7SignalOutput{
+		SignalID: id, Symbol: id + "USDT", Direction: local.V7DirLong, SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate,
+		PriceCtx: &local.V7PriceContext{Last: 100}, EntryZone: local.V7PriceZone{Lower: 100, Upper: 100},
+		Invalidation: local.V7InvalidationRule{Price: 98}, Targets: []local.V7Target{{Price: 100 + rewardPct}}, TP1Price: 100 + rewardPct,
+	}
+}
+
+// Owner decision on U6: a per-setup override reaches the validator and the
+// executor, not only the kernel RR check. intraday_scalp_long at RR 1.1
+// passes the kernel check (cap 1.0) and is stamped 1.0, so the validator and
+// (through hydration) the executor use 1.0 instead of the strategy 1.5.
+func TestSetupOverrideReachesValidatorAndHydration(t *testing.T) {
+	g := profiledGeometry(nil) // strategy RR 1.5, stop 2.0, TP cap 4.0
+	sigs := []local.V7SignalOutput{
+		setupSig("SCALP", "intraday_scalp_long", 2.2),       // RR 1.1
+		setupSig("DISP", "displacement_momentum_long", 2.8), // RR 1.4
+		setupSig("LEAD", "leader_momentum_long", 2.2),       // RR 1.1, no override
+	}
+	c := AssembleHunterV7CandidateCoins(sigs, "BOTH", g)
+	if c[0].V7TierReason == "backend_rr_infeasible" || c[0].V7RequiredRR != 1.0 || c[0].V7RequiredMaxTP != 0 {
+		t.Fatalf("scalp = %s/%s rr=%v tp=%v", c[0].V7ExecutionTier, c[0].V7TierReason, c[0].V7RequiredRR, c[0].V7RequiredMaxTP)
+	}
+	if c[1].V7TierReason == "backend_rr_infeasible" || c[1].V7RequiredRR != 1.35 || c[1].V7RequiredMaxTP != 12 {
+		t.Fatalf("displacement = %s rr=%v tp=%v", c[1].V7TierReason, c[1].V7RequiredRR, c[1].V7RequiredMaxTP)
+	}
+	if c[2].V7TierReason != "backend_rr_infeasible" || c[2].V7RequiredRR != 0 {
+		t.Fatalf("no-override setup = %s rr=%v", c[2].V7TierReason, c[2].V7RequiredRR)
+	}
+
+	floor := hunterV7DecisionRRFloor(1.5, c)
+	priceMap := map[string]float64{"SCALPUSDT": 100}
+	mk := func(id string) *Decision {
+		return &Decision{Symbol: "SCALPUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 102.2,
+			Confidence: 80, Reasoning: "t", SelectedHunterV7SignalID: id}
+	}
+	if err := validateDecision(mk("SCALP"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err != nil {
+		t.Fatalf("validator must accept RR 1.1 for intraday_scalp_long: %v", err)
+	}
+	if err := validateDecision(mk(""), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err == nil {
+		t.Fatalf("without the selected signal the strategy floor 1.5 applies")
+	}
+	ds := []Decision{*mk("SCALP"), *mk("DISP")}
+	ds[1].Symbol = "DISPUSDT"
+	hydrateHunterV7DecisionExecutionPlans(ds, c)
+	if ds[0].HunterV7MinRR != 1.0 || ds[0].HunterV7MaxTPPct != 0 || ds[1].HunterV7MinRR != 1.35 || ds[1].HunterV7MaxTPPct != 12 {
+		t.Fatalf("hydrated = %v/%v, %v/%v", ds[0].HunterV7MinRR, ds[0].HunterV7MaxTPPct, ds[1].HunterV7MinRR, ds[1].HunterV7MaxTPPct)
+	}
+	// Removing the override in config removes the stamp: one source of truth.
+	g.SetupOverrides = store.RiskControlConfig{SetupGeometryOverrides: map[string]store.V7SetupGeometryOverride{"intraday_scalp_long": {}}}.EffectiveV7SetupGeometryOverrides()
+	c = AssembleHunterV7CandidateCoins(sigs[:1], "BOTH", g)
+	if c[0].V7TierReason != "backend_rr_infeasible" || c[0].V7RequiredRR != 0 {
+		t.Fatalf("override removed = %s rr=%v", c[0].V7TierReason, c[0].V7RequiredRR)
+	}
+}
