@@ -27,3 +27,14 @@ func TestHunterV7FinalConflictConfigFromRegistry(t *testing.T) {
 		t.Errorf("registry overrides must reach the final pass")
 	}
 }
+
+// U8: the exported final-pass config used by the conflict re-measure is the
+// production config.
+func TestHunterV7FinalConflictConfigForMatchesEngine(t *testing.T) {
+	h := &store.HunterConfig{}
+	got, want := HunterV7FinalConflictConfigFor(h), hunterV7FinalConflictConfig(h)
+	if got.Enabled != want.Enabled || got.MinAIPriority != want.MinAIPriority || got.TieWinner != want.TieWinner ||
+		got.ContextNonVoting != want.ContextNonVoting || len(got.ContextSetups) != len(want.ContextSetups) || !got.ContextSetups["funding_reversal"] {
+		t.Fatalf("exported config %+v differs from the engine's %+v", got, want)
+	}
+}

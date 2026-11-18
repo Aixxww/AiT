@@ -65,8 +65,8 @@ func DefaultV7SignalClassRegistry() map[string]V7SignalClassEntry {
 		"bb_oi_accumulation_short":          t(V7ClassTrigger),
 		"compression_oi_watch_long":         t(V7ClassTrigger), // observe-only list still applies (OD-5)
 		"compression_oi_watch_short":        t(V7ClassTrigger),
-		"confirmed_breakout_long":           shadow(V7ClassTrigger), // OD-14, pending U0-E
-		"confirmed_breakout_short":          shadow(V7ClassTrigger), // OD-14, pending U0-E
+		"confirmed_breakout_long":           shadow(V7ClassTrigger), // OD-14; U0-E gave no twin verdict, status quo (U8)
+		"confirmed_breakout_short":          shadow(V7ClassTrigger), // OD-14; U0-E gave no twin verdict, status quo (U8)
 		"reclaim_breakout_long":             t(V7ClassTrigger),      // observe-only list still applies (OD-5)
 		"reclaim_breakout_short":            t(V7ClassTrigger),
 		"trend_pullback_long":               h(V7ClassReversal), // observe-only list still applies (OD-5)

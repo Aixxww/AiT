@@ -303,9 +303,11 @@ func main() {
 			}
 		}
 		goldenAdd(row.EventID, sig, nativeSigs)
+		conflictAdd(row.EventID, sig, nativeSigs)
 		outs = append(outs, o)
 	}
 	goldenWrite()
+	conflictWrite()
 	b, _ := json.Marshal(outs)
 	_ = os.WriteFile(*outPath, b, 0o644)
 	fmt.Println("events", len(outs))

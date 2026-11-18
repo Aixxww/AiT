@@ -393,9 +393,11 @@ These are [H] until U0-E has run.
 | C | Keep both as distinct TRIGGER detectors | The compression measures differ. U0-E checks agreement. |
 | D | Both shadow-only, unless U0-E finds a cell with a positive lower bound | 0.0% TP0-first at n=119 on the native side [M:DOC:0803], and the T2 side is demoted on both directions in the port [C] |
 
+**Outcome (U0-E, landed in U8; see §10.4).** No compared arm of any pair reaches n ≥ 30, so the §4.2 rule yields no keep, fuse or retire verdict for any pair. The provisional verdicts above are not adopted. The four pairs stay exactly as they are today, and no detector is merged, retired or newly shadowed. Pair D keeps the OD-14 split: T2 `confirmed_breakout_*` shadow-only, native `trend_breakout_long` tradable.
+
 ### 4.4 Conflicts that disappear by design
 
-- **Twin merging:** at most 18 of 62 final-level co-fires (29%) can be twin-related [D, §1.1]. The exact count is PENDING U0-E.
+- **Twin merging:** at most 18 of 62 final-level co-fires (29%) can be twin-related [D, §1.1]. Measured: **0 of 54** (U0-E; U8 re-measure at head, §10.4).
 - **Reclassifying funding_reversal as CONTEXT:** this removes up to 23 of 62 from the LLM-facing candidate conflicts [M:MEAS3]. Under OD-12, the CONTEXT signal then annotates instead of competing.
 - **What remains:** distribution_short (REVERSAL) vs T2 continuation, 21 cases [M:MEAS3]. These are genuine thesis conflicts, and P3's backend rule resolves them.
 
@@ -854,3 +856,51 @@ Code: harnesses at head `3311417`, packaged under `scripts/t2_u0/`, `cmd/t2_u0_n
   - MEAS3 superseded by U0-B.
 
 U0 is complete. The queue continues with U1, with U14 at its planned position.
+
+### 10.4 U8: twin verdicts landed and conflict count re-measured
+
+Measured at `6dfbb9a` (PR #23 merge) on the 694 snapshots with `cmd/t2_u0_native -conflict-out` and `scripts/t2_u0/u8_conflicts.py`. The native stack output is byte-identical to the U6 run.
+
+**Twin arms (U0-E rerun, §4.2 arms).**
+
+| Pair | Arms (n) | Compared arms at n ≥ 30? |
+|---|---|---|
+| A. bb_oi_accumulation vs accumulation_breakout_long | none: the T2 side never fires on the 694 | no |
+| B. momentum_continuation vs leader_momentum_long | only T2 214, both same direction 4 | no (4 < 30) |
+| C. compression_oi_watch vs volatility_squeeze_breakout | only T2 15 | no |
+| D. confirmed_breakout vs trend_breakout_long | only T2 11, only native 1 | no |
+
+- **Ruling:** no verdict is possible under the §4.2 rule, so the status quo stands for all four pairs (§4.3 outcome note).
+- **Not applied:**
+  - pair B's single IMPULSE path ranked by the E[R] lower bound, because U7's F-1 and F-3 failed and E[R] stays shadow-only;
+  - pair D's "both shadow-only" for the native side, because OD-14 keeps `trend_breakout_long` tradable.
+- **Code:** none needed beyond the registry comments.
+
+**Conflict count (§4.4)**, opposite-direction native-vs-T2 co-fires at final-signal level:
+
+| | Count |
+|---|---|
+| Co-fires before the final pass (supersedes MEAS3's 62; U0-B) | 54 |
+| of which twin pairs | **0** |
+| of which `funding_reversal` (CONTEXT, OD-13) | 27 |
+| of which `distribution_short` (REVERSAL; genuine thesis conflicts) | 12 |
+| other native families | 15 (`pullback_reversal_long` 6, `range_expansion_event` 2, seven families with 1 each) |
+| Unresolved after the U3 final pass (both directions survive) | **0** |
+
+- **Final-pass outcomes on the 54:**
+  - CONTEXT dropped, T2 kept: 28 (27 `funding_reversal` plus 1 `pre_distribution_watch`);
+  - `conflict_watch`, T2 dropped: 13;
+  - kept short: 9; kept long: 4.
+- Two further snapshots with a router `conflict_watch` row absorb the T2 signal.
+- The counts are the same with T2 at its created state and at TRIGGERED.
+
+**T2 fee-net R by outcome** (U0-A walk; descriptive, decides nothing):
+
+| Outcome | T2 R mean | 90% CI |
+|---|---|---|
+| `conflict_watch` | −0.101 | [−0.473, +0.254] |
+| CONTEXT dropped | −0.133 | [−0.403, +0.132] |
+| kept long | +0.514 | (n = 3) |
+| kept short | +0.027 | (n = 8) |
+
+**Conclusion.** Twin merging would remove none of the measured conflicts. The CONTEXT reclassification (U3/U6a) removes 28 of 54 from the LLM-facing conflicts, as §4.4 expected. The remaining cases are thesis conflicts that the U3 backend rule resolves with 0 unresolved.
