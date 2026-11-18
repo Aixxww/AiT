@@ -22,6 +22,7 @@ func u11RenderHybrid(cfg *store.StrategyConfig, mutate ...func(*Context)) (doc, 
 	e := NewStrategyEngine(cfg)
 	ctx := u11FixtureContext(e)
 	ctx.PromptTime = u11PromptTime
+	u11WithRequiredConfirmations(ctx)
 	for _, m := range mutate {
 		m(ctx)
 	}
@@ -33,6 +34,26 @@ func u11RenderHybrid(cfg *store.StrategyConfig, mutate ...func(*Context)) (doc, 
 		sys = "<data dictionary omitted>" + sys[i:]
 	}
 	return "===== SYSTEM =====\n" + sys + "\n===== USER =====\n" + user, system, doctrine, user
+}
+
+// u11WithRequiredConfirmations gives two candidates a must-check list, so
+// the hybrid_v2 tests cover required_confirmations (PR #28 owner decision 3).
+// Applied only on the hybrid path; the legacy goldens keep the base fixture.
+// The confirmation summary passes review, as a module emits it when the
+// list is reviewable, so the tiers stay those of the base fixture.
+func u11WithRequiredConfirmations(ctx *Context) {
+	for i := range ctx.CandidateCoins {
+		switch ctx.CandidateCoins[i].Symbol {
+		case "LEADUSDT", "TRIGUSDT":
+			ctx.CandidateCoins[i].V7ConfirmSummary = &local.V7ConfirmationSummary{PassedHard: true, PassedReview: true}
+		}
+		switch ctx.CandidateCoins[i].Symbol {
+		case "LEADUSDT":
+			ctx.CandidateCoins[i].V7RequiredConfirms = []string{"5m_price_holds_ema20_or_trailing_support", "live_price_in_entry_zone"}
+		case "TRIGUSDT":
+			ctx.CandidateCoins[i].V7RequiredConfirms = []string{"5m_or_15m_close_above_trigger", "taker_flow_confirms_long"}
+		}
+	}
 }
 
 // The hybrid_v2 payload golden (D3 (b): verified with the config enabled).
@@ -225,6 +246,13 @@ func TestU11HybridAppendixContract(t *testing.T) {
 	}
 	if trig.Signal.CellStatus != "cell_probation" || trig.Execution.DoctrineVersion != store.V7DoctrineVersionHybridV2 {
 		t.Fatalf("cell_status / doctrine_version: %q %q", trig.Signal.CellStatus, trig.Execution.DoctrineVersion)
+	}
+	if strings.Join(trig.Signal.RequiredConfirmations, ",") != "5m_or_15m_close_above_trigger,taker_flow_confirms_long" ||
+		strings.Join(lead.Signal.RequiredConfirmations, ",") != "5m_price_holds_ema20_or_trailing_support,live_price_in_entry_zone" {
+		t.Fatalf("required_confirmations: %v / %v", trig.Signal.RequiredConfirmations, lead.Signal.RequiredConfirmations)
+	}
+	if got["IMPUSDT"].Signal.RequiredConfirmations == nil {
+		t.Fatal("required_confirmations must be present (empty list) when the module lists none")
 	}
 	if trig.Signal.ZonePositionPct != nil {
 		t.Fatalf("single-price zone must omit zone_position_pct")

@@ -123,16 +123,21 @@ type hunterV7V2Signal struct {
 	InvalidationPrice       float64  `json:"invalidation_price"`
 	InvalidationDistancePct *float64 `json:"invalidation_distance_pct,omitempty"`
 
-	NearestTargetPrice   float64                   `json:"nearest_target_price,omitempty"`
-	NearestTargetRRRatio *float64                  `json:"nearest_target_rr_ratio,omitempty"`
-	TP1Price             float64                   `json:"tp1_price,omitempty"`
-	TP1RRRatio           *float64                  `json:"tp1_rr_ratio,omitempty"`
-	TP2Price             float64                   `json:"tp2_price,omitempty"`
-	TP2RRRatio           *float64                  `json:"tp2_rr_ratio,omitempty"`
-	RRBasis              hunterV7V2Basis           `json:"rr_basis"`
-	StopCandidates       []local.V7StopCandidate   `json:"stop_candidates"`
-	TargetCandidates     []local.V7TargetCandidate `json:"target_candidates"`
-	MenuBasis            hunterV7V2MenuBasis       `json:"menu_basis"`
+	NearestTargetPrice   float64  `json:"nearest_target_price,omitempty"`
+	NearestTargetRRRatio *float64 `json:"nearest_target_rr_ratio,omitempty"`
+	TP1Price             float64  `json:"tp1_price,omitempty"`
+	TP1RRRatio           *float64 `json:"tp1_rr_ratio,omitempty"`
+	TP2Price             float64  `json:"tp2_price,omitempty"`
+	TP2RRRatio           *float64 `json:"tp2_rr_ratio,omitempty"`
+	// RequiredConfirmations is the module's must-check condition list for
+	// the LLM (fields audit N27: distinct from confirmation_summary, the
+	// module's own confirmation evidence, which is not presented). Owner
+	// decision on PR #28: kept in hybrid_v2; not on the deletion list.
+	RequiredConfirmations []string                  `json:"required_confirmations"`
+	RRBasis               hunterV7V2Basis           `json:"rr_basis"`
+	StopCandidates        []local.V7StopCandidate   `json:"stop_candidates"`
+	TargetCandidates      []local.V7TargetCandidate `json:"target_candidates"`
+	MenuBasis             hunterV7V2MenuBasis       `json:"menu_basis"`
 }
 
 // hunterV7V2Basis states the RR basis (dictionary: "各自标注基准").
@@ -273,21 +278,22 @@ func (e *StrategyEngine) buildHunterV7V2Payload(item hunterV7PromptCandidate, pr
 	}
 
 	s := hunterV7V2Signal{
-		SignalID:            coin.V7SignalID,
-		Symbol:              coin.Symbol,
-		Direction:           coin.Direction,
-		SetupType:           hunterV7V2SetupType(coin),
-		Class:               hunterV7V2Enum("class", coin.V7SignalClass),
-		Status:              hunterV7V2Enum("status", coin.V7Status),
-		CellStatus:          hunterV7V2Enum("cell", store.V7CellStatusProbation),
-		EntryZoneLowerPrice: coin.V7EntryZone.Lower,
-		EntryZoneUpperPrice: coin.V7EntryZone.Upper,
-		ZonePositionPct:     hunterV7V2ZonePositionPct(coin.Direction, coin.V7EntryZone, price),
-		TriggerPrice:        coin.V7TriggerPrice,
-		InvalidationPrice:   coin.V7Invalidation.Price,
-		TP1Price:            coin.V7TP1Price,
-		TP2Price:            coin.V7TP2Price,
-		RRBasis:             hunterV7V2Basis{Entry: "price_at_prompt_build", Stop: "invalidation_price", Target: "uncapped"},
+		SignalID:              coin.V7SignalID,
+		Symbol:                coin.Symbol,
+		Direction:             coin.Direction,
+		SetupType:             hunterV7V2SetupType(coin),
+		Class:                 hunterV7V2Enum("class", coin.V7SignalClass),
+		Status:                hunterV7V2Enum("status", coin.V7Status),
+		CellStatus:            hunterV7V2Enum("cell", store.V7CellStatusProbation),
+		EntryZoneLowerPrice:   coin.V7EntryZone.Lower,
+		EntryZoneUpperPrice:   coin.V7EntryZone.Upper,
+		ZonePositionPct:       hunterV7V2ZonePositionPct(coin.Direction, coin.V7EntryZone, price),
+		TriggerPrice:          coin.V7TriggerPrice,
+		InvalidationPrice:     coin.V7Invalidation.Price,
+		TP1Price:              coin.V7TP1Price,
+		TP2Price:              coin.V7TP2Price,
+		RequiredConfirmations: append([]string{}, coin.V7RequiredConfirms...),
+		RRBasis:               hunterV7V2Basis{Entry: "price_at_prompt_build", Stop: "invalidation_price", Target: "uncapped"},
 	}
 	if coin.V7Stack == local.V7StackT2 {
 		s.LifecycleState = hunterV7V2Enum("lifecycle", coin.V7LifecycleState)

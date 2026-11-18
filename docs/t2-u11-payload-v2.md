@@ -48,6 +48,7 @@ Record for the redesign plan §6.3 U11 row and the "LLM payload" row of §6.2. T
   - `invalidation_distance_pct` (signed).
   - Three named RRs, `nearest_target_rr_ratio`, `tp1_rr_ratio` and `tp2_rr_ratio`, with `rr_basis` (entry `price_at_prompt_build`, stop `invalidation_price`, uncapped).
   - `tp1_price` / `tp2_price`.
+  - `required_confirmations`: the module's must-check condition list for the LLM. Owner decision on PR #28 (decision 3): it is kept, because it is not on the deletion list. It is distinct from `confirmation_summary` (N27), which is the module's own confirmation evidence and is not presented. The list is always present (`[]` when the module lists none). Confirmations settled at prompt build by the live-confirmation pass are not marked in it.
   - The M2 menus `stop_candidates` / `target_candidates` (IDs; M2 field names unchanged, per the dictionary) with `menu_basis`. The menus are reference levels in calculation mode, built by `BuildV7StructurePlan` from the closed bars of the setup's horizon class, measured from `price_at_prompt_build`.
 - **execution:**
   - `tier`, `tier_reason`, `entry_permission`, `llm_role`, `doctrine_version`.
@@ -59,13 +60,13 @@ Record for the redesign plan §6.3 U11 row and the "LLM payload" row of §6.2. T
 - The validator compares setups in canonical form and strips `tier_` from `selected_hunter_v7_tier`, so copied values match.
 
 **Not presented** (hybrid spec B: "其余全删"):
-- reason_codes, risk_tags, required_confirmations and tag_semantics;
+- reason_codes, risk_tags and tag_semantics;
 - execution_quality, position_size_hint, suggested_trigger and the TP0 fields;
 - tp time windows and methods;
 - price_context (vwap, atr, change);
 - the compact market data, quant data, the tag policy block and the market-environment regime line.
 
-**Doctrine v2 (EN + ZH)**, file `kernel/hunter_v7_prompt_doctrine_v2.go`:
+**Doctrine v2 (EN + ZH)**, file `kernel/hunter_v7_prompt_doctrine_v2.go` (§2 defines `required_confirmations` as a checklist, not evidence; §3 opens a REVIEWABLE only when the bars show every item):
 - §1 carries the role text.
 - §2 is the data contract: bars first, then the three namespaces with units and the reference price.
 - §3 is the funnel, with structure read from the bars.
@@ -91,6 +92,7 @@ Record for the redesign plan §6.3 U11 row and the "LLM payload" row of §6.2. T
 | nearest_target_rr / tp1_rr / tp2_rr | signal.nearest_target_rr_ratio / tp1_rr_ratio / tp2_rr_ratio | **deviation:** `structural_` omitted (N06: TP1/TP2 are not structural in legacy geometry); `confirmation_rr_ratio` dropped to keep three RRs (fix ①: module estimate, not admission) |
 | execution_tier / status | execution.tier / signal.status | enum prefix |
 | execution_contract.entry_permission | execution.entry_permission | namespace |
+| required_confirmations / execution_contract.must_confirm | signal.required_confirmations | dictionary (prompt surface, kept apart from confirmation_summary, N27); the leaf name is unchanged, the rename is the namespace |
 | execution_contract.min_rr / min_stop_pct / max_tp_pct / max_drift_pct / drift_reference | execution.limits.* | units in the name; values now always present |
 | reason code risk_score_gte_65 (and any tier reason) | risk_penalty_0_100_gte_65 | dictionary `risk_penalty_0_100`; a flow label inside a reason becomes `taker_flow_gate` |
 
@@ -161,6 +163,5 @@ The dictionary marks entries "code" or "prompt 表面" but marks none "safe", so
 
 ## Open points
 
-- **Required confirmations.** With spec B, `required_confirmations` is not presented. The LLM judges confirmation from the bars, while `entry_permission` and `tier_reason` remain. Adding it back is one field if the owner wants it.
 - **Positions block.** The held-position block still uses the legacy compact market line (`oi_latest`, `funding=`). It is outside the candidate payload, carries no deleted entry, and is unchanged in U11.
 - **M2 menu depth.** The menus are built from the bars the prompt fetches (31 per timeframe). That is shorter than the FAST lookbacks (96 × 15m, 168 × 1h), so menus can be sparser than in the structure geometry mode.
