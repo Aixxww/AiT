@@ -412,6 +412,15 @@ type V7SignalOutput struct {
 	SetupType      V7SetupType    `json:"setup_type"`
 	Status         V7SignalStatus `json:"status"`
 
+	// U5 outcome-tag inputs. TriggerPrice is the level a Task-2 event
+	// triggers at (the signal entry, spec section 5.3); 0 = none (native).
+	// ATR15mPct is ATR14 on 15m as a percent of price when the producer has
+	// it (Task-2); native signals carry it in ExecutionContext. DataGaps
+	// lists inputs the producer filled with a default (plan §6.2).
+	TriggerPrice float64  `json:"trigger_price,omitempty"`
+	ATR15mPct    float64  `json:"atr_15m_pct,omitempty"`
+	DataGaps     []string `json:"data_gaps,omitempty"`
+
 	// Multi-dimensional scores (each 0-100)
 	SetupScore     float64 `json:"setup_score"`
 	RiskScore      float64 `json:"risk_score"`
@@ -486,6 +495,27 @@ type V7SignalRecord struct {
 	Tier        string // EXECUTABLE / REVIEWABLE / WATCH / REJECTED
 	TierReason  string
 	BlockedGate string // Where the signal was blocked in the funnel
+	Tags        V7SignalTags
+}
+
+// V7SignalTags is the U5 outcome-tag set (redesign plan §5.4) attached to a
+// persisted signal record. The kernel fills it at record build time; the
+// outcome tracker adds the fee-net R and the drift at entry later.
+type V7SignalTags struct {
+	Stack              string // native / t2
+	SignalClass        string // U6a class, UNASSIGNED when the registry has none
+	Family             string // setup type without the direction suffix
+	RRBand             string // fee-net RR at TP1 from the reference price
+	StopATRBand        string // stop distance in ATR14(15m) units
+	CellStatus         string
+	ProfileVersion     string
+	CalibrationVersion string
+	DoctrineVersion    string
+	LifecycleState     string // T2 event state, or the native signal status
+	TriggerPrice       float64
+	DecisionPath       string // llm_full / none
+	OutcomeSource      string // prompt_open_review / watch_audit / shadow
+	DataGaps           []string
 }
 
 type V7PotentialComponents struct {

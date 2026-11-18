@@ -408,6 +408,10 @@ type HunterConfig struct {
 	// ARMED 4h / WATCH 2h expiry, 60 min cooldown, the section 6.2
 	// observe-only list, trigger stage on, 15 min triggered surface window).
 	V7T2Lifecycle *V7T2LifecycleConfig `json:"v7_t2_lifecycle,omitempty"`
+	// V7OutcomeTags holds the U5 outcome-tag parameters (RR / stop-ATR band
+	// edges, OD-2 fee-net cost, watch_audit tracking). nil = defaults; read
+	// through EffectiveV7OutcomeTags.
+	V7OutcomeTags *V7OutcomeTagConfig `json:"v7_outcome_tags,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).

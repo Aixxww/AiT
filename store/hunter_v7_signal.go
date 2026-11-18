@@ -74,7 +74,34 @@ type HunterV7SignalRecord struct {
 	TrackSnapshots    string     `gorm:"column:track_snapshots;type:text" json:"track_snapshots"`
 	RawJSON           string     `gorm:"column:raw_json;type:text" json:"raw_json"`
 	CreatedAt         time.Time  `json:"created_at"`
+
+	// U5 outcome tags (redesign plan §5.4). Written at record creation,
+	// except fee_net_r / fee_net_outcome / fee_net_entry /
+	// drift_at_entry_pct, which the outcome tracker writes.
+	Stack                    string   `gorm:"column:stack" json:"stack"`
+	SignalClass              string   `gorm:"column:signal_class;index:idx_v7sig_class" json:"signal_class"`
+	Family                   string   `gorm:"column:family" json:"family"`
+	RRBand                   string   `gorm:"column:rr_band" json:"rr_band"`
+	StopATRBand              string   `gorm:"column:stop_atr_band" json:"stop_atr_band"`
+	CellStatus               string   `gorm:"column:cell_status" json:"cell_status"`
+	ProfileVersion           string   `gorm:"column:profile_version" json:"profile_version"`
+	CalibrationVersion       string   `gorm:"column:calibration_version" json:"calibration_version"`
+	DoctrineVersion          string   `gorm:"column:doctrine_version" json:"doctrine_version"`
+	LifecycleStateAtDecision string   `gorm:"column:lifecycle_state_at_decision" json:"lifecycle_state_at_decision"`
+	TriggerPrice             *float64 `gorm:"column:trigger_price" json:"trigger_price,omitempty"`
+	DriftAtEntryPct          *float64 `gorm:"column:drift_at_entry_pct" json:"drift_at_entry_pct,omitempty"`
+	DecisionPath             string   `gorm:"column:decision_path" json:"decision_path"`
+	FeeNetR                  *float64 `gorm:"column:fee_net_r" json:"fee_net_r,omitempty"`
+	FeeNetOutcome            string   `gorm:"column:fee_net_outcome" json:"fee_net_outcome,omitempty"`
+	FeeNetEntry              float64  `gorm:"column:fee_net_entry" json:"fee_net_entry,omitempty"`
+	OutcomeSource            string   `gorm:"column:outcome_source;index:idx_v7sig_outcome_source" json:"outcome_source"`
+	DataGaps                 string   `gorm:"column:data_gaps" json:"data_gaps"`
 }
+
+// v7OpenReviewSourceFilter keeps only open-review outcomes (plus rows from
+// before U5, which were tracked only when open-reviewable) in the real
+// win-rate denominators.
+const v7OpenReviewSourceFilter = "COALESCE(outcome_source, '') IN ('', '" + V7OutcomeSourcePromptOpenReview + "')"
 
 // TableName implements GORM table naming.
 func (HunterV7SignalRecord) TableName() string { return "hunter_v7_signal_records" }
@@ -113,6 +140,12 @@ type HunterV7SignalTrackUpdate struct {
 	MAE          float64
 	ExitTime     *time.Time
 	Snapshots    string
+	// U5 fee-net walk (OD-2). FeeNetOutcome "" leaves the four columns
+	// untouched (walk still pending).
+	FeeNetOutcome   string
+	FeeNetR         *float64
+	FeeNetEntry     float64
+	DriftAtEntryPct *float64
 }
 
 // HunterV7OutcomeWindowStats summarizes terminal tracking outcomes in a time window.
@@ -185,6 +218,12 @@ func (s *HunterV7SignalStore) UpdateTrackOutcome(recordID int64, update HunterV7
 	if update.Snapshots != "" {
 		values["track_snapshots"] = update.Snapshots
 	}
+	if update.FeeNetOutcome != "" {
+		values["fee_net_outcome"] = update.FeeNetOutcome
+		values["fee_net_r"] = update.FeeNetR
+		values["fee_net_entry"] = update.FeeNetEntry
+		values["drift_at_entry_pct"] = update.DriftAtEntryPct
+	}
 	return s.db.Model(&HunterV7SignalRecord{}).Where("id = ?", recordID).Updates(values).Error
 }
 
@@ -205,6 +244,7 @@ func (s *HunterV7SignalStore) OutcomeWindowStats(from, to time.Time, maxDuration
 	// stays out: OHLC data cannot establish its path and must not calibrate.
 	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "PROTECTED_STOP", "STOP", "TIMEOUT"}
 	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
+		Where(v7OpenReviewSourceFilter).
 		Find(&records).Error
 	if err != nil {
 		return stats, err
@@ -252,6 +292,7 @@ func (s *HunterV7SignalStore) SetupRegimeOutcomeStats(from, to time.Time, minSam
 	var records []HunterV7SignalRecord
 	terminalStatuses := []string{"WIN_TP0", "WIN_TP1", "WIN_TP2", "PROTECTED_STOP", "STOP", "TIMEOUT"}
 	err := s.db.Where("timestamp BETWEEN ? AND ? AND track_status IN ?", from, to, terminalStatuses).
+		Where(v7OpenReviewSourceFilter).
 		Find(&records).Error
 	if err != nil {
 		return nil, err

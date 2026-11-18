@@ -462,7 +462,15 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	// Set up Hunter v7 signal recorder for funnel attribution
 	var v7OutcomeTracker *SignalOutcomeTracker
 	if st != nil && coinSrc.SourceType == "hunter_v7" {
-		v7OutcomeTracker = NewSignalOutcomeTracker(nil, func(symbol string) float64 {
+		var outcomeTags *store.V7OutcomeTagConfig
+		if coinSrc.Hunter != nil {
+			outcomeTags = coinSrc.Hunter.V7OutcomeTags
+		}
+		v7Tags := store.EffectiveV7OutcomeTags(outcomeTags)
+		trackerCfg := DefaultTrackerConfig()
+		trackerCfg.FeeNetCostPct = v7Tags.FeeNetCostPct
+		trackerCfg.WatchAuditMaxTracked = v7Tags.WatchAuditMaxTracked
+		v7OutcomeTracker = NewSignalOutcomeTracker(trackerCfg, func(symbol string) float64 {
 			price, err := trader.GetMarketPrice(symbol)
 			if err != nil || price <= 0 {
 				return 0
@@ -500,6 +508,11 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				MAE:          outcome.MaxAdverse,
 				ExitTime:     outcome.ExitTime,
 				Snapshots:    outcome.SnapshotJSON,
+
+				FeeNetOutcome:   outcome.FeeNetOutcome,
+				FeeNetR:         outcome.FeeNetR,
+				FeeNetEntry:     outcome.FeeNetEntry,
+				DriftAtEntryPct: outcome.DriftAtEntryPct,
 			}); err != nil {
 				logger.Warnf("⚠️ [%s] Failed to update V7 tracking outcome: %v", config.Name, err)
 			}
@@ -510,7 +523,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				return
 			}
 			now := time.Now().UTC()
-			dbRecords := kernel.BuildHunterV7SignalDBRecords(cycleNum, records, now, string(TrackedActive))
+			dbRecords := kernel.BuildHunterV7SignalDBRecordsWithAudit(cycleNum, records, now, string(TrackedActive), v7Tags.WatchAudit)
 			if err := st.HunterV7Signal().CreateBatch(dbRecords); err != nil {
 				logger.Warnf("⚠️ [%s] Failed to persist V7 signal records: %v", config.Name, err)
 				return
@@ -520,14 +533,15 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 					continue
 				}
 				rec := records[i]
-				if !kernel.HunterV7ShouldTrackSignal(rec) {
+				if !kernel.HunterV7ShouldTrackRecord(rec, v7Tags.WatchAudit) {
 					continue
 				}
 				entry := kernel.HunterV7SignalEntryPrice(rec.Signal)
 				if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
 					continue
 				}
-				if _, replacedID := v7OutcomeTracker.Register(
+				if _, replacedID := v7OutcomeTracker.RegisterWithMeta(
+					TrackedSignalMeta{OutcomeSource: rec.Tags.OutcomeSource, TriggerPrice: rec.Tags.TriggerPrice},
 					dbRec.ID,
 					rec.Signal.Symbol,
 					string(rec.Signal.Direction),

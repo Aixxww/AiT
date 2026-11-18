@@ -30,6 +30,7 @@ These scripts reproduce every U0 table in `docs/t2-redesign-plan-20261118.md` §
 | U0-F2 | `u0f2_cuts.py`, `u0f2_variants.py`, `u0f2_v2_robustness.py` | screened cuts, V1–V3 |
 | U0-H | `u0h_attribution.py` | live exit attribution, writes `u0h_rows.json` |
 | U0-H2 inputs | `u0h2_inputs.py` | `u0h2_trades.json`, using data.binance.vision archives cached in `./kl` |
+| U5 acceptance | `go run ./cmd/t2_u5_tags -snapshots $U0_DATA/m3_snapshots/snapshots.jsonl -data $U0_DATA/entry_study -horizon-hours 48 -out u5_48h.json` (and the default 8h horizon), then `u5_check.py u5_48h.json u5_8h.json` | tags on every record; tracker fee-net R vs the U0-A walk |
 
 ## The single-run record
 

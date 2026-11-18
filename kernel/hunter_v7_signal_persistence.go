@@ -12,6 +12,12 @@ import (
 // classification. It is shared by the live trader and validation tooling so
 // persisted funnel stats use one verdict surface.
 func BuildHunterV7SignalRecords(signals []local.V7SignalOutput, candidates []CandidateCoin) []local.V7SignalRecord {
+	return BuildHunterV7SignalRecordsTagged(signals, candidates, DefaultHunterV7RecordTagOptions())
+}
+
+// BuildHunterV7SignalRecordsTagged is BuildHunterV7SignalRecords with the U5
+// outcome tags (plan §5.4) computed from opts.
+func BuildHunterV7SignalRecordsTagged(signals []local.V7SignalOutput, candidates []CandidateCoin, opts HunterV7RecordTagOptions) []local.V7SignalRecord {
 	tierMap := make(map[string]CandidateCoin, len(candidates))
 	for _, cc := range candidates {
 		key := cc.Symbol + "|" + cc.V7SetupType
@@ -21,11 +27,13 @@ func BuildHunterV7SignalRecords(signals []local.V7SignalOutput, candidates []Can
 	for _, sig := range signals {
 		key := sig.Symbol + "|" + string(sig.SetupType)
 		rec := local.V7SignalRecord{Signal: sig}
+		var matched *CandidateCoin
 		if sig.SetupType == local.V7SetupModuleNoMatch {
 			rec.Tier = string(local.V7ReadinessRejected)
 			rec.TierReason = "module_no_match"
 			rec.BlockedGate = "module_no_match"
 		} else if cc, ok := tierMap[key]; ok {
+			matched = &cc
 			rec.Tier = cc.V7ExecutionTier
 			rec.TierReason = cc.V7TierReason
 			rec.BlockedGate = HunterV7BlockedGate(cc)
@@ -42,6 +50,7 @@ func BuildHunterV7SignalRecords(signals []local.V7SignalOutput, candidates []Can
 				rec.BlockedGate = "router_priority_filtered"
 			}
 		}
+		rec.Tags = hunterV7SignalTags(sig, matched, rec.Tier, opts)
 		records = append(records, rec)
 	}
 	return records
@@ -51,6 +60,12 @@ func BuildHunterV7SignalRecords(signals []local.V7SignalOutput, candidates []Can
 // database model. The raw JSON snapshot is persisted with the flat columns so
 // dashboards can reconstruct the full prompt contract.
 func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, ts time.Time, trackStatus string) []store.HunterV7SignalRecord {
+	return BuildHunterV7SignalDBRecordsWithAudit(cycleNum, records, ts, trackStatus, false)
+}
+
+// BuildHunterV7SignalDBRecordsWithAudit also marks watch_audit / shadow rows
+// as tracked when watchAudit is on (U5, v7_outcome_tags.watch_audit).
+func BuildHunterV7SignalDBRecordsWithAudit(cycleNum int, records []local.V7SignalRecord, ts time.Time, trackStatus string, watchAudit bool) []store.HunterV7SignalRecord {
 	if ts.IsZero() {
 		ts = time.Now().UTC()
 	}
@@ -84,8 +99,17 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 		}
 		rawJSON, _ := json.Marshal(sig)
 		recordTrackStatus := ""
-		if trackStatus != "" && HunterV7ShouldTrackSignal(rec) {
+		if trackStatus != "" && HunterV7ShouldTrackRecord(rec, watchAudit) {
 			recordTrackStatus = trackStatus
+		}
+		var triggerPrice *float64
+		if rec.Tags.TriggerPrice > 0 {
+			p := rec.Tags.TriggerPrice
+			triggerPrice = &p
+		}
+		dataGaps := rec.Tags.DataGaps
+		if dataGaps == nil {
+			dataGaps = []string{}
 		}
 		dbRecords = append(dbRecords, store.HunterV7SignalRecord{
 			CycleNumber:       cycleNum,
@@ -131,6 +155,21 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 			BlockedGate:       rec.BlockedGate,
 			TrackStatus:       recordTrackStatus,
 			RawJSON:           string(rawJSON),
+
+			Stack:                    rec.Tags.Stack,
+			SignalClass:              rec.Tags.SignalClass,
+			Family:                   rec.Tags.Family,
+			RRBand:                   rec.Tags.RRBand,
+			StopATRBand:              rec.Tags.StopATRBand,
+			CellStatus:               rec.Tags.CellStatus,
+			ProfileVersion:           rec.Tags.ProfileVersion,
+			CalibrationVersion:       rec.Tags.CalibrationVersion,
+			DoctrineVersion:          rec.Tags.DoctrineVersion,
+			LifecycleStateAtDecision: rec.Tags.LifecycleState,
+			TriggerPrice:             triggerPrice,
+			DecisionPath:             rec.Tags.DecisionPath,
+			OutcomeSource:            rec.Tags.OutcomeSource,
+			DataGaps:                 store.ToJSON(dataGaps),
 		})
 	}
 	return dbRecords
@@ -140,8 +179,18 @@ func BuildHunterV7SignalDBRecords(cycleNum int, records []local.V7SignalRecord, 
 // followed. WATCH rows stay persisted for funnel stats but do not count as
 // active trade outcomes unless a caller explicitly tracks missed opportunity.
 func HunterV7ShouldTrackSignal(rec local.V7SignalRecord) bool {
-	return rec.Tier == string(local.V7ReadinessExecutable) ||
-		rec.Tier == string(local.V7ReadinessReviewable)
+	return hunterV7IsOpenReviewTier(rec.Tier)
+}
+
+// HunterV7ShouldTrackRecord is HunterV7ShouldTrackSignal plus, when
+// watchAudit is on, WATCH-tier rows in the watch_audit or shadow bucket
+// (U5). REJECTED and router-dropped rows are never tracked.
+func HunterV7ShouldTrackRecord(rec local.V7SignalRecord, watchAudit bool) bool {
+	if HunterV7ShouldTrackSignal(rec) {
+		return true
+	}
+	return watchAudit && rec.Tier == string(local.V7ReadinessWatch) &&
+		(rec.Tags.OutcomeSource == store.V7OutcomeSourceWatchAudit || rec.Tags.OutcomeSource == store.V7OutcomeSourceShadow)
 }
 
 // HunterV7SignalEntryPrice returns the same synthetic entry used for dry-run

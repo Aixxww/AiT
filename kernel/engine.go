@@ -389,7 +389,11 @@ func (e *StrategyEngine) SetV7SignalRecorder(recorder local.V7SignalRecorder) {
 
 // buildV7SignalRecords merges raw V7 signals with kernel tier classification.
 func (e *StrategyEngine) buildV7SignalRecords(signals []local.V7SignalOutput, candidates []CandidateCoin) []local.V7SignalRecord {
-	return BuildHunterV7SignalRecords(signals, candidates)
+	var cfg *store.StrategyConfig
+	if e != nil {
+		cfg = e.config
+	}
+	return BuildHunterV7SignalRecordsTagged(signals, candidates, HunterV7RecordTagOptionsFromConfig(cfg))
 }
 
 // HunterV7BlockedGate determines where a signal was blocked in the funnel.
