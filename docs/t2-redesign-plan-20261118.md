@@ -6,6 +6,8 @@ Revision 2 (owner supplement): adds R6, post-entry position management (§7), fi
 
 Revision 3: checks the §3 class assignments against SSA §H.3 (new §3.4), adds the SSA §I yield numbers (§6.2, OD-20), records the confirmed exit model of the direction audit (§7.3), and adds decisions OD-27 and OD-28.
 
+Revision 4: records the U0 evidence programme (§10): check 6, U0-A to U0-H, U0-F2 and the single pre-registered U0-H2 test. It also records the decisions that close the protector question (OD-22 (a) confirmed on live data; U14 locked to defect fixes only).
+
 ## 0. How to read this plan
 
 ### 0.1 Evidence tags
@@ -808,3 +810,47 @@ Each entry gives the options, my recommendation, and the evidence behind it.
 | OD-26 | Protection defect fixes | approve F27–F31 as fix units; ordering relative to Task E | F27 and F28 before any pilot; F29–F31 with U14 | §7.1.4 code facts |
 | OD-27 | ignition_early_short admission | shadow-only; regime-gated (the regime rule set from U0 per-regime outcomes); admit like ignition_early_long | Shadow-only until U0 has per-regime outcomes for it; then decide on a regime gate | H.3: filter out or regime-gate [SSA §H.3] |
 | OD-28 | momentum_continuation_watch_long admission | shadow-only; admit | Shadow-only | H.3: filter out [SSA §H.3]; ceiling 79 < 82, so it never arms [C] |
+
+---
+
+## 10. U0 results and decisions (revision 4)
+
+Code: harnesses at head `3311417`, packaged under `scripts/t2_u0/`, `cmd/t2_u0_native` and `trader/u0_protector_*_test.go`. Data: the private `ait-t2-data` repository, never committed. All R values are fee-net. CIs are 90% bootstrap.
+
+### 10.1 Check 6 (U0 acceptance)
+
+| Item | Result |
+|---|---|
+| Data package | All md5s match: 694 events, 694 klines, 694 snapshots, 609 lookback files, measure/ outputs |
+| M2v2 9/694 | **Pass.** Output identical to the reference apart from the `rr_min` field added by U2. At rr-min 1.2, 19 are admitted (U2 acceptance). |
+| MEAS1 19/32/90, median 0.336 | **Pass, bit-identical.** All 258 `rr_meas` values and every per-event outcome match. |
+| MEAS2 522/172, 516/63 | **Pass** on the measured code (`c381f1b`, reproduced at `1d9fb38`). At head, only the tier reason differs, because U2's 1.2 floor changes it (522 → 37 `backend_rr_infeasible`). |
+| MEAS3 62/114 | Not bit-exact. The measured tree predates PRs #5–#11. Owner decision: accepted within definition and **superseded by U0-B**. |
+
+### 10.2 U0 headlines
+
+| Table | Headline |
+|---|---|
+| **U0-F** (live protector A, 380 replay fills) | 123 killed winners (K, −140.8 R) against 168 saves (S, +145.3 R). A − P +0.017 per trade [−0.080, +0.110]; A − D −0.000. Winners' pullback before TP1: p90 1.94 R. No variant E1–E6 passes the T-EXIT gate (best E6: +0.035, P = 0.80). |
+| **U0-A** (T2 score) | Pooled ρ −0.020, with fold signs flipping. Only `ignition_early_long` is positive in every fold (ρ +0.144). |
+| **U0-B** (native, head; supersedes MEAS3) | Final native signal in 328/694 snapshots. Co-fire 54 final / 97 raw. Native calibration mean −0.128 R; AIPriority ρ +0.070, with one fold at 0.000, so excluded from E[R]. `funding_reversal` −0.347 R [−0.507, −0.188] supports OD-13. |
+| **U0-C** (delay) | Market-entry delay costs ~0 at 1–5 min and is significant at 15 min for IMPULSE families. Run-away grows with delay: T2 8.5% at 0 → 14.0% at 15 min. |
+| **U0-D** (stop / ATR) | Rule output: all 2.0×, IMPULSE 1.0×; TRIGGER is non-monotone and unusable. No floor value adopted; OD-10's 0.5% stands. |
+| **U0-E** (twins) | No arm reaches n ≥ 30, so no merge is decided. 0 of the 54 co-fires are twin pairs. |
+| **U0-H** (live attribution) | 138 live bot trades, mean −0.110 R. 19 exits within ±0.1 R, 15 of them in the moved-stop / breakeven band. 23 LLM closes, mean −0.241 R. 7 protector-reasoned exits; the rest inferred from price, or unspecified (25). |
+| **U0-F2** (screened cuts, mechanism survey) | Screened cut C1 (n = 48, underpowered): A − P −0.116. V2 (freqtrade-style offset trail) passes on C0 and C3 only. |
+| **U0-H2** (single pre-registered live test) | V2 − A +0.0775, P = 0.825, folds +/+/−. **FAIL** (`docs/t2-u0-preregistrations.md`). |
+
+### 10.3 Decisions closing the protector line (owner, 2026-11-18)
+
+- **OD-22 (a)** is confirmed on live data. The live protector A keeps its semantics exactly as they are. No exit variant is adopted.
+- **U14** is locked to the F29–F31 defect fixes plus the R-unit / config refactor (OD-25). Protector semantics do not change.
+- **Not to be tested or adopted:** the deterministic rule "do not move the stop into the winner pullback band before TP1". Not to be designed around.
+- **Closed, no test:** the per-poll LLM protector idea. The evidence-based negative is accepted.
+- **Reference only:** the plan arm's live showing (P +3.28 R over 136 trades; A − P −0.112). It changes nothing.
+- **Other decisions recorded in this period:**
+  - OD-27 and OD-28: shadow-only.
+  - OD-14: covers the T2 `confirmed_breakout_*` only; native `trend_breakout_long` stays tradable.
+  - MEAS3 superseded by U0-B.
+
+U0 is complete. The queue continues with U1, with U14 at its planned position.

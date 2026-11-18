@@ -295,6 +295,7 @@ func main() {
 	// the same config default the kernel and executor read
 	// (store.DefaultT2MinRiskRewardRatio). Pass -rr-min 1.5 to reproduce the
 	// pre-U2 spec v2 run (9/694).
+	rrStageOut := flag.String("rr-stage-out", "", "optional: write per-event RR-stage rows (MEAS1 / U0) to this path")
 	rrMin := flag.Float64("rr-min", store.DefaultT2MinRiskRewardRatio, "measured-RR admission floor (RRMin) for the structure arm")
 	flag.Parse()
 	if *rrMin <= 0 {
@@ -335,6 +336,7 @@ func main() {
 		ByFamily:    map[string]*group{},
 	}
 
+	var rrStage []rrStageRow
 	for i, ev := range events {
 		bars, err := replay.LoadBars(*dataDir, i)
 		if err != nil {
@@ -416,6 +418,11 @@ func main() {
 			BarsTFS: sBars, BarsTFH: hBars, Config: cfg,
 		})
 		rec.Detail, rec.Fallback, rec.NearDist, rec.RRMeas = plan.RejectDetail, plan.TP1Fallback, plan.NearestCandidateDistPct, plan.RRMeasTP1
+		if *rrStageOut != "" {
+			if row, ok := rrStageRowFor(i, ev, cfg.Class, plan, bars, placeMin, long); ok {
+				rrStage = append(rrStage, row)
+			}
+		}
 		if plan.NearestCandidateDistPct > 0 {
 			nearDist["all"] = append(nearDist["all"], plan.NearestCandidateDistPct)
 			nearDist[cfg.Class] = append(nearDist[cfg.Class], plan.NearestCandidateDistPct)
@@ -544,6 +551,16 @@ func main() {
 			rep.Gates[k] = nil
 		}
 	}
+	if *rrStageOut != "" {
+		b, err := json.Marshal(rrStage)
+		if err != nil {
+			fatal("marshal rr-stage rows: %v", err)
+		}
+		if err := os.WriteFile(*rrStageOut, b, 0o644); err != nil {
+			fatal("write %s: %v", *rrStageOut, err)
+		}
+		fmt.Printf("wrote %d rr-stage rows to %s\n", len(rrStage), *rrStageOut)
+	}
 	raw, err := json.MarshalIndent(rep, "", "  ")
 	if err != nil {
 		fatal("marshal: %v", err)
@@ -659,4 +676,54 @@ func printSummary(rep *report) {
 func fatal(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "t2_m2_eval: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+// rrStageRow is one RR-stage event (MEAS1 / U0): every event the builder
+// took to the RR admission (admitted, or rejected with s_a_fails_rr), with
+// its S_A stop and structural TP1 walked by the eval's own walk and scored
+// with the OD-2 fee-net convention (TP1-first = rr_meas, stop-first = -1,
+// unresolved = 0).
+type rrStageRow struct {
+	Index    int     `json:"index"`
+	Symbol   string  `json:"symbol"`
+	Dir      string  `json:"direction"`
+	Setup    string  `json:"setup"`
+	Class    string  `json:"class"`
+	Admitted bool    `json:"admitted"`
+	RRMeas   float64 `json:"rr_meas_tp1"`
+	StopID   string  `json:"stop_id"`
+	Stop     float64 `json:"stop"`
+	TP1      float64 `json:"tp1"`
+	First    string  `json:"first"`
+	StopThen bool    `json:"stop_then_tp1"`
+	FeeNetR  float64 `json:"fee_net_r"`
+}
+
+func rrStageRowFor(i int, ev replay.Event, class string, plan *local.V7StructurePlan, bars []replay.Bar, placeMin int64, long bool) (rrStageRow, bool) {
+	var stop *local.V7StopCandidate
+	admitted := plan.Feasible && plan.ChosenStop != nil
+	switch {
+	case admitted:
+		stop = plan.ChosenStop
+	case plan.RejectDetail == "s_a_fails_rr":
+		for k := range plan.StopCandidates {
+			if strings.HasPrefix(plan.StopCandidates[k].ID, "S_A") {
+				stop = &plan.StopCandidates[k]
+				break
+			}
+		}
+	}
+	if stop == nil {
+		return rrStageRow{}, false
+	}
+	w := walk(bars, placeMin, long, stop.Price, plan.TP1)
+	r := rrStageRow{Index: i, Symbol: ev.Symbol, Dir: ev.Direction, Setup: ev.Setup, Class: class, Admitted: admitted,
+		RRMeas: plan.RRMeasTP1, StopID: stop.ID, Stop: stop.Price, TP1: plan.TP1, First: w.First, StopThen: w.StopThen}
+	switch w.First {
+	case "tp1":
+		r.FeeNetR = plan.RRMeasTP1
+	case "stop":
+		r.FeeNetR = -1
+	}
+	return r, true
 }
