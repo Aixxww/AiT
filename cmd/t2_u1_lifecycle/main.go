@@ -11,6 +11,10 @@
 // cross-event cooldown), prices are 1m closes sampled every -cadence
 // minutes from the first cached bar at or after the snapshot time.
 //
+// Since U4 the assembly applies the T2 minimum stop (-t2-min-stop, 0 = the
+// store default) and the T2 class tier rule, so before/after tiers show
+// the REVIEWABLE reach per family.
+//
 // Usage:
 //
 //	go run ./cmd/t2_u1_lifecycle -snapshots snapshots.jsonl -data entry_study -out u1.json
@@ -63,6 +67,7 @@ func main() {
 	dataDir := flag.String("data", "", "entry_study directory (events.json + klines/)")
 	outPath := flag.String("out", "", "per-event JSON output")
 	cadence := flag.Int("cadence", 3, "scan cadence in minutes (AiT scan_interval_minutes default)")
+	t2MinStop := flag.Float64("t2-min-stop", 0, "T2 minimum stop distance in percent (0 = store default, U4)")
 	flag.Parse()
 
 	events, err := replay.LoadEvents(*dataDir)
@@ -75,6 +80,7 @@ func main() {
 	}
 	geom := kernel.HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)
 	geom.T2MinRR = store.DefaultT2MinRiskRewardRatio
+	geom.T2MinSLMovePct = *t2MinStop
 	cfg := &local.V7T2Config{Enabled: true}
 
 	f, err := os.Open(*snapPath)

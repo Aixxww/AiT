@@ -152,6 +152,10 @@ type hunterV7ExecutionContract struct {
 	// MinRR is this candidate's RR admission floor when it differs from the
 	// strategy floor (Task-2 candidates, U2/P2a). Omitted for native.
 	MinRR float64 `json:"min_rr,omitempty"`
+	// MinStopPct is this candidate's minimum stop distance (percent) when it
+	// differs from the strategy floor (Task-2 candidates, U4/P2b). Omitted
+	// for native.
+	MinStopPct float64 `json:"min_stop_pct,omitempty"`
 }
 
 func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContract {
@@ -159,6 +163,7 @@ func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContrac
 		MustConfirm: append([]string{}, coin.V7RequiredConfirms...),
 		ExitPolicy:  "backend_stop_and_target_only",
 		MinRR:       coin.V7RequiredRR,
+		MinStopPct:  coin.V7RequiredMinStop,
 	}
 
 	switch coin.V7ExecutionTier {

@@ -226,6 +226,9 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		// when the Task-2 module is on, so native prompts are unchanged.
 		sb.WriteString(fmt.Sprintf("- Task-2 candidates: when a candidate's execution_contract carries `min_rr`, that value (currently %.2f) replaces the RR floor above for that candidate only; the backend validates the same value.\n",
 			e.config.RiskControl.EffectiveT2MinRiskRewardRatio()))
+		// U4/P2b: the same rule for the stop-distance floor.
+		sb.WriteString(fmt.Sprintf("- Task-2 candidates: when a candidate's execution_contract carries `min_stop_pct`, that value (currently %.2f%%) replaces the minimum stop-loss distance above for that candidate only; keep the candidate's own invalidation stop when it is at least that far, and the backend validates the same value.\n",
+			e.config.RiskControl.EffectiveT2MinStopLossPriceMovePct()))
 	}
 }
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
@@ -256,6 +259,10 @@ func (e *StrategyEngine) hunterV7ExecutionGeometry() HunterV7ExecutionGeometry {
 		strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7"),
 	)
 	geometry.T2MinRR = riskControl.EffectiveT2MinRiskRewardRatio()
+	geometry.T2MinSLMovePct = riskControl.EffectiveT2MinStopLossPriceMovePct()
+	if e.config.CoinSource.Hunter != nil {
+		geometry.T2ReviewableStates = store.EffectiveV7T2ReviewableStates(e.config.CoinSource.Hunter.V7T2Lifecycle)
+	}
 	geometry.Classes = e.config.CoinSource.Hunter.EffectiveV7SignalClasses()
 	return geometry
 }

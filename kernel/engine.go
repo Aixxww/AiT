@@ -126,6 +126,7 @@ type CandidateCoin struct {
 	V7SignalClass      string                       `json:"-"` // U6a registry class ("" = unassigned)
 	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
+	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
 	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
@@ -239,6 +240,11 @@ type Decision struct {
 	// by hydrateHunterV7DecisionExecutionPlans; json "-" so a model response
 	// can never supply it.
 	HunterV7MinRR float64 `json:"-"`
+	// HunterV7MinStopPct is the minimum stop distance (percent) of the
+	// selected backend candidate when it differs from the strategy floor
+	// (Task-2 candidates, U4/P2b). Same hydration and json "-" contract as
+	// HunterV7MinRR.
+	HunterV7MinStopPct float64 `json:"-"`
 }
 
 type DecisionTrigger struct {
@@ -614,6 +620,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 		}
 		if cc.V7Stack == local.V7StackT2 {
 			cc.V7RequiredRR = hunterV7T2MinRR(geometry)
+			cc.V7RequiredMinStop = hunterV7T2MinSLMovePct(geometry)
 		}
 		if entry, ok := hunterV7ClassRegistry(geometry)[cc.V7SetupType]; ok {
 			cc.V7SignalClass, cc.V7ClassAdmission = entry.Class, entry.Admission
@@ -642,6 +649,15 @@ type HunterV7ExecutionGeometry struct {
 	// from RiskControlConfig.EffectiveT2MinRiskRewardRatio. 0 falls back to
 	// store.DefaultT2MinRiskRewardRatio, never to the native 1.5.
 	T2MinRR float64
+	// T2MinSLMovePct is the minimum stop distance for Task-2 candidates
+	// (U4/P2b, OD-10), from RiskControlConfig.EffectiveT2MinStopLossPriceMovePct.
+	// 0 falls back to store.DefaultT2MinStopLossPriceMovePct, never to the
+	// native MinSLMovePct.
+	T2MinSLMovePct float64
+	// T2ReviewableStates maps a signal class to the T2 lifecycle states in
+	// which a T2 candidate may reach REVIEWABLE (U4). nil means
+	// store.DefaultV7T2ReviewableStates.
+	T2ReviewableStates map[string][]string
 	// Classes is the signal-class registry used at assembly (U6a). nil
 	// means store.DefaultV7SignalClassRegistry.
 	Classes map[string]store.V7SignalClassEntry
@@ -677,10 +693,19 @@ func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct,
 	return geometry
 }
 
-// classifyHunterV7CandidateTierWithGeometry applies the tier rules and then
-// the U6a class admission cap: a shadow_only class never rises above WATCH.
+// hunterV7T2MaxTier is the highest tier a Task-2 candidate may reach (OD-11:
+// REVIEWABLE until its class x band cell is EARNED). No cell status exists
+// yet (U5/U6), so the cap is unconditional.
+const hunterV7T2MaxTier = "REVIEWABLE"
+
+// classifyHunterV7CandidateTierWithGeometry applies the tier rules, then the
+// OD-11 T2 cap (EXECUTABLE -> REVIEWABLE), then the U6a class admission cap:
+// a shadow_only class never rises above WATCH.
 func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	tier, reason := classifyHunterV7CandidateTierRules(coin, geometry)
+	if coin.V7Stack == local.V7StackT2 && tier == "EXECUTABLE" {
+		tier, reason = hunterV7T2MaxTier, "t2_tier_cap_reviewable"
+	}
 	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly && (tier == "EXECUTABLE" || tier == "REVIEWABLE") {
 		return "WATCH", "class_shadow_only"
 	}
@@ -794,6 +819,12 @@ func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7Exe
 	}
 	if reason := hunterV7BackendCappedRRWaitReason(coin, geometry); reason != "" {
 		return "WATCH", reason
+	}
+	// U4/P2c: Task-2 candidates are tiered by their class lifecycle rule,
+	// not by the native setup tier specs, and never fall through to
+	// needs_confirmation.
+	if coin.V7Stack == local.V7StackT2 {
+		return hunterV7T2TierRule(coin, geometry)
 	}
 	if ok, reason := hunterV7ReadinessReviewableReason(coin); ok {
 		return "REVIEWABLE", reason
@@ -1946,6 +1977,7 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	geometry = hunterV7SetupExecutionGeometry(coin, geometry)
 	if coin.V7Stack == local.V7StackT2 {
 		geometry.MinRR = hunterV7T2MinRR(geometry)
+		geometry.MinSLMovePct = hunterV7T2MinSLMovePct(geometry)
 	}
 	if geometry.MinRR <= 0 {
 		geometry.MinRR = hunterV7BackendMinRR
@@ -3498,6 +3530,53 @@ func hunterV7T2MinRR(geometry HunterV7ExecutionGeometry) float64 {
 		return geometry.T2MinRR
 	}
 	return store.DefaultT2MinRiskRewardRatio
+}
+
+// hunterV7T2MinSLMovePct returns the Task-2 minimum stop distance carried
+// by the execution geometry, falling back to the store default (never to
+// the native 2.0).
+func hunterV7T2MinSLMovePct(geometry HunterV7ExecutionGeometry) float64 {
+	if geometry.T2MinSLMovePct > 0 {
+		return geometry.T2MinSLMovePct
+	}
+	return store.DefaultT2MinStopLossPriceMovePct
+}
+
+// hunterV7T2ReviewableStates returns the per-class T2 reachability rule.
+func hunterV7T2ReviewableStates(geometry HunterV7ExecutionGeometry) map[string][]string {
+	if geometry.T2ReviewableStates != nil {
+		return geometry.T2ReviewableStates
+	}
+	return store.DefaultV7T2ReviewableStates()
+}
+
+// hunterV7T2TierRule is the U4 tier rule for Task-2 candidates, keyed on
+// the U6a signal class (overlap O-4), not on the setup-string prefix. It
+// runs after the shared reject / wait checks and the backend RR check.
+//   - no class: WATCH t2_unclassified
+//   - observe-only setup (OD-5): WATCH t2_observe_only
+//   - class with no reviewable state (CONTEXT): WATCH t2_class_not_reviewable
+//   - lifecycle state reviewable for the class: REVIEWABLE t2_<class>_<state>
+//   - otherwise: WATCH t2_awaiting_trigger
+//
+// The result is at most REVIEWABLE (OD-11).
+func hunterV7T2TierRule(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
+	if coin.V7SignalClass == "" {
+		return "WATCH", "t2_unclassified"
+	}
+	if containsStringValue(coin.V7RiskTags, "t2_observe_only") {
+		return "WATCH", "t2_observe_only"
+	}
+	states := hunterV7T2ReviewableStates(geometry)[coin.V7SignalClass]
+	if len(states) == 0 {
+		return "WATCH", "t2_class_not_reviewable"
+	}
+	for _, state := range states {
+		if strings.EqualFold(state, coin.V7LifecycleState) {
+			return hunterV7T2MaxTier, "t2_" + strings.ToLower(coin.V7SignalClass) + "_" + strings.ToLower(coin.V7LifecycleState)
+		}
+	}
+	return "WATCH", "t2_awaiting_trigger"
 }
 
 // hunterV7ClassRegistry returns the assembly's class registry (U6a).

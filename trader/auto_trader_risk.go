@@ -1074,6 +1074,18 @@ func (at *AutoTrader) minStopLossPriceMovePct() float64 {
 	return 0
 }
 
+// decisionMinStopLossPriceMovePct is the executor's minimum stop distance
+// for one decision: the selected candidate's own floor when the kernel
+// hydrated one (Task-2 candidates, U4/P2b: Decision.HunterV7MinStopPct, from
+// the same RiskControlConfig.EffectiveT2MinStopLossPriceMovePct the assembly
+// check used), else the strategy floor as before.
+func (at *AutoTrader) decisionMinStopLossPriceMovePct(decision *kernel.Decision) float64 {
+	if decision != nil && decision.HunterV7MinStopPct > 0 {
+		return decision.HunterV7MinStopPct
+	}
+	return at.minStopLossPriceMovePct()
+}
+
 func (at *AutoTrader) capTakeProfitToTP1(decision *kernel.Decision, currentPrice float64, side string) bool {
 	maxMovePct := at.maxTakeProfitPriceMovePct()
 	if decision == nil || maxMovePct <= 0 || currentPrice <= 0 || decision.TakeProfit <= 0 {
@@ -1250,10 +1262,15 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 			}
 		}
 	}
-	minStopPct := at.minStopLossPriceMovePct()
+	// The edge-miss widening below enforces the decision's own minimum
+	// (T2: U4/P2b). The wide-stop narrowing keeps the strategy floor: it is a
+	// small-account sizing heuristic, not a minimum, and U4 changes only the
+	// minimum (OD-10, O-3).
+	minStopPct := at.decisionMinStopLossPriceMovePct(decision)
 	if minStopPct <= 0 {
 		return false
 	}
+	narrowBasePct := at.minStopLossPriceMovePct()
 
 	var stopMovePct float64
 	switch side {
@@ -1265,8 +1282,8 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 		return false
 	}
 	if stopMovePct >= minStopPct {
-		if at.isHunterV7Strategy() && stopMovePct > minStopPct+0.35 && stopMovePct <= 3.20 {
-			targetStopPct := minStopPct + 0.10
+		if at.isHunterV7Strategy() && narrowBasePct > 0 && stopMovePct > narrowBasePct+0.35 && stopMovePct <= 3.20 {
+			targetStopPct := narrowBasePct + 0.10
 			oldStop := decision.StopLoss
 			switch side {
 			case "long":
@@ -2509,7 +2526,7 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 		return fmt.Errorf("❌ [RISK CONTROL] Invalid risk/reward distance for %s", decision.Symbol)
 	}
 
-	if minStopLossMovePct := at.minStopLossPriceMovePct(); minStopLossMovePct > 0 {
+	if minStopLossMovePct := at.decisionMinStopLossPriceMovePct(decision); minStopLossMovePct > 0 {
 		stopLossMovePct := riskDistance / currentPrice * 100
 		if stopLossMovePct < minStopLossMovePct {
 			return fmt.Errorf("❌ [RISK CONTROL] Stop-loss distance %.2f%% below minimum %.2f%% for %s",
