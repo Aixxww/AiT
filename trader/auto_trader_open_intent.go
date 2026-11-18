@@ -41,6 +41,9 @@ const (
 // openIntentKey identifies one open decision: trader, cycle, symbol, side
 // and the selected Hunter v7 signal. A later cycle is a new intent.
 func (at *AutoTrader) openIntentKey(decision *kernel.Decision, side string) string {
+	if decision.HunterV7IntentKey != "" {
+		return decision.HunterV7IntentKey // U9: pending conditional entry
+	}
 	return fmt.Sprintf("%s|%d|%s|%s|%s", at.id, at.callCount, strings.ToUpper(decision.Symbol), side, decision.SelectedHunterV7SignalID)
 }
 

@@ -226,6 +226,12 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		// when the Task-2 module is on, so native prompts are unchanged.
 		sb.WriteString(fmt.Sprintf("- Task-2 candidates: when a candidate's execution_contract carries `min_rr`, that value (currently %.2f) replaces the RR floor above for that candidate only; the backend validates the same value.\n",
 			e.config.RiskControl.EffectiveT2MinRiskRewardRatio()))
+		if h := e.config.CoinSource.Hunter; h != nil && h.V7ConditionalEntry != nil && h.V7ConditionalEntry.Enabled {
+			ce := store.EffectiveV7ConditionalEntry(h.V7ConditionalEntry)
+			// U9: conditional entries, only when enabled.
+			sb.WriteString(fmt.Sprintf("- Task-2 conditional entries: a candidate whose execution_contract.entry_permission is `conditional_on_trigger` has not reached its trigger yet. An open_long/open_short for it is not sent to the exchange: the backend keeps it pending and opens it only when a completed 1m candle closes through `trigger_price`, cancels it if price reaches the stop first, and drops it after %.0f minutes. Set `price` to `trigger_price` and include the `trigger` object with that price; stop and take-profit must be valid from the trigger.\n",
+				ce.MaxPendingMinutes))
+		}
 		// U4/P2b: the same rule for the stop-distance floor.
 		sb.WriteString(fmt.Sprintf("- Task-2 candidates: when a candidate's execution_contract carries `min_stop_pct`, that value (currently %.2f%%) replaces the minimum stop-loss distance above for that candidate only; keep the candidate's own invalidation stop when it is at least that far, and the backend validates the same value.\n",
 			e.config.RiskControl.EffectiveT2MinStopLossPriceMovePct()))
@@ -273,6 +279,9 @@ func HunterV7ExecutionGeometryForConfig(cfg *store.StrategyConfig) HunterV7Execu
 	geometry.T2MinSLMovePct = riskControl.EffectiveT2MinStopLossPriceMovePct()
 	geometry.ClassProfiles = riskControl.EffectiveV7ClassProfiles()
 	geometry.SetupOverrides = riskControl.EffectiveV7SetupGeometryOverrides()
+	if cfg.CoinSource.Hunter != nil {
+		geometry.ConditionalClasses = store.EffectiveV7ConditionalEntry(cfg.CoinSource.Hunter.V7ConditionalEntry).ClassSet()
+	}
 	if cfg.CoinSource.Hunter != nil {
 		geometry.T2ReviewableStates = store.EffectiveV7T2ReviewableStates(cfg.CoinSource.Hunter.V7T2Lifecycle)
 	}

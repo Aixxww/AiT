@@ -122,6 +122,17 @@ func (rc RiskControlConfig) EffectiveT2MinRiskRewardRatio() float64 {
 	return DefaultT2MinRiskRewardRatio
 }
 
+// DefaultMicroPriceConsistencyMaxPct is the pre-U9 micro-refresh literal.
+const DefaultMicroPriceConsistencyMaxPct = 0.45
+
+// EffectiveMicroPriceConsistencyMaxPct reads MicroPriceConsistencyMaxPct.
+func (rc RiskControlConfig) EffectiveMicroPriceConsistencyMaxPct() float64 {
+	if rc.MicroPriceConsistencyMaxPct > 0 {
+		return rc.MicroPriceConsistencyMaxPct
+	}
+	return DefaultMicroPriceConsistencyMaxPct
+}
+
 // DefaultT2MinStopLossPriceMovePct is the owner-approved starting value of
 // the Task-2 minimum stop distance (redesign plan U4/P2b minimal, OD-10).
 // It sits below the ~1.0% cluster of T2 structural stops; U0-D adopted no
@@ -416,6 +427,10 @@ type HunterConfig struct {
 	// parameters. nil = defaults (estimator off); read through
 	// EffectiveV7ExpectedR.
 	V7ExpectedR *V7ExpectedRConfig `json:"v7_expected_r,omitempty"`
+	// V7ConditionalEntry is the U9 TRIGGER-class conditional entry (owner
+	// decision: backend trigger check on completed 1m candles, default off).
+	// nil = off; read through EffectiveV7ConditionalEntry.
+	V7ConditionalEntry *V7ConditionalEntryConfig `json:"v7_conditional_entry,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).
@@ -556,6 +571,13 @@ type RiskControlConfig struct {
 	// keyed by signal class. Zero fields inherit the stack values above;
 	// read through EffectiveV7ClassProfiles.
 	ClassProfiles map[string]V7ClassRiskProfile `json:"class_profiles,omitempty"`
+	// MicroPriceConsistencyMaxPct is the largest allowed divergence between
+	// the orderbook executable price, the REST price and the live price in
+	// the Hunter v7 micro refresh (U9, was the 0.45 literal). It also caps
+	// the micro-refresh entry drift, which now reads the per-class drift
+	// limit: min(class drift, this) is the pre-U9 min(drift, 0.45) rule.
+	// 0 = DefaultMicroPriceConsistencyMaxPct.
+	MicroPriceConsistencyMaxPct float64 `json:"micro_price_consistency_max_pct,omitempty"`
 	// SetupGeometryOverrides overrides the per-setup backend RR relaxations
 	// (U6, F13); read through EffectiveV7SetupGeometryOverrides.
 	SetupGeometryOverrides map[string]V7SetupGeometryOverride `json:"setup_geometry_overrides,omitempty"`

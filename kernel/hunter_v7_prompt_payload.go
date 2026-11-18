@@ -159,6 +159,11 @@ type hunterV7ExecutionContract struct {
 	// MaxTPPct is this candidate's TP1 distance cap (percent) when its class
 	// profile differs from the strategy cap (U6). Omitted otherwise.
 	MaxTPPct float64 `json:"max_tp_pct,omitempty"`
+	// U9: drift contract when the class profile differs from the strategy,
+	// and the trigger of a conditional entry. Omitted otherwise.
+	MaxDriftPct    float64 `json:"max_drift_pct,omitempty"`
+	DriftReference string  `json:"drift_reference,omitempty"`
+	TriggerPrice   float64 `json:"trigger_price,omitempty"`
 }
 
 func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContract {
@@ -168,12 +173,18 @@ func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContrac
 		MinRR:       coin.V7RequiredRR,
 		MinStopPct:  coin.V7RequiredMinStop,
 		MaxTPPct:    coin.V7RequiredMaxTP,
+
+		MaxDriftPct:    coin.V7RequiredMaxDrift,
+		DriftReference: coin.V7DriftReference,
 	}
 
-	switch coin.V7ExecutionTier {
-	case "EXECUTABLE":
+	switch {
+	case coin.V7ConditionalEntry:
+		contract.EntryPermission = "conditional_on_trigger"
+		contract.TriggerPrice = coin.V7TriggerPrice
+	case coin.V7ExecutionTier == "EXECUTABLE":
 		contract.EntryPermission = "backend_checks_required"
-	case "REVIEWABLE":
+	case coin.V7ExecutionTier == "REVIEWABLE":
 		contract.EntryPermission = "live_confirmation_required"
 	default:
 		contract.EntryPermission = "no_direct_open"

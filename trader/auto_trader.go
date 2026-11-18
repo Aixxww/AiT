@@ -196,6 +196,7 @@ type AutoTrader struct {
 	lastContextPositionsAt time.Time
 	v7OutcomeTracker       *SignalOutcomeTracker
 	v7OutcomeCancel        context.CancelFunc
+	conditional            hunterV7ConditionalState // U9 pending trigger entries
 }
 
 // NewAutoTrader creates an automatic trader
@@ -640,6 +641,7 @@ func (at *AutoTrader) Run() (err error) {
 
 	// Start drawdown monitoring
 	at.startDrawdownMonitor()
+	at.startHunterV7ConditionalEntryMonitor()
 
 	if at.v7OutcomeTracker != nil {
 		trackerCtx, trackerCancel := context.WithCancel(context.Background())

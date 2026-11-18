@@ -110,6 +110,7 @@ type DecisionAction struct {
 	HunterV7TP2Price         float64          `json:"hunter_v7_tp2_price,omitempty"`
 	BlockedReasonCode        string           `json:"blocked_reason_code,omitempty"`
 	Trigger                  *DecisionTrigger `json:"trigger,omitempty"`
+	ConditionalPending       bool             `json:"conditional_pending,omitempty"` // U9: open kept as a pending trigger entry, not sent
 	OrderID                  int64            `json:"order_id"`
 	Timestamp                time.Time        `json:"timestamp"`
 	Success                  bool             `json:"success"`

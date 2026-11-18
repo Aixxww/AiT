@@ -64,9 +64,18 @@ func (at *AutoTrader) resolveOpenExecutionPrice(symbol, side string, fallbackPri
 // executeDecisionWithRecord executes AI decision and records detailed information
 func (at *AutoTrader) executeDecisionWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
 	switch decision.Action {
-	case "open_long":
-		return at.executeOpenLongWithRecord(ctx, decision, actionRecord)
-	case "open_short":
+	case "open_long", "open_short":
+		side := "long"
+		if decision.Action == "open_short" {
+			side = "short"
+		}
+		// U9: an open on a conditional candidate becomes a pending entry.
+		if decision.HunterV7ConditionalEntry {
+			return at.registerHunterV7ConditionalEntry(ctx, decision, side, actionRecord, time.Now())
+		}
+		if side == "long" {
+			return at.executeOpenLongWithRecord(ctx, decision, actionRecord)
+		}
 		return at.executeOpenShortWithRecord(ctx, decision, actionRecord)
 	case "close_long":
 		return at.executeCloseLongWithRecord(decision, actionRecord)
