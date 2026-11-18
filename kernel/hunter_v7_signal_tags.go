@@ -72,6 +72,10 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 	} else if entry, ok := opts.Classes[string(sig.SetupType)]; ok {
 		class, admission = entry.Class, entry.Admission
 	}
+	if cc != nil && cc.V7CalibrationVersion != "" {
+		tags.CalibrationVersion = cc.V7CalibrationVersion
+		tags.ExpectedR, tags.ExpectedRLower = cc.V7ExpectedR, cc.V7ExpectedRLower
+	}
 	tags.SignalClass = class
 	if tags.SignalClass == "" {
 		tags.SignalClass = store.V7ClassUnassigned

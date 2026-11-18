@@ -470,6 +470,15 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		trackerCfg := DefaultTrackerConfig()
 		trackerCfg.FeeNetCostPct = v7Tags.FeeNetCostPct
 		trackerCfg.WatchAuditMaxTracked = v7Tags.WatchAuditMaxTracked
+		var v7ER *hunterV7ERRefresher
+		if coinSrc.Hunter != nil && coinSrc.Hunter.V7ExpectedR != nil && coinSrc.Hunter.V7ExpectedR.Enabled {
+			v7ER = newHunterV7ERRefresher(store.EffectiveV7ExpectedR(coinSrc.Hunter.V7ExpectedR), v7Tags.FeeNetCostPct,
+				func(since time.Time) ([]store.V7CalibrationOutcome, error) {
+					return st.HunterV7Signal().CalibrationOutcomes(since, v7Tags.FeeNetCostPct)
+				},
+				strategyEngine.SetV7ExpectedRCalibration)
+			v7ER.maybeRefit(time.Now().UTC())
+		}
 		v7OutcomeTracker = NewSignalOutcomeTracker(trackerCfg, func(symbol string) float64 {
 			price, err := trader.GetMarketPrice(symbol)
 			if err != nil || price <= 0 {
@@ -523,6 +532,7 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				return
 			}
 			now := time.Now().UTC()
+			defer v7ER.maybeRefit(now) // U7 shadow E[R]: applies from the next cycle
 			dbRecords := kernel.BuildHunterV7SignalDBRecordsWithAudit(cycleNum, records, now, string(TrackedActive), v7Tags.WatchAudit)
 			if err := st.HunterV7Signal().CreateBatch(dbRecords); err != nil {
 				logger.Warnf("⚠️ [%s] Failed to persist V7 signal records: %v", config.Name, err)

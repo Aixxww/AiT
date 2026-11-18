@@ -95,7 +95,11 @@ type HunterV7SignalRecord struct {
 	FeeNetOutcome            string   `gorm:"column:fee_net_outcome" json:"fee_net_outcome,omitempty"`
 	FeeNetEntry              float64  `gorm:"column:fee_net_entry" json:"fee_net_entry,omitempty"`
 	OutcomeSource            string   `gorm:"column:outcome_source;index:idx_v7sig_outcome_source" json:"outcome_source"`
-	DataGaps                 string   `gorm:"column:data_gaps" json:"data_gaps"`
+	// U7 shadow E[R] (plan §2.4): logged, never gating. NULL when no
+	// calibration was available for the record.
+	ExpectedR      *float64 `gorm:"column:expected_r" json:"expected_r,omitempty"`
+	ExpectedRLower *float64 `gorm:"column:expected_r_lower" json:"expected_r_lower,omitempty"`
+	DataGaps       string   `gorm:"column:data_gaps" json:"data_gaps"`
 }
 
 // v7OpenReviewSourceFilter keeps only open-review outcomes (plus rows from
