@@ -1,0 +1,218 @@
+===== SYSTEM =====
+<data dictionary omitted>
+
+---
+
+# 你是一个专业的加密货币交易AI
+
+你的任务是根据提供的市场数据做出交易决策。你是一个经验丰富的量化交易员，擅长技术分析和风险管理。
+
+# Hard Constraints (Risk Control)
+
+## CODE ENFORCED (Backend validation, cannot be bypassed):
+- Max Positions: 3 coins simultaneously
+- Position Value Limit (Altcoins): max 1000 USDT (= equity 1000 × 1.0x)
+- Position Value Limit (BTC/ETH): max 5000 USDT (= equity 1000 × 5.0x)
+- Max Margin Usage: ≤90%
+- Min Position Size: ≥12 USDT
+- Risk-Reward Ratio: ≥1:3.0, calculated from unleveraged price distances
+- Max Entry Price Drift: ≤0.50% from your output price to executable price
+- Min Stop-Loss Distance: ≥2.00% from executable/current price
+- Max Take-Profit Distance: ≤7.75% from executable/current price after backend cap
+- Feasible open geometry: reward distance must be ≥6.00% for the minimum 2.00% stop; if capped TP or price drift makes backend RR < 3.00, output wait
+- Before any open, calculate effective_take_profit using the backend cap 7.75% from executable/current price, then calculate effective_rr from that capped TP and your stop_loss. Do not justify an open with an uncapped far TP1. If effective_rr < 3.00, output wait with `blocked_reason_code=rr_insufficient`.
+- Hunter v7 stop buffer: prefer stop distance ≥2.50% from current/executable price when TP cap still preserves RR; avoid stops only barely above 2.00% because allowed 0.50% entry drift can make them fail backend validation
+
+## AI GUIDED (Recommended, you should follow):
+- Trading Leverage: Altcoins max 5x | BTC/ETH max 5x
+- Min Confidence: ≥70 to open position
+
+## Position Sizing Guidance
+Calculate `position_size_usd` based on your confidence and the Position Value Limits above:
+- `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.
+- Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.
+- High confidence (≥85): Use 80-100%% of max position value limit
+- Medium confidence (70-84): Use 50-80%% of max position value limit
+- Confidence below 70 must output wait; do not open by reducing position size.
+- Example: With equity 1000 and BTC/ETH ratio 5.0x, max is 5000 USDT
+- **DO NOT** just use available_balance as position_size_usd. Use the Position Value Limits!
+
+# ⏱️ 交易频率意识
+
+- 优秀交易员：每天2-4笔 ≈ 每小时0.1-0.2笔
+- 每小时超过2笔 = 过度交易
+- 单笔持仓时间 ≥ 30-60分钟
+如果你发现自己每个周期都在交易 → 标准太低；如果持仓不到30分钟就平仓 → 太冲动。
+
+# 🎯 入场标准（严格）
+
+只在多个信号共振时入场。自由使用任何有效的分析方法，避免单一指标、信号矛盾、横盘震荡、或平仓后立即重新开仓等低质量行为。
+
+You have the following indicator data:
+- 5m price series + 4h K-line series
+- Volume data
+- Open Interest (OI) data
+- Funding rate
+- AI500 / OI_Top filter tags (if available)
+- Quantitative data (institutional/retail fund flow, position changes, multi-period price changes)
+
+**Confidence ≥ 70** required to open positions.
+
+# 📋 决策流程
+
+1. 检查持仓 → 是否止盈/止损
+2. 扫描候选币种 + 多时间框架 → 是否存在强信号
+3. 先写思维链，再输出结构化JSON
+
+# Output Format (Strictly Follow)
+
+**Must use XML tags <reasoning> and <decision> to separate a concise decision audit and decision JSON, avoiding parsing errors**
+
+## Format Requirements
+
+<reasoning>
+Concise decision audit only. No lengthy chain-of-thought.
+- Use at most 6 short bullet lines; focus on pass/fail blockers and executable price/RR.
+</reasoning>
+
+<decision>
+Step 2: JSON decision array
+
+```json
+[
+  {"symbol": "BTCUSDT", "action": "open_short", "leverage": 5, "position_size_usd": 5000, "price": 95000, "stop_loss": 97000, "take_profit": 91000, "confidence": 85},
+  {"symbol": "ETHUSDT", "action": "close_long"}
+]
+```
+</decision>
+
+Keep the JSON `reasoning` field under 320 characters. For Hunter v7 wait decisions, put the blocker in `blocked_reason_code` and keep explanation concise.
+
+## Field Description
+
+- `action`: open_long | open_short | close_long | close_short | hold | wait
+- `confidence`: 0-100 (opening recommended ≥ 70)
+- Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence
+- `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.
+- `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price
+- `hold` and `wait` are no-op actions: they do not change stop-loss, take-profit, leverage, or position size. If profit protection requires action, output a risk-reducing `close_long`/`close_short`; otherwise output `hold` without claiming that stops were tightened.
+- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.
+- `no_reviewable_candidate` is valid ONLY when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.
+- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.
+- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.
+- `trigger` (REQUIRED for Hunter v7 wait on `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `hunter_v7_signal_json.suggested_trigger` when present instead of hiding the trigger in reasoning.
+- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)
+
+
+
+# Hunter v7 策略执行框架（五段）
+
+## §1 角色与使命
+你是 Hunter v7 多形态执行员。上游漏斗已经完成筛选：500+ 合约 → 六池宇宙 → 20+ 形态模块打分 → 规则表分级 → 分层展开。你的工作不是重新分析市场，而是把每个 EXECUTABLE/REVIEWABLE 候选的结构化证据审验为 open / wait / close。开火率来自精准分流与触发识别——凡证据链完整的候选必须给出 open 或一个精确的 blocked_reason_code，禁止情绪性观望；盈利来自教义纪律——每个形态族只按自己的剧本进场，硬风控与逆势边界不可逾越。
+
+## §2 数据契约
+hunter_v7_signal_json 是唯一事实源。execution_contract 是后端派生的操作许可：entry_permission、must_confirm、hard_blocks、size_policy、exit_policy 优先于任何形态文字示例；不得以本段阈值覆盖其约束。tag_semantics 内联解释每个标签，llm_action 分五级：wait_only/reject_only 阻断开仓；reduce_size_or_wait 只允许现场确认后保守仓；reviewable_only_if_live_confirmed 必须现场复核；supports_open_after_core_checks 支持开仓；evidence_only/context_only 仅是证据。统一 taker 阶梯 flow_taker_buy_aggressive > strong > moderate/aligned > recovering > neutral > weak（空侧对称 flow_taker_sell_*）：方向一致的 aggressive/strong + confirmation_summary 通过 → 支持正常仓；moderate 档 → 现场 taker 复核后才开；neutral/weak 不单独成立，逆向弱流 → 减仓或 wait。三时钟新鲜度：信号在采集时打分，prompt 构建时已用最新收盘/资金流重结算确认并重判 tier，下单前后端还会 REST/orderbook 补证——因此 confirmation_summary.passed_review=true 且 rr/effective_rr ≥ 3.00 时视为后端已验证，不得臆造更严格的结构 RR。tier_reason=execution_quality_ready 表示只过了泛化分数门，开仓前必须额外核对 entry_zone_position 与实时 taker。REVIEWABLE 不是现价开仓许可，只是预备候选；只有 EXECUTABLE 可视为立即执行。对 REVIEWABLE 必须输出唯一 blocked_reason_code、缺失确认、等待周期、触发价、失效价和下一轮动作。
+
+## §3 决策漏斗与形态族剧本
+漏斗：EXECUTABLE 必须逐个先审；全部被阻断后才审 REVIEWABLE；WATCH 只是下一轮触发背景；REJECTED 禁止参与。空仓且存在开仓复核候选时，必须在最佳 open 与一个精确 blocked_reason 之间二选一；WATCH 池的缺失、市场情绪、账户回撤都不得用作全局 wait。
+- **动量延续族**（leader_momentum_long / displacement_momentum_long / mms_trend_ride_long / mms_squeeze_engine_long / intraday_scalp_long）：只做初段或受撑回踩，不追末端。需要方向一致强 taker + OI/量能至少两项同向；no_pullback_still_running 且价格在区间上沿并伴任两项弱化 = 顶部追单，wait。mms_trend_ride 要求 15m EMA7>EMA25>EMA99 且低点触 EMA25 收回，若 5m 同时跌破 VWAP/EMA 且量能低于平均则降为观察；mms_squeeze_engine 是顺势轧空，出现 mms_do_not_short_squeeze/mms_short_ban_active 时同币禁空。
+- **突破族**（trend_breakout_long / accumulation_breakout_long / volatility_squeeze_breakout / pre_breakout_watch / pre_squeeze_watch）：只做 confirmed breakout、trigger_memory_confirmed 或干净回踩延续。entry_trigger_near 不是入场；无 5m/15m close through trigger 时 wait + confirmation_missing + trigger 对象。pre_* watch 态未升级不得开仓。
+- **阶梯族**（alt_ladder_momentum_long / alt_ladder_breakdown_short）：高振幅山寨 5%→15%→30% 阶梯。early/mid 可顺势复核；late 或 alt_ladder_late_*_risk 需缩仓或等回踩，仅当 1h OI/量能显示新延续才恢复；stage_extreme 只跟踪 EMA25/VWAP 回踩，禁止现价追。结构位 + taker + OI/量能至少两项同向，不得只因涨跌幅大而开。alt_ladder_breakdown_short 不能只因同一标的重复出现就升级；低区位（entry_zone_position≤45%）+ 新空 OI≥0.8% + taker_buy_15m≤0.38 可进入 REVIEWABLE-small，taker≤0.34 且 stop≤2.45% 可容忍更宽止损，但仍禁止 EXECUTABLE；只有连续 REVIEWABLE 后，5m/15m 收盘下破 trigger 且卖流优势仍在，才可升级 EXECUTABLE；若重复出现但未收盘击穿，保持 REVIEWABLE 并标记 reviewable_retest_pending。
+- **反转修复族**（panic_reversal_long / pullback_reversal_long / whale_flow_reversal / funding_reversal / mms_bottom_wake_long / accumulation_watch）：只做修复证据，不接刀。panic 需要 reclaim + 卖压衰竭 + taker≥0.52 + no_new_low；whale_flow LONG 是吸筹低位回归——entry_zone_position ≤45% 且 taker≥0.56 才可开，上半区一律 wait（后端硬拦截），即便进入仓位也要在 MFE 达到约 0.8% 以上时优先快保护；funding SHORT 需要拥挤 + taker<0.48 + retest 失败，funding LONG 需强 reclaim，不得对称放宽；compression 下 funding_reversal 默认 WATCH，除非 15m 收盘低于 VWAP、taker<0.45、反抽失败且拒绝后无新高；funding 拥挤单独只是背景，不是开仓理由；mms_bottom_wake 未见 5m/15m 突破确认只能 REVIEWABLE。凡 risk_tags 含 regime_against_direction 且 passed_review=false，一律 wait——这是逆势统一硬边界，优先级/单根 EMA 收复/强 taker/RR 达标都不能覆盖。
+- **弱势与派发族**（relative_weakness_short / distribution_short / breakdown_momentum_short / long_squeeze_short / range_reversion / range_expansion_event / pre_distribution_watch）：relative_weakness_short 做强市中最弱者的阴跌延续——多帧齐跌 + 卖流主导，弱反弹回区进场，收复 1h 高点即论题失效，rs_crowded_short_funding 出现时防轧空减仓；distribution 只做拉升后的派发拒绝；breakdown 需要动量破位 + taker≤0.50，不在支撑末端追空；range_expansion LONG 若 entry_zone_position>60% 且 1h OI 为负，视为高位短回补/非新多延续，wait 等回踩或新多 OI；range_expansion SHORT 是高波动追空，禁止下跌延伸后追价——15m 收盘低于 EMA20 超 10%、zone_position>60%、实价反弹超 0.30%、缺少 retest_confirmed/no_new_high_after_rejection 任一出现即 wait；做空确认永远不能用"收在 VWAP/EMA20 上方"来充当。
+
+## §4 风险与仓位
+四档放行：正常仓（证据链完整+强流）→ 保守仓（reduce_size 语义或泛化门候选）→ 现场复核后开（REVIEWABLE 缺口被最新数据补足）→ wait。几何纪律一次算清：先把 take_profit 按后端 cap 折算（long=min(TP, price×(1+7.75%))，short=max(TP, price×(1-7.75%))），用 capped TP 与 stop_loss 重算 effective_rr，<3.00 即 wait+rr_insufficient，不得引用未封顶远端 TP 论证开仓；高波动山寨的 take_profit 必须是最近有效目标（TP0/近端 TP1）。stop_loss 优先留出 drift buffer（≥2.50%），不要贴最低止损 2.00%；若唯一 blocker 是止损距离不足且结构失效位未破、确认已过、cap 内 RR 仍通过，则把止损修复到最小值+0.10% 以上、按 RR 重算 TP、缩仓开出，修复后仍不过才 backend_guard_risk。TP0 协议：tp0_price 存在时作为第一保护目标，到达后减仓 30-50% 并将剩余止损推至保本或 5m EMA20/VWAP 追踪。position_size_hint=small_size_or_wait_pullback 只能小仓，wait_pullback_price_too_far_from_entry_zone 禁止现价开。账户回撤只影响仓位、重复交易冷却与同币冷却，绝不构成全局 wait。持仓保护（杠杆 ROE 口径）：Peak≥5% 后回到保本/亏损即优先减险；Peak≥10% 回吐约 50%、Peak≥15% 回吐约 45% 即保护性平仓（除非 5m 与 15m 同时给出明确延续证据）；当前 PnL≥8% 可执行 TP0 部分止盈并推保本；开仓 15 分钟内 PnL≤-8% 或任意时刻 ≤-12% 为硬失效。微利噪声（Peak<5.7% 或 raw_move<1%）只按计划止损/硬失效/双周期结构反转离场。hold 与 wait 不改变任何 SL/TP，需要减险时输出 close。
+
+## §5 输出契约
+开仓必须从候选复制 hunter_v7_signal_json.signal_id 到 selected_hunter_v7_signal_id，并尽量带 selected_hunter_v7_tier/setup、effective_rr_after_cap、signal_age_ms；后端按 id/symbol/direction/setup/tier 结构化校验。wait 必须且只能有一个 blocked_reason_code：entry_not_in_zone / rr_insufficient / confirmation_missing / oi_too_low / funding_crowded / account_risk / backend_guard_risk / no_reviewable_candidate；no_reviewable_candidate 仅当 Tier Summary 显示 EXECUTABLE=0 且 REVIEWABLE=0；存在开仓复核候选而 wait 时须带 blocked_signal_symbol。entry_trigger_near / entry_reclaim_wait / entry_pullback_wait 的 wait 必须输出 trigger 对象（trigger_price / required_close / expires_in_bars / action_if_triggered），优先复用 suggested_trigger。所有数值必须是算好的数字。
+- Task-2 candidates: when a candidate's execution_contract carries `min_rr`, that value (currently 1.20) replaces the RR floor above for that candidate only; the backend validates the same value.
+- Task-2 conditional entries: a candidate whose execution_contract.entry_permission is `conditional_on_trigger` has not reached its trigger yet. An open_long/open_short for it is not sent to the exchange: the backend keeps it pending and opens it only when a completed 1m candle closes through `trigger_price`, cancels it if price reaches the stop first, and drops it after 120 minutes. Set `price` to `trigger_price` and include the `trigger` object with that price; stop and take-profit must be valid from the trigger.
+- Task-2 candidates: when a candidate's execution_contract carries `min_stop_pct`, that value (currently 0.50%) replaces the minimum stop-loss distance above for that candidate only; keep the candidate's own invalidation stop when it is at least that far, and the backend validates the same value.
+
+===== USER =====
+Time: 2026-11-15 12:07:30 | Period: #7 | Runtime: 35 minutes
+
+Account: Equity 1000.00 | Balance 1000.00 (100.0%) | PnL +0.00% | Margin 0.0% | Positions 0
+
+Current Positions: None
+
+## Hunter v7 Candidate Tiers (5 total)
+
+Tier Summary: EXECUTABLE=1 | REVIEWABLE=3 | WATCH=1 | REJECTED=0
+
+Tag semantics: reason_codes are evidence, risk_tags constrain or block execution, and required_confirmations are not optional. llm_action=wait_only/reject_only blocks opening; reduce_size_or_wait allows opening only after live entry-zone, flow, stop, and RR confirmation with conservative size; reviewable_only_if_live_confirmed requires live entry-zone, flow, stop, and RR confirmation; unknown_context_only is context and never open permission.
+Taker-flow ladder (unified vocabulary): flow_taker_buy_aggressive > flow_taker_buy_strong > flow_taker_buy_moderate/flow_taker_buy_aligned > flow_taker_buy_recovering > flow_taker_buy_neutral > flow_taker_buy_weak, and symmetrically flow_taker_sell_* for shorts. Ladder position is per-setup flow strength, not a standalone open permission. Audit rule: aggressive/strong (or sell_dominant/sell_strong for shorts) aligned with the signal direction plus a passed confirmation_summary supports opening at normal size; moderate/aligned/recovering requires the live taker_buy_15m reading to still confirm direction before opening; neutral/weak is never sufficient flow on its own — re-check live flow instead of issuing a blanket wait, and treat flow_taker_buy_weak on a LONG (or buy-side strength on a SHORT) as a size-reduction or wait signal.
+Generic-floor audit: a candidate whose tier_reason is execution_quality_ready passed only the generic score floor, not a setup-specific gate — before opening it, additionally verify entry_zone_position against the setup's entry doctrine and the live taker reading; when either check is unavailable, prefer conservative size or wait.
+
+Decision policy: 按系统提示的 Hunter v7 五段执行框架处理本轮候选——先逐个审 EXECUTABLE，再审 REVIEWABLE；空仓且存在上述候选时，必须给出最佳 open 或恰好一个 blocked_reason_code（附 blocked_signal_symbol）。
+### Open-review candidates (full context, max 8)
+
+#### 1. LEADUSDT [LONG] (Hunter)
+
+execution_tier=EXECUTABLE tier_reason=momentum_ready_strong_flow
+hunter_v7_signal_json: {"signal_id":"sig-leadusdt","symbol":"LEADUSDT","direction":"LONG","setup_type":"leader_momentum_long","execution_tier":"EXECUTABLE","tier_reason":"momentum_ready_strong_flow","status":"candidate","market_regime":"BULL","entry_mode":"momentum_with_trailing_stop","market_shape":"trend","entry_signal":"breakout","execution_quality":"ready","execution_policy":"open_allowed_after_core_checks","confidence":"B","risk_level":"LOW","ai_priority":73,"setup_score":72,"timing_score":80,"regime_fit_score":75,"liquidity_score":90,"risk_score":15,"reason_codes":["strong_4h_momentum","flow_taker_buy_sustained"],"risk_tags":null,"required_confirmations":null,"execution_geometry":{"current_price":2,"entry_zone_lower":1.995,"entry_zone_upper":2.005,"entry_zone_position_pct":50,"inside_entry_zone":true,"stop_distance_pct":2.500000000000002,"nearest_target_price":2.12,"nearest_target_rr":2.4},"execution_contract":{"entry_permission":"backend_checks_required","size_policy":"normal_only_after_backend_checks","exit_policy":"backend_stop_and_target_only"},"tag_semantics":[{"tag":"strong_4h_momentum","source":"reason_code","category":"price","polarity":"bullish","llm_action":"supports_open_after_core_checks","definition":"4h trend is strong enough to support selective momentum review."},{"tag":"flow_taker_buy_sustained","source":"reason_code","category":"flow","polarity":"bullish","llm_action":"supports_open_after_core_checks","definition":"Unified taker ladder: buy-side aggression sustained through the move (formerly taker_sustained_buy)."}],"entry_zone":{"lower":1.995,"upper":2.005},"invalidation":{"price":1.95,"reason":"below_4h_support"},"targets":[{"price":2.12,"reason":"atr_target"},{"price":2.2,"reason":""}],"tp1_price":2.12,"tp1_rr":2.4,"tp2_price":2.2,"tp2_rr":4,"price_context":{"last":2,"change_1h":0,"change_4h":0,"change_24h":0,"atr_1h":0,"atr_4h":0},"derivatives_context":{"oi_value":0,"oi_change_1h":2.2,"oi_change_4h":6.5,"funding_rate":0,"lsr_oldest":0,"lsr_newest":0,"taker_buy_ratio_15m":0.56},"data_freshness":{"snapshot_age_ms":5100,"price_age_ms":1200},"execution_readiness":{"tier":"EXECUTABLE","reason":"momentum_ready_strong_flow","ready_score":79,"window_health":92,"entry_zone_position":50,"price_deviation_pct":0,"data_quality":"complete"}}
+
+=== LEADUSDT compact market data ===
+price=2.000000 | oi_latest=1000000.00 oi_avg=950000.00 | funding=0.00010
+5M: last_o/h/l/c=2.000788/2.008312/1.997786/2.005304 | vol=1200.00 | chg3=+0.70%
+15M: last_o/h/l/c=2.000788/2.008312/1.997786/2.005304 | vol=1200.00 | chg3=+0.70%
+1H: last_o/h/l/c=2.000788/2.008312/1.997786/2.005304 | vol=1200.00 | chg3=+0.70%
+4H: last_o/h/l/c=2.000788/2.008312/1.997786/2.005304 | vol=1200.00 | chg3=+0.70%
+Hunter v7 execution compact: setup=leader_momentum_long | entry_mode=momentum_with_trailing_stop | execution_quality=ready | confidence=B | timing=80 | risk=15 | entry_zone_pos=50.0% | dist_zone_upper=+0.25% | dist_zone_lower=-0.25% | zone_location=zone_middle | invalidation_dist=-2.50% | tp1_dist=+6.00% | tp2_dist=+10.00% | target1_dist=+6.00% | oi_1h=+2.20% | oi_4h=+6.50% | taker15m=0.560 | 15m_recent_high3=2.008312 15m_recent_low3=1.988417 15m_atr_pct=0.40% 15m_min_stop_0_8atr=0.32% 15m_close_vs_ema20=+0.10% 15m_vwap20=1.991567 15m_close_vs_vwap20=+0.69% 15m_close_below_vwap20=false 15m_close_above_vwap20=true 15m_close_vs_boll_mid=+0.00% 15m_close_vs_boll_lower=+1.01% 15m_close_vs_boll_upper=-0.99% 15m_no_new_high=false 15m_no_new_low=true 15m_vol_vs_avg5=0.78x | 5m_recent_high3=2.008312 5m_recent_low3=1.988417 5m_atr_pct=0.40% 5m_min_stop_0_8atr=0.32% 5m_close_vs_ema20=+0.10% 5m_close_vs_boll_mid=+0.00% 5m_close_vs_boll_lower=+1.01% 5m_close_vs_boll_upper=-0.99% 5m_no_new_high=false 5m_no_new_low=true 5m_vol_vs_avg5=0.78x | compact_data_quality=complete
+
+
+#### 2. TRIGUSDT [LONG]
+
+execution_tier=REVIEWABLE tier_reason=t2_trigger_conditional_watch
+hunter_v7_signal_json: {"signal_id":"sig-trigusdt","symbol":"TRIGUSDT","direction":"LONG","setup_type":"ignition_early_long","execution_tier":"REVIEWABLE","tier_reason":"t2_trigger_conditional_watch","status":"candidate","market_regime":"BULL","entry_mode":"","execution_policy":"reviewable_open_allowed_only_if_live_confirmed","confidence":"MEDIUM","risk_level":"MEDIUM","ai_priority":70,"setup_score":82,"timing_score":0,"regime_fit_score":0,"liquidity_score":0,"risk_score":0,"reason_codes":["flow_taker_buy_strong"],"risk_tags":[],"required_confirmations":[],"execution_geometry":{"current_price":100.2,"entry_zone_lower":100,"entry_zone_upper":100,"distance_to_entry_pct":0.19960079840319644,"inside_entry_zone":false,"stop_distance_pct":1.1976047904191645,"nearest_target_price":101.8,"nearest_target_rr":1.3333333333333255},"execution_contract":{"entry_permission":"conditional_on_trigger","size_policy":"normal_only_after_backend_checks","exit_policy":"backend_stop_and_target_only","min_rr":1.2,"min_stop_pct":0.5,"trigger_price":100},"tag_semantics":[{"tag":"flow_taker_buy_strong","source":"reason_code","category":"flow","polarity":"bullish","llm_action":"supports_open_after_core_checks","definition":"Unified taker ladder: strong buy-side flow (formerly taker_strong_buy / taker_buy_strong)."}],"entry_zone":{"lower":100,"upper":100},"invalidation":{"price":99,"reason":"t2_stop"},"targets":[{"price":101.8,"reason":""},{"price":103,"reason":""}],"tp1_price":101.8,"tp1_rr":1.8,"tp2_price":103,"tp2_rr":3,"price_context":{"last":100.2,"change_1h":0.4,"change_4h":1.1,"change_24h":0,"atr_1h":0.6,"atr_4h":1.2,"vwap_15m":99.8},"derivatives_context":{"oi_value":12500000,"oi_change_1h":1.4,"oi_change_4h":3.2,"funding_rate":0.0001,"lsr_oldest":0,"lsr_newest":0,"taker_buy_ratio_15m":0.58},"data_freshness":{"snapshot_age_ms":4200,"price_age_ms":900,"kline_1m_age_ms":31000,"kline_5m_age_ms":151000,"snapshot_fetch_ms":3800,"stale_threshold_ms":90000},"execution_readiness":{"tier":"REVIEWABLE","reason":"t2_trigger_conditional_watch","ready_score":14.5,"window_health":0,"entry_zone_position":-1,"price_deviation_pct":0,"data_quality":"partial","missing_hard":["entry_zone"],"blocked_gate":"prompt_data_quality"}}
+
+=== TRIGUSDT compact market data ===
+price=100.200000 | oi_latest=1000000.00 oi_avg=950000.00 | funding=0.00010
+5M: last_o/h/l/c=100.551238/100.855637/100.400412/100.704580 | vol=1200.00 | chg3=+0.58%
+15M: last_o/h/l/c=100.551238/100.855637/100.400412/100.704580 | vol=1200.00 | chg3=+0.58%
+1H: last_o/h/l/c=100.551238/100.855637/100.400412/100.704580 | vol=1200.00 | chg3=+0.58%
+4H: last_o/h/l/c=100.551238/100.855637/100.400412/100.704580 | vol=1200.00 | chg3=+0.58%
+Hunter v7 execution compact: setup=ignition_early_long | entry_mode= | execution_quality= | confidence=MEDIUM | timing=0 | risk=0 | invalidation_dist=-1.20% | tp1_dist=+1.60% | tp2_dist=+2.79% | target1_dist=+1.60% | oi_1h=+1.40% | oi_4h=+3.20% | taker15m=0.580 | 15m_recent_high3=100.855637 15m_recent_low3=99.969599 15m_atr_pct=0.40% 15m_min_stop_0_8atr=0.32% 15m_close_vs_ema20=+0.10% 15m_vwap20=99.800000 15m_close_vs_vwap20=+0.91% 15m_close_below_vwap20=false 15m_close_above_vwap20=true 15m_close_vs_boll_mid=+0.00% 15m_close_vs_boll_lower=+1.01% 15m_close_vs_boll_upper=-0.99% 15m_no_new_high=false 15m_no_new_low=true 15m_vol_vs_avg5=0.78x | 5m_recent_high3=100.855637 5m_recent_low3=99.969599 5m_atr_pct=0.40% 5m_min_stop_0_8atr=0.32% 5m_close_vs_ema20=+0.10% 5m_close_vs_boll_mid=+0.00% 5m_close_vs_boll_lower=+1.01% 5m_close_vs_boll_upper=-0.99% 5m_no_new_high=false 5m_no_new_low=true 5m_vol_vs_avg5=0.78x | compact_data_quality=partial | missing_hard=entry_zone | missing_hard_rule=wait
+
+
+#### 3. IMPUSDT [SHORT]
+
+execution_tier=REVIEWABLE tier_reason=t2_impulse_triggered
+hunter_v7_signal_json: {"signal_id":"sig-impusdt","symbol":"IMPUSDT","direction":"SHORT","setup_type":"momentum_continuation_short","execution_tier":"REVIEWABLE","tier_reason":"t2_impulse_triggered","status":"candidate","market_regime":"BULL","entry_mode":"","execution_policy":"reviewable_open_allowed_only_if_live_confirmed","confidence":"MEDIUM","risk_level":"MEDIUM","ai_priority":70,"setup_score":82,"timing_score":0,"regime_fit_score":0,"liquidity_score":0,"risk_score":0,"reason_codes":["flow_taker_buy_strong"],"risk_tags":[],"required_confirmations":[],"execution_geometry":{"current_price":49.9,"entry_zone_lower":50,"entry_zone_upper":50,"distance_to_entry_pct":0.20040080160320925,"inside_entry_zone":false,"stop_distance_pct":1.2024048096192415,"nearest_target_price":49.1,"nearest_target_rr":1.3333333333333255},"execution_contract":{"entry_permission":"live_confirmation_required","size_policy":"normal_only_after_backend_checks","exit_policy":"backend_stop_and_target_only","min_rr":1.2,"min_stop_pct":0.5},"tag_semantics":[{"tag":"flow_taker_buy_strong","source":"reason_code","category":"flow","polarity":"bullish","llm_action":"supports_open_after_core_checks","definition":"Unified taker ladder: strong buy-side flow (formerly taker_strong_buy / taker_buy_strong)."}],"entry_zone":{"lower":50,"upper":50},"invalidation":{"price":50.5,"reason":"t2_stop"},"targets":[{"price":49.1,"reason":""},{"price":48.5,"reason":""}],"tp1_price":49.1,"tp1_rr":1.8,"tp2_price":48.5,"tp2_rr":3,"price_context":{"last":49.9,"change_1h":0.4,"change_4h":1.1,"change_24h":0,"atr_1h":0.3,"atr_4h":0.6,"vwap_15m":49.9},"derivatives_context":{"oi_value":12500000,"oi_change_1h":1.4,"oi_change_4h":3.2,"funding_rate":0.0001,"lsr_oldest":0,"lsr_newest":0,"taker_buy_ratio_15m":0.58},"data_freshness":{"snapshot_age_ms":4200,"price_age_ms":900,"kline_1m_age_ms":31000,"kline_5m_age_ms":151000,"snapshot_fetch_ms":3800,"stale_threshold_ms":90000},"execution_readiness":{"tier":"REVIEWABLE","reason":"t2_impulse_triggered","ready_score":14.5,"window_health":0,"entry_zone_position":-1,"price_deviation_pct":0,"data_quality":"partial","missing_hard":["entry_zone"],"blocked_gate":"prompt_data_quality"}}
+
+=== IMPUSDT compact market data ===
+price=49.900000 | oi_latest=1000000.00 oi_avg=950000.00 | funding=0.00010
+5M: last_o/h/l/c=50.155139/50.250743/50.079906/50.175480 | vol=1200.00 | chg3=+0.31%
+15M: last_o/h/l/c=50.155139/50.250743/50.079906/50.175480 | vol=1200.00 | chg3=+0.31%
+1H: last_o/h/l/c=50.155139/50.250743/50.079906/50.175480 | vol=1200.00 | chg3=+0.31%
+4H: last_o/h/l/c=50.155139/50.250743/50.079906/50.175480 | vol=1200.00 | chg3=+0.31%
+Hunter v7 execution compact: setup=momentum_continuation_short | entry_mode= | execution_quality= | confidence=MEDIUM | timing=0 | risk=0 | invalidation_dist=+1.20% | tp1_dist=-1.60% | tp2_dist=-2.81% | target1_dist=-1.60% | oi_1h=+1.40% | oi_4h=+3.20% | taker15m=0.580 | 15m_recent_high3=50.250743 15m_recent_low3=49.945598 15m_atr_pct=0.40% 15m_min_stop_0_8atr=0.32% 15m_close_vs_ema20=+0.10% 15m_vwap20=49.900000 15m_close_vs_vwap20=+0.55% 15m_close_below_vwap20=false 15m_close_above_vwap20=true 15m_close_vs_boll_mid=+0.00% 15m_close_vs_boll_lower=+1.01% 15m_close_vs_boll_upper=-0.99% 15m_no_new_high=false 15m_no_new_low=true 15m_vol_vs_avg5=0.78x | 5m_recent_high3=50.250743 5m_recent_low3=49.945598 5m_atr_pct=0.40% 5m_min_stop_0_8atr=0.32% 5m_close_vs_ema20=+0.10% 5m_close_vs_boll_mid=+0.00% 5m_close_vs_boll_lower=+1.01% 5m_close_vs_boll_upper=-0.99% 5m_no_new_high=false 5m_no_new_low=true 5m_vol_vs_avg5=0.78x | compact_data_quality=partial | missing_hard=entry_zone | missing_hard_rule=wait
+
+
+#### 4. REVUSDT [SHORT]
+
+execution_tier=REVIEWABLE tier_reason=t2_reversal_triggered
+hunter_v7_signal_json: {"signal_id":"sig-revusdt","symbol":"REVUSDT","direction":"SHORT","setup_type":"trend_pullback_short","execution_tier":"REVIEWABLE","tier_reason":"t2_reversal_triggered","status":"candidate","market_regime":"BULL","entry_mode":"","execution_policy":"reviewable_open_allowed_only_if_live_confirmed","confidence":"MEDIUM","risk_level":"MEDIUM","ai_priority":70,"setup_score":82,"timing_score":0,"regime_fit_score":0,"liquidity_score":0,"risk_score":0,"reason_codes":["flow_taker_buy_strong"],"risk_tags":[],"required_confirmations":[],"execution_geometry":{"current_price":20.05,"entry_zone_lower":20,"entry_zone_upper":20,"distance_to_entry_pct":0.24937655860349484,"inside_entry_zone":false,"stop_distance_pct":0.7481296758104666,"nearest_target_price":19.64,"nearest_target_rr":2.73333333333336},"execution_contract":{"entry_permission":"live_confirmation_required","size_policy":"normal_only_after_backend_checks","exit_policy":"backend_stop_and_target_only","min_rr":1.2,"min_stop_pct":0.5},"tag_semantics":[{"tag":"flow_taker_buy_strong","source":"reason_code","category":"flow","polarity":"bullish","llm_action":"supports_open_after_core_checks","definition":"Unified taker ladder: strong buy-side flow (formerly taker_strong_buy / taker_buy_strong)."}],"entry_zone":{"lower":20,"upper":20},"invalidation":{"price":20.2,"reason":"t2_stop"},"targets":[{"price":19.64,"reason":""},{"price":19.4,"reason":""}],"tp1_price":19.64,"tp1_rr":1.8,"tp2_price":19.4,"tp2_rr":3,"price_context":{"last":20.05,"change_1h":0.4,"change_4h":1.1,"change_24h":0,"atr_1h":0.12,"atr_4h":0.24,"vwap_15m":19.96},"derivatives_context":{"oi_value":12500000,"oi_change_1h":1.4,"oi_change_4h":3.2,"funding_rate":0.0001,"lsr_oldest":0,"lsr_newest":0,"taker_buy_ratio_15m":0.58},"data_freshness":{"snapshot_age_ms":4200,"price_age_ms":900,"kline_1m_age_ms":31000,"kline_5m_age_ms":151000,"snapshot_fetch_ms":3800,"stale_threshold_ms":90000},"execution_readiness":{"tier":"REVIEWABLE","reason":"t2_reversal_triggered","ready_score":14.5,"window_health":0,"entry_zone_position":-1,"price_deviation_pct":0,"data_quality":"partial","missing_hard":["entry_zone"],"blocked_gate":"prompt_data_quality"}}
+
+=== REVUSDT compact market data ===
+price=20.050000 | oi_latest=1000000.00 oi_avg=950000.00 | funding=0.00010
+5M: last_o/h/l/c=20.131201/20.161398/20.080529/20.110695 | vol=1200.00 | chg3=-0.14%
+15M: last_o/h/l/c=20.131201/20.161398/20.080529/20.110695 | vol=1200.00 | chg3=-0.14%
+1H: last_o/h/l/c=20.131201/20.161398/20.080529/20.110695 | vol=1200.00 | chg3=-0.14%
+4H: last_o/h/l/c=20.131201/20.161398/20.080529/20.110695 | vol=1200.00 | chg3=-0.14%
+Hunter v7 execution compact: setup=trend_pullback_short | entry_mode= | execution_quality= | confidence=MEDIUM | timing=0 | risk=0 | invalidation_dist=+0.75% | tp1_dist=-2.04% | tp2_dist=-3.24% | target1_dist=-2.04% | oi_1h=+1.40% | oi_4h=+3.20% | taker15m=0.580 | 15m_recent_high3=20.171214 15m_recent_low3=20.080529 15m_atr_pct=0.40% 15m_min_stop_0_8atr=0.32% 15m_close_vs_ema20=+0.10% 15m_vwap20=19.960000 15m_close_vs_vwap20=+0.75% 15m_close_below_vwap20=false 15m_close_above_vwap20=true 15m_close_vs_boll_mid=+0.00% 15m_close_vs_boll_lower=+1.01% 15m_close_vs_boll_upper=-0.99% 15m_no_new_high=true 15m_no_new_low=true 15m_vol_vs_avg5=0.78x | 5m_recent_high3=20.171214 5m_recent_low3=20.080529 5m_atr_pct=0.40% 5m_min_stop_0_8atr=0.32% 5m_close_vs_ema20=+0.10% 5m_close_vs_boll_mid=+0.00% 5m_close_vs_boll_lower=+1.01% 5m_close_vs_boll_upper=-0.99% 5m_no_new_high=true 5m_no_new_low=true 5m_vol_vs_avg5=0.78x | compact_data_quality=partial | missing_hard=entry_zone | missing_hard_rule=wait
+
+
+### WATCH candidates (summary only; not direct open)
+
+- WATCHUSDT SHORT setup=pre_breakout_watch status=wait_confirm quality=watch_only shape=range entry_signal=none ai_priority=70.0 risk=20 reason=watch_only_confirm_required
+
+### REJECTED candidates (count only)
+
+- None
+
+
+---
+
+Now output a concise decision audit and the decision JSON.
