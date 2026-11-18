@@ -205,6 +205,7 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		decision := &decisions[i]
 		decision.HunterV7MinRR = 0
 		decision.HunterV7MinStopPct = 0
+		decision.HunterV7MaxTPPct = 0
 		if decision.Action != "open_long" && decision.Action != "open_short" {
 			continue
 		}
@@ -214,6 +215,7 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		}
 		decision.HunterV7MinRR = candidate.V7RequiredRR
 		decision.HunterV7MinStopPct = candidate.V7RequiredMinStop
+		decision.HunterV7MaxTPPct = candidate.V7RequiredMaxTP
 		decision.HunterV7TP0Price = candidate.V7TP0Price
 		decision.HunterV7TP1Price = candidate.V7TP1Price
 		decision.HunterV7TP2Price = candidate.V7TP2Price

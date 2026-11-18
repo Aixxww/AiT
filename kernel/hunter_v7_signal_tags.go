@@ -10,8 +10,9 @@ import (
 // HunterV7RecordTagOptions carries the U5 tag parameters into record
 // building: the effective outcome-tag config and the class registry.
 type HunterV7RecordTagOptions struct {
-	Tags    store.V7OutcomeTagConfig
-	Classes map[string]store.V7SignalClassEntry
+	Tags           store.V7OutcomeTagConfig
+	Classes        map[string]store.V7SignalClassEntry
+	ProfileVersion string // "" = default registry + profile version
 }
 
 // DefaultHunterV7RecordTagOptions is the option set with every default.
@@ -21,12 +22,18 @@ func DefaultHunterV7RecordTagOptions() HunterV7RecordTagOptions {
 
 // HunterV7RecordTagOptionsFromConfig builds the options from strategy config.
 func HunterV7RecordTagOptionsFromConfig(cfg *store.StrategyConfig) HunterV7RecordTagOptions {
-	if cfg == nil || cfg.CoinSource.Hunter == nil {
+	if cfg == nil {
 		return DefaultHunterV7RecordTagOptions()
 	}
+	if cfg.CoinSource.Hunter == nil {
+		o := DefaultHunterV7RecordTagOptions()
+		o.ProfileVersion = store.V7EffectiveProfileVersion(cfg.RiskControl, nil)
+		return o
+	}
 	return HunterV7RecordTagOptions{
-		Tags:    store.EffectiveV7OutcomeTags(cfg.CoinSource.Hunter.V7OutcomeTags),
-		Classes: cfg.CoinSource.Hunter.EffectiveV7SignalClasses(),
+		Tags:           store.EffectiveV7OutcomeTags(cfg.CoinSource.Hunter.V7OutcomeTags),
+		Classes:        cfg.CoinSource.Hunter.EffectiveV7SignalClasses(),
+		ProfileVersion: store.V7EffectiveProfileVersion(cfg.RiskControl, cfg.CoinSource.Hunter),
 	}
 }
 
@@ -41,7 +48,7 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 		Stack:              store.V7StackNative,
 		Family:             store.V7Family(string(sig.SetupType)),
 		CellStatus:         store.V7CellStatusProbation,
-		ProfileVersion:     store.V7SignalClassRegistryVersion,
+		ProfileVersion:     opts.ProfileVersion,
 		CalibrationVersion: store.V7CalibrationVersionNone,
 		DoctrineVersion:    store.V7DoctrineVersionNone,
 		LifecycleState:     sig.LifecycleState,
@@ -51,6 +58,9 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 	}
 	if sig.Stack == local.V7StackT2 {
 		tags.Stack = store.V7StackT2
+	}
+	if tags.ProfileVersion == "" {
+		tags.ProfileVersion = store.V7EffectiveProfileVersion(store.RiskControlConfig{}, nil)
 	}
 	if tags.LifecycleState == "" {
 		tags.LifecycleState = string(sig.Status)

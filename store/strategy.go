@@ -548,6 +548,13 @@ type RiskControlConfig struct {
 	// DefaultT2MinStopLossPriceMovePct. Read it through
 	// EffectiveT2MinStopLossPriceMovePct.
 	T2MinStopLossPriceMovePct float64 `json:"t2_min_stop_loss_price_move_pct,omitempty"`
+	// ClassProfiles holds the per-class risk profiles (U6, plan §5.1),
+	// keyed by signal class. Zero fields inherit the stack values above;
+	// read through EffectiveV7ClassProfiles.
+	ClassProfiles map[string]V7ClassRiskProfile `json:"class_profiles,omitempty"`
+	// SetupGeometryOverrides overrides the per-setup backend RR relaxations
+	// (U6, F13); read through EffectiveV7SetupGeometryOverrides.
+	SetupGeometryOverrides map[string]V7SetupGeometryOverride `json:"setup_geometry_overrides,omitempty"`
 	// Min AI confidence to open position (AI guided)
 	MinConfidence int `json:"min_confidence"`
 	// Max allowed deviation between AI decision price and execution reference price (CODE ENFORCED, percent)

@@ -49,7 +49,7 @@ func TestT2RecordCarriesAllTags(t *testing.T) {
 	}
 	want := map[string]string{
 		"stack": "t2", "signal_class": "TRIGGER", "family": "ignition_early", "rr_band": "1.2_1.5",
-		"stop_atr_band": "0.5_1.0", "cell_status": "probation", "profile_version": store.V7SignalClassRegistryVersion,
+		"stop_atr_band": "0.5_1.0", "cell_status": "probation", "profile_version": store.V7SignalClassRegistryVersion + "/" + store.V7ClassProfileVersion,
 		"calibration_version": "none", "doctrine_version": "none", "lifecycle": "TRIGGERED", "decision_path": "llm_full",
 		"outcome_source": "prompt_open_review", "data_gaps": `["global_lsr_default_1.0","market_cap_missing"]`,
 	}
