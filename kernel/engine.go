@@ -128,7 +128,12 @@ type CandidateCoin struct {
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
 	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
-	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
+	// U7 shadow E[R] (plan §2.4): logged only; no tier, ranking, prompt or
+	// execution path reads these.
+	V7ExpectedR          *float64 `json:"-"`
+	V7ExpectedRLower     *float64 `json:"-"`
+	V7CalibrationVersion string   `json:"-"`
+	V7QuoteVolume24h     float64  `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
 	TradeSignal interface{} `json:"-"` // *engine.TradeSignal when using SnapshotEngine
@@ -315,6 +320,7 @@ type StrategyEngine struct {
 	marketEnv        *market.MarketEnvironment   // cached market regime classification (ADX-based)
 	snapshotEngine   *SnapshotEngine             // nil = use legacy coin sources
 	v7SignalRecorder local.V7SignalRecorder      // optional callback for funnel attribution
+	v7ExpectedR      hunterV7ERState             // U7 shadow E[R] calibration (nil = none)
 	v7CycleCounter   int                         // incremented each scoring call for recorder
 	v7WatchState     *local.V7SignalStateManager // cross-cycle watch upgrade tracker
 	v7T2Store        *local.V7T2EventStore       // cross-cycle Task-2 trigger memory (isolated)
@@ -390,6 +396,22 @@ func (e *StrategyEngine) GetSnapshotEngine() *SnapshotEngine {
 // SetV7SignalRecorder sets the callback for persisting raw V7 signals.
 func (e *StrategyEngine) SetV7SignalRecorder(recorder local.V7SignalRecorder) {
 	e.v7SignalRecorder = recorder
+}
+
+// SetV7ExpectedRCalibration installs the U7 shadow E[R] calibration used to
+// stamp candidates from the next cycle on (nil clears it).
+func (e *StrategyEngine) SetV7ExpectedRCalibration(cal *HunterV7ERCalibration) {
+	if e != nil {
+		e.v7ExpectedR.set(cal)
+	}
+}
+
+// V7ExpectedRCalibration returns the installed calibration (nil = none).
+func (e *StrategyEngine) V7ExpectedRCalibration() *HunterV7ERCalibration {
+	if e == nil {
+		return nil
+	}
+	return e.v7ExpectedR.get()
 }
 
 // buildV7SignalRecords merges raw V7 signals with kernel tier classification.
@@ -547,7 +569,12 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 // hunterV7SignalsToCandidateCoins converts Hunter v7 structured signals into
 // CandidateCoin while preserving the rich signal context for the AI prompt.
 func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7SignalOutput, direction string) []CandidateCoin {
-	return AssembleHunterV7CandidateCoins(signals, direction, e.hunterV7ExecutionGeometry())
+	cands := AssembleHunterV7CandidateCoins(signals, direction, e.hunterV7ExecutionGeometry())
+	// U7: shadow E[R] after tiering; nothing downstream reads it.
+	if cal := e.V7ExpectedRCalibration(); cal != nil {
+		HunterV7StampExpectedR(cands, cal, HunterV7RecordTagOptionsFromConfig(e.config).Tags)
+	}
+	return cands
 }
 
 // AssembleHunterV7CandidateCoins is the production signal→candidate assembly,

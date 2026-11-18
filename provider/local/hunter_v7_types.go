@@ -516,6 +516,8 @@ type V7SignalTags struct {
 	DecisionPath       string // llm_full / none
 	OutcomeSource      string // prompt_open_review / watch_audit / shadow
 	DataGaps           []string
+	ExpectedR          *float64 // U7 shadow E[R]; nil when no calibration
+	ExpectedRLower     *float64
 }
 
 type V7PotentialComponents struct {

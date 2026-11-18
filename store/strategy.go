@@ -412,6 +412,10 @@ type HunterConfig struct {
 	// edges, OD-2 fee-net cost, watch_audit tracking). nil = defaults; read
 	// through EffectiveV7OutcomeTags.
 	V7OutcomeTags *V7OutcomeTagConfig `json:"v7_outcome_tags,omitempty"`
+	// V7ExpectedR holds the U7 shadow E[R] estimator and falsification
+	// parameters. nil = defaults (estimator off); read through
+	// EffectiveV7ExpectedR.
+	V7ExpectedR *V7ExpectedRConfig `json:"v7_expected_r,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).

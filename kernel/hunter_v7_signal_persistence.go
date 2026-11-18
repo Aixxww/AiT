@@ -170,6 +170,8 @@ func BuildHunterV7SignalDBRecordsWithAudit(cycleNum int, records []local.V7Signa
 			DecisionPath:             rec.Tags.DecisionPath,
 			OutcomeSource:            rec.Tags.OutcomeSource,
 			DataGaps:                 store.ToJSON(dataGaps),
+			ExpectedR:                rec.Tags.ExpectedR,
+			ExpectedRLower:           rec.Tags.ExpectedRLower,
 		})
 	}
 	return dbRecords
