@@ -162,3 +162,14 @@ func TestPreflightPromptT2NoteOnlyWhenT2Enabled(t *testing.T) {
 		t.Fatalf("T2 note must only append to the native preflight text")
 	}
 }
+
+// U1: the strategy lifecycle block maps onto the module parameters.
+func TestHunterV7T2LifecycleMapping(t *testing.T) {
+	if z := hunterV7T2Lifecycle(nil); z.MinAlertScore != 0 || z.CooldownMinutes != 0 || z.ObserveOnlyOverride || z.ObserveOnlySetups != nil || z.DisableTrigger {
+		t.Fatalf("nil block must give zero params (scanner constants)")
+	}
+	p := hunterV7T2Lifecycle(&store.V7T2LifecycleConfig{MinAlertScore: 80, CooldownMinutes: 30, ObserveOnlySetups: []string{"x"}, ObserveOnlyOverride: true, TriggeredSurfaceMinutes: 5})
+	if p.MinAlertScore != 80 || p.CooldownMinutes != 30 || !p.ObserveOnlyOverride || len(p.ObserveOnlySetups) != 1 || p.TriggeredSurfaceMinutes != 5 {
+		t.Fatalf("mapping: %+v", p)
+	}
+}

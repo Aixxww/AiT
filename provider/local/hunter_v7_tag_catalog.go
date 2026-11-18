@@ -37,6 +37,7 @@ var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	"candidate_floor_context":                tagDef("candidate_floor_context", "reason_code", "tier", "neutral", V7TagActionContextOnly, "Candidate was included as minimum context despite lower priority."),
 	"module_no_match":                        tagDef("module_no_match", "risk_tag", "state", "neutral", V7TagActionRejectOnly, "Symbol entered universe but no Hunter v7 setup matched."),
 	"t2_observe_only":                        tagDef("t2_observe_only", "risk_tag", "state", "neutral", V7TagActionWaitOnly, "Task-2 transplanted setup is on the scanner's observe-only list (long-side families plus confirmed breakouts): upstream forces the event to WATCH with no armed_at, so treat it as watch-only context and do not open from it directly."),
+	"t2_triggered":                           tagDef("t2_triggered", "reason_code", "state", "neutral", V7TagActionEvidence, "Task-2 event whose price reached the signal entry (scanner spec section 5.3 trigger): the setup is live now, not pending. Evidence only; the entry still needs the backend checks."),
 	"t2_regime_demoted":                      tagDef("t2_regime_demoted", "risk_tag", "state", "neutral", V7TagActionReduceOrWait, "BTC realized-volatility regime modulation demoted this Task-2 ignition-short signal (regime size factor below 1); reduce size or wait for a cleaner regime."),
 
 	// Hard/wait risk tags.

@@ -403,12 +403,14 @@ type V7ExecutionReadiness struct {
 const V7StackT2 = "t2"
 
 type V7SignalOutput struct {
-	SignalID  string         `json:"signal_id,omitempty"`
-	Stack     string         `json:"stack,omitempty"` // "" = native, V7StackT2 = Task-2 module
-	Symbol    string         `json:"symbol"`
-	Direction V7Direction    `json:"direction"`
-	SetupType V7SetupType    `json:"setup_type"`
-	Status    V7SignalStatus `json:"status"`
+	SignalID string `json:"signal_id,omitempty"`
+	Stack    string `json:"stack,omitempty"` // "" = native, V7StackT2 = Task-2 module
+	// LifecycleState is the Task-2 event state (WATCH / ARMED / TRIGGERED, U1).
+	LifecycleState string         `json:"lifecycle_state,omitempty"`
+	Symbol         string         `json:"symbol"`
+	Direction      V7Direction    `json:"direction"`
+	SetupType      V7SetupType    `json:"setup_type"`
+	Status         V7SignalStatus `json:"status"`
 
 	// Multi-dimensional scores (each 0-100)
 	SetupScore     float64 `json:"setup_score"`

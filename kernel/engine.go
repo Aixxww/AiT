@@ -122,6 +122,7 @@ type CandidateCoin struct {
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
 	V7Stack            string                       `json:"-"` // "" native, local.V7StackT2 for Task-2 signals
+	V7LifecycleState   string                       `json:"-"` // Task-2 event state: WATCH / ARMED / TRIGGERED (U1)
 	V7SignalClass      string                       `json:"-"` // U6a registry class ("" = unassigned)
 	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
@@ -473,6 +474,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 				Enabled:            true,
 				EnabledSetups:      coinSource.Hunter.V7T2Setups,
 				SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
+				Lifecycle:          hunterV7T2Lifecycle(coinSource.Hunter.V7T2Lifecycle),
 			}
 			if e.v7T2Store == nil {
 				e.v7T2Store = local.NewV7T2EventStore()
@@ -566,6 +568,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 
 			V7SignalID:         sig.SignalID,
 			V7Stack:            sig.Stack,
+			V7LifecycleState:   sig.LifecycleState,
 			V7SetupType:        string(sig.SetupType),
 			V7Status:           string(sig.Status),
 			V7AIPriority:       sig.AIPriority,
@@ -2698,6 +2701,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 			Enabled:            true,
 			EnabledSetups:      coinSource.Hunter.V7T2Setups,
 			SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
+			Lifecycle:          hunterV7T2Lifecycle(coinSource.Hunter.V7T2Lifecycle),
 		}
 		if e.v7T2Store == nil {
 			e.v7T2Store = local.NewV7T2EventStore()
@@ -3520,5 +3524,19 @@ func hunterV7FinalConflictConfig(h *store.HunterConfig) local.V7FinalConflictCon
 		TieWinner:        local.V7Direction(h.EffectiveV7FinalConflictTieWinner()),
 		ContextNonVoting: h.V7ContextNonVoting(),
 		ContextSetups:    ctxSetups,
+	}
+}
+
+// hunterV7T2Lifecycle maps the strategy-config lifecycle block (U1/P1).
+func hunterV7T2Lifecycle(c *store.V7T2LifecycleConfig) local.V7T2LifecycleParams {
+	if c == nil {
+		return local.V7T2LifecycleParams{}
+	}
+	return local.V7T2LifecycleParams{
+		MinAlertScore: c.MinAlertScore, MinWatchScore: c.MinWatchScore,
+		ArmedExpiryHours: c.ArmedExpiryHours, WatchExpiryHours: c.WatchExpiryHours,
+		CooldownMinutes: c.CooldownMinutes, ObserveOnlyOverride: c.ObserveOnlyOverride,
+		ObserveOnlySetups: append([]string(nil), c.ObserveOnlySetups...), DisableTrigger: c.DisableTrigger,
+		TriggeredSurfaceMinutes: c.TriggeredSurfaceMinutes,
 	}
 }
