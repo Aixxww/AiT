@@ -2122,11 +2122,13 @@ func validateHunterV7DecisionSignalContract(candidate *kernel.CandidateCoin, dec
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: decision direction %s conflicts with Hunter v7 signal direction %s (signal_contract_mismatch)",
 			decision.Symbol, wantDirection, candidate.Direction)
 	}
-	if selectedSetup := strings.TrimSpace(decision.SelectedHunterV7Setup); selectedSetup != "" && candidate.V7SetupType != "" && !strings.EqualFold(selectedSetup, candidate.V7SetupType) {
+	// U11: setups compare in canonical form (t2_ prefix optional, D2 (a))
+	// and the tier with or without the hybrid_v2 enum prefix "tier_".
+	if selectedSetup := strings.TrimSpace(decision.SelectedHunterV7Setup); selectedSetup != "" && candidate.V7SetupType != "" && !strings.EqualFold(store.V7CanonicalSetupType(selectedSetup), store.V7CanonicalSetupType(candidate.V7SetupType)) {
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected setup %q conflicts with Hunter v7 setup %q (signal_contract_mismatch)",
 			decision.Symbol, selectedSetup, candidate.V7SetupType)
 	}
-	if selectedTier := strings.TrimSpace(decision.SelectedHunterV7Tier); selectedTier != "" && candidate.V7ExecutionTier != "" && !strings.EqualFold(selectedTier, candidate.V7ExecutionTier) {
+	if selectedTier := strings.TrimSpace(decision.SelectedHunterV7Tier); selectedTier != "" && candidate.V7ExecutionTier != "" && !strings.EqualFold(strings.TrimPrefix(strings.ToLower(selectedTier), "tier_"), candidate.V7ExecutionTier) {
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected tier %q conflicts with Hunter v7 tier %q (signal_contract_mismatch)",
 			decision.Symbol, selectedTier, candidate.V7ExecutionTier)
 	}
@@ -2370,7 +2372,7 @@ func hunterV7LiquidityPositionCapUSD(quoteVolume24h float64) float64 {
 func (at *AutoTrader) setupGuardForSetup(setupType string) *setupGuardDefaults {
 	// First check strategy config overrides
 	if at.config.StrategyConfig != nil && at.config.StrategyConfig.RiskControl.SetupGuard != nil {
-		if sg, ok := at.config.StrategyConfig.RiskControl.SetupGuard[setupType]; ok {
+		if sg, ok := store.LookupV7Setup(at.config.StrategyConfig.RiskControl.SetupGuard, setupType); ok {
 			return &setupGuardDefaults{
 				MinZonePosShort: sg.MinZonePosShort,
 				MaxZonePosLong:  sg.MaxZonePosLong,

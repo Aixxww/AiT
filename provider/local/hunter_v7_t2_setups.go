@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -55,6 +57,10 @@ type V7T2Config struct {
 	// dropped after its family function produced it (no re-routing),
 	// mirroring a scanner build with that family compiled out.
 	EnabledSetups []string `json:"enabled_setups,omitempty"`
+	// SetupPrefix emits setup types as t2_<setup> (U11, D2 (a)). The
+	// module's own lists and lifecycle keep the scanner names; only the
+	// emitted V7SignalOutput carries the prefix. Default false.
+	SetupPrefix bool `json:"setup_prefix,omitempty"`
 	// SymbolValidityGate rejects symbols that do not match the Binance
 	// USDT-perpetual symbol pattern. The Python scanner has no such gate
 	// and has emitted dirty symbols in production (spec section 8 item
@@ -145,7 +151,7 @@ func (p V7T2LifecycleParams) observeOnly(setup string) bool {
 		return v7T2ObserveOnlySetups[setup]
 	}
 	for _, s := range p.ObserveOnlySetups {
-		if s == setup {
+		if store.V7CanonicalSetupType(s) == setup { // U11: either name (D2 (a))
 			return true
 		}
 	}
@@ -212,7 +218,7 @@ func (c *V7T2Config) familyEnabled(setupType string) bool {
 		return true
 	}
 	for _, s := range c.EnabledSetups {
-		if s == setupType {
+		if store.V7CanonicalSetupType(s) == setupType { // U11: either name (D2 (a))
 			return true
 		}
 	}

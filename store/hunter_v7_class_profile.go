@@ -102,10 +102,11 @@ func DefaultV7SetupGeometryOverrides() map[string]V7SetupGeometryOverride {
 
 // EffectiveV7SetupGeometryOverrides applies
 // RiskControlConfig.SetupGeometryOverrides on top of the defaults. A zero
-// entry removes the setup's override.
+// entry removes the setup's override. Keys are canonical setup types
+// (U11, D2 (a)); look entries up with LookupV7Setup.
 func (rc RiskControlConfig) EffectiveV7SetupGeometryOverrides() map[string]V7SetupGeometryOverride {
 	out := DefaultV7SetupGeometryOverrides()
-	for setup, o := range rc.SetupGeometryOverrides {
+	for setup, o := range canonicalV7SetupKeys(rc.SetupGeometryOverrides) {
 		if o.MinRRCap <= 0 && o.MaxTPFloorPct <= 0 {
 			delete(out, setup)
 			continue

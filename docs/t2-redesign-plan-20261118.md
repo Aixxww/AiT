@@ -568,6 +568,8 @@ Acceptance is offline replay plus code review, because the owner cancelled the f
 
 U10 record (owner decisions, implementation, partial parity result): `docs/t2-u10-data-timing.md`.
 
+U11 record (payload / doctrine versions, LLM roles, Task C pass 1, hybrid payload, deletion test): `docs/t2-u11-payload-v2.md`.
+
 ---
 
 ## 7. R6: post-entry position management
