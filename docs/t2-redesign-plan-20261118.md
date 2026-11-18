@@ -941,4 +941,10 @@ For TRIGGER:
 - **Population metric:** the conditional path is 0.021 R per event better. It skips the 20 events whose stop is touched before a close through the trigger, and all of those lose −1 R on the reference path.
 - **CIs overlap on both metrics.**
 
-The owner rules on whether this counts as "does not regress". The feature is off by default.
+**Owner ruling (2026-11-18).** The U9 latency-cost result counts as "does not regress" for merge purposes.
+- **Scope:** merge only. Enabling conditional entry remains a separate owner decision, and its latency cost when enabled is still an open question.
+- **Evidence noted:**
+  - the paired comparison is −0.032 R worse;
+  - the per-event mean R is +0.021 R better;
+  - both confidence intervals overlap;
+  - 339 of 374 paired events filled at zero cost on the reference candle.
