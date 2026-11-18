@@ -122,6 +122,20 @@ func (rc RiskControlConfig) EffectiveT2MinRiskRewardRatio() float64 {
 	return DefaultT2MinRiskRewardRatio
 }
 
+// V7T2LifecycleConfig is the strategy-config form of the Task-2 lifecycle
+// parameters (see local.V7T2LifecycleParams; zero = scanner constant).
+type V7T2LifecycleConfig struct {
+	MinAlertScore           float64  `json:"min_alert_score,omitempty"`
+	MinWatchScore           float64  `json:"min_watch_score,omitempty"`
+	ArmedExpiryHours        float64  `json:"armed_expiry_hours,omitempty"`
+	WatchExpiryHours        float64  `json:"watch_expiry_hours,omitempty"`
+	CooldownMinutes         float64  `json:"cooldown_minutes,omitempty"`
+	ObserveOnlyOverride     bool     `json:"observe_only_override,omitempty"`
+	ObserveOnlySetups       []string `json:"observe_only_setups,omitempty"`
+	DisableTrigger          bool     `json:"disable_trigger,omitempty"`
+	TriggeredSurfaceMinutes float64  `json:"triggered_surface_minutes,omitempty"`
+}
+
 type StrategyConfig struct {
 	// Strategy type: "ai_trading" (default) or "grid_trading"
 	StrategyType string `json:"strategy_type,omitempty"`
@@ -328,6 +342,11 @@ type HunterConfig struct {
 	// (U6a; defaults: DefaultV7SignalClassRegistry). Read it through
 	// EffectiveV7SignalClasses.
 	V7SignalClasses map[string]V7SignalClassEntry `json:"v7_signal_classes,omitempty"`
+	// V7T2Lifecycle holds the Task-2 lifecycle parameters (U1/P1). Every
+	// zero value keeps the scanner constant (ARMED 82, watch band 72,
+	// ARMED 4h / WATCH 2h expiry, 60 min cooldown, the section 6.2
+	// observe-only list, trigger stage on, 15 min triggered surface window).
+	V7T2Lifecycle *V7T2LifecycleConfig `json:"v7_t2_lifecycle,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).

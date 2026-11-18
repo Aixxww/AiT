@@ -182,7 +182,7 @@ func TestV7T2ObserveOnlyAsymmetry(t *testing.T) {
 	}
 	for setup, want := range cases {
 		sig := &V7T2Signal{SetupType: setup, Status: "ARMED", Score: 90}
-		v7t2ApplyObserveOnly(sig)
+		v7t2ApplyObserveOnly(sig, V7T2LifecycleParams{})
 		if sig.ObserveOnly != want {
 			t.Fatalf("%s: ObserveOnly = %v, want %v", setup, sig.ObserveOnly, want)
 		}
@@ -283,7 +283,7 @@ func TestV7T2LifecycleStore(t *testing.T) {
 	// Observe-only signal: event forced WATCH, no armed_at, 2h expiry.
 	obs := mk("trend_pullback_long", 94, "ARMED")
 	obs.Trigger = 200 // different zone -> different event_id
-	v7t2ApplyObserveOnly(obs)
+	v7t2ApplyObserveOnly(obs, V7T2LifecycleParams{})
 	r5 := st.Upsert(obs, 100, t0.Add(3*time.Hour))
 	if !r5.Created || r5.Event.Status != "WATCH" || r5.Event.ArmedAt != nil || r5.Notify {
 		t.Fatalf("observe-only event: %+v", r5.Event)

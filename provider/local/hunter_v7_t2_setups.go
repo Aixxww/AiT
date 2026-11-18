@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ============================================================================
@@ -63,6 +64,100 @@ type V7T2Config struct {
 	// exclusion list (spec section 1.5): symbols listed here are excluded
 	// at the universe level and their live events are invalidated.
 	ActivitySymbols []string `json:"activity_symbols,omitempty"`
+
+	// Lifecycle parameters (U1/P1, plan overlap: F13 literals into config).
+	// Zero values select the scanner constants, so an unset config keeps
+	// the transplant's behaviour exactly.
+	Lifecycle V7T2LifecycleParams `json:"lifecycle,omitempty"`
+}
+
+// V7T2LifecycleParams carries the spec section 5 / 6.2 lifecycle constants.
+// Every zero value means "use the scanner constant".
+type V7T2LifecycleParams struct {
+	MinAlertScore    float64 `json:"min_alert_score,omitempty"`    // ARMED label threshold (scanner MIN_ALERT_SCORE 82)
+	MinWatchScore    float64 `json:"min_watch_score,omitempty"`    // watch_promoted notify band floor (72)
+	ArmedExpiryHours float64 `json:"armed_expiry_hours,omitempty"` // EVENT_EXPIRY_HOURS (4)
+	WatchExpiryHours float64 `json:"watch_expiry_hours,omitempty"` // WATCH expiry (2)
+	CooldownMinutes  float64 `json:"cooldown_minutes,omitempty"`   // COOLDOWN_MINUTES (60)
+	// ObserveOnlySetups replaces the section 6.2 OBSERVE_ONLY_SETUPS list
+	// when ObserveOnlyOverride is true (so an explicitly empty list is
+	// possible); otherwise the scanner list applies (OD-5: values kept).
+	ObserveOnlyOverride bool     `json:"observe_only_override,omitempty"`
+	ObserveOnlySetups   []string `json:"observe_only_setups,omitempty"`
+	// DisableTrigger turns off the section 5.3 trigger stage (U1/P1);
+	// default false = WATCH and ARMED events become TRIGGERED when the
+	// price reaches the signal entry.
+	DisableTrigger bool `json:"disable_trigger,omitempty"`
+	// TriggeredSurfaceMinutes is how long after triggering a TRIGGERED
+	// event keeps being emitted to the pipeline (default 15 = one scanner
+	// scan interval, spec section 5.5).
+	TriggeredSurfaceMinutes float64 `json:"triggered_surface_minutes,omitempty"`
+}
+
+// Default lifecycle constants (scanner values, spec sections 0, 5, 5.5).
+const (
+	v7T2WatchExpiryHours            = 2.0
+	v7T2DefaultTriggeredSurfaceMins = 15.0
+)
+
+func (p V7T2LifecycleParams) alertScore() float64 {
+	if p.MinAlertScore > 0 {
+		return p.MinAlertScore
+	}
+	return v7T2MinAlertScore
+}
+func (p V7T2LifecycleParams) watchScore() float64 {
+	if p.MinWatchScore > 0 {
+		return p.MinWatchScore
+	}
+	return v7T2MinWatchScore
+}
+func (p V7T2LifecycleParams) armedExpiry() time.Duration {
+	h := p.ArmedExpiryHours
+	if h <= 0 {
+		h = v7T2EventExpiryHours
+	}
+	return time.Duration(h * float64(time.Hour))
+}
+func (p V7T2LifecycleParams) watchExpiry() time.Duration {
+	h := p.WatchExpiryHours
+	if h <= 0 {
+		h = v7T2WatchExpiryHours
+	}
+	return time.Duration(h * float64(time.Hour))
+}
+func (p V7T2LifecycleParams) cooldown() time.Duration {
+	m := p.CooldownMinutes
+	if m <= 0 {
+		m = v7T2CooldownMinutes
+	}
+	return time.Duration(m * float64(time.Minute))
+}
+func (p V7T2LifecycleParams) triggeredSurface() time.Duration {
+	m := p.TriggeredSurfaceMinutes
+	if m <= 0 {
+		m = v7T2DefaultTriggeredSurfaceMins
+	}
+	return time.Duration(m * float64(time.Minute))
+}
+func (p V7T2LifecycleParams) observeOnly(setup string) bool {
+	if !p.ObserveOnlyOverride {
+		return v7T2ObserveOnlySetups[setup]
+	}
+	for _, s := range p.ObserveOnlySetups {
+		if s == setup {
+			return true
+		}
+	}
+	return false
+}
+
+// lifecycle returns the lifecycle parameters (zero value when cfg is nil).
+func (c *V7T2Config) lifecycle() V7T2LifecycleParams {
+	if c == nil {
+		return V7T2LifecycleParams{}
+	}
+	return c.Lifecycle
 }
 
 // V7T2SetupTypes lists every setup_type the transplanted families can emit
@@ -1493,8 +1588,8 @@ func v7t2ApplyRegime(sig *V7T2Signal, regime *V7T2RegimeInput) {
 	}
 }
 
-func v7t2ApplyObserveOnly(sig *V7T2Signal) {
-	if v7T2ObserveOnlySetups[sig.SetupType] {
+func v7t2ApplyObserveOnly(sig *V7T2Signal, p V7T2LifecycleParams) {
+	if p.observeOnly(sig.SetupType) {
 		// Spec section 6.2: the setup is flagged observe_only and the
 		// EVENT is forced to WATCH (armed_at stays empty, 2h expiry,
 		// notification suppressed). Production payloads show the
@@ -1574,8 +1669,17 @@ func EvaluateV7T2Snapshot(s *V7T2Snapshot, cfg *V7T2Config, regime *V7T2RegimeIn
 	if cfg != nil && !cfg.familyEnabled(sig.SetupType) {
 		return nil
 	}
+	// U1: a configured ARMED threshold relabels score-derived statuses.
+	// Ignition and compression are hard-coded WATCH upstream (their status
+	// does not derive from the score), so they are left alone.
+	if lp := cfg.lifecycle(); lp.MinAlertScore > 0 && v7t2StatusFromScore(sig.SetupType) {
+		sig.Status = "WATCH"
+		if sig.Score >= lp.alertScore() {
+			sig.Status = "ARMED"
+		}
+	}
 	v7t2ApplyRegime(sig, regime)
-	v7t2ApplyObserveOnly(sig)
+	v7t2ApplyObserveOnly(sig, cfg.lifecycle())
 	return sig
 }
 
@@ -1627,6 +1731,28 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 		out.RiskTags = append(out.RiskTags, "t2_regime_demoted")
 	}
 	out.RiskLevel = V7RiskMedium
+	out.LifecycleState = sig.EffectiveStatus()
+	return out
+}
+
+// ToV7SignalOutputWithLifecycle converts with the event's lifecycle state
+// (U1/P1). A TRIGGERED event (price reached the entry, spec section 5.3) is
+// emitted as a candidate with the t2_triggered tag, whatever its score;
+// observe-only setups stay wait_confirm (OD-5: the observe-only list stands).
+func (sig *V7T2Signal) ToV7SignalOutputWithLifecycle(regime V7MarketRegime, state string) V7SignalOutput {
+	out := sig.ToV7SignalOutput(regime)
+	if state == "" {
+		return out
+	}
+	out.LifecycleState = state
+	if state == "TRIGGERED" {
+		out.RiskTags = append(out.RiskTags, "t2_triggered")
+		if !sig.ObserveOnly {
+			out.Status = V7StatusCandidate
+			out.Confidence = "B"
+			out.EntryMode = V7EntryImmediate
+		}
+	}
 	return out
 }
 
@@ -1654,4 +1780,11 @@ func DiagnoseV7T2Families(s *V7T2Snapshot) map[string]string {
 		out["watch"] = sig.SetupType + "/" + sig.Direction
 	}
 	return out
+}
+
+// v7t2StatusFromScore reports whether a setup's function-time status is
+// v7t2StatusForScore(score) (momentum, bb_oi and the secondary chain) rather
+// than hard-coded WATCH (ignition, compression watch).
+func v7t2StatusFromScore(setup string) bool {
+	return !strings.HasPrefix(setup, "ignition_") && !strings.HasPrefix(setup, "compression_oi_watch_")
 }

@@ -1,6 +1,7 @@
 package local
 
 import (
+	"sort"
 	"time"
 
 	"github.com/Aixxww/AiT/datafetch"
@@ -188,9 +189,33 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 	if snap == nil || cfg == nil || !cfg.Enabled {
 		return nil
 	}
+	if store != nil {
+		store.Configure(cfg.Lifecycle)
+		// Spec section 1.5: live events of activity-listed symbols are
+		// invalidated.
+		for _, sym := range cfg.ActivitySymbols {
+			store.InvalidateActivity(sym, now)
+		}
+		// Spec section 5.3: outcomes run at the START of each scan with
+		// the latest price (U1/P1).
+		prices := make(map[string]float64, len(snap.Symbols))
+		for sym, ss := range snap.Symbols {
+			if ss != nil && ss.Price > 0 {
+				prices[sym] = ss.Price
+			}
+		}
+		store.UpdateOutcomes(prices, now)
+	}
+	// Deterministic order (map iteration would vary run to run).
+	syms := make([]string, 0, len(snap.Symbols))
+	for sym := range snap.Symbols {
+		syms = append(syms, sym)
+	}
+	sort.Strings(syms)
 	var out []V7SignalOutput
-	for _, ss := range snap.Symbols {
-		ts := BuildV7T2SnapshotFromDatafetch(ss)
+	emitted := map[string]int{} // event id -> index in out
+	for _, sym := range syms {
+		ts := BuildV7T2SnapshotFromDatafetch(snap.Symbols[sym])
 		if ts == nil {
 			continue
 		}
@@ -198,13 +223,28 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 		if sig == nil {
 			continue
 		}
+		state := sig.EffectiveStatus()
 		if store != nil {
 			res := store.Upsert(sig, ts.Price(), now)
 			if res.Dropped {
 				continue
 			}
+			state = res.Event.Status
+			emitted[res.Event.EventID] = len(out)
 		}
-		out = append(out, sig.ToV7SignalOutput(v7Regime))
+		out = append(out, sig.ToV7SignalOutputWithLifecycle(v7Regime, state))
+	}
+	// U1/P1: freshly TRIGGERED events reach the pipeline whether or not
+	// the detector fired again on this scan.
+	if store != nil {
+		for _, ev := range store.FreshlyTriggered(now) {
+			o := ev.Signal.ToV7SignalOutputWithLifecycle(v7Regime, "TRIGGERED")
+			if i, ok := emitted[ev.EventID]; ok {
+				out[i] = o
+				continue
+			}
+			out = append(out, o)
+		}
 	}
 	return out
 }
