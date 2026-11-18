@@ -953,6 +953,10 @@ type V7T2Signal struct {
 
 	ObserveOnly bool // spec section 6.2
 
+	// ATR15mPct is ATR14(15m) as a percent of the snapshot price (U5
+	// stop_atr_band input; the U0-D ATR definition).
+	ATR15mPct float64
+
 	ActivityStatus string
 	ActivityFlags  []string
 }
@@ -976,8 +980,25 @@ func v7t2BaseSignal(s *V7T2Snapshot, setupType, direction string) *V7T2Signal {
 		OIVolumeRatio:    s.OIVolumeRatio(),
 		QualityGates:     map[string]interface{}{},
 		StrategyVersion:  v7T2StrategyVersion,
+		ATR15mPct:        v7t2Pct(s.K15.ATR14, s.Price()),
 	}
 }
+
+// v7t2Pct returns v / price in percent, 0 when price is not positive.
+func v7t2Pct(v, price float64) float64 {
+	if price <= 0 {
+		return 0
+	}
+	return v / price * 100
+}
+
+// Known Task-2 input gaps recorded on every T2 signal (plan §6.2): the
+// adapter has no global long/short ratio (the scanner's fetch-failure
+// default 1.0 is used) and no market cap (carried as 0).
+const (
+	V7T2DataGapGlobalLSR = "global_lsr_default_1.0"
+	V7T2DataGapMarketCap = "market_cap_missing"
+)
 
 func v7t2StatusForScore(score float64) string {
 	if score >= v7T2MinAlertScore {
@@ -1732,6 +1753,9 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 	}
 	out.RiskLevel = V7RiskMedium
 	out.LifecycleState = sig.EffectiveStatus()
+	out.TriggerPrice = sig.Entry
+	out.ATR15mPct = sig.ATR15mPct
+	out.DataGaps = []string{V7T2DataGapGlobalLSR, V7T2DataGapMarketCap}
 	return out
 }
 

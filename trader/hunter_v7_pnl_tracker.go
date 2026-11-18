@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	local "github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -77,6 +78,17 @@ type TrackedOutcome struct {
 	MissedOpportunityAt     *time.Time    `json:"missed_opportunity_at,omitempty"`
 	SnapshotJSON            string        `json:"snapshot_json,omitempty"`
 	ExitTime                *time.Time    `json:"exit_time,omitempty"`
+	// U5 fee-net walk (OD-2); FeeNetOutcome "" while the walk is pending.
+	FeeNetOutcome   string   `json:"fee_net_outcome,omitempty"`
+	FeeNetR         *float64 `json:"fee_net_r,omitempty"`
+	FeeNetEntry     float64  `json:"fee_net_entry,omitempty"`
+	DriftAtEntryPct *float64 `json:"drift_at_entry_pct,omitempty"`
+}
+
+// TrackedSignalMeta carries the U5 tags the tracker needs at registration.
+type TrackedSignalMeta struct {
+	OutcomeSource string  // store.V7OutcomeSource*; "" = pre-U5 caller (open review)
+	TriggerPrice  float64 // drift reference; 0 = none
 }
 
 // TrackedSignal holds all state for a single signal being monitored.
@@ -116,6 +128,25 @@ type TrackedSignal struct {
 	MissedOpportunityAudit  bool       `json:"missed_opportunity_audit,omitempty"`
 	MissedOpportunityReason string     `json:"missed_opportunity_reason,omitempty"`
 	MissedOpportunityAt     *time.Time `json:"missed_opportunity_at,omitempty"`
+
+	// U5: outcome source and the OD-2 fee-net walk. The walk is independent
+	// of the PnL path above (static plan stop, full exit at TP1, stop first
+	// inside a bar), so a signal whose PnL outcome ended first stays in
+	// feeNetPending until the walk resolves or the horizon ends.
+	OutcomeSource   string   `json:"outcome_source,omitempty"`
+	TriggerPrice    float64  `json:"trigger_price,omitempty"`
+	PnLDone         bool     `json:"pnl_done,omitempty"`
+	FeeNetAnchored  bool     `json:"fee_net_anchored,omitempty"`
+	FeeNetEntry     float64  `json:"fee_net_entry,omitempty"`
+	FeeNetOutcome   string   `json:"fee_net_outcome,omitempty"`
+	FeeNetR         *float64 `json:"fee_net_r,omitempty"`
+	DriftAtEntryPct *float64 `json:"drift_at_entry_pct,omitempty"`
+}
+
+// isAuditSource reports whether a tracked signal belongs to the
+// watch_audit or shadow bucket (kept out of the real win-rate denominator).
+func (s *TrackedSignal) isAuditSource() bool {
+	return s != nil && (s.OutcomeSource == store.V7OutcomeSourceWatchAudit || s.OutcomeSource == store.V7OutcomeSourceShadow)
 }
 
 // SetupStats aggregates win/loss statistics per setup type.
@@ -138,6 +169,11 @@ type SetupStats struct {
 	AvgMAE              float64       `json:"avg_mae"`
 	AvgDuration         time.Duration `json:"avg_duration"`
 	MissedOpportunities int           `json:"missed_opportunities,omitempty"`
+	// U5: audit-bucket count (watch_audit + shadow, not in Total) and the
+	// OD-2 fee-net R over completed open-review signals with a resolved walk.
+	AuditTracked int     `json:"audit_tracked,omitempty"`
+	FeeNetN      int     `json:"fee_net_n,omitempty"`
+	AvgFeeNetR   float64 `json:"avg_fee_net_r,omitempty"`
 }
 
 // TrackerConfig holds configuration for the signal outcome tracker.
@@ -153,6 +189,8 @@ type TrackerConfig struct {
 	ATRPercentile               float64       // default 50 when no volatility percentile is available
 	MissedOpportunityMinTouches int           // default 2 consecutive TP0 touches for WATCH audit
 	TrackPartialTargets         bool          // keep the TP0 remainder alive for TP1/TP2 outcome attribution
+	FeeNetCostPct               float64       // U5 OD-2 round-trip cost (fraction of E); default store.DefaultV7FeeNetCostPct
+	WatchAuditMaxTracked        int           // U5 cap for watch_audit / shadow rows, separate from MaxTracked
 }
 
 // DefaultTrackerConfig returns sensible defaults.
@@ -169,6 +207,8 @@ func DefaultTrackerConfig() *TrackerConfig {
 		ATRPercentile:               50,
 		MissedOpportunityMinTouches: 2,
 		TrackPartialTargets:         true,
+		FeeNetCostPct:               store.DefaultV7FeeNetCostPct,
+		WatchAuditMaxTracked:        store.DefaultV7WatchAuditMaxTracked,
 	}
 }
 
@@ -179,6 +219,7 @@ type SignalOutcomeTracker struct {
 	mu            sync.RWMutex
 	activeSignals map[int64]*TrackedSignal
 	activeThesis  map[string]int64
+	feeNetPending map[int64]*TrackedSignal // PnL outcome done, fee-net walk still open (U5)
 	priceFunc     func(symbol string) float64
 	candleFunc    func(symbol string) *TrackedCandle
 	candlesFunc   func(symbol string, since time.Time) []TrackedCandle
@@ -229,6 +270,12 @@ func normalizeTrackerConfig(cfg *TrackerConfig) *TrackerConfig {
 	if cfg.ATRPercentile <= 0 {
 		cfg.ATRPercentile = 50
 	}
+	if cfg.FeeNetCostPct <= 0 {
+		cfg.FeeNetCostPct = store.DefaultV7FeeNetCostPct
+	}
+	if cfg.WatchAuditMaxTracked <= 0 {
+		cfg.WatchAuditMaxTracked = store.DefaultV7WatchAuditMaxTracked
+	}
 	return cfg
 }
 
@@ -271,6 +318,19 @@ func (t *SignalOutcomeTracker) Register(
 	signalPrice, stopPrice, tp0, tp1, tp2 float64,
 	signalTime ...time.Time,
 ) (bool, int64) {
+	return t.RegisterWithMeta(TrackedSignalMeta{}, recordID, symbol, direction, setupType, tier, signalPrice, stopPrice, tp0, tp1, tp2, signalTime...)
+}
+
+// RegisterWithMeta is Register with the U5 outcome source and trigger
+// price. Audit rows (watch_audit / shadow) use their own capacity and their
+// own duplicate-thesis slot, so they never displace an open-review signal.
+func (t *SignalOutcomeTracker) RegisterWithMeta(
+	meta TrackedSignalMeta,
+	recordID int64,
+	symbol, direction, setupType, tier string,
+	signalPrice, stopPrice, tp0, tp1, tp2 float64,
+	signalTime ...time.Time,
+) (bool, int64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.activeThesis == nil {
@@ -286,8 +346,12 @@ func (t *SignalOutcomeTracker) Register(
 		registeredAt = signalTime[0]
 	}
 
+	audit := meta.OutcomeSource == store.V7OutcomeSourceWatchAudit || meta.OutcomeSource == store.V7OutcomeSourceShadow
 	replacedID := int64(0)
 	key := trackedThesisKey(symbol, setupType, direction)
+	if audit && key != "" {
+		key += "\x00audit"
+	}
 	if t.config.DuplicateWindow > 0 && key != "" {
 		if existingID, ok := t.activeThesis[key]; ok {
 			if existing := t.activeSignals[existingID]; existing != nil {
@@ -301,7 +365,17 @@ func (t *SignalOutcomeTracker) Register(
 			}
 		}
 	}
-	if len(t.activeSignals) >= t.config.MaxTracked {
+	inBucket := 0
+	for _, existing := range t.activeSignals {
+		if existing.isAuditSource() == audit {
+			inBucket++
+		}
+	}
+	capacity := t.config.MaxTracked
+	if audit {
+		capacity = t.config.WatchAuditMaxTracked
+	}
+	if inBucket >= capacity {
 		return false, 0 // at capacity; caller should evict oldest
 	}
 
@@ -320,6 +394,8 @@ func (t *SignalOutcomeTracker) Register(
 		Status:         TrackedActive,
 		RemainingRatio: 1,
 		Snapshots:      make([]PriceSnapshot, 0, 8),
+		OutcomeSource:  meta.OutcomeSource,
+		TriggerPrice:   meta.TriggerPrice,
 	}
 	if key != "" {
 		t.activeThesis[key] = recordID
@@ -356,7 +432,9 @@ func (t *SignalOutcomeTracker) Start(ctx context.Context) {
 	}()
 }
 
-// tick updates all active signals and checks TP/SL/timeout.
+// tick updates all active signals and checks TP/SL/timeout. It also
+// advances the U5 fee-net walk, including for signals whose PnL outcome has
+// already ended (feeNetPending).
 func (t *SignalOutcomeTracker) tick() {
 	if t.priceFunc == nil && t.candleFunc == nil && t.candlesFunc == nil && t.backfillFunc == nil {
 		return
@@ -378,6 +456,7 @@ func (t *SignalOutcomeTracker) tick() {
 		terminal := false
 		processed := false
 		auditChanged := false
+		feeNetChanged := false
 		for _, candle := range candles {
 			if !sig.LastCandleAt.IsZero() && !candle.T.After(sig.LastCandleAt) {
 				continue
@@ -389,6 +468,15 @@ func (t *SignalOutcomeTracker) tick() {
 
 			sig.LastCandleAt = candle.T
 			processed = true
+			if t.stepFeeNet(sig, candle) {
+				feeNetChanged = true
+			}
+			if sig.PnLDone {
+				if sig.FeeNetOutcome != "" {
+					break
+				}
+				continue
+			}
 			sig.CurrentPrice = price
 			pnlPct = t.calcPnLPct(sig, price)
 			mfePct, maePct := t.calcExcursionsPct(sig, candle)
@@ -414,7 +502,10 @@ func (t *SignalOutcomeTracker) tick() {
 				sig.ExitTime = &exitTime
 				sig.ExitPrice = exitPrice
 				pnlPct = t.finalPnLPct(sig, sig.ExitPrice)
-				break
+				sig.PnLDone = true
+				if sig.FeeNetOutcome != "" {
+					break
+				}
 			}
 		}
 
@@ -425,17 +516,27 @@ func (t *SignalOutcomeTracker) tick() {
 			sig.ExitPrice = sig.CurrentPrice
 			pnlPct = t.finalPnLPct(sig, sig.ExitPrice)
 			terminal = true
+			sig.PnLDone = true
 		}
-		if !processed && !terminal {
+		if t.finishFeeNetAtHorizon(sig, now) {
+			feeNetChanged = true
+		}
+		if !processed && !terminal && !feeNetChanged {
 			continue
 		}
 
 		if terminal {
 			toArchive = append(toArchive, sig)
 			delete(t.activeSignals, id)
-			key := trackedThesisKey(sig.Symbol, sig.SetupType, sig.Direction)
+			key := sig.thesisKey()
 			if t.activeThesis[key] == sig.RecordID {
 				delete(t.activeThesis, key)
+			}
+			if sig.FeeNetOutcome == "" {
+				if t.feeNetPending == nil {
+					t.feeNetPending = make(map[int64]*TrackedSignal)
+				}
+				t.feeNetPending[id] = sig
 			}
 		}
 		if !terminal {
@@ -445,8 +546,41 @@ func (t *SignalOutcomeTracker) tick() {
 			pnlPct = t.finalPnLPct(sig, sig.CurrentPrice)
 		}
 
-		if terminal || auditChanged || t.shouldEmitActiveOutcome(sig, now) {
+		if terminal || auditChanged || feeNetChanged || t.shouldEmitActiveOutcome(sig, now) {
 			outcomes = append(outcomes, t.buildOutcome(sig, pnlPct))
+			sig.LastOutcomeAt = now
+		}
+	}
+
+	// Signals whose PnL outcome ended first: advance only the fee-net walk.
+	for id, sig := range t.feeNetPending {
+		if t.activeSignals[id] == sig {
+			continue // ended this tick; already advanced above
+		}
+		changed := false
+		for _, candle := range t.candlesForSignal(sig, now) {
+			if !sig.LastCandleAt.IsZero() && !candle.T.After(sig.LastCandleAt) {
+				continue
+			}
+			if candle.Close <= 0 {
+				continue
+			}
+			sig.LastCandleAt = candle.T
+			if t.stepFeeNet(sig, candle) {
+				changed = true
+			}
+			if sig.FeeNetOutcome != "" {
+				break
+			}
+		}
+		if t.finishFeeNetAtHorizon(sig, now) {
+			changed = true
+		}
+		if sig.FeeNetOutcome != "" {
+			delete(t.feeNetPending, id)
+		}
+		if changed {
+			outcomes = append(outcomes, t.buildOutcome(sig, t.finalPnLPct(sig, sig.ExitPrice)))
 			sig.LastOutcomeAt = now
 		}
 	}
@@ -464,6 +598,93 @@ func (t *SignalOutcomeTracker) tick() {
 			outcomeFunc(outcome)
 		}
 	}
+}
+
+// thesisKey is the duplicate-thesis key; audit rows use their own slot.
+func (s *TrackedSignal) thesisKey() string {
+	key := trackedThesisKey(s.Symbol, s.SetupType, s.Direction)
+	if key != "" && s.isAuditSource() {
+		key += "\x00audit"
+	}
+	return key
+}
+
+// stepFeeNet advances the U5 OD-2 fee-net walk by one 1m candle (candle.T
+// may be the open or the close time; the walk uses the minute it opened).
+//   - Anchor: the first bar opening at or after the minute following the
+//     signal minute. E = its close; drift_at_entry_pct is measured from the
+//     trigger price. E at or beyond the stop or TP1 is degenerate (no R).
+//   - Walk: bars after the anchor; stop first inside a bar; full exit.
+//
+// It returns true when the walk state changed in a way worth emitting.
+func (t *SignalOutcomeTracker) stepFeeNet(sig *TrackedSignal, candle TrackedCandle) bool {
+	if sig == nil || sig.FeeNetOutcome != "" || sig.StopPrice <= 0 || sig.TP1Price <= 0 {
+		return false
+	}
+	open := candle.T.Truncate(time.Minute)
+	placeMin := sig.SignalTime.Truncate(time.Minute).Add(time.Minute)
+	if open.Before(placeMin) {
+		return false
+	}
+	if open.After(sig.SignalTime.Add(t.config.TimeoutDuration)) {
+		return t.finishFeeNet(sig)
+	}
+	long := sig.Direction == string(local.V7DirLong)
+	if !sig.FeeNetAnchored {
+		e := candle.Close
+		sig.FeeNetAnchored, sig.FeeNetEntry = true, e
+		if sig.TriggerPrice > 0 {
+			d := (e - sig.TriggerPrice) / sig.TriggerPrice * 100
+			if !long {
+				d = -d
+			}
+			sig.DriftAtEntryPct = &d
+		}
+		switch {
+		case (long && e <= sig.StopPrice) || (!long && e >= sig.StopPrice):
+			sig.FeeNetOutcome = store.V7FeeNetDegenerateStop
+		case (long && e >= sig.TP1Price) || (!long && e <= sig.TP1Price):
+			sig.FeeNetOutcome = store.V7FeeNetDegenerateTP1
+		}
+		return true
+	}
+	hitStop := (long && candle.Low <= sig.StopPrice) || (!long && candle.High >= sig.StopPrice)
+	hitTP := (long && candle.High >= sig.TP1Price) || (!long && candle.Low <= sig.TP1Price)
+	switch {
+	case hitStop:
+		r := -1.0
+		sig.FeeNetOutcome, sig.FeeNetR = store.V7FeeNetStop, &r
+	case hitTP:
+		r, _ := store.V7FeeNetRRAtTP1(sig.FeeNetEntry, sig.StopPrice, sig.TP1Price, t.config.FeeNetCostPct)
+		sig.FeeNetOutcome, sig.FeeNetR = store.V7FeeNetTP1, &r
+	default:
+		return false
+	}
+	return true
+}
+
+// finishFeeNetAtHorizon closes an open walk once the tracking horizon has
+// passed in wall-clock time (no bar beyond it may arrive).
+func (t *SignalOutcomeTracker) finishFeeNetAtHorizon(sig *TrackedSignal, now time.Time) bool {
+	if sig == nil || sig.FeeNetOutcome != "" || !now.After(sig.SignalTime.Add(t.config.TimeoutDuration)) {
+		return false
+	}
+	return t.finishFeeNet(sig)
+}
+
+// finishFeeNet ends an open walk: R = 0 ("none") after an anchor, no R
+// without one.
+func (t *SignalOutcomeTracker) finishFeeNet(sig *TrackedSignal) bool {
+	if sig.StopPrice <= 0 || sig.TP1Price <= 0 {
+		return false
+	}
+	if !sig.FeeNetAnchored {
+		sig.FeeNetOutcome = store.V7FeeNetNoAnchor
+		return true
+	}
+	r := 0.0
+	sig.FeeNetOutcome, sig.FeeNetR = store.V7FeeNetNone, &r
+	return true
 }
 
 func (t *SignalOutcomeTracker) finalPnLPct(sig *TrackedSignal, exitPrice float64) float64 {
@@ -970,6 +1191,10 @@ func (t *SignalOutcomeTracker) buildOutcome(sig *TrackedSignal, pnlPct float64) 
 		MissedOpportunityAt:     sig.MissedOpportunityAt,
 		SnapshotJSON:            snapshotJSON,
 		ExitTime:                sig.ExitTime,
+		FeeNetOutcome:           sig.FeeNetOutcome,
+		FeeNetR:                 sig.FeeNetR,
+		FeeNetEntry:             sig.FeeNetEntry,
+		DriftAtEntryPct:         sig.DriftAtEntryPct,
 	}
 }
 
@@ -1015,12 +1240,14 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 	all = append(all, t.completed...)
 
 	for _, sig := range all {
-		if sig.Tier == "WATCH" {
+		if sig.Tier == "WATCH" || sig.isAuditSource() {
+			// watch_audit / shadow bucket (U5): never in Total or WinRate.
 			st, ok := buckets[sig.SetupType]
 			if !ok {
 				st = &SetupStats{SetupType: sig.SetupType}
 				buckets[sig.SetupType] = st
 			}
+			st.AuditTracked++
 			if sig.MissedOpportunityAudit {
 				st.MissedOpportunities++
 			}
@@ -1074,6 +1301,10 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 		if sig.TP2Done && sig.Status != TrackedWinTP2 {
 			st.TP2Wins++
 		}
+		if sig.FeeNetR != nil {
+			st.FeeNetN++
+			st.AvgFeeNetR += *sig.FeeNetR
+		}
 		st.AvgPnL += pnl
 		st.AvgMFE += sig.MaxFavorable
 		st.AvgMAE += sig.MaxAdverse
@@ -1093,6 +1324,9 @@ func (t *SignalOutcomeTracker) GetStatsBySetupType() map[string]SetupStats {
 			st.AvgMFE /= float64(st.Total)
 			st.AvgMAE /= float64(st.Total)
 			st.AvgDuration /= time.Duration(st.Total)
+		}
+		if st.FeeNetN > 0 {
+			st.AvgFeeNetR /= float64(st.FeeNetN)
 		}
 		result[k] = *st
 	}
