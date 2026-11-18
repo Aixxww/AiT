@@ -250,20 +250,33 @@ func (e *StrategyEngine) hunterV7ExecutionGeometry() HunterV7ExecutionGeometry {
 	if e == nil {
 		return HunterV7ExecutionGeometry{}
 	}
-	riskControl := e.config.RiskControl
+	return HunterV7ExecutionGeometryForConfig(e.config)
+}
+
+// HunterV7ExecutionGeometryForConfig is the assembly geometry of a strategy
+// config: strategy limits, the T2 floors, the class registry and
+// reachability rule, and the U6 class profiles and setup overrides. The
+// engine and offline tools share it.
+func HunterV7ExecutionGeometryForConfig(cfg *store.StrategyConfig) HunterV7ExecutionGeometry {
+	if cfg == nil {
+		return HunterV7ExecutionGeometry{}
+	}
+	riskControl := cfg.RiskControl
 	geometry := HunterV7EffectiveExecutionGeometry(
 		riskControl.MaxTakeProfitPriceMovePct,
 		riskControl.MinStopLossPriceMovePct,
 		riskControl.MaxEntryPriceDeviationPct,
 		riskControl.MinRiskRewardRatio,
-		strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7"),
+		strings.EqualFold(cfg.CoinSource.SourceType, "hunter_v7"),
 	)
 	geometry.T2MinRR = riskControl.EffectiveT2MinRiskRewardRatio()
 	geometry.T2MinSLMovePct = riskControl.EffectiveT2MinStopLossPriceMovePct()
-	if e.config.CoinSource.Hunter != nil {
-		geometry.T2ReviewableStates = store.EffectiveV7T2ReviewableStates(e.config.CoinSource.Hunter.V7T2Lifecycle)
+	geometry.ClassProfiles = riskControl.EffectiveV7ClassProfiles()
+	geometry.SetupOverrides = riskControl.EffectiveV7SetupGeometryOverrides()
+	if cfg.CoinSource.Hunter != nil {
+		geometry.T2ReviewableStates = store.EffectiveV7T2ReviewableStates(cfg.CoinSource.Hunter.V7T2Lifecycle)
 	}
-	geometry.Classes = e.config.CoinSource.Hunter.EffectiveV7SignalClasses()
+	geometry.Classes = cfg.CoinSource.Hunter.EffectiveV7SignalClasses()
 	return geometry
 }
 

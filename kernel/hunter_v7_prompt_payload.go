@@ -156,6 +156,9 @@ type hunterV7ExecutionContract struct {
 	// differs from the strategy floor (Task-2 candidates, U4/P2b). Omitted
 	// for native.
 	MinStopPct float64 `json:"min_stop_pct,omitempty"`
+	// MaxTPPct is this candidate's TP1 distance cap (percent) when its class
+	// profile differs from the strategy cap (U6). Omitted otherwise.
+	MaxTPPct float64 `json:"max_tp_pct,omitempty"`
 }
 
 func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContract {
@@ -164,6 +167,7 @@ func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContrac
 		ExitPolicy:  "backend_stop_and_target_only",
 		MinRR:       coin.V7RequiredRR,
 		MinStopPct:  coin.V7RequiredMinStop,
+		MaxTPPct:    coin.V7RequiredMaxTP,
 	}
 
 	switch coin.V7ExecutionTier {

@@ -127,6 +127,7 @@ type CandidateCoin struct {
 	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
+	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile differs from the strategy cap (U6)
 	V7QuoteVolume24h   float64                      `json:"-"` // 24h quote volume for adaptive OI threshold
 
 	// IndicatorHub unified engine signal (set when using SnapshotEngine)
@@ -245,6 +246,10 @@ type Decision struct {
 	// (Task-2 candidates, U4/P2b). Same hydration and json "-" contract as
 	// HunterV7MinRR.
 	HunterV7MinStopPct float64 `json:"-"`
+	// HunterV7MaxTPPct is the TP1 distance cap of the selected candidate
+	// when its class profile differs from the strategy cap (U6). Same
+	// hydration and json "-" contract as HunterV7MinRR.
+	HunterV7MaxTPPct float64 `json:"-"`
 }
 
 type DecisionTrigger struct {
@@ -622,13 +627,10 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
-		if cc.V7Stack == local.V7StackT2 {
-			cc.V7RequiredRR = hunterV7T2MinRR(geometry)
-			cc.V7RequiredMinStop = hunterV7T2MinSLMovePct(geometry)
-		}
 		if entry, ok := hunterV7ClassRegistry(geometry)[cc.V7SetupType]; ok {
 			cc.V7SignalClass, cc.V7ClassAdmission = entry.Class, entry.Admission
 		}
+		hunterV7StampCandidateRisk(&cc, geometry)
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
 
 		if sig.Direction == local.V7DirLong {
@@ -665,6 +667,12 @@ type HunterV7ExecutionGeometry struct {
 	// Classes is the signal-class registry used at assembly (U6a). nil
 	// means store.DefaultV7SignalClassRegistry.
 	Classes map[string]store.V7SignalClassEntry
+	// ClassProfiles are the per-class risk profiles (U6). nil means
+	// store.DefaultV7ClassProfiles (every field inherits).
+	ClassProfiles map[string]store.V7ClassRiskProfile
+	// SetupOverrides are the per-setup backend RR relaxations (U6, F13).
+	// nil means store.DefaultV7SetupGeometryOverrides.
+	SetupOverrides map[string]store.V7SetupGeometryOverride
 }
 
 func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct, minRR float64, hunterV7 bool) HunterV7ExecutionGeometry {
@@ -1978,11 +1986,10 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
 		return ""
 	}
+	// U6: the candidate's class profile replaces the stack values; the
+	// per-setup relaxations then apply on top, as before.
+	geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct = hunterV7CandidateRisk(coin, geometry)
 	geometry = hunterV7SetupExecutionGeometry(coin, geometry)
-	if coin.V7Stack == local.V7StackT2 {
-		geometry.MinRR = hunterV7T2MinRR(geometry)
-		geometry.MinSLMovePct = hunterV7T2MinSLMovePct(geometry)
-	}
 	if geometry.MinRR <= 0 {
 		geometry.MinRR = hunterV7BackendMinRR
 	}
@@ -2035,21 +2042,19 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 }
 
 func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) HunterV7ExecutionGeometry {
-	switch coin.V7SetupType {
-	case "volatility_squeeze_breakout", "displacement_momentum_long":
-		if geometry.MinRR <= 0 || geometry.MinRR > 1.35 {
-			geometry.MinRR = 1.35
-		}
-		if geometry.MaxTPMovePct <= 0 || geometry.MaxTPMovePct < 12 {
-			geometry.MaxTPMovePct = 12
-		}
-	case "intraday_scalp_long":
-		if geometry.MinRR <= 0 || geometry.MinRR > 1.0 {
-			geometry.MinRR = 1.0
-		}
-		if geometry.MaxTPMovePct <= 0 || geometry.MaxTPMovePct < 3 {
-			geometry.MaxTPMovePct = 3
-		}
+	overrides := geometry.SetupOverrides
+	if overrides == nil {
+		overrides = store.DefaultV7SetupGeometryOverrides()
+	}
+	o, ok := overrides[coin.V7SetupType]
+	if !ok {
+		return geometry
+	}
+	if o.MinRRCap > 0 && (geometry.MinRR <= 0 || geometry.MinRR > o.MinRRCap) {
+		geometry.MinRR = o.MinRRCap
+	}
+	if o.MaxTPFloorPct > 0 && (geometry.MaxTPMovePct <= 0 || geometry.MaxTPMovePct < o.MaxTPFloorPct) {
+		geometry.MaxTPMovePct = o.MaxTPFloorPct
 	}
 	return geometry
 }
@@ -3544,6 +3549,54 @@ func hunterV7T2MinSLMovePct(geometry HunterV7ExecutionGeometry) float64 {
 		return geometry.T2MinSLMovePct
 	}
 	return store.DefaultT2MinStopLossPriceMovePct
+}
+
+// hunterV7CandidateRisk is the single per-candidate risk accessor (plan
+// overlaps O-1 / O-3, now a class profile lookup): RR floor, minimum stop
+// distance and TP1 cap. The stack values (native strategy geometry, or the
+// T2 floors) apply unless the candidate's class profile sets a field. A
+// profile TP cap is raised to the feasible minimum for the profile's own
+// stop and RR, the same rule HunterV7EffectiveExecutionGeometry applies to
+// the strategy cap.
+func hunterV7CandidateRisk(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (minRR, minSL, maxTP float64) {
+	minRR, minSL, maxTP = geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct
+	stack := store.V7StackNative
+	if coin.V7Stack == local.V7StackT2 {
+		stack = store.V7StackT2
+		minRR, minSL = hunterV7T2MinRR(geometry), hunterV7T2MinSLMovePct(geometry)
+	}
+	profiles := geometry.ClassProfiles
+	if profiles == nil {
+		profiles = store.DefaultV7ClassProfiles()
+	}
+	p := profiles[coin.V7SignalClass].ForStack(stack)
+	if p.MinRiskRewardRatio > 0 {
+		minRR = p.MinRiskRewardRatio
+	}
+	if p.MinStopLossPriceMovePct > 0 {
+		minSL = p.MinStopLossPriceMovePct
+	}
+	if p.MaxTakeProfitPriceMovePct > 0 {
+		maxTP = HunterV7EffectiveExecutionGeometry(p.MaxTakeProfitPriceMovePct, minSL, geometry.MaxDriftPct, minRR, true).MaxTPMovePct
+	}
+	return minRR, minSL, maxTP
+}
+
+// hunterV7StampCandidateRisk stamps the candidate's own risk values for the
+// validator, the executor and the prompt contract. T2 candidates always
+// carry their RR floor and minimum stop (U2, U4); any candidate carries a
+// value whose class profile differs from the strategy geometry (U6).
+func hunterV7StampCandidateRisk(cc *CandidateCoin, geometry HunterV7ExecutionGeometry) {
+	minRR, minSL, maxTP := hunterV7CandidateRisk(*cc, geometry)
+	if cc.V7Stack == local.V7StackT2 || minRR != geometry.MinRR {
+		cc.V7RequiredRR = minRR
+	}
+	if cc.V7Stack == local.V7StackT2 || minSL != geometry.MinSLMovePct {
+		cc.V7RequiredMinStop = minSL
+	}
+	if maxTP != geometry.MaxTPMovePct {
+		cc.V7RequiredMaxTP = maxTP
+	}
 }
 
 // hunterV7T2ReviewableStates returns the per-class T2 reachability rule.

@@ -265,6 +265,7 @@ func main() {
 			}
 		}
 		// MEAS3: native stack on a rebuilt single-symbol snapshot.
+		var nativeSigs []local.V7SignalOutput // U6 golden replay input
 		now := time.Now()
 		if ns := buildNativeSnapshot(&row.Payload, &xr.Payload, now); ns != nil {
 			res := local.ScoreHunterV7Detailed(ns, local.DefaultV7Config())
@@ -285,6 +286,7 @@ func main() {
 			}
 			for _, s := range res.Signals {
 				if s.Symbol == row.Symbol {
+					nativeSigs = append(nativeSigs, s)
 					tp1 := s.TP1Price
 					if tp1 <= 0 && len(s.Targets) > 0 {
 						tp1 = s.Targets[0].Price
@@ -300,8 +302,10 @@ func main() {
 				}
 			}
 		}
+		goldenAdd(row.EventID, sig, nativeSigs)
 		outs = append(outs, o)
 	}
+	goldenWrite()
 	b, _ := json.Marshal(outs)
 	_ = os.WriteFile(*outPath, b, 0o644)
 	fmt.Println("events", len(outs))

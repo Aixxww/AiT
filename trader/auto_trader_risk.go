@@ -1086,8 +1086,19 @@ func (at *AutoTrader) decisionMinStopLossPriceMovePct(decision *kernel.Decision)
 	return at.minStopLossPriceMovePct()
 }
 
+// decisionMaxTakeProfitPriceMovePct is the executor's TP1 distance cap for
+// one decision: the selected candidate's class-profile cap when the kernel
+// hydrated one (U6: Decision.HunterV7MaxTPPct, already feasibility-raised),
+// else the strategy cap as before.
+func (at *AutoTrader) decisionMaxTakeProfitPriceMovePct(decision *kernel.Decision) float64 {
+	if decision != nil && decision.HunterV7MaxTPPct > 0 {
+		return decision.HunterV7MaxTPPct
+	}
+	return at.maxTakeProfitPriceMovePct()
+}
+
 func (at *AutoTrader) capTakeProfitToTP1(decision *kernel.Decision, currentPrice float64, side string) bool {
-	maxMovePct := at.maxTakeProfitPriceMovePct()
+	maxMovePct := at.decisionMaxTakeProfitPriceMovePct(decision)
 	if decision == nil || maxMovePct <= 0 || currentPrice <= 0 || decision.TakeProfit <= 0 {
 		return false
 	}
@@ -1379,7 +1390,7 @@ func (at *AutoTrader) repairHunterV7RiskReward(decision *kernel.Decision, curren
 	}
 
 	requiredReward := riskDistance * (minRR + 0.03)
-	maxMovePct := at.maxTakeProfitPriceMovePct()
+	maxMovePct := at.decisionMaxTakeProfitPriceMovePct(decision)
 	maxReward := math.Inf(1)
 	if maxMovePct > 0 {
 		maxReward = currentPrice * maxMovePct / 100
