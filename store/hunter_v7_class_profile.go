@@ -12,9 +12,9 @@ package store
 //     and MaxTakeProfitPriceMovePct (with the existing hunter_v7 defaults);
 //   - t2: EffectiveT2MinRiskRewardRatio (U2), EffectiveT2MinStopLossPriceMovePct
 //     (U4) and the same TP cap as native.
-// Stop construction, target model, drift contract and exit profile (§5.1
-// rows) are not profile fields here: their behaviour lives in later units
-// (U9 drift) or is closed (OD-22 a, exit profile unchanged).
+// U9 adds the drift contract (§3.3, §5.1 "drift contract" row): the entry
+// drift limit and the price it is measured from. Stop construction, target
+// model and exit profile stay out (geometry changes, or closed by OD-22 a).
 
 // V7ClassProfileVersion identifies the default profile content.
 const V7ClassProfileVersion = "profiles-v1-current-values"
@@ -24,11 +24,26 @@ type V7StackRiskProfile struct {
 	MinRiskRewardRatio        float64 `json:"min_risk_reward_ratio,omitempty"`
 	MinStopLossPriceMovePct   float64 `json:"min_stop_loss_price_move_pct,omitempty"`
 	MaxTakeProfitPriceMovePct float64 `json:"max_take_profit_price_move_pct,omitempty"`
+	// U9 drift contract. MaxEntryPriceDeviationPct is the entry drift limit
+	// (0 inherits RiskControlConfig.MaxEntryPriceDeviationPct).
+	// DriftReference is the price the drift is measured from: "" or
+	// "decision" (the LLM's price; owner default) or "trigger" (the
+	// signal's trigger price; falls back to the decision price when the
+	// signal carries none).
+	MaxEntryPriceDeviationPct float64 `json:"max_entry_price_deviation_pct,omitempty"`
+	DriftReference            string  `json:"drift_reference,omitempty"`
 }
+
+// Drift references (U9).
+const (
+	V7DriftReferenceDecision = "decision"
+	V7DriftReferenceTrigger  = "trigger"
+)
 
 // IsZero reports whether every field inherits.
 func (p V7StackRiskProfile) IsZero() bool {
-	return p.MinRiskRewardRatio <= 0 && p.MinStopLossPriceMovePct <= 0 && p.MaxTakeProfitPriceMovePct <= 0
+	return p.MinRiskRewardRatio <= 0 && p.MinStopLossPriceMovePct <= 0 && p.MaxTakeProfitPriceMovePct <= 0 &&
+		p.MaxEntryPriceDeviationPct <= 0 && (p.DriftReference == "" || p.DriftReference == V7DriftReferenceDecision)
 }
 
 // V7ClassRiskProfile is RiskControlConfig.ClassProfiles[class].

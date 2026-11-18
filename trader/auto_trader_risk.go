@@ -9,6 +9,7 @@ import (
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 	"math"
 	"regexp"
 	"strconv"
@@ -61,7 +62,6 @@ const (
 	protectorGivebackBreakevenBuffer = 0.0015
 	protectorDefaultMinCloseNotional = 12.0
 	hunterV7MicroRefreshMaxSpreadPct = 0.35
-	hunterV7MicroRefreshMaxDriftPct  = 0.45
 	hunterV7RESTRefreshTimeout       = 3500 * time.Millisecond
 	hunterV7RESTRefreshMaxAgeMs      = int64(120_000)
 	hunterV7RESTRefreshFlowFlipPct   = 0.50
@@ -1013,6 +1013,36 @@ func (at *AutoTrader) maxEntryPriceDeviationPct() float64 {
 	return 0
 }
 
+// decisionMaxEntryPriceDeviationPct is the U9 per-class drift limit for one
+// decision: the selected candidate's class-profile value when the kernel
+// hydrated one (Decision.HunterV7MaxDriftPct), else the strategy limit.
+func (at *AutoTrader) decisionMaxEntryPriceDeviationPct(decision *kernel.Decision) float64 {
+	if decision != nil && decision.HunterV7MaxDriftPct > 0 {
+		return decision.HunterV7MaxDriftPct
+	}
+	return at.maxEntryPriceDeviationPct()
+}
+
+// decisionDriftReferencePrice is the price the entry drift of one decision
+// is measured from (U9): the signal's trigger price when its class profile
+// selects "trigger" and the candidate carries one, else fallback (the
+// decision price, the owner default).
+func decisionDriftReferencePrice(decision *kernel.Decision, fallback float64) float64 {
+	if decision != nil && decision.HunterV7DriftReference == store.V7DriftReferenceTrigger && decision.HunterV7TriggerPrice > 0 {
+		return decision.HunterV7TriggerPrice
+	}
+	return fallback
+}
+
+// microPriceConsistencyMaxPct is the micro-refresh price consistency bound
+// (U9, was the 0.45 literal).
+func (at *AutoTrader) microPriceConsistencyMaxPct() float64 {
+	if at == nil || at.config.StrategyConfig == nil {
+		return store.DefaultMicroPriceConsistencyMaxPct
+	}
+	return at.config.StrategyConfig.RiskControl.EffectiveMicroPriceConsistencyMaxPct()
+}
+
 func (at *AutoTrader) maxSingleTradeLossPct() float64 {
 	if at == nil || at.config.StrategyConfig == nil {
 		return 0
@@ -1225,7 +1255,7 @@ func (at *AutoTrader) repairHunterV7DecisionPrice(decision *kernel.Decision, cur
 		return true
 	}
 
-	maxDriftPct := at.maxEntryPriceDeviationPct()
+	maxDriftPct := at.decisionMaxEntryPriceDeviationPct(decision)
 	if maxDriftPct <= 0 {
 		return false
 	}
@@ -1260,7 +1290,7 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 		return false
 	}
 	if at.isHunterV7Strategy() && decision.Price > 0 {
-		maxDriftPct := at.maxEntryPriceDeviationPct()
+		maxDriftPct := at.decisionMaxEntryPriceDeviationPct(decision)
 		if maxDriftPct > 0 {
 			deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
 			favorableDrift := (side == "long" && currentPrice < decision.Price) || (side == "short" && currentPrice > decision.Price)
@@ -1318,7 +1348,7 @@ func (at *AutoTrader) repairHunterV7StopLossDistance(decision *kernel.Decision, 
 	// drift; repair that execution-drift miss while still rejecting broken stops.
 	repairFloorPct := minStopPct - 0.15
 	if at.isHunterV7Strategy() {
-		if maxDriftPct := at.maxEntryPriceDeviationPct(); maxDriftPct > 0 {
+		if maxDriftPct := at.decisionMaxEntryPriceDeviationPct(decision); maxDriftPct > 0 {
 			repairFloorPct = math.Min(repairFloorPct, minStopPct-maxDriftPct-0.10)
 		}
 		if stopMovePct >= 0.75 {
@@ -1500,10 +1530,14 @@ func (at *AutoTrader) verifyHunterV7MicroRefresh(ctx *kernel.Context, decision *
 	if referencePrice <= 0 {
 		referencePrice = decision.Price
 	}
+	referencePrice = decisionDriftReferencePrice(decision, referencePrice)
+	consistencyMax := at.microPriceConsistencyMaxPct()
 	if referencePrice > 0 {
 		driftPct := math.Abs(book.ExecutablePrice-referencePrice) / referencePrice * 100
-		maxDrift := hunterV7MicroRefreshMaxDriftPct
-		if cfgDrift := at.maxEntryPriceDeviationPct(); cfgDrift > 0 && cfgDrift < maxDrift {
+		// U9: the per-class drift limit, capped by the consistency bound (the
+		// pre-U9 rule min(strategy drift, 0.45) at defaults).
+		maxDrift := consistencyMax
+		if cfgDrift := at.decisionMaxEntryPriceDeviationPct(decision); cfgDrift > 0 && cfgDrift < maxDrift {
 			maxDrift = cfgDrift
 		}
 		if needsFreshBook && driftPct > maxDrift {
@@ -1513,7 +1547,7 @@ func (at *AutoTrader) verifyHunterV7MicroRefresh(ctx *kernel.Context, decision *
 	}
 	if livePrice > 0 {
 		bookDriftPct := math.Abs(book.ExecutablePrice-livePrice) / livePrice * 100
-		if bookDriftPct > hunterV7MicroRefreshMaxDriftPct {
+		if bookDriftPct > consistencyMax {
 			return false, fmt.Errorf("❌ [HUNTER V7 MICRO] %s %s blocked: orderbook executable %.8f diverges from live price %.8f by %.3f%% (micro_price_mismatch)",
 				candidate.V7SetupType, decision.Symbol, book.ExecutablePrice, livePrice, bookDriftPct)
 		}
@@ -1544,7 +1578,7 @@ func (at *AutoTrader) verifyHunterV7RESTMicroRefresh(ctx *kernel.Context, decisi
 		return false, fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: symbol REST micro-refresh failed before open: %v",
 			candidate.V7SetupType, decision.Symbol, err)
 	}
-	if err := hunterV7ValidateRESTSnapshot(candidate, decision, side, livePrice, refreshed); err != nil {
+	if err := hunterV7ValidateRESTSnapshot(candidate, decision, side, livePrice, refreshed, at.microPriceConsistencyMaxPct()); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1560,7 +1594,7 @@ func hunterV7NeedsFreshRESTRefresh(candidate *kernel.CandidateCoin) bool {
 		containsStringValue(candidate.V7RiskTags, "short_covering_not_new_long_build")
 }
 
-func hunterV7ValidateRESTSnapshot(candidate *kernel.CandidateCoin, decision *kernel.Decision, side string, livePrice float64, ss *datafetch.SymbolSnapshot) error {
+func hunterV7ValidateRESTSnapshot(candidate *kernel.CandidateCoin, decision *kernel.Decision, side string, livePrice float64, ss *datafetch.SymbolSnapshot, consistencyMax float64) error {
 	if candidate == nil || decision == nil || ss == nil {
 		return fmt.Errorf("❌ [HUNTER V7 REST] %s blocked: missing refreshed symbol snapshot (fresh_rest_missing)", decision.Symbol)
 	}
@@ -1574,7 +1608,7 @@ func hunterV7ValidateRESTSnapshot(candidate *kernel.CandidateCoin, decision *ker
 	}
 	if restPrice > 0 && livePrice > 0 {
 		driftPct := math.Abs(restPrice-livePrice) / livePrice * 100
-		if driftPct > hunterV7MicroRefreshMaxDriftPct {
+		if driftPct > consistencyMax {
 			return fmt.Errorf("❌ [HUNTER V7 REST] %s %s blocked: REST price %.8f diverges from executable/live price %.8f by %.3f%% (rest_price_mismatch)",
 				candidate.V7SetupType, decision.Symbol, restPrice, livePrice, driftPct)
 		}
@@ -2472,17 +2506,24 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 		return fmt.Errorf("❌ [RISK CONTROL] Leverage must be positive for %s", decision.Symbol)
 	}
 
-	maxPriceDeviationPct := at.maxEntryPriceDeviationPct()
+	maxPriceDeviationPct := at.decisionMaxEntryPriceDeviationPct(decision)
 	if maxPriceDeviationPct > 0 {
 		if decision.Price <= 0 {
 			if at.isHunterV7Strategy() {
 				return fmt.Errorf("❌ [RISK CONTROL] Decision price is required for Hunter v7 open order on %s", decision.Symbol)
 			}
 		} else {
-			deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
+			// U9: drift is measured from the class's reference price
+			// (decision by default, trigger when the profile selects it).
+			refPrice := decisionDriftReferencePrice(decision, decision.Price)
+			deviationPct := math.Abs(currentPrice-refPrice) / refPrice * 100
 			if deviationPct > maxPriceDeviationPct {
-				return fmt.Errorf("❌ [RISK CONTROL] Entry price drift %.3f%% exceeds max %.3f%% for %s (decision %.8f, execution %.8f)",
-					deviationPct, maxPriceDeviationPct, decision.Symbol, decision.Price, currentPrice)
+				refName := "decision"
+				if refPrice != decision.Price {
+					refName = "trigger"
+				}
+				return fmt.Errorf("❌ [RISK CONTROL] Entry price drift %.3f%% exceeds max %.3f%% for %s (%s %.8f, execution %.8f)",
+					deviationPct, maxPriceDeviationPct, decision.Symbol, refName, refPrice, currentPrice)
 			}
 		}
 	}

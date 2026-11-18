@@ -206,6 +206,8 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		decision.HunterV7MinRR = 0
 		decision.HunterV7MinStopPct = 0
 		decision.HunterV7MaxTPPct = 0
+		decision.HunterV7MaxDriftPct, decision.HunterV7DriftReference, decision.HunterV7TriggerPrice = 0, "", 0
+		decision.HunterV7ConditionalEntry, decision.HunterV7InvalidationPrice, decision.HunterV7IntentKey = false, 0, ""
 		if decision.Action != "open_long" && decision.Action != "open_short" {
 			continue
 		}
@@ -216,6 +218,11 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		decision.HunterV7MinRR = candidate.V7RequiredRR
 		decision.HunterV7MinStopPct = candidate.V7RequiredMinStop
 		decision.HunterV7MaxTPPct = candidate.V7RequiredMaxTP
+		decision.HunterV7MaxDriftPct = candidate.V7RequiredMaxDrift
+		decision.HunterV7DriftReference = candidate.V7DriftReference
+		decision.HunterV7TriggerPrice = candidate.V7TriggerPrice
+		decision.HunterV7ConditionalEntry = candidate.V7ConditionalEntry
+		decision.HunterV7InvalidationPrice = candidate.V7Invalidation.Price
 		decision.HunterV7TP0Price = candidate.V7TP0Price
 		decision.HunterV7TP1Price = candidate.V7TP1Price
 		decision.HunterV7TP2Price = candidate.V7TP2Price

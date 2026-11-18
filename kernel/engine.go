@@ -130,6 +130,15 @@ type CandidateCoin struct {
 	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
 	// U7 shadow E[R] (plan §2.4): logged only; no tier, ranking, prompt or
 	// execution path reads these.
+	// U9 drift contract and conditional entry. V7TriggerPrice is the
+	// signal's trigger level (T2: spec 5.3 entry); V7RequiredMaxDrift and
+	// V7DriftReference are stamped only when the class profile differs from
+	// the strategy drift contract; V7ConditionalEntry marks a candidate that
+	// is reviewable only as a pending entry on the trigger cross.
+	V7TriggerPrice       float64  `json:"-"`
+	V7RequiredMaxDrift   float64  `json:"-"`
+	V7DriftReference     string   `json:"-"`
+	V7ConditionalEntry   bool     `json:"-"`
 	V7ExpectedR          *float64 `json:"-"`
 	V7ExpectedRLower     *float64 `json:"-"`
 	V7CalibrationVersion string   `json:"-"`
@@ -255,6 +264,18 @@ type Decision struct {
 	// when its class profile or setup override differs from the strategy cap
 	// (U6). Same hydration and json "-" contract as HunterV7MinRR.
 	HunterV7MaxTPPct float64 `json:"-"`
+	// U9, same hydration and json "-" contract: the selected candidate's
+	// drift limit and reference when its class profile differs from the
+	// strategy, its trigger price, and the conditional-entry plan.
+	HunterV7MaxDriftPct       float64 `json:"-"`
+	HunterV7DriftReference    string  `json:"-"`
+	HunterV7TriggerPrice      float64 `json:"-"`
+	HunterV7ConditionalEntry  bool    `json:"-"`
+	HunterV7InvalidationPrice float64 `json:"-"`
+	// HunterV7IntentKey overrides the per-cycle F04 open intent key; a
+	// pending conditional entry carries the key of the cycle that approved
+	// it, so its execution has one deterministic client order id.
+	HunterV7IntentKey string `json:"-"`
 }
 
 type DecisionTrigger struct {
@@ -611,6 +632,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7SignalID:         sig.SignalID,
 			V7Stack:            sig.Stack,
 			V7LifecycleState:   sig.LifecycleState,
+			V7TriggerPrice:     sig.TriggerPrice,
 			V7SetupType:        string(sig.SetupType),
 			V7Status:           string(sig.Status),
 			V7AIPriority:       sig.AIPriority,
@@ -659,6 +681,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 		}
 		hunterV7StampCandidateRisk(&cc, geometry)
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
+		cc.V7ConditionalEntry = cc.V7ExecutionTier == hunterV7T2MaxTier && cc.V7TierReason == hunterV7T2ConditionalReason(cc)
 
 		if sig.Direction == local.V7DirLong {
 			cc.LongScore = sig.AIPriority
@@ -700,6 +723,9 @@ type HunterV7ExecutionGeometry struct {
 	// SetupOverrides are the per-setup backend RR relaxations (U6, F13).
 	// nil means store.DefaultV7SetupGeometryOverrides.
 	SetupOverrides map[string]store.V7SetupGeometryOverride
+	// ConditionalClasses are the signal classes that may enter on the
+	// trigger cross (U9; empty = conditional entry off).
+	ConditionalClasses map[string]bool
 }
 
 func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct, minRR float64, hunterV7 bool) HunterV7ExecutionGeometry {
@@ -3606,7 +3632,8 @@ func hunterV7CandidateRisk(coin CandidateCoin, geometry HunterV7ExecutionGeometr
 		minSL = p.MinStopLossPriceMovePct
 	}
 	if p.MaxTakeProfitPriceMovePct > 0 {
-		maxTP = HunterV7EffectiveExecutionGeometry(p.MaxTakeProfitPriceMovePct, minSL, geometry.MaxDriftPct, minRR, true).MaxTPMovePct
+		maxDrift, _ := hunterV7CandidateDrift(coin, geometry)
+		maxTP = HunterV7EffectiveExecutionGeometry(p.MaxTakeProfitPriceMovePct, minSL, maxDrift, minRR, true).MaxTPMovePct
 	}
 	g := geometry
 	g.MinRR, g.MinSLMovePct, g.MaxTPMovePct = minRR, minSL, maxTP
@@ -3630,6 +3657,38 @@ func hunterV7StampCandidateRisk(cc *CandidateCoin, geometry HunterV7ExecutionGeo
 	if maxTP != geometry.MaxTPMovePct {
 		cc.V7RequiredMaxTP = maxTP
 	}
+	maxDrift, ref := hunterV7CandidateDrift(*cc, geometry)
+	if maxDrift != geometry.MaxDriftPct {
+		cc.V7RequiredMaxDrift = maxDrift
+	}
+	if ref == store.V7DriftReferenceTrigger {
+		cc.V7DriftReference = ref
+	}
+}
+
+// hunterV7CandidateDrift is the U9 per-class drift contract: the entry
+// drift limit (class profile, else the strategy MaxDriftPct) and the price
+// it is measured from (class profile, else "decision", the owner default).
+// A "trigger" reference needs a trigger price on the candidate; without one
+// it falls back to "decision".
+func hunterV7CandidateDrift(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (maxDrift float64, ref string) {
+	maxDrift, ref = geometry.MaxDriftPct, store.V7DriftReferenceDecision
+	stack := store.V7StackNative
+	if coin.V7Stack == local.V7StackT2 {
+		stack = store.V7StackT2
+	}
+	profiles := geometry.ClassProfiles
+	if profiles == nil {
+		profiles = store.DefaultV7ClassProfiles()
+	}
+	p := profiles[coin.V7SignalClass].ForStack(stack)
+	if p.MaxEntryPriceDeviationPct > 0 {
+		maxDrift = p.MaxEntryPriceDeviationPct
+	}
+	if p.DriftReference == store.V7DriftReferenceTrigger && coin.V7TriggerPrice > 0 {
+		ref = store.V7DriftReferenceTrigger
+	}
+	return maxDrift, ref
 }
 
 // hunterV7T2ReviewableStates returns the per-class T2 reachability rule.
@@ -3666,7 +3725,27 @@ func hunterV7T2TierRule(coin CandidateCoin, geometry HunterV7ExecutionGeometry) 
 			return hunterV7T2MaxTier, "t2_" + strings.ToLower(coin.V7SignalClass) + "_" + strings.ToLower(coin.V7LifecycleState)
 		}
 	}
+	// U9: a conditional class before its trigger is reviewable as a pending
+	// entry on the trigger cross (only when conditional entry is enabled).
+	if hunterV7T2ConditionalEligible(coin, geometry) {
+		return hunterV7T2MaxTier, hunterV7T2ConditionalReason(coin)
+	}
 	return "WATCH", "t2_awaiting_trigger"
+}
+
+// hunterV7T2ConditionalEligible reports whether a T2 candidate may be
+// reviewed as a conditional entry: its class is enabled for it, it carries
+// a trigger price, and its event has not triggered yet (WATCH or ARMED).
+func hunterV7T2ConditionalEligible(coin CandidateCoin, geometry HunterV7ExecutionGeometry) bool {
+	if !geometry.ConditionalClasses[coin.V7SignalClass] || coin.V7TriggerPrice <= 0 {
+		return false
+	}
+	return strings.EqualFold(coin.V7LifecycleState, store.V7T2StateWatch) || strings.EqualFold(coin.V7LifecycleState, store.V7T2StateArmed)
+}
+
+// hunterV7T2ConditionalReason is the tier reason of a conditional entry.
+func hunterV7T2ConditionalReason(coin CandidateCoin) string {
+	return "t2_" + strings.ToLower(coin.V7SignalClass) + "_conditional_" + strings.ToLower(coin.V7LifecycleState)
 }
 
 // hunterV7ClassRegistry returns the assembly's class registry (U6a).

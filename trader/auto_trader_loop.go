@@ -307,7 +307,9 @@ func (at *AutoTrader) runCycle() error {
 		sortedDecisions = filtered
 	}
 
-	// Execute decisions and record results
+	// Execute decisions and record results. U9: serialized with conditional
+	// entry executions (opens and the decision record's cycle number).
+	at.conditional.entryMu.Lock()
 	for _, d := range sortedDecisions {
 		// Check if trader is stopped before each decision (allow immediate stop during execution)
 		at.isRunningMutex.RLock()
@@ -368,6 +370,7 @@ func (at *AutoTrader) runCycle() error {
 	if err := at.saveDecision(record); err != nil {
 		at.logWarnf("⚠ Failed to save decision record: %v", err)
 	}
+	at.conditional.entryMu.Unlock()
 
 	return nil
 }

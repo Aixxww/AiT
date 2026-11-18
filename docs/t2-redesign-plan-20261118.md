@@ -904,3 +904,41 @@ Measured at `6dfbb9a` (PR #23 merge) on the 694 snapshots with `cmd/t2_u0_native
 | kept short | +0.027 | (n = 8) |
 
 **Conclusion.** Twin merging would remove none of the measured conflicts. The CONTEXT reclassification (U3/U6a) removes 28 of 54 from the LLM-facing conflicts, as §4.4 expected. The remaining cases are thesis conflicts that the U3 backend rule resolves with 0 unresolved.
+
+### 10.5 U9: drift contract and TRIGGER conditional entry
+
+**Owner decisions (2026-11-18).**
+- **Entry mechanism:** option A, a backend trigger check on every completed 1m candle. Option B (resting exchange STOP_MARKET entries) is not built.
+- **Conditional entry:** `v7_conditional_entry.enabled` defaults to off.
+- **Drift reference:** the default is `decision` for every class. `trigger` is selectable per class. This supersedes the §3.3 text for the default, which says TRIGGER measures drift from the trigger price.
+
+**What is built.**
+- **Drift contract:** each class profile, per stack, now carries `max_entry_price_deviation_pct` and `drift_reference`.
+  - At defaults nothing is stamped, so every check reads the strategy drift from the decision price, as before.
+  - The 0.45 literal is gone. The two consistency checks (book vs live, REST vs live) read `micro_price_consistency_max_pct` (default 0.45). The micro-refresh entry-drift check reads the class drift, capped by the same bound, which is the pre-U9 min(drift, 0.45) rule.
+- **Conditional entry, when enabled:**
+  - A T2 candidate of an enabled class (default TRIGGER) is REVIEWABLE before its trigger, at WATCH or ARMED, with entry permission `conditional_on_trigger`.
+  - An approved open is validated with the trigger as the entry and kept as a pending entry. It is opened through the normal open path on the first completed 1m candle that closes through the trigger.
+  - It is cancelled if a candle touches the invalidation price first, and it expires after `max_pending_minutes` (default 120, the T2 WATCH lifetime).
+  - It executes at most once, with the F04 client id of the approving cycle.
+  - Pending entries are in memory only, so a restart drops them.
+- **Recorded gap:** REVERSAL's "drift from the confirmation price" (§3.3) is not built. Candidates carry no confirmation price, so REVERSAL can only use `decision`, or `trigger` when the signal has a trigger price.
+
+**Acceptance: delay cost per class** (U0-C method, 694 events, `scripts/t2_u0/u9_delay.py`).
+- **Reference:** market entry at the close of the bar containing the upstream trigger.
+- **Current path:** decide at TRIGGERED, which is the next 3-minute scan plus the LLM round trip. It is modelled as the mean of the Δ2, Δ3 and Δ4 delays.
+
+| Class | Paired delay cost, current path | Paired delay cost, conditional | Mean R per event, current path (not entered = 0) | Mean R per event, conditional |
+|---|---|---|---|---|
+| TRIGGER (n = 433) | −0.004 [−0.026, +0.018] | −0.036 [−0.062, −0.014] | −0.091 [−0.166, −0.017] | −0.070 [−0.135, −0.006] |
+| IMPULSE (reference only, not conditional) | +0.036 [−0.011, +0.091] | −0.025 [−0.040, −0.013] | −0.052 | −0.027 |
+| REVERSAL (reference only) | −0.034 [−0.078, +0.005] | −0.008 [−0.025, +0.000] | −0.373 | −0.294 |
+
+For TRIGGER:
+- **Paired metric (U0-C):** the conditional path is 0.032 R worse.
+  - 339 of the 374 paired events fill on the reference bar at cost 0.
+  - The other 35 fill later. They keep the same outcome, but the later entry has a smaller reward to TP1, which accounts for the whole difference.
+- **Population metric:** the conditional path is 0.021 R per event better. It skips the 20 events whose stop is touched before a close through the trigger, and all of those lose −1 R on the reference path.
+- **CIs overlap on both metrics.**
+
+The owner rules on whether this counts as "does not regress". The feature is off by default.

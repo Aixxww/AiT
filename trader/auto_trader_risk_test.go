@@ -924,7 +924,7 @@ func TestHunterV7RESTSnapshotValidationRejectsFlowFlip(t *testing.T) {
 		},
 	}
 
-	err := hunterV7ValidateRESTSnapshot(candidate, decision, "long", 100, ss)
+	err := hunterV7ValidateRESTSnapshot(candidate, decision, "long", 100, ss, store.DefaultMicroPriceConsistencyMaxPct)
 	if err == nil || !strings.Contains(err.Error(), "flow_flip") {
 		t.Fatalf("expected flow flip rejection, got: %v", err)
 	}
@@ -945,7 +945,7 @@ func TestHunterV7RESTSnapshotValidationAcceptsFreshAlignedFlow(t *testing.T) {
 		},
 	}
 
-	if err := hunterV7ValidateRESTSnapshot(candidate, decision, "short", 100, ss); err != nil {
+	if err := hunterV7ValidateRESTSnapshot(candidate, decision, "short", 100, ss, store.DefaultMicroPriceConsistencyMaxPct); err != nil {
 		t.Fatalf("expected fresh aligned REST snapshot to pass: %v", err)
 	}
 }
