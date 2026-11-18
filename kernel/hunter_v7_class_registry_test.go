@@ -48,9 +48,13 @@ func TestShadowOnlyAdmissionCapsTier(t *testing.T) {
 	}
 }
 
-// Behaviour neutrality: the default shadow_only T2 families are WATCH under
-// the current rules, so the registry changes neither their tier nor reason.
-func TestDefaultShadowFamiliesUnchangedTiers(t *testing.T) {
+// The default shadow_only T2 families never rise above WATCH. Since U4 a
+// classed T2 candidate in a reviewable lifecycle state reaches REVIEWABLE,
+// so the fixture uses TRIGGERED (reviewable for every class) and expects the
+// U6a cap to turn it into WATCH/class_shadow_only. (Before U4 this test
+// compared against an empty registry; an empty registry now means
+// t2_unclassified.)
+func TestDefaultShadowFamiliesStayWatch(t *testing.T) {
 	var sigs []local.V7SignalOutput
 	for i, setup := range []string{"ignition_early_short", "momentum_continuation_watch_long", "confirmed_breakout_long", "confirmed_breakout_short"} {
 		dir := local.V7DirLong
@@ -58,16 +62,11 @@ func TestDefaultShadowFamiliesUnchangedTiers(t *testing.T) {
 			dir = local.V7DirShort
 		}
 		sigs = append(sigs, local.V7SignalOutput{SignalID: setup, Symbol: string(rune('A'+i)) + "USDT", Direction: dir,
-			SetupType: local.V7SetupType(setup), Status: local.V7StatusWaitConfirm, Stack: local.V7StackT2})
+			SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate, Stack: local.V7StackT2, LifecycleState: "TRIGGERED"})
 	}
-	withRegistry := AssembleHunterV7CandidateCoins(sigs, "BOTH", defaultGeometry())
-	allTradable := defaultGeometry()
-	allTradable.Classes = map[string]store.V7SignalClassEntry{}
-	without := AssembleHunterV7CandidateCoins(sigs, "BOTH", allTradable)
-	for i := range withRegistry {
-		if withRegistry[i].V7ExecutionTier != without[i].V7ExecutionTier || withRegistry[i].V7TierReason != without[i].V7TierReason {
-			t.Errorf("%s: %s/%s with registry vs %s/%s without", sigs[i].SetupType,
-				withRegistry[i].V7ExecutionTier, withRegistry[i].V7TierReason, without[i].V7ExecutionTier, without[i].V7TierReason)
+	for _, c := range AssembleHunterV7CandidateCoins(sigs, "BOTH", defaultGeometry()) {
+		if c.V7ExecutionTier != "WATCH" || c.V7TierReason != "class_shadow_only" {
+			t.Errorf("%s: %s/%s, want WATCH/class_shadow_only", c.V7SetupType, c.V7ExecutionTier, c.V7TierReason)
 		}
 	}
 }

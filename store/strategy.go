@@ -122,6 +122,63 @@ func (rc RiskControlConfig) EffectiveT2MinRiskRewardRatio() float64 {
 	return DefaultT2MinRiskRewardRatio
 }
 
+// DefaultT2MinStopLossPriceMovePct is the owner-approved starting value of
+// the Task-2 minimum stop distance (redesign plan U4/P2b minimal, OD-10).
+// It sits below the ~1.0% cluster of T2 structural stops; U0-D adopted no
+// replacement value.
+const DefaultT2MinStopLossPriceMovePct = 0.5
+
+// EffectiveT2MinStopLossPriceMovePct is the single accessor for the T2
+// minimum stop distance (plan overlap O-3, same pattern as O-1). The kernel
+// assembly check reads it through the execution geometry and the executor
+// through the candidate's V7RequiredMinStop, so both layers use one value.
+func (rc RiskControlConfig) EffectiveT2MinStopLossPriceMovePct() float64 {
+	if rc.T2MinStopLossPriceMovePct > 0 {
+		return rc.T2MinStopLossPriceMovePct
+	}
+	return DefaultT2MinStopLossPriceMovePct
+}
+
+// Task-2 lifecycle states as stored by the T2 event store (U1).
+const (
+	V7T2StateWatch     = "WATCH"
+	V7T2StateArmed     = "ARMED"
+	V7T2StateTriggered = "TRIGGERED"
+)
+
+// DefaultV7T2ReviewableStates is the U4 per-class reachability rule for
+// Task-2 candidates (plan §3.3, §6.2 Assembly row, O-4): the lifecycle
+// states in which a T2 candidate of that class may reach REVIEWABLE.
+//   - IMPULSE: ARMED or TRIGGERED. The entry is the current price at
+//     detection, and the 82 alert score stays an admission input until U7
+//     (OD-4 a).
+//   - TRIGGER: TRIGGERED only. Entry is a recorded level, and until U9 the
+//     executor can only enter at market, so it must wait for the cross.
+//   - REVERSAL: TRIGGERED only (price reached the pullback entry).
+//   - CONTEXT: never.
+func DefaultV7T2ReviewableStates() map[string][]string {
+	return map[string][]string{
+		V7ClassImpulse:  {V7T2StateArmed, V7T2StateTriggered},
+		V7ClassTrigger:  {V7T2StateTriggered},
+		V7ClassReversal: {V7T2StateTriggered},
+		V7ClassContext:  {},
+	}
+}
+
+// EffectiveV7T2ReviewableStates applies the per-class overrides of
+// V7T2LifecycleConfig.ReviewableStates on top of the defaults. A class
+// listed with an empty slice is never reviewable.
+func EffectiveV7T2ReviewableStates(c *V7T2LifecycleConfig) map[string][]string {
+	out := DefaultV7T2ReviewableStates()
+	if c == nil {
+		return out
+	}
+	for class, states := range c.ReviewableStates {
+		out[class] = append([]string{}, states...)
+	}
+	return out
+}
+
 // V7T2LifecycleConfig is the strategy-config form of the Task-2 lifecycle
 // parameters (see local.V7T2LifecycleParams; zero = scanner constant).
 type V7T2LifecycleConfig struct {
@@ -134,6 +191,10 @@ type V7T2LifecycleConfig struct {
 	ObserveOnlySetups       []string `json:"observe_only_setups,omitempty"`
 	DisableTrigger          bool     `json:"disable_trigger,omitempty"`
 	TriggeredSurfaceMinutes float64  `json:"triggered_surface_minutes,omitempty"`
+	// ReviewableStates overrides, per signal class, the lifecycle states in
+	// which a T2 candidate may reach REVIEWABLE (U4). nil = defaults; read
+	// through EffectiveV7T2ReviewableStates.
+	ReviewableStates map[string][]string `json:"reviewable_states,omitempty"`
 }
 
 type StrategyConfig struct {
@@ -477,6 +538,12 @@ type RiskControlConfig struct {
 	// MinRiskRewardRatio. 0 = DefaultT2MinRiskRewardRatio. Read it through
 	// EffectiveT2MinRiskRewardRatio.
 	T2MinRiskRewardRatio float64 `json:"t2_min_risk_reward_ratio,omitempty"`
+	// T2MinStopLossPriceMovePct is the minimum stop distance (percent of
+	// the executable entry) for Task-2 signals only (U4/P2b minimal, OD-10).
+	// Native signals keep MinStopLossPriceMovePct. 0 =
+	// DefaultT2MinStopLossPriceMovePct. Read it through
+	// EffectiveT2MinStopLossPriceMovePct.
+	T2MinStopLossPriceMovePct float64 `json:"t2_min_stop_loss_price_move_pct,omitempty"`
 	// Min AI confidence to open position (AI guided)
 	MinConfidence int `json:"min_confidence"`
 	// Max allowed deviation between AI decision price and execution reference price (CODE ENFORCED, percent)
