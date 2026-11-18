@@ -3677,6 +3677,12 @@ func hunterV7ClassRegistry(geometry HunterV7ExecutionGeometry) map[string]store.
 	return store.DefaultV7SignalClassRegistry()
 }
 
+// HunterV7FinalConflictConfigFor exposes the production final-pass config to
+// offline tools (U8 conflict re-measure) so they never rebuild it by hand.
+func HunterV7FinalConflictConfigFor(h *store.HunterConfig) local.V7FinalConflictConfig {
+	return hunterV7FinalConflictConfig(h)
+}
+
 // hunterV7FinalConflictConfig builds the U3 final direction pass config:
 // threshold and tie winner from strategy config, CONTEXT setups from the
 // U6a class registry.
