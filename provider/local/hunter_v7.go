@@ -33,6 +33,11 @@ func ScoreHunterV7Detailed(snap *datafetch.Snapshot, cfg V7Config) V7ScoreResult
 		return result
 	}
 
+	// U10: closed-bar features, both stacks (opt-in).
+	if cfg.ClosedBarFeatures {
+		snap = V7ClosedBarSnapshot(snap, time.Now())
+	}
+
 	// Step 1: Build universe
 	universe := BuildV7Universe(snap)
 	if len(universe) == 0 {

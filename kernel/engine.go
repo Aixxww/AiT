@@ -540,6 +540,10 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 			v7cfg.T2Store = e.v7T2Store
 			v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
 		}
+		// U10: closed-bar features for both stacks (opt-in; default forming).
+		if coinSource.Hunter != nil {
+			v7cfg.ClosedBarFeatures = hunterV7ClosedBarFeatures(coinSource.Hunter)
+		}
 		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 			v7cfg.MaxOutput = coinSource.HunterLimit
 		}
@@ -2803,6 +2807,10 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 		v7cfg.T2Store = e.v7T2Store
 		v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
 	}
+	// U10: closed-bar features for both stacks (opt-in; default forming).
+	if coinSource.Hunter != nil {
+		v7cfg.ClosedBarFeatures = hunterV7ClosedBarFeatures(coinSource.Hunter)
+	}
 	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 		v7cfg.MaxOutput = coinSource.HunterLimit
 	}
@@ -3754,6 +3762,12 @@ func hunterV7ClassRegistry(geometry HunterV7ExecutionGeometry) map[string]store.
 		return geometry.Classes
 	}
 	return store.DefaultV7SignalClassRegistry()
+}
+
+// hunterV7ClosedBarFeatures reports whether the strategy opted into
+// closed-bar features (U10, v7_data_timing.feature_bars = closed).
+func hunterV7ClosedBarFeatures(h *store.HunterConfig) bool {
+	return h != nil && store.EffectiveV7DataTiming(h.V7DataTiming).FeatureBars == store.V7FeatureBarsClosed
 }
 
 // HunterV7FinalConflictConfigFor exposes the production final-pass config to

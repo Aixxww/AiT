@@ -606,6 +606,9 @@ type V7Config struct {
 	// FinalConflict is the U3 one-direction-per-symbol final pass over the
 	// merged native + T2 list (enabled with the T2 module).
 	FinalConflict V7FinalConflictConfig `json:"-"`
+	// ClosedBarFeatures (U10, opt-in) scores a closed-bar view of the
+	// snapshot (V7ClosedBarSnapshot); false keeps the forming bar (default).
+	ClosedBarFeatures bool `json:"-"`
 }
 
 // DefaultV7Config returns sensible defaults.

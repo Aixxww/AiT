@@ -383,6 +383,13 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 		ctx.BBWidth5m = w5
 	}
 
+	// U10: in a closed-bar view the bars end at the last closed bar, so
+	// the current price comes from the live price (forming bar for price
+	// only).
+	if ss.ClosedBarsOnly && ss.Price > 0 {
+		ctx.CurrentPrice = ss.Price
+	}
+
 	// Compute 1h/4h change
 	if bars1h, ok := klines["1h"]; ok && len(bars1h) >= 2 {
 		kb1h := datafetchKlinesToKlineBar(bars1h)

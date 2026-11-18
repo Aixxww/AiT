@@ -47,6 +47,11 @@ type SymbolSnapshot struct {
 	// Klines by timeframe: "1m","5m","15m","1h","4h","1d"
 	Klines map[string][]Kline
 
+	// ClosedBarsOnly marks a closed-bar view (U10, provider/local
+	// V7ClosedBarSnapshot): Klines hold closed bars only, and consumers take
+	// the current price from Price, not from the last bar.
+	ClosedBarsOnly bool
+
 	// LunarCrush social data
 	Social SocialData
 }

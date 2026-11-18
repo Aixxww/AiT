@@ -776,8 +776,11 @@ func (at *AutoTrader) Run() (err error) {
 			break
 		}
 
+		// U10: wall clock by default; aligned to the bar close when opted in.
+		scanC, releaseScan := at.scanChannel(ticker, isGridStrategy, time.Now())
 		select {
-		case tickAt := <-ticker.C:
+		case tickAt := <-scanC:
+			releaseScan()
 			at.logInfof("⏱ Scan ticker fired at %s", tickAt.Format("2006-01-02 15:04:05"))
 			if isGridStrategy {
 				if err := at.RunGridCycle(); err != nil {
@@ -790,6 +793,7 @@ func (at *AutoTrader) Run() (err error) {
 				at.logInfof("✅ Scheduled trading cycle completed")
 			}
 		case <-at.stopMonitorCh:
+			releaseScan()
 			at.logInfof("⏹ Stop signal received, exiting automatic trading main loop")
 			return nil
 		}

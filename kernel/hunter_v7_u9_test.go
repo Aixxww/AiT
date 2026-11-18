@@ -121,3 +121,13 @@ func TestU9EngineWiringAndPrompt(t *testing.T) {
 		t.Fatalf("enabled wiring: %v / prompt note missing", g.ConditionalClasses)
 	}
 }
+
+// U10: closed-bar features are opt-in.
+func TestU10ClosedBarFeaturesWiring(t *testing.T) {
+	if hunterV7ClosedBarFeatures(nil) || hunterV7ClosedBarFeatures(&store.HunterConfig{}) {
+		t.Fatalf("default must keep the forming bar")
+	}
+	if !hunterV7ClosedBarFeatures(&store.HunterConfig{V7DataTiming: &store.V7DataTimingConfig{FeatureBars: store.V7FeatureBarsClosed}}) {
+		t.Fatalf("closed must be selectable")
+	}
+}

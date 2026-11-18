@@ -95,6 +95,11 @@ func BuildV7T2SnapshotFromDatafetch(ss *datafetch.SymbolSnapshot) *V7T2Snapshot 
 	s.K1h = BuildV7T2KlineFeatures(rows1h)
 	s.K4h = BuildV7T2KlineFeatures(rows4h)
 	s.Rows1h = rows1h
+	// U10: a closed-bar view keeps the live price for every frame's price
+	// (the forming bar is used for price only).
+	if ss.ClosedBarsOnly && ss.Price > 0 {
+		s.K5.Price, s.K15.Price, s.K1h.Price, s.K4h.Price = ss.Price, ss.Price, ss.Price, ss.Price
+	}
 
 	// Taker series from the last 15m bars' taker-buy shares.
 	var shares []float64
