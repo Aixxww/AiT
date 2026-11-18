@@ -566,6 +566,8 @@ Acceptance is offline replay plus code review, because the owner cancelled the f
 | U14 | Protector in R units and config at current behaviour; one shared code path for live and replay; fixes F29–F31 | Protector unit tests unchanged; replay walk A reproduces protector decisions | U0-F needs this port |
 | U15 | Adopt the exit variant chosen under OD-22 | Gate result from U0-F (§7.5) | U0-F |
 
+U10 record (owner decisions, implementation, partial parity result): `docs/t2-u10-data-timing.md`.
+
 ---
 
 ## 7. R6: post-entry position management

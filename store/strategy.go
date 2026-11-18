@@ -431,6 +431,10 @@ type HunterConfig struct {
 	// decision: backend trigger check on completed 1m candles, default off).
 	// nil = off; read through EffectiveV7ConditionalEntry.
 	V7ConditionalEntry *V7ConditionalEntryConfig `json:"v7_conditional_entry,omitempty"`
+	// V7DataTiming is the U10 data timing block (closed-bar features, cycle
+	// alignment, snapshot freshness gate). nil = all off; read through
+	// EffectiveV7DataTiming.
+	V7DataTiming *V7DataTimingConfig `json:"v7_data_timing,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).

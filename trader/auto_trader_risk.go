@@ -1908,6 +1908,9 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	if err := validateHunterV7SignalFreshness(candidate, decision); err != nil {
 		return err
 	}
+	if err := at.validateHunterV7SnapshotBudget(candidate, decision); err != nil {
+		return err
+	}
 	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
 		return err
 	}

@@ -34,6 +34,7 @@ These scripts reproduce every U0 table in `docs/t2-redesign-plan-20261118.md` §
 | U6 golden replay | `go run ./cmd/t2_u0_native -data $U0_DATA/m3_snapshots/snapshots.jsonl -lsr top -taker raw -out u0b.json -golden-out golden_after.json` at U6; the same at the pre-U6 commit `e046a30` with `main.go` and `golden.go` copied in and `golden_geom.go` replaced by the pre-U6 geometry shim (geometry built as the pre-U6 engine did; `explicit_profiles` = default config); then `u6_golden_check.py golden_before.json golden_after.json` | identical candidate set and tiers per config |
 | U7 F-1..F-3 (single pre-registered run, `docs/t2-u7-preregistration.md`) | `go run ./cmd/t2_u5_tags ... -horizon-hours 48 -out u5_48h.json` at `02fed72`, then `go run ./cmd/t2_u7_falsify -u5 u5_48h.json -data $U0_DATA/entry_study -out u7_result.json` | F-1 / F-2 / F-3 and the ranking-switch verdict |
 | U9 delay cost | `u9_delay.py u5_48h.json` (the 02fed72 U5 rows, for the signal class) | delay cost per class: current path vs conditional entry |
+| U10 partial parity | `u10_parity.py 300` with `hunter_v7_signal_records_trimmed.jsonl` in the working dir (archives cached in `./kl`) | change_1h / change_4h under forming vs closed bars against the live records; OI, funding and scores not checked |
 
 ## The single-run record
 
