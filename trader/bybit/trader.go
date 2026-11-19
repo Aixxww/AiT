@@ -79,9 +79,12 @@ func NewBybitTrader(apiKey, secretKey string) *BybitTrader {
 // SetReferralID sets the Bybit broker id (Referer header) from the exchange
 // config. Call it right after construction. Empty or invalid = none.
 func (t *BybitTrader) SetReferralID(id string) {
-	if t.header != nil {
-		t.header.refererID = traderutil.NormalizeReferralID("Bybit", id, 32)
+	if t.header == nil {
+		// No HTTP client/transport to attach the header to; nothing is sent.
+		logger.Warnf("⚠ [Bybit] SetReferralID: HTTP transport unavailable, referral_id not applied (configured: %t)", strings.TrimSpace(id) != "")
+		return
 	}
+	t.header.refererID = traderutil.NormalizeReferralID("Bybit", id, 32)
 }
 
 // headerRoundTripper HTTP RoundTripper for adding custom headers

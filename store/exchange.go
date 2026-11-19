@@ -56,8 +56,13 @@ func (s *ExchangeStore) initTables() error {
 		var tableExists int64
 		s.db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'exchanges'`).Scan(&tableExists)
 		if tableExists > 0 {
-			// OD-19: optional referral id, default empty.
-			s.db.Exec(`ALTER TABLE exchanges ADD COLUMN IF NOT EXISTS referral_id TEXT NOT NULL DEFAULT ''`)
+			// OD-19: optional referral id, default empty. A failure is logged,
+			// not returned: reads still work without the column (referral_id
+			// reads as empty), but creating an exchange account fails until
+			// the column exists.
+			if err := s.db.Exec(`ALTER TABLE exchanges ADD COLUMN IF NOT EXISTS referral_id TEXT NOT NULL DEFAULT ''`).Error; err != nil {
+				logger.Errorf("❌ exchanges: adding column referral_id failed: %v (new exchange accounts cannot be created until it exists)", err)
+			}
 			// Still run data migrations
 			s.migrateToMultiAccount()
 			s.db.Model(&Exchange{}).Where("account_name = '' OR account_name IS NULL").Update("account_name", "Default")

@@ -13,6 +13,13 @@ Rejected: (a) keep the hard-coded ids; (c) remove the mechanism entirely. Keepin
 - Existing accounts get `''`, so after the upgrade no referral data is sent by any adapter.
 - Threaded through `manager/trader_manager.go` → `AutoTraderConfig.ReferralID` → each adapter's `SetReferralID`, and through `trader/factory.go` (API probes and one-off operations).
 - Not exposed in the exchange API or web UI in this unit. The owner has no id to enter; it can be set in the DB if one is ever needed.
+- If the PostgreSQL `ALTER TABLE` fails, the error is logged (`exchanges: adding column referral_id failed`) and startup continues. Without the column, reads still work and `referral_id` reads as empty. Creating a new exchange account fails until the column exists.
+- Each adapter reads `referral_id` once, when the trader is built. A changed value takes effect only after the trader is rebuilt, for example on a restart.
+- Bybit: if the trader has no HTTP transport, `SetReferralID` logs a warning and sends nothing.
+
+### Rule: do not change `referral_id` while orders or open intents exist
+
+Change an account's `referral_id` only when that account has no open orders and no open order still being placed (submitted, not yet confirmed).
 
 Validation (`traderutil.NormalizeReferralID`): trimmed, 1..N ASCII letters or digits. An invalid value is logged and dropped, so a malformed id is never sent. N is 12 for Binance (room for the client-id body), 16 for OKX (`tag` limit), 32 for Bybit, Bitget and Gate.
 
@@ -39,6 +46,8 @@ A client id now has two parts:
 - **Ownership part** `ait-`, always present. F26/F27 (owned, side-scoped cancels) and F28 (`ProtectiveStopOpen`) use it to recognise this bot's orders.
 
 Body: 13-digit nanosecond timestamp + 8 hex random (21 chars). With a referral prefix the body is cut from the left to fit 32 chars, keeping the random part (at least 14 chars with the 12-char maximum referral). F04 intent ids (`ClientOrderIDForIntent`) use the same prefix plus the leading sha256 hex of the intent key, so they stay deterministic for a given config.
+
+**Why the rule above.** F04 intent ids include the referral part, so the same intent key gives a different client id under a different `referral_id`. The F04 read-back looks the order up by the id it just submitted, within the same process, so a change cannot take effect during one read-back. The rule makes this hold by procedure rather than by timing, and keeps every order of an account under one prefix while it is open. Open orders stay owned after a change (see below); the rule is about traceability, not ownership. The intent id is not derived from the ownership part alone, because that would drop the referral prefix from opens, the main orders a referral is credited for.
 
 Ownership (`isOwnedClientID`) accepts:
 
