@@ -115,11 +115,35 @@ func (at *AutoTrader) replaceProtectiveStop(symbol, side string, quantity, stopP
 // reprotectAfterPartial re-protects the remainder after a protector partial
 // close and reports whether the remainder had to be emergency-closed.
 func (at *AutoTrader) reprotectAfterPartial(symbol, side string, remainingQty, entryPrice, buffer float64, action protectionAction) bool {
+	return at.reprotectAfterPartialAt(symbol, side, remainingQty, entryPrice, 0, buffer, action)
+}
+
+// reprotectAfterPartialAt places the remainder's stop and then, when the
+// position's open take-profit is known and still ahead of the mark, re-places
+// that take-profit for the remaining quantity (F31: the rebuild cancels the
+// side's take-profit). A failed take-profit is logged, not fatal: the stop
+// protects the remainder, as at open.
+func (at *AutoTrader) reprotectAfterPartialAt(symbol, side string, remainingQty, entryPrice, markPrice, buffer float64, action protectionAction) bool {
 	closedAll, err := at.rebuildProtectionStopsWithBuffer(symbol, side, remainingQty, entryPrice, buffer)
 	if err != nil {
 		logger.Errorf("⚠ Protection rebuild after %s close (%s %s): %v", action, symbol, side, err)
 	}
-	return closedAll
+	if closedAll || remainingQty <= 0 || (err != nil && !errors.Is(err, errProtectionCancelUnconfirmed)) {
+		return closedAll
+	}
+	state := at.protectionStateFor(symbol, side)
+	if state == nil || state.ExchangeTakeProfit <= 0 {
+		return false
+	}
+	tp := state.ExchangeTakeProfit
+	if markPrice > 0 && ((side == "long" && tp <= markPrice) || (side == "short" && tp >= markPrice)) {
+		logger.Infof("  ℹ Take-profit %.8f not re-placed for %s %s: mark %.8f is already beyond it", tp, symbol, side, markPrice)
+		return false
+	}
+	if tpErr := at.trader.SetTakeProfit(symbol, protectionPositionSide(side), remainingQty, tp); tpErr != nil {
+		logger.Errorf("  ⚠ Take-profit re-place after %s close failed for %s %s (stop is in place): %v", action, symbol, side, tpErr)
+	}
+	return false
 }
 
 // replaceDynamicStop is the dynamic-stop form of replaceProtectiveStop.

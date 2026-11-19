@@ -17,54 +17,34 @@ import (
 	"time"
 )
 
+// Protector defaults (U14: the values live in store.ProtectorConfig; these
+// names stay as aliases of the defaults).
 const (
-	positionProtectorFastInterval         = 15 * time.Second
-	positionProtectorBaseInterval         = 30 * time.Second
-	positionProtectorIdleInterval         = 60 * time.Second
-	protectorTP1PnLPct                    = 6.0
-	protectorTP2PnLPct                    = 12.0
-	protectorTP1MinPriceMovePct           = 1.0
-	protectorTP2MinPriceMovePct           = 1.5
-	protectorTP0PnLPct                    = 8.0
-	protectorTP0CloseRatio                = 0.35
-	protectorTP1CloseRatio                = 0.40
-	protectorTP2CloseRatio                = 0.50
-	protectorTrailDrawdownPct             = 35.0
-	protectorDynamicStopMinHoldDuration   = 10 * time.Minute
-	protectorDynamicStopEarlyPeakPnLPct   = 8.0
-	protectorDynamicStopEarlyPriceMovePct = 0.60
-	protectorProfitFloorPeakPnLPct        = 5.0
-	protectorProfitFloorBufferPnLPct      = 0.8
-	protectorProfitFloorNetBufferPnLPct   = 3.0
-	protectorProfitLockMidPeakPnLPct      = 10.0
-	protectorProfitLockHighPeakPnLPct     = 15.0
-	protectorProfitLockMidRatio           = 0.30
-	protectorProfitLockHighRatio          = 0.45
-	protectorProfitLockMidDrawdownPct     = 50.0
-	protectorProfitLockHighDrawdownPct    = 45.0
-	protectorPreTPPeakPnLPct              = 8.0
-	protectorPreTPGivebackPct             = 80.0
-	protectorNearTP1PeakRatio             = 0.95
-	protectorNearTP1SecondChanceRatio     = 0.90
-	protectorNearTP1GivebackPct           = 45.0
-	protectorNearTP1LossExitPnLPct        = -5.0
-	protectorPreTPMinCurrentPnLPct        = 3.0
-	protectorPreTPMinHoldDuration         = 20 * time.Minute
-	protectorEarlyLossCheckDuration       = 15 * time.Minute
-	protectorEarlyLossExitPnLPct          = -8.0
-	protectorHardLossExitPnLPct           = -12.0
-	protectorHardLossSlackMultiplier      = 1.1
-	protectorBreakevenBufferPct           = 0.001
-	protectorGivebackCloseRatio           = 0.5
-	// Fraction (0.0015 = 0.15% price buffer) for the breakeven stop rebuilt
-	// after a staged giveback close — wide enough to survive a normal
-	// pullback instead of being wicked out at cost (P0-3).
-	protectorGivebackBreakevenBuffer = 0.0015
-	protectorDefaultMinCloseNotional = 12.0
-	hunterV7MicroRefreshMaxSpreadPct = 0.35
-	hunterV7RESTRefreshTimeout       = 3500 * time.Millisecond
-	hunterV7RESTRefreshMaxAgeMs      = int64(120_000)
-	hunterV7RESTRefreshFlowFlipPct   = 0.50
+	positionProtectorFastInterval       = store.DefaultProtectorFastIntervalSeconds * time.Second
+	positionProtectorBaseInterval       = store.DefaultProtectorBaseIntervalSeconds * time.Second
+	positionProtectorIdleInterval       = store.DefaultProtectorIdleIntervalSeconds * time.Second
+	protectorTP1PnLPct                  = store.DefaultProtectorTP1ROEPct
+	protectorTP2PnLPct                  = store.DefaultProtectorTP2ROEPct
+	protectorTP1MinPriceMovePct         = store.DefaultProtectorTP1MinMovePct
+	protectorTP2MinPriceMovePct         = store.DefaultProtectorTP2MinMovePct
+	protectorTP0PnLPct                  = store.DefaultProtectorTP0ROEPct
+	protectorTP0CloseRatio              = store.DefaultProtectorTP0CloseRatio
+	protectorTP1CloseRatio              = store.DefaultProtectorTP1CloseRatio
+	protectorTP2CloseRatio              = store.DefaultProtectorTP2CloseRatio
+	protectorTrailDrawdownPct           = store.DefaultProtectorTrailDrawdownPct
+	protectorDynamicStopEarlyPeakPnLPct = store.DefaultProtectorDynStopEarlyPeakROE
+	protectorProfitFloorNetBufferPnLPct = store.DefaultProtectorProfitFloorNetROE
+	protectorNearTP1PeakRatio           = store.DefaultProtectorNearTP1PeakROE / store.DefaultProtectorTP1ROEPct
+	protectorNearTP1GivebackPct         = store.DefaultProtectorNearTP1GivebackPct
+	protectorPreTPGivebackPct           = store.DefaultProtectorPreTPGivebackPct
+	protectorBreakevenBufferPct         = store.DefaultProtectorBreakevenBufferFrac
+	protectorGivebackCloseRatio         = store.DefaultProtectorGivebackCloseRatio
+	protectorGivebackBreakevenBuffer    = store.DefaultProtectorGivebackBreakevenFrac
+	protectorDefaultMinCloseNotional    = store.DefaultProtectorMinCloseNotional
+	hunterV7MicroRefreshMaxSpreadPct    = 0.35
+	hunterV7RESTRefreshTimeout          = 3500 * time.Millisecond
+	hunterV7RESTRefreshMaxAgeMs         = int64(120_000)
+	hunterV7RESTRefreshFlowFlipPct      = 0.50
 )
 
 type positionProtectionState struct {
@@ -85,6 +65,15 @@ type positionProtectionState struct {
 	OpenedAt              time.Time
 	LastActionAt          time.Time
 	LastStopUpdateAt      time.Time
+	// F30: giveback and trail closes fire at most once per position.
+	GivebackDone bool
+	TrailDone    bool
+	// ExchangeTakeProfit is the open's effective take-profit, re-placed for
+	// the remainder after a partial (F31). 0 = unknown.
+	ExchangeTakeProfit float64
+	// U14 log-once flags.
+	levelsLogged       bool
+	rUnavailableLogged bool
 }
 
 // protectionNow is the clock used by the position protector. It is a variable
@@ -126,20 +115,21 @@ func (at *AutoTrader) startDrawdownMonitor() {
 	}()
 }
 
-// checkPositionDrawdown checks position drawdown situation
+// checkPositionDrawdown is the live protector poll: one protectPosition
+// step per open position at the current time (U14 thin adapter).
 func (at *AutoTrader) checkPositionDrawdown() time.Duration {
-	// Get current positions
+	e := at.protectorEngine()
 	positions, err := at.trader.GetPositions()
 	if err != nil {
 		logger.Infof("❌ Drawdown monitoring: failed to get positions: %v", err)
-		return positionProtectorBaseInterval
+		return e.cfg.BaseInterval()
 	}
 	if len(positions) == 0 {
-		return positionProtectorIdleInterval
+		return e.cfg.IdleInterval()
 	}
 
-	nextInterval := positionProtectorBaseInterval
-	plannedRiskByPosition := at.latestOpenDecisionRiskByPosition(50)
+	nextInterval := e.cfg.BaseInterval()
+	plannedRiskByPosition := at.latestOpenDecisionRiskByPosition(e.cfg.PlanLookbackRecords)
 	for _, pos := range positions {
 		symbol := pos["symbol"].(string)
 		side := pos["side"].(string)
@@ -156,111 +146,40 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 			continue
 		}
 
-		leverage := 10 // Default value
+		leverage := e.cfg.DefaultLeverage
 		if lev, ok := pos["leverage"].(float64); ok {
 			leverage = int(lev)
 		}
 
 		currentPnLPct := calculateLeveragedPnLPct(side, entryPrice, markPrice, leverage)
-		currentPriceMovePct := calculateUnleveragedPnLPct(side, entryPrice, markPrice)
-
-		// Construct unique position identifier (distinguish long/short)
-		posKey := symbol + "_" + side
-
 		openedAt := at.resolveProtectionPositionOpenedAt(symbol, side)
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
-		state := at.getOrCreateProtectionState(posKey, quantity, currentPnLPct, openedAt)
-		if plannedRisk := plannedRiskByPosition[positionRiskKey(symbol, side)]; plannedRisk.stopLoss > 0 || plannedRisk.takeProfit > 0 || plannedRisk.tp0Price > 0 || plannedRisk.tp1Price > 0 || plannedRisk.tp2Price > 0 {
-			state.rememberActiveStopLoss(side, plannedRisk.stopLoss)
-			// Record the planned stop distance in ROE % so the hard-loss
-			// backstop can defer to a wider plan instead of preempting it (P0-2).
-			if plannedRisk.stopLoss > 0 && entryPrice > 0 && leverage > 0 {
-				state.PlannedStopLossROEPct = calculateLeveragedPnLPct(side, entryPrice, plannedRisk.stopLoss, leverage)
-			}
-			// Hunter v7's TP0 is the first partial-exit price. Prefer it over
-			// the generic LLM take-profit, while preserving the latter as a
-			// backwards-compatible fallback for non-v7 decisions.
-			if plannedRisk.tp0Price > 0 {
-				// P1-4 micro_tp0: cap an overly far planned TP0 so the first
-				// partial is reachable on a modest MFE (only moves it closer).
-				state.rememberPlannedTakeProfit(side, microTP0Price(side, entryPrice, plannedRisk.stopLoss, plannedRisk.tp0Price))
-			} else {
-				state.rememberPlannedTakeProfit(side, plannedRisk.takeProfit)
-			}
-			state.rememberPlannedTarget(side, &state.PlannedTP1, plannedRisk.tp1Price)
-			state.rememberPlannedTarget(side, &state.PlannedTP2, plannedRisk.tp2Price)
+		out := at.protectPosition(e, protectorObs{
+			Symbol: symbol, Side: side, Entry: entryPrice, Mark: markPrice, Qty: quantity, Leverage: leverage,
+			Now: protectionNow(), OpenedAt: openedAt, Plan: plannedRiskByPosition[positionRiskKey(symbol, side)],
+		})
+		if out.FastPoll {
+			nextInterval = e.cfg.FastInterval()
 		}
-		if err := at.updateDynamicProtectionStop(symbol, side, quantity, entryPrice, markPrice, leverage, state); err != nil {
-			if errors.Is(err, errProtectionEmergencyClosed) {
-				logger.Errorf("🚨 Dynamic protection stop update emergency-closed %s %s: %v", symbol, side, err)
-				at.markProtectionAction(posKey, protectionHardLossClose, true)
-				continue
-			}
-			logger.Infof("⚠️ Dynamic protection stop update failed (%s %s): %v", symbol, side, err)
-		}
-		action, drawdownPct := choosePositionProtectionAction(state, currentPnLPct, currentPriceMovePct)
-		if action == protectionNone && shouldTriggerPlannedTP0Price(side, markPrice, currentPnLPct, state) {
-			action = protectionTP0
-			drawdownPct = protectionDrawdownPct(state, currentPnLPct)
-		}
-		if action == protectionNone && shouldTriggerPlannedTarget(side, markPrice, state.PlannedTP1, state.TP1Done) {
-			action = protectionTP1
-		}
-		if action == protectionNone && shouldTriggerPlannedTarget(side, markPrice, state.PlannedTP2, state.TP2Done) {
-			action = protectionTP2
-		}
-		if shouldUseFastProtectionInterval(state, currentPnLPct) {
-			nextInterval = positionProtectorFastInterval
-		}
-		if action == protectionNone {
-			if currentPnLPct > 3.0 {
-				logger.Infof("📊 Position protector: %s %s | Profit %.2f%% | Peak %.2f%% | Drawdown %.2f%% | Age %s | TP1=%v TP2=%v",
-					symbol, side, currentPnLPct, state.PeakPnLPct, drawdownPct, time.Since(state.OpenedAt).Truncate(time.Second), state.TP1Done, state.TP2Done)
-			}
-			continue
-		}
-
-		closedAll, err := at.executeProtectionAction(symbol, side, quantity, markPrice, entryPrice, action)
-		if err != nil {
-			logger.Infof("❌ Position protector failed (%s %s %s): %v", symbol, side, action, err)
-			continue
-		}
-		at.markProtectionAction(posKey, action, closedAll)
 	}
 	return nextInterval
 }
 
+// updateDynamicProtectionStop runs the dynamic stop update with the trader's
+// engine at the protector clock.
 func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity, entryPrice, markPrice float64, leverage int, state *positionProtectionState) error {
-	if state == nil || quantity <= 0 || entryPrice <= 0 || markPrice <= 0 {
+	return at.updateDynamicProtectionStopAt(at.protectorEngine(), symbol, side, quantity, entryPrice, markPrice, leverage, state, protectionNow())
+}
+
+// updateDynamicProtectionStopAt places the engine's dynamic stop candidate
+// (profit floor or DynamicStopManager stop) when it is due and tighter.
+func (at *AutoTrader) updateDynamicProtectionStopAt(e *protectorEngine, symbol, side string, quantity, entryPrice, markPrice float64, leverage int, state *positionProtectionState, now time.Time) error {
+	if state == nil {
 		return nil
 	}
-	if !state.LastStopUpdateAt.IsZero() && time.Since(state.LastStopUpdateAt) < positionProtectorBaseInterval {
-		return nil
-	}
-	baseStop := protectionBaseStopFromRisk(side, entryPrice, leverage)
-	if baseStop <= 0 {
-		return nil
-	}
-	activeStop := mostProtectiveStop(side, state.ActiveStopLoss, state.DynamicStop)
-	if activeStop > 0 && shouldDelayDynamicProtectionStop(state, calculateUnleveragedPnLPct(side, entryPrice, markPrice)) {
-		return nil
-	}
-	maxFavorableDelta := state.PeakPnLPct / 100 / float64(leverage) * entryPrice
-	if maxFavorableDelta < 0 {
-		maxFavorableDelta = 0
-	}
-	isLong := side == "long"
-	stop := DefaultDynamicStopManager().CalcDynamicStop(entryPrice, baseStop, markPrice, maxFavorableDelta, time.Since(state.OpenedAt), 50, isLong)
-	floorStop := protectionProfitFloorStop(side, entryPrice, leverage, state.PeakPnLPct)
-	candidateStop := 0.0
-	if isStopOnProtectiveSide(side, stop, markPrice) {
-		candidateStop = mostProtectiveStop(side, candidateStop, stop)
-	}
-	if isStopOnProtectiveSide(side, floorStop, markPrice) {
-		candidateStop = mostProtectiveStop(side, candidateStop, floorStop)
-	}
-	if candidateStop <= 0 || !isMoreProtectiveStop(side, candidateStop, activeStop) {
+	candidateStop, activeStop := e.dynamicStopCandidate(state, state.protectorPos(side, leverage), quantity, entryPrice, markPrice, now)
+	if candidateStop <= 0 {
 		return nil
 	}
 	// F27/F28: side-scoped owned stop cancel (take-profit kept), then a
@@ -270,22 +189,9 @@ func (at *AutoTrader) updateDynamicProtectionStop(symbol, side string, quantity,
 	}
 	state.DynamicStop = candidateStop
 	state.ActiveStopLoss = candidateStop
-	state.LastStopUpdateAt = time.Now()
+	state.LastStopUpdateAt = now
 	logger.Infof("🛡 Dynamic protection stop updated: %s %s | qty %.8f | stop %.8f | previous_stop %.8f | peak %.2f%%", symbol, side, quantity, candidateStop, activeStop, state.PeakPnLPct)
 	return nil
-}
-
-func shouldDelayDynamicProtectionStop(state *positionProtectionState, currentPriceMovePct float64) bool {
-	if state == nil || state.OpenedAt.IsZero() {
-		return false
-	}
-	if time.Since(state.OpenedAt) >= protectorDynamicStopMinHoldDuration {
-		return false
-	}
-	if state.PeakPnLPct >= protectorDynamicStopEarlyPeakPnLPct {
-		return false
-	}
-	return currentPriceMovePct < protectorDynamicStopEarlyPriceMovePct
 }
 
 func (state *positionProtectionState) rememberActiveStopLoss(side string, stop float64) {
@@ -295,46 +201,11 @@ func (state *positionProtectionState) rememberActiveStopLoss(side string, stop f
 	state.ActiveStopLoss = mostProtectiveStop(side, state.ActiveStopLoss, stop)
 }
 
-const (
-	// micro_tp0 (P1-4, 作者 0802 复盘已论证): 计划 TP0 距离上限。
-	// 第一止盈位不应在 MFE 温和时还远不可及；只把过远的 TP0 拉近，永不推远。
-	microTP0MinPriceMovePct = 0.55 // 距 entry 的最小价格位移 %
-	microTP0SLDistRatio     = 0.45 // 或止损距离的 45%，取较大者
-)
-
-// microTP0Price caps the planned TP0 distance (P1-4). The first partial
-// should be reachable on a modest MFE; a planned TP0 sitting absurdly far
-// (e.g. LLM optimism) is pulled closer to max(0.55% price, 0.45 x SL dist).
-// It only ever moves TP0 closer to entry, never farther.
+// microTP0Price caps the planned TP0 distance (P1-4) with the default
+// protector config: a planned TP0 is pulled in to max(0.55% price, 0.45 x
+// stop distance); it is never moved farther away.
 func microTP0Price(side string, entryPrice, stopLoss, plannedTP0 float64) float64 {
-	if entryPrice <= 0 || plannedTP0 <= 0 {
-		return plannedTP0
-	}
-	stopDist := 0.0
-	if stopLoss > 0 {
-		if side == "long" {
-			stopDist = entryPrice - stopLoss
-		} else {
-			stopDist = stopLoss - entryPrice
-		}
-	}
-	if stopDist < 0 {
-		stopDist = 0
-	}
-	microDist := math.Max(microTP0MinPriceMovePct/100*entryPrice, microTP0SLDistRatio*stopDist)
-	var plannedDist float64
-	if side == "long" {
-		plannedDist = plannedTP0 - entryPrice
-	} else {
-		plannedDist = entryPrice - plannedTP0
-	}
-	if plannedDist <= 0 || microDist >= plannedDist {
-		return plannedTP0 // not a profit target, or already closer than micro
-	}
-	if side == "long" {
-		return entryPrice + microDist
-	}
-	return entryPrice - microDist
+	return defaultProtectorEngine().microTP0(side, entryPrice, stopLoss, plannedTP0)
 }
 
 func (state *positionProtectionState) rememberPlannedTakeProfit(side string, takeProfit float64) {
@@ -382,59 +253,15 @@ func mostProtectiveStop(side string, a, b float64) float64 {
 }
 
 func protectionBaseStopFromRisk(side string, entryPrice float64, leverage int) float64 {
-	if entryPrice <= 0 || leverage <= 0 {
-		return 0
-	}
-	riskPct := 0.35 / float64(leverage)
-	if riskPct <= 0 {
-		return 0
-	}
-	if side == "long" {
-		return entryPrice * (1 - riskPct)
-	}
-	return entryPrice * (1 + riskPct)
+	return defaultProtectorEngine().baseStop(protectorPos{Side: side, Leverage: leverage}, entryPrice)
 }
 
 func protectionProfitFloorStop(side string, entryPrice float64, leverage int, peakPnLPct float64) float64 {
-	if entryPrice <= 0 || leverage <= 0 || peakPnLPct < protectorProfitFloorPeakPnLPct {
-		return 0
-	}
-	lockPnLPct := math.Max(protectorProfitFloorBufferPnLPct, protectorProfitFloorNetBufferPnLPct)
-	switch {
-	case peakPnLPct >= protectorProfitLockHighPeakPnLPct:
-		lockPnLPct = math.Max(lockPnLPct, peakPnLPct*protectorProfitLockHighRatio)
-	case peakPnLPct >= protectorProfitLockMidPeakPnLPct:
-		lockPnLPct = math.Max(lockPnLPct, peakPnLPct*protectorProfitLockMidRatio)
-	}
-	priceMovePct := lockPnLPct / 100 / float64(leverage)
-	if side == "long" {
-		return entryPrice * (1 + priceMovePct)
-	}
-	return entryPrice * (1 - priceMovePct)
-}
-
-func protectionPositionAge(state *positionProtectionState) time.Duration {
-	if state == nil || state.OpenedAt.IsZero() {
-		return 0
-	}
-	return protectionNow().Sub(state.OpenedAt)
+	return defaultProtectorEngine().profitFloorStop(protectorPos{Side: side, Leverage: leverage}, entryPrice, peakPnLPct)
 }
 
 func isMoreProtectiveStop(side string, next, prev float64) bool {
-	if next <= 0 {
-		return false
-	}
-	if prev <= 0 {
-		return true
-	}
-	minDelta := prev * 0.0002
-	if minDelta <= 0 {
-		minDelta = 0.00000001
-	}
-	if side == "long" {
-		return next > prev+minDelta
-	}
-	return next < prev-minDelta
+	return defaultProtectorEngine().moreProtective(side, next, prev)
 }
 
 func isStopOnProtectiveSide(side string, stop, markPrice float64) bool {
@@ -448,11 +275,7 @@ func isStopOnProtectiveSide(side string, stop, markPrice float64) bool {
 }
 
 func shouldUseFastProtectionInterval(state *positionProtectionState, currentPnLPct float64) bool {
-	if state == nil {
-		return false
-	}
-	nearTP1PeakPnLPct := protectorTP1PnLPct * protectorNearTP1PeakRatio
-	return state.TP1Done || state.PeakPnLPct >= nearTP1PeakPnLPct || currentPnLPct >= nearTP1PeakPnLPct
+	return defaultProtectorEngine().fastPoll(state, protectorPos{}, currentPnLPct, 0)
 }
 
 func shouldTriggerPlannedTP0Price(side string, markPrice, currentPnLPct float64, state *positionProtectionState) bool {
@@ -505,79 +328,10 @@ func calculateUnleveragedPnLPct(side string, entryPrice, markPrice float64) floa
 	return ((entryPrice - markPrice) / entryPrice) * 100
 }
 
+// choosePositionProtectionAction applies the default protector rules at the
+// protector clock (ROE % and price % readings).
 func choosePositionProtectionAction(state *positionProtectionState, currentPnLPct, currentPriceMovePct float64) (protectionAction, float64) {
-	if state == nil {
-		return protectionNone, 0
-	}
-	if currentPnLPct > state.PeakPnLPct {
-		state.PeakPnLPct = currentPnLPct
-	}
-	drawdownPct := 0.0
-	if state.PeakPnLPct > 0 && currentPnLPct < state.PeakPnLPct {
-		drawdownPct = ((state.PeakPnLPct - currentPnLPct) / state.PeakPnLPct) * 100
-	}
-	age := protectionPositionAge(state)
-	// P0-2: the fixed -12% backstop must not preempt a wider planned stop.
-	// When the plan's stop distance (in ROE %) is wider than the fixed
-	// threshold, push the backstop beyond it (with slack) so the plan —
-	// enforced by the exchange stop order — is honored first.
-	hardLossThreshold := protectorHardLossExitPnLPct
-	if state.PlannedStopLossROEPct < hardLossThreshold {
-		hardLossThreshold = state.PlannedStopLossROEPct * protectorHardLossSlackMultiplier
-	}
-	if currentPnLPct <= hardLossThreshold ||
-		(age <= protectorEarlyLossCheckDuration && currentPnLPct <= protectorEarlyLossExitPnLPct) {
-		return protectionHardLossClose, drawdownPct
-	}
-	if state.PeakPnLPct >= protectorProfitFloorPeakPnLPct && currentPnLPct <= 0 {
-		return protectionGivebackClose, drawdownPct
-	}
-	if !state.TP0Done && state.PeakPnLPct >= protectorTP0PnLPct && currentPnLPct >= protectorTP0PnLPct {
-		return protectionTP0, drawdownPct
-	}
-	if state.PeakPnLPct >= protectorProfitLockHighPeakPnLPct && currentPnLPct > 0 && drawdownPct >= protectorProfitLockHighDrawdownPct {
-		return protectionGivebackClose, drawdownPct
-	}
-	if state.PeakPnLPct >= protectorProfitLockMidPeakPnLPct && currentPnLPct > 0 && drawdownPct >= protectorProfitLockMidDrawdownPct {
-		return protectionGivebackClose, drawdownPct
-	}
-	if !state.TP1Done && currentPnLPct >= protectorTP1PnLPct && currentPriceMovePct >= protectorTP1MinPriceMovePct {
-		return protectionTP1, drawdownPct
-	}
-	if state.TP0Done && !state.TP1Done && state.PeakPnLPct >= protectorProfitLockHighPeakPnLPct && currentPnLPct >= protectorTP0PnLPct {
-		return protectionTP1, drawdownPct
-	}
-	if state.TP1Done && !state.TP2Done && currentPnLPct >= protectorTP2PnLPct && currentPriceMovePct >= protectorTP2MinPriceMovePct {
-		return protectionTP2, drawdownPct
-	}
-	if state.TP1Done && state.PeakPnLPct >= protectorTP1PnLPct && currentPnLPct > 0 && drawdownPct >= protectorTrailDrawdownPct {
-		return protectionTrailClose, drawdownPct
-	}
-	nearTP1PeakPnLPct := protectorTP1PnLPct * protectorNearTP1PeakRatio
-	secondChancePnLPct := protectorTP1PnLPct * protectorNearTP1SecondChanceRatio
-	if !state.TP1Done &&
-		state.PeakPnLPct >= nearTP1PeakPnLPct &&
-		currentPriceMovePct >= protectorTP1MinPriceMovePct &&
-		currentPnLPct >= secondChancePnLPct &&
-		protectionNow().Sub(state.OpenedAt) >= protectorPreTPMinHoldDuration {
-		return protectionGivebackClose, drawdownPct
-	}
-	if !state.TP1Done &&
-		state.PeakPnLPct >= nearTP1PeakPnLPct &&
-		protectionNow().Sub(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
-		drawdownPct >= protectorNearTP1GivebackPct &&
-		((currentPnLPct >= protectorPreTPMinCurrentPnLPct && currentPriceMovePct >= protectorTP1MinPriceMovePct) || currentPnLPct <= protectorNearTP1LossExitPnLPct) {
-		return protectionGivebackClose, drawdownPct
-	}
-	if !state.TP1Done &&
-		state.PeakPnLPct >= protectorPreTPPeakPnLPct &&
-		currentPnLPct >= protectorPreTPMinCurrentPnLPct &&
-		currentPriceMovePct >= protectorTP1MinPriceMovePct &&
-		protectionNow().Sub(state.OpenedAt) >= protectorPreTPMinHoldDuration &&
-		drawdownPct >= protectorPreTPGivebackPct {
-		return protectionGivebackClose, drawdownPct
-	}
-	return protectionNone, drawdownPct
+	return defaultProtectorEngine().choose(state, protectorPos{}, currentPnLPct, currentPriceMovePct, protectionNow())
 }
 
 func (at *AutoTrader) getOrCreateProtectionState(posKey string, quantity, currentPnLPct float64, openedAt time.Time) *positionProtectionState {
@@ -641,82 +395,52 @@ func (at *AutoTrader) markProtectionAction(posKey string, action protectionActio
 		return
 	}
 	state.LastActionAt = time.Now()
-	switch action {
-	case protectionTP0:
-		state.TP0Done = true
-	case protectionTP1:
-		state.TP1Done = true
-	case protectionTP2:
-		state.TP2Done = true
-	case protectionTrailClose, protectionGivebackClose, protectionHardLossClose:
-		// P0-3: giveback/trail may now be staged partial closes — only drop
-		// the state when the position is fully closed.
-		if closedAll {
-			delete(at.protectionState, posKey)
-		}
-	}
+	markProtectionDone(state, action)
 }
 
 func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, markPrice, entryPrice float64, action protectionAction) (bool, error) {
-	switch action {
-	case protectionTP0:
-		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP0CloseRatio)
-		logger.Infof("🟢 TP0 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
-		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
-		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
-			return false, err
-		}
-		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
-	case protectionTP1:
-		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP1CloseRatio)
-		logger.Infof("🟢 TP1 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
-		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
-		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
-			return false, err
-		}
-		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
-	case protectionTP2:
-		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorTP2CloseRatio)
-		logger.Infof("🟢 TP2 protection triggered: %s %s | close %.8f / %.8f | mark %.8f", symbol, side, closeQty, quantity, markPrice)
-		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
-		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
-			return false, err
-		}
-		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorBreakevenBufferPct, action), nil
-	case protectionTrailClose, protectionGivebackClose:
-		// P0-3: giveback/trail no longer liquidates the whole position.
-		// Take a staged partial close and move the stop to breakeven with a
-		// buffer wide enough to survive a normal pullback, so trend trades
-		// can still develop instead of being chopped at the first retrace.
-		closeQty, closeAll := at.protectionCloseQuantity(quantity, markPrice, protectorGivebackCloseRatio)
-		logger.Infof("🟢 Giveback/trail protection triggered: %s %s | action=%s | close %.8f / %.8f | mark %.8f", symbol, side, action, closeQty, quantity, markPrice)
-		if closeAll {
-			return true, at.closeProtectedPosition(symbol, side, 0, string(action))
-		}
-		if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
-			return false, err
-		}
-		return at.reprotectAfterPartial(symbol, side, quantity-closeQty, entryPrice, protectorGivebackBreakevenBuffer, action), nil
-	case protectionHardLossClose:
+	return at.executeProtectionActionWith(at.protectorEngine(), symbol, side, quantity, markPrice, entryPrice, action)
+}
+
+// executeProtectionActionWith closes the action's share and re-protects the
+// remainder (stop, then take-profit). A hard loss closes everything.
+func (at *AutoTrader) executeProtectionActionWith(e *protectorEngine, symbol, side string, quantity, markPrice, entryPrice float64, action protectionAction) (bool, error) {
+	if action == protectionHardLossClose {
 		logger.Infof("🟢 Hard-loss protection triggered: %s %s | mark %.8f", symbol, side, markPrice)
 		return true, at.closeProtectedPosition(symbol, side, 0, string(action))
-	default:
+	}
+	ratio, buffer, ok := e.partial(action)
+	if !ok {
 		return false, nil
 	}
+	closeQty, closeAll := at.protectionCloseQuantityWith(e, quantity, markPrice, ratio)
+	switch action {
+	case protectionTrailClose, protectionGivebackClose:
+		// P0-3: a staged partial close with the stop moved to breakeven
+		// plus a buffer wide enough to survive a normal pullback.
+		logger.Infof("🟢 Giveback/trail protection triggered: %s %s | action=%s | close %.8f / %.8f | mark %.8f", symbol, side, action, closeQty, quantity, markPrice)
+	default:
+		logger.Infof("🟢 %s protection triggered: %s %s | close %.8f / %.8f | mark %.8f", strings.ToUpper(string(action)), symbol, side, closeQty, quantity, markPrice)
+	}
+	if closeAll {
+		return true, at.closeProtectedPosition(symbol, side, 0, string(action))
+	}
+	if err := at.closeProtectedPosition(symbol, side, closeQty, string(action)); err != nil {
+		return false, err
+	}
+	return at.reprotectAfterPartialAt(symbol, side, quantity-closeQty, entryPrice, markPrice, buffer, action), nil
 }
 
 func (at *AutoTrader) protectionCloseQuantity(quantity, markPrice, ratio float64) (float64, bool) {
+	return at.protectionCloseQuantityWith(at.protectorEngine(), quantity, markPrice, ratio)
+}
+
+func (at *AutoTrader) protectionCloseQuantityWith(e *protectorEngine, quantity, markPrice, ratio float64) (float64, bool) {
 	if quantity <= 0 || ratio <= 0 {
 		return 0, true
 	}
 	closeQty := quantity * ratio
-	minNotional := at.minProtectionCloseNotional()
+	minNotional := at.minProtectionCloseNotionalWith(e)
 	if closeQty*markPrice < minNotional || (quantity-closeQty)*markPrice < minNotional {
 		return quantity, true
 	}
@@ -724,26 +448,41 @@ func (at *AutoTrader) protectionCloseQuantity(quantity, markPrice, ratio float64
 }
 
 func (at *AutoTrader) minProtectionCloseNotional() float64 {
+	return at.minProtectionCloseNotionalWith(at.protectorEngine())
+}
+
+func (at *AutoTrader) minProtectionCloseNotionalWith(e *protectorEngine) float64 {
 	if at.config.StrategyConfig != nil && at.config.StrategyConfig.RiskControl.MinPositionSize > 0 {
 		return at.config.StrategyConfig.RiskControl.MinPositionSize
 	}
-	return protectorDefaultMinCloseNotional
+	return e.cfg.MinCloseNotional
 }
 
-// rebuildProtectionStopsWithBuffer moves the stop to breakeven +/- buffer
-// (as a fraction, e.g. 0.0015 = 0.15%). TP partials use the tight default
-// buffer; giveback partials use a wider one so the remainder survives a
-// normal pullback (P0-3).
+// rebuildProtectionStopsWithBuffer re-protects the remainder after a partial
+// with a stop at breakeven +/- buffer (fraction, e.g. 0.0015 = 0.15%), or at
+// the position's active stop when that is more protective (F29: never
+// loosen), and records the placed stop in the protection state.
 func (at *AutoTrader) rebuildProtectionStopsWithBuffer(symbol, side string, remainingQty, entryPrice, buffer float64) (bool, error) {
 	if remainingQty <= 0 {
 		return false, nil
 	}
-	stopPrice := entryPrice * (1 - buffer)
-	if side == "long" {
-		stopPrice = entryPrice * (1 + buffer)
-	}
+	state := at.protectionStateFor(symbol, side)
+	stopPrice := rebuildStop(state, side, entryPrice, buffer)
 	// F27/F28: side-scoped owned cancel, then a confirmed replacement.
-	return at.replaceProtectiveStop(symbol, side, remainingQty, stopPrice, false)
+	closedAll, err := at.replaceProtectiveStop(symbol, side, remainingQty, stopPrice, false)
+	if state != nil && !closedAll && (err == nil || errors.Is(err, errProtectionCancelUnconfirmed)) {
+		at.protectionStateMutex.Lock()
+		state.ActiveStopLoss = stopPrice
+		at.protectionStateMutex.Unlock()
+	}
+	return closedAll, err
+}
+
+// protectionStateFor returns the protection state of a position, or nil.
+func (at *AutoTrader) protectionStateFor(symbol, side string) *positionProtectionState {
+	at.protectionStateMutex.Lock()
+	defer at.protectionStateMutex.Unlock()
+	return at.protectionState[symbol+"_"+side]
 }
 
 func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float64, closeReason string) error {

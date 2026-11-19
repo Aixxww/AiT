@@ -38,52 +38,6 @@ type u0fLeg struct {
 	Why         string
 }
 
-type u0fExchange struct {
-	contextTestTrader
-	qty       float64
-	stop, tp  float64
-	mark      float64
-	legs      []u0fLeg
-	moves     int
-	origStop  float64
-	actionWhy string
-}
-
-func (x *u0fExchange) closeAt(q float64) {
-	if q <= 0 || q > x.qty {
-		q = x.qty
-	}
-	x.legs = append(x.legs, u0fLeg{q, x.mark, x.actionWhy})
-	x.qty -= q
-	if x.qty < 1e-12 {
-		x.qty = 0
-	}
-}
-func (x *u0fExchange) CloseLong(_ string, q float64) (map[string]interface{}, error) {
-	x.closeAt(q)
-	return map[string]interface{}{"orderId": int64(1)}, nil
-}
-func (x *u0fExchange) CloseShort(_ string, q float64) (map[string]interface{}, error) {
-	x.closeAt(q)
-	return map[string]interface{}{"orderId": int64(1)}, nil
-}
-func (x *u0fExchange) GetPositions() ([]map[string]interface{}, error) { return nil, nil }
-func (x *u0fExchange) SetStopLoss(_, _ string, _, p float64) error {
-	if p != x.stop {
-		x.moves++
-	}
-	x.stop = p
-	return nil
-}
-func (x *u0fExchange) CancelOwnedProtectionOrders(_, _ string, stopsOnly bool) error {
-	x.stop = 0
-	if !stopsOnly {
-		x.tp = 0
-	}
-	return nil
-}
-func (x *u0fExchange) ProtectiveStopOpen(string, string) (bool, error) { return x.stop > 0, nil }
-
 type u0fRow struct {
 	Index     int      `json:"index"`
 	Setup     string   `json:"setup"`
@@ -244,105 +198,30 @@ func TestU0F(t *testing.T) {
 	t.Logf("fills %d", len(rows))
 }
 
-// u0fWalkA is the U0-F model-A walk, extracted verbatim so U0-H2 reuses it.
+// u0fWalkA is the U0-F model-A walk. U14: it runs the production walker
+// (protector_walk.go), which drives the live protector step
+// (protectPosition) with the bar close time as the clock; before U14 this
+// was a test-only loop that shifted the protector's stored times instead.
 // Inputs: plan E/S/T1/T2 (T1/T2 = 0 means "no planned target"), exchange tp,
 // leverage, side, the bars from the fill bar on, and the R helpers.
 func u0fWalkA(symbol string, long bool, sgn float64, side string, E, S, T1, T2, tp float64, lev int, bars []replay.Bar, fillIdx int,
 	u func(float64) float64, fav, adv func(replay.Bar) float64, hit func(float64, float64, bool) bool, d float64, row *u0fRow) {
-	ev := struct{ Symbol string }{symbol}
-	res := struct{ FillIdx int }{fillIdx}
-	// ---- A: live protector ----
-	{
-		q0 := 1000.0 / E // $1000 notional (as protector_ab_sim_test.go)
-		x := &u0fExchange{qty: q0, stop: S, origStop: S}
-		x.tp = tp
-		at := &AutoTrader{trader: x, protectionState: map[string]*positionProtectionState{}, peakPnLCache: map[string]float64{}, positionFirstSeenTime: map[string]int64{}}
-		posKey := ev.Symbol + "_" + side
-		simOpen := time.UnixMilli(bars[res.FillIdx].OpenTime)
-		var simLastUpd time.Time
-		exit := "timeout"
-		for j := res.FillIdx; j < len(bars) && x.qty > 0; j++ {
-			b := bars[j]
-			// resting exchange orders, stop first
-			if x.stop > 0 && hit(adv(b), x.stop, false) {
-				x.mark, x.actionWhy = x.stop, "stop"
-				if x.stop != S {
-					x.actionWhy = "moved_stop"
-				}
-				x.closeAt(0)
-				exit = x.actionWhy
-				break
-			}
-			if x.tp > 0 && hit(fav(b), x.tp, true) {
-				x.mark, x.actionWhy = x.tp, "exchange_tp"
-				x.closeAt(0)
-				exit = "exchange_tp"
-				break
-			}
-			// protector poll at the bar close
-			simNow := time.UnixMilli(b.OpenTime + 60000)
-			protectionNow = func() time.Time { return simNow }
-			off := time.Now().Sub(simNow)
-			x.mark = b.Close
-			cur := calculateLeveragedPnLPct(side, E, b.Close, lev)
-			move := calculateUnleveragedPnLPct(side, E, b.Close)
-			st := at.getOrCreateProtectionState(posKey, x.qty, cur, simOpen)
-			st.OpenedAt = simOpen.Add(off)
-			shifted := time.Time{}
-			if !simLastUpd.IsZero() {
-				shifted = simLastUpd.Add(off)
-				st.LastStopUpdateAt = shifted
-			}
-			st.rememberActiveStopLoss(side, S)
-			st.PlannedStopLossROEPct = calculateLeveragedPnLPct(side, E, S, lev)
-			st.rememberPlannedTakeProfit(side, tp)
-			st.rememberPlannedTarget(side, &st.PlannedTP1, T1)
-			st.rememberPlannedTarget(side, &st.PlannedTP2, T2)
-			x.actionWhy = "dynamic_stop_emergency"
-			err := at.updateDynamicProtectionStop(ev.Symbol, side, x.qty, E, b.Close, lev, st)
-			if !st.LastStopUpdateAt.Equal(shifted) && !st.LastStopUpdateAt.IsZero() {
-				simLastUpd = simNow
-			}
-			if err != nil && x.qty == 0 {
-				exit = "protector_close"
-				break
-			}
-			action, _ := choosePositionProtectionAction(st, cur, move)
-			if action == protectionNone && shouldTriggerPlannedTP0Price(side, b.Close, cur, st) {
-				action = protectionTP0
-			}
-			if action == protectionNone && shouldTriggerPlannedTarget(side, b.Close, st.PlannedTP1, st.TP1Done) {
-				action = protectionTP1
-			}
-			if action == protectionNone && shouldTriggerPlannedTarget(side, b.Close, st.PlannedTP2, st.TP2Done) {
-				action = protectionTP2
-			}
-			st.OpenedAt = simOpen // keep sim clock in state between bars
-			if action == protectionNone {
-				continue
-			}
-			x.actionWhy = string(action)
-			row.AActions = append(row.AActions, string(action))
-			closedAll, _ := at.executeProtectionAction(ev.Symbol, side, x.qty, b.Close, E, action)
-			at.markProtectionAction(posKey, action, closedAll)
-			if x.qty == 0 {
-				exit = "protector_close:" + string(action)
-				break
-			}
-		}
-		if x.qty > 0 {
-			x.mark, x.actionWhy = bars[len(bars)-1].Close, "timeout"
-			x.closeAt(0)
-		}
-		g := 0.0
-		for k := range x.legs {
-			x.legs[k].Frac /= q0
-			g += x.legs[k].Frac * u(x.legs[k].Price)
-		}
-		row.A = g - u0fFee(x.legs, E, d)
-		row.AExit = exit
-		row.AMoves = x.moves
+	q0 := 1000.0 / E // $1000 notional (as protector_ab_sim_test.go)
+	wb := make([]protectorWalkBar, len(bars))
+	for k, b := range bars {
+		wb[k] = protectorWalkBar{OpenMs: b.OpenTime, Open: b.Open, High: b.High, Low: b.Low, Close: b.Close}
 	}
-
-	_ = long
+	res := protectorWalk(protectorWalkInput{Symbol: symbol, Side: side, Entry: E, Stop: S, TakeProfit: tp, TP1: T1, TP2: T2,
+		Leverage: lev, Qty: q0, Bars: wb, FillIdx: fillIdx})
+	legs := make([]u0fLeg, len(res.Legs))
+	g := 0.0
+	for k, l := range res.Legs {
+		legs[k] = u0fLeg{Frac: l.Qty / q0, Price: l.Price, Why: l.Why}
+		g += legs[k].Frac * u(l.Price)
+	}
+	row.A = g - u0fFee(legs, E, d)
+	row.AExit = res.Exit
+	row.AActions = res.Actions
+	row.AMoves = res.StopMoves
+	_, _, _, _, _ = long, sgn, fav, adv, hit
 }

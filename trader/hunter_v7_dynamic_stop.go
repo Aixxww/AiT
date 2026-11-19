@@ -23,6 +23,9 @@ type DynamicStopConfig struct {
 	TimeDecayEnabled bool
 	TimeDecayAfter   time.Duration // 30 minutes
 	TimeDecayRate    float64       // 0.02 per minute (fraction of gap to close)
+	// TimeDecayMaxFraction caps the decay (0.5 = half the gap). 0 reads
+	// as 0.5, the previous literal (U14).
+	TimeDecayMaxFraction float64
 
 	// Trailing stop (profit protection)
 	TrailingEnabled     bool
@@ -33,16 +36,17 @@ type DynamicStopConfig struct {
 // DefaultDynamicStopConfig returns sensible defaults.
 func DefaultDynamicStopConfig() DynamicStopConfig {
 	return DynamicStopConfig{
-		HighVolThreshold:    80.0,
-		LowVolThreshold:     20.0,
-		HighVolStopWiden:    1.3,
-		LowVolStopTighten:   0.7,
-		TimeDecayEnabled:    true,
-		TimeDecayAfter:      30 * time.Minute,
-		TimeDecayRate:       0.02,
-		TrailingEnabled:     true,
-		TrailingActivationR: 0.5,
-		TrailingDistanceR:   0.4,
+		HighVolThreshold:     80.0,
+		LowVolThreshold:      20.0,
+		HighVolStopWiden:     1.3,
+		LowVolStopTighten:    0.7,
+		TimeDecayEnabled:     true,
+		TimeDecayAfter:       30 * time.Minute,
+		TimeDecayRate:        0.02,
+		TimeDecayMaxFraction: 0.5,
+		TrailingEnabled:      true,
+		TrailingActivationR:  0.5,
+		TrailingDistanceR:    0.4,
 	}
 }
 
@@ -107,8 +111,12 @@ func (dsm *DynamicStopManager) CalcDynamicStop(
 	if dsm.config.TimeDecayEnabled && elapsed > dsm.config.TimeDecayAfter {
 		decayMinutes := elapsed.Minutes() - dsm.config.TimeDecayAfter.Minutes()
 		decayFactor := decayMinutes * dsm.config.TimeDecayRate
-		if decayFactor > 0.5 {
-			decayFactor = 0.5 // cap at 50% of the gap
+		maxDecay := dsm.config.TimeDecayMaxFraction
+		if maxDecay <= 0 {
+			maxDecay = 0.5
+		}
+		if decayFactor > maxDecay {
+			decayFactor = maxDecay // cap at 50% of the gap by default
 		}
 		if isLong {
 			gap := entryPrice - adjustedStop
