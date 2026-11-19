@@ -82,6 +82,9 @@ func (at *AutoTrader) runCycle() error {
 	// Save equity snapshot independently (decoupled from AI decision, used for drawing profit curve)
 	// NOTE: Must be called BEFORE candidate coins check to ensure equity is always recorded
 	at.saveEquitySnapshot(ctx)
+	// F08: daily-loss breaker on this cycle's equity (trips, near-trips and
+	// new day baselines go to the execution log).
+	at.recordDailyLossEvaluation(ctx.Account.TotalEquity, ctx.AccountDataStale, record)
 
 	// If no candidate coins available, log but do not error
 	if len(ctx.CandidateCoins) == 0 {

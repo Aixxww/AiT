@@ -69,6 +69,10 @@ func (at *AutoTrader) executeDecisionWithRecord(ctx *kernel.Context, decision *k
 		if decision.Action == "open_short" {
 			side = "short"
 		}
+		// F08: no pending entry is registered while the breaker blocks.
+		if err := at.enforceDailyLossBreaker(decision.Symbol, decision.Action); err != nil {
+			return err
+		}
 		// U9: an open on a conditional candidate becomes a pending entry.
 		if decision.HunterV7ConditionalEntry {
 			return at.registerHunterV7ConditionalEntry(ctx, decision, side, actionRecord, time.Now())
@@ -143,6 +147,10 @@ func effectiveOpenRiskMetrics(side string, entryPrice, stopLoss, takeProfit, pos
 
 // executeOpenLongWithRecord executes open long position and records detailed information
 func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
+	// F08: also covers conditional fills, which call this directly.
+	if err := at.enforceDailyLossBreaker(decision.Symbol, decision.Action); err != nil {
+		return err
+	}
 	logger.Infof("  📈 Open long: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price
@@ -310,6 +318,10 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 
 // executeOpenShortWithRecord executes open short position and records detailed information
 func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *kernel.Decision, actionRecord *store.DecisionAction) error {
+	// F08: also covers conditional fills, which call this directly.
+	if err := at.enforceDailyLossBreaker(decision.Symbol, decision.Action); err != nil {
+		return err
+	}
 	logger.Infof("  📉 Open short: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price

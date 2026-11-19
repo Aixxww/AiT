@@ -614,6 +614,10 @@ type RiskControlConfig struct {
 	MinStopLossPriceMovePct float64 `json:"min_stop_loss_price_move_pct,omitempty"`
 	// Per-setup execution guard thresholds (optional override, keyed by setup_type)
 	SetupGuard map[string]SetupGuardConfig `json:"setup_guard,omitempty"`
+	// DailyLossBreaker is the F08 daily-loss breaker (mode off / shadow /
+	// armed; default shadow). nil = defaults; read through
+	// EffectiveDailyLossBreaker.
+	DailyLossBreaker *DailyLossBreakerConfig `json:"daily_loss_breaker,omitempty"`
 	// GeometryRepair selects what the Hunter v7 open path does with LLM
 	// geometry that misses a backend constraint (CODE ENFORCED):
 	//   "" or "repair" — historical behaviour: refresh the decision price,
