@@ -17,7 +17,7 @@ import (
 // a short removed the protection of an existing long, and it also removed
 // manual orders. CancelOwnedOrders limits the cancel to orders whose client
 // id carries the bot's prefix (every order placed by this package does:
-// getBrOrderID and ClientOrderIDForIntent) and whose position side matches
+// newClientOrderID and ClientOrderIDForIntent) and whose position side matches
 // (one-way mode reports "BOTH", which matches either side), then re-reads
 // the open orders and reports any owned same-side order that survived.
 //
@@ -27,12 +27,10 @@ import (
 // CancelStopLossOrders). F28 adds ProtectiveStopOpen, which the protector
 // uses to confirm a position is still protected after a failed rebuild.
 
-// ownedOrderPrefix is the client-id prefix of every order this package
-// places (see getBrOrderID and ClientOrderIDForIntent).
-const ownedOrderPrefix = "x-KzrpZaP9"
-
+// Ownership is decided by isOwnedClientID (client_ids.go): the OD-19
+// ownership prefix, with or without a referral part, or the legacy prefix.
 func ownedSideMatch(clientID string, orderSide futures.PositionSideType, want string) bool {
-	if !strings.HasPrefix(clientID, ownedOrderPrefix) {
+	if !isOwnedClientID(clientID) {
 		return false
 	}
 	return sideMatch(orderSide, want)

@@ -38,6 +38,7 @@ type Exchange struct {
 	LighterAPIKeyPrivateKey crypto.EncryptedString `gorm:"column:lighter_api_key_private_key;default:''" json:"lighterAPIKeyPrivateKey"`
 	LighterAPIKeyIndex      int                    `gorm:"column:lighter_api_key_index;default:0" json:"lighterAPIKeyIndex"`
 	ProxyURL                string                 `gorm:"column:proxy_url;default:''" json:"proxy_url"`
+	ReferralID              string                 `gorm:"column:referral_id;not null;default:''" json:"referral_id"` // OD-19: optional referral/broker id; empty (default) = none sent
 	CreatedAt               time.Time              `json:"created_at"`
 	UpdatedAt               time.Time              `json:"updated_at"`
 }
@@ -55,6 +56,8 @@ func (s *ExchangeStore) initTables() error {
 		var tableExists int64
 		s.db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'exchanges'`).Scan(&tableExists)
 		if tableExists > 0 {
+			// OD-19: optional referral id, default empty.
+			s.db.Exec(`ALTER TABLE exchanges ADD COLUMN IF NOT EXISTS referral_id TEXT NOT NULL DEFAULT ''`)
 			// Still run data migrations
 			s.migrateToMultiAccount()
 			s.db.Model(&Exchange{}).Where("account_name = '' OR account_name IS NULL").Update("account_name", "Default")

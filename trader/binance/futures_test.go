@@ -610,15 +610,18 @@ func TestSetLeverageClampsToBinanceSymbolLimit(t *testing.T) {
 	assert.Equal(t, 10, requestedLeverage)
 }
 
-// TestGetBrOrderID tests order ID generation
-func TestGetBrOrderID(t *testing.T) {
+// TestNewClientOrderID tests order ID generation (OD-19: default has the
+// neutral ownership prefix and no referral part).
+func TestNewClientOrderID(t *testing.T) {
+	ft := &FuturesTrader{}
 	// Test 3 times to ensure each generated ID is unique
 	ids := make(map[string]bool)
 	for i := 0; i < 3; i++ {
-		id := getBrOrderID()
+		id := ft.newClientOrderID()
 
 		// Check format
-		assert.True(t, strings.HasPrefix(id, "x-KzrpZaP9"), "order ID should start with x-KzrpZaP9")
+		assert.True(t, strings.HasPrefix(id, ownedOrderPrefix), "order ID should start with the ownership prefix")
+		assert.False(t, strings.HasPrefix(id, "x-"), "no referral prefix by default")
 
 		// Check length (should be <= 32)
 		assert.LessOrEqual(t, len(id), 32, "order ID length should not exceed 32 characters")

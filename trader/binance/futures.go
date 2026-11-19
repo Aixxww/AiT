@@ -3,7 +3,6 @@ package binance
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -20,34 +19,6 @@ import (
 
 	"github.com/adshao/go-binance/v2/futures"
 )
-
-// getBrOrderID generates unique order ID (for futures contracts)
-// Format: x-{BR_ID}{TIMESTAMP}{RANDOM}
-// Futures limit is 32 characters, use this limit consistently
-// Uses nanosecond timestamp + random number to ensure global uniqueness (collision probability < 10^-20)
-func getBrOrderID() string {
-	brID := "KzrpZaP9" // Futures br ID
-
-	// Calculate available space: 32 - len("x-KzrpZaP9") = 32 - 11 = 21 characters
-	// Allocation: 13-digit timestamp + 8-digit random = 21 characters (perfect utilization)
-	timestamp := time.Now().UnixNano() % 10000000000000 // 13-digit nanosecond timestamp
-
-	// Generate 4-byte random number (8 hex digits)
-	randomBytes := make([]byte, 4)
-	rand.Read(randomBytes)
-	randomHex := hex.EncodeToString(randomBytes)
-
-	// Format: x-KzrpZaP9{13-digit timestamp}{8-digit random}
-	// Example: x-KzrpZaP91234567890123abcdef12 (exactly 31 characters)
-	orderID := fmt.Sprintf("x-%s%d%s", brID, timestamp, randomHex)
-
-	// Ensure not exceeding 32-character limit (theoretically exactly 31 characters)
-	if len(orderID) > 32 {
-		orderID = orderID[:32]
-	}
-
-	return orderID
-}
 
 // FuturesTrader Binance futures trader
 type FuturesTrader struct {
@@ -70,6 +41,9 @@ type FuturesTrader struct {
 
 	// Cache validity period (15 seconds)
 	cacheDuration time.Duration
+
+	// OD-19: broker id from the exchange config; empty = none (see client_ids.go).
+	referralID string
 }
 
 const (

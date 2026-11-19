@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
 	"io"
 	"net/http"
 	"strings"
@@ -67,6 +68,9 @@ type OKXTrader struct {
 
 	// Cache duration
 	cacheDuration time.Duration
+
+	// OD-19: broker order tag from the exchange config; empty = none.
+	tag string
 }
 
 // OKXInstrument OKX instrument info
@@ -88,24 +92,31 @@ type OKXResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-// OKX order tag
-var okxTag = func() string {
-	b, _ := base64.StdEncoding.DecodeString("NGMzNjNjODFlZGM1QkNERQ==")
-	return string(b)
-}()
+// okxClOrdIDPrefix is a neutral client-order-id prefix (OD-19). Before
+// OD-19 the broker tag doubled as this prefix; nothing reads it back.
+const okxClOrdIDPrefix = "ait"
 
-// genOkxClOrdID generates OKX order ID
+// genOkxClOrdID generates an OKX client order id: "ait" + 13-digit
+// timestamp + 8 hex random = 24 alphanumeric characters (OKX limit 32).
 func genOkxClOrdID() string {
 	timestamp := time.Now().UnixNano() % 10000000000000
 	randomBytes := make([]byte, 4)
 	rand.Read(randomBytes)
-	randomHex := hex.EncodeToString(randomBytes)
-	// OKX clOrdId max 32 characters
-	orderID := fmt.Sprintf("%s%d%s", okxTag, timestamp, randomHex)
-	if len(orderID) > 32 {
-		orderID = orderID[:32]
+	return fmt.Sprintf("%s%013d%s", okxClOrdIDPrefix, timestamp, hex.EncodeToString(randomBytes))
+}
+
+// SetReferralID sets the OKX broker order tag from the exchange config.
+// Call it right after construction. Empty or invalid = no tag is sent.
+func (t *OKXTrader) SetReferralID(id string) {
+	t.tag = traderutil.NormalizeReferralID("OKX", id, 16)
+}
+
+// withTag adds the broker "tag" field to an order body when configured.
+func (t *OKXTrader) withTag(body map[string]interface{}) map[string]interface{} {
+	if t.tag != "" {
+		body["tag"] = t.tag
 	}
-	return orderID
+	return body
 }
 
 // NewOKXTrader creates OKX trader
