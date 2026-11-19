@@ -118,6 +118,7 @@ func newOwnedMockTrader(t *testing.T, m *ownedMockExchange) *FuturesTrader {
 	client := futures.NewClient("test_api_key", "test_secret_key")
 	client.BaseURL = srv.URL
 	client.HTTPClient = srv.Client()
+	installOrderGuard(client)
 	return &FuturesTrader{client: client}
 }
 

@@ -58,12 +58,11 @@ func TestClientOrderIDForIntent_Deterministic(t *testing.T) {
 	assert.Equal(t, ft.ClientOrderIDForIntent("k1"), ft.ClientOrderIDForIntent("k1"))
 }
 
-// Transition: orders placed before OD-19 (legacy prefix) and orders placed
-// under any referral id stay owned, so F26/F27 cancels and the F28 stop
-// check still see them.
-func TestIsOwnedClientID_Transition(t *testing.T) {
+// Orders placed under any referral id stay owned, so F26/F27 cancels and
+// the F28 stop check see them. The pre-OD-19 prefix is no longer owned.
+func TestIsOwnedClientID(t *testing.T) {
 	cases := map[string]bool{
-		"x-KzrpZaP91234567890123abcdef12": true,  // legacy, pre-OD-19
+		"x-KzrpZaP91234567890123abcdef12": false, // removed pre-OD-19 prefix
 		"ait-1234567890123abcdef12":       true,  // new, no referral
 		"x-ABCD1234ait-890123abcdef12":    true,  // new, with referral
 		"x-OTHERait-890123abcdef12":       true,  // referral changed while open
@@ -75,20 +74,5 @@ func TestIsOwnedClientID_Transition(t *testing.T) {
 	for id, want := range cases {
 		assert.Equal(t, want, isOwnedClientID(id), id)
 	}
-	assert.True(t, ownedSideMatch(legacyOwnedOrderPrefix+"x", futures.PositionSideTypeLong, "LONG"))
-}
-
-// F26: a legacy-prefix order opened before the upgrade is still cancelled.
-func TestCancelOwnedOrders_LegacyPrefixStillOwned(t *testing.T) {
-	m := &ownedMockExchange{
-		orders:       map[int64][2]string{1: {legacyOwnedOrderPrefix + "old", "LONG"}, 2: {ownedOrderPrefix + "new", "LONG"}, 3: {"web_manual", "LONG"}},
-		algos:        map[int64][2]string{11: {legacyOwnedOrderPrefix + "oldsl", "LONG"}},
-		ignoreCancel: map[int64]bool{},
-	}
-	ft := newOwnedMockTrader(t, m)
-	if err := ft.CancelOwnedOrders("BTCUSDT", "LONG"); err != nil {
-		t.Fatal(err)
-	}
-	assert.ElementsMatch(t, []int64{1, 2, 11}, m.canceled)
-	assert.Contains(t, m.orders, int64(3), "manual order kept")
+	assert.False(t, ownedSideMatch("x-KzrpZaP9x", futures.PositionSideTypeLong, "LONG"))
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/Aixxww/AiT/trader/traderutil"
@@ -21,19 +20,17 @@ import (
 //   - ownership part: ownedOrderPrefix, always present. F26/F27/F28 use it
 //     to recognise this bot's orders.
 //
-// Before OD-19 both roles shared one hard-coded prefix, legacyOwnedOrderPrefix.
-// Orders placed before the upgrade still carry it, so isOwnedClientID
-// accepts it during the transition; new orders never use it.
+// Before OD-19 both roles shared one hard-coded broker prefix. It was
+// accepted as owned during the transition and has since been removed
+// (no order with it was open); such an order now counts as not owned.
 //
 // Every order this package places sets its own client id. go-binance
 // v2.8.9 fills in its own broker prefix ("x-ftGmvgAN") when the id is left
-// empty, so leaving it empty would send a third party's referral id.
+// empty; order_guard.go refuses any create-order request without our id.
 
 const (
 	// ownedOrderPrefix marks orders placed by this bot (neutral, no referral).
 	ownedOrderPrefix = "ait-"
-	// legacyOwnedOrderPrefix is the pre-OD-19 combined broker/ownership prefix.
-	legacyOwnedOrderPrefix = "x-KzrpZaP9"
 	// binanceClientIDMaxLen is the futures client-id limit used by this package.
 	binanceClientIDMaxLen = 32
 	// binanceReferralIDMaxLen keeps at least 14 characters of id body after
@@ -51,7 +48,7 @@ var ownedClientIDRe = regexp.MustCompile(`^(x-[A-Za-z0-9]{1,` + fmt.Sprint(binan
 
 // isOwnedClientID reports whether a client id was placed by this bot.
 func isOwnedClientID(clientID string) bool {
-	return strings.HasPrefix(clientID, legacyOwnedOrderPrefix) || ownedClientIDRe.MatchString(clientID)
+	return ownedClientIDRe.MatchString(clientID)
 }
 
 // SetReferralID sets the Binance broker id from the exchange config. Call it

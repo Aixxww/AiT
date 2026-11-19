@@ -308,6 +308,7 @@ func NewBinanceFuturesTestSuite(t *testing.T) *BinanceFuturesTestSuite {
 	client := futures.NewClient("test_api_key", "test_secret_key")
 	client.BaseURL = mockServer.URL
 	client.HTTPClient = mockServer.Client()
+	installOrderGuard(client) // as in NewFuturesTrader: every order path goes through the guard
 
 	// Create FuturesTrader
 	traderInstance := &FuturesTrader{
