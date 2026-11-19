@@ -30,7 +30,7 @@ type GateTrader struct {
 // NewGateTrader creates a new Gate trader instance
 func NewGateTrader(apiKey, secretKey string) *GateTrader {
 	config := gateapi.NewConfiguration()
-	config.AddDefaultHeader("X-Gate-Channel-Id", "ait")
+	// OD-19: X-Gate-Channel-Id is sent only when configured (SetReferralID).
 	client := gateapi.NewAPIClient(config)
 
 	ctx := context.WithValue(context.Background(),
@@ -49,6 +49,17 @@ func NewGateTrader(apiKey, secretKey string) *GateTrader {
 		balanceCache:   traderutil.NewTimedCache[map[string]interface{}](15 * time.Second),
 		positionsCache: traderutil.NewTimedCache[[]map[string]interface{}](15 * time.Second),
 		contractsCache: make(map[string]*gateapi.Contract),
+	}
+}
+
+// SetReferralID sets the Gate channel id (X-Gate-Channel-Id) from the
+// exchange config. Call it right after construction. Empty or invalid = none.
+func (t *GateTrader) SetReferralID(id string) {
+	cfg := t.client.GetConfig()
+	if id = traderutil.NormalizeReferralID("Gate", id, 32); id != "" {
+		cfg.AddDefaultHeader("X-Gate-Channel-Id", id)
+	} else {
+		delete(cfg.DefaultHeader, "X-Gate-Channel-Id")
 	}
 }
 

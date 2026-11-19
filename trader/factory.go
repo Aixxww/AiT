@@ -24,15 +24,25 @@ func NewTraderFromExchange(exchangeCfg *store.Exchange, userID string) (Trader, 
 
 	switch exchangeCfg.ExchangeType {
 	case "binance":
-		return binance.NewFuturesTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), userID, exchangeCfg.ProxyURL), nil
+		t := binance.NewFuturesTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), userID, exchangeCfg.ProxyURL)
+		t.SetReferralID(exchangeCfg.ReferralID)
+		return t, nil
 	case "bybit":
-		return bybit.NewBybitTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey)), nil
+		t := bybit.NewBybitTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey))
+		t.SetReferralID(exchangeCfg.ReferralID)
+		return t, nil
 	case "okx":
-		return okx.NewOKXTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase)), nil
+		t := okx.NewOKXTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase))
+		t.SetReferralID(exchangeCfg.ReferralID)
+		return t, nil
 	case "bitget":
-		return bitget.NewBitgetTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase)), nil
+		t := bitget.NewBitgetTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase))
+		t.SetReferralID(exchangeCfg.ReferralID)
+		return t, nil
 	case "gate":
-		return gate.NewGateTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey)), nil
+		t := gate.NewGateTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey))
+		t.SetReferralID(exchangeCfg.ReferralID)
+		return t, nil
 	case "kucoin":
 		return kucoin.NewKuCoinTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase)), nil
 	case "indodax":

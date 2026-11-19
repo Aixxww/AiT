@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
 	"io"
 	"net/http"
 	"strconv"
@@ -58,6 +59,9 @@ type BitgetTrader struct {
 
 	// Cache duration
 	cacheDuration time.Duration
+
+	// OD-19: channel code from the exchange config; empty = none.
+	referralID string
 }
 
 // BitgetContract Bitget contract info
@@ -104,6 +108,12 @@ func NewBitgetTrader(apiKey, secretKey, passphrase string) *BitgetTrader {
 	logger.Infof("🟢 [Bitget] Trader initialized")
 
 	return trader
+}
+
+// SetReferralID sets the Bitget channel code (X-CHANNEL-API-CODE) from the
+// exchange config. Call it right after construction. Empty or invalid = none.
+func (t *BitgetTrader) SetReferralID(id string) {
+	t.referralID = traderutil.NormalizeReferralID("Bitget", id, 32)
 }
 
 // setPositionMode sets one-way position mode
@@ -182,9 +192,9 @@ func (t *BitgetTrader) doRequest(method, path string, body interface{}) ([]byte,
 	req.Header.Set("ACCESS-PASSPHRASE", t.passphrase)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("locale", "en-US")
-	// Channel code only for order endpoints
-	if strings.Contains(path, "/order/") {
-		req.Header.Set("X-CHANNEL-API-CODE", "7fygt")
+	// OD-19: channel code only for order endpoints, and only when configured.
+	if t.referralID != "" && strings.Contains(path, "/order/") {
+		req.Header.Set("X-CHANNEL-API-CODE", t.referralID)
 	}
 
 	resp, err := t.httpClient.Do(req)

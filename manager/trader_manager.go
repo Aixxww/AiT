@@ -701,6 +701,8 @@ func (tm *TraderManager) addTraderFromStore(traderCfg *store.Trader, aiModelCfg 
 
 	// Set proxy URL (applicable to all exchange types)
 	traderConfig.ProxyURL = exchangeCfg.ProxyURL
+	// OD-19: optional referral/broker id (default empty = none sent)
+	traderConfig.ReferralID = exchangeCfg.ReferralID
 
 	// Set API keys based on AI model (convert EncryptedString to string)
 	switch aiModelCfg.Provider {

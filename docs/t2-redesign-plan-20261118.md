@@ -578,6 +578,8 @@ F08 record (daily-loss breaker: modes, UTC day, 15% limit, open block, persisten
 
 U14 record (protector config with units, shared step for live and replay, F29–F31, U0-F / U0-H2 re-run): `docs/t2-u14-protector.md`.
 
+OD-19 record (referral/broker ids moved to exchange config, default empty; Binance client-id prefix split into referral and ownership parts): `docs/t2-od19-referral-config.md`.
+
 ---
 
 ## 7. R6: post-entry position management
@@ -814,7 +816,7 @@ Each entry gives the options, my recommendation, and the evidence behind it.
 | OD-16 | M2 A/B (loosen spec vs accept strict) | per class: TRIGGER accepts strict spec v2; IMPULSE gets chase-ATR (U0-D) | Per-class split | Ignition 7/396 vs momentum 0/218 [M:M2v2] |
 | OD-17 | Forward calibration data, given the shadow phase is cancelled | (a) record tags and outcomes in shadow mode without trading; (b) wait for pilot/live; (c) build a native fee-net replay corpus | (a) + (c) | No fee-net native corpus exists [M:DOC search]. MEAS3 covers T2 moments only. |
 | OD-18 | Task C sequencing and T2 naming | run now vs after OD-6; `t2_` prefix for T2 setup types; reclaim rename | After OD-6. Add the prefix and fix the reclaim rename. | Reclaim collision (§4.1) |
-| OD-19 | F22 broker prefix | (pending from before) | — | F-audit |
+| OD-19 | F22 broker prefix | (a) keep; (b) move to exchange config and split the Binance prefix; (c) remove | (b), default empty (owner) | F-audit; `docs/t2-od19-referral-config.md` |
 | OD-20 | G3 yield target | keep ≥ 170; regime-conditional (SSA §I) | Regime-conditional, set from U0 | 170 unreachable: 19 at 1.2, 90 at 0.5 [M:MEAS1]. After v2 geometry the yield is about 0.00065 per round, with a 99.9% zero-event probability per round [M:SSA §I]. At RR 1.2 it is about 0.40 events per day [D]. |
 | OD-21 | Cycle alignment to bar close (also changes native cadence) | keep the 3-minute wall clock; align to 5m close + settle | Align, gated on the U10 parity test | [C:auto_trader.go:717]; 18.6R one-bar cost [M:LAT] |
 | OD-22 | Exit management (R6) | (a) keep the live protector (E0); (b) align live to replay baseline D; (c) adopt a variant E1–E6 only if it passes the T-EXIT gate; (d) class-dependent (E5) | Run U0-F first. Then (c) if any variant passes against D; otherwise (b) if A − D < 0; otherwise (a) with F27–F31 fixed | Mechanism §7.2 [C, D]; T-EXIT ΔR +0.004 to +0.010 per trade [M]; no measurement of live model A exists (§7.3) |
@@ -997,4 +999,4 @@ Neither reading changes. A − D ≥ 0, so under the OD-22 rule A is kept. U0-H2
 
 **Task C pass 2: deferred.** The fields audit marks no dictionary entry "safe" for a code or DB rename. The deferred items and the reason for each are recorded in `docs/t2-u11-payload-v2.md` (§ "Pass 2"). Nothing is scheduled.
 
-**OD-19 (F22 broker prefix): open.** A proposal is with the owner.
+**OD-19 (F22 broker prefix): decided, option (b), default empty.** Referral/broker ids are an optional per-account `referral_id` in exchange config, empty by default, so no referral data is sent. The Binance client-id prefix is split into an optional referral part and a neutral ownership part (`ait-`); the legacy prefix stays owned during the transition (`docs/t2-od19-referral-config.md`).

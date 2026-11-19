@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
 	"io"
 	"math"
 	"net/http"
@@ -37,13 +38,18 @@ type BybitTrader struct {
 
 	// Cache duration (15 seconds)
 	cacheDuration time.Duration
+
+	// OD-19: transport that adds the optional broker Referer header.
+	header *headerRoundTripper
 }
 
 // NewBybitTrader creates a Bybit trader
 func NewBybitTrader(apiKey, secretKey string) *BybitTrader {
-	const src = "Up000938"
-
 	client := bybit.NewBybitHttpClient(apiKey, secretKey, bybit.WithBaseURL(bybit.MAINNET))
+
+	// OD-19: the broker Referer header is sent only when a referral id is
+	// configured (SetReferralID); default none.
+	var header *headerRoundTripper
 
 	// Set HTTP transport
 	if client != nil && client.HTTPClient != nil {
@@ -52,13 +58,12 @@ func NewBybitTrader(apiKey, secretKey string) *BybitTrader {
 			defaultTransport = http.DefaultTransport
 		}
 
-		client.HTTPClient.Transport = &headerRoundTripper{
-			base:      defaultTransport,
-			refererID: src,
-		}
+		header = &headerRoundTripper{base: defaultTransport}
+		client.HTTPClient.Transport = header
 	}
 
 	trader := &BybitTrader{
+		header:        header,
 		client:        client,
 		apiKey:        apiKey,
 		secretKey:     secretKey,
@@ -71,14 +76,25 @@ func NewBybitTrader(apiKey, secretKey string) *BybitTrader {
 	return trader
 }
 
+// SetReferralID sets the Bybit broker id (Referer header) from the exchange
+// config. Call it right after construction. Empty or invalid = none.
+func (t *BybitTrader) SetReferralID(id string) {
+	if t.header != nil {
+		t.header.refererID = traderutil.NormalizeReferralID("Bybit", id, 32)
+	}
+}
+
 // headerRoundTripper HTTP RoundTripper for adding custom headers
 type headerRoundTripper struct {
 	base      http.RoundTripper
-	refererID string
+	refererID string // empty = no Referer header
 }
 
 func (h *headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Referer", h.refererID)
+	if h.refererID != "" {
+		req = req.Clone(req.Context())
+		req.Header.Set("Referer", h.refererID)
+	}
 	return h.base.RoundTrip(req)
 }
 

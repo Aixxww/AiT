@@ -53,8 +53,8 @@ func (t *OKXTrader) OpenLong(symbol string, quantity float64, leverage int) (map
 		"ordType": "market",
 		"sz":      szStr,
 		"clOrdId": genOkxClOrdID(),
-		"tag":     okxTag,
 	}
+	t.withTag(body)
 
 	data, err := t.doRequest("POST", okxOrderPath, body)
 	if err != nil {
@@ -132,8 +132,8 @@ func (t *OKXTrader) OpenShort(symbol string, quantity float64, leverage int) (ma
 		"ordType": "market",
 		"sz":      szStr,
 		"clOrdId": genOkxClOrdID(),
-		"tag":     okxTag,
 	}
+	t.withTag(body)
 
 	data, err := t.doRequest("POST", okxOrderPath, body)
 	if err != nil {
@@ -237,8 +237,8 @@ func (t *OKXTrader) CloseLong(symbol string, quantity float64) (map[string]inter
 		"ordType": "market",
 		"sz":      szStr,
 		"clOrdId": genOkxClOrdID(),
-		"tag":     okxTag,
 	}
+	t.withTag(body)
 
 	// Only add posSide in dual mode (long_short_mode)
 	if t.positionMode == "long_short_mode" {
@@ -348,8 +348,8 @@ func (t *OKXTrader) CloseShort(symbol string, quantity float64) (map[string]inte
 		"ordType": "market",
 		"sz":      szStr,
 		"clOrdId": genOkxClOrdID(),
-		"tag":     okxTag,
 	}
+	t.withTag(body)
 
 	// Only add posSide in dual mode (long_short_mode)
 	if t.positionMode == "long_short_mode" {
@@ -427,8 +427,8 @@ func (t *OKXTrader) SetStopLoss(symbol string, positionSide string, quantity, st
 		"sz":          szStr,
 		"slTriggerPx": fmt.Sprintf("%.8f", stopPrice),
 		"slOrdPx":     "-1", // Market price
-		"tag":         okxTag,
 	}
+	t.withTag(body)
 
 	_, err = t.doRequest("POST", okxAlgoOrderPath, body)
 	if err != nil {
@@ -472,8 +472,8 @@ func (t *OKXTrader) SetTakeProfit(symbol string, positionSide string, quantity, 
 		"sz":          szStr,
 		"tpTriggerPx": fmt.Sprintf("%.8f", takeProfitPrice),
 		"tpOrdPx":     "-1", // Market price
-		"tag":         okxTag,
 	}
+	t.withTag(body)
 
 	_, err = t.doRequest("POST", okxAlgoOrderPath, body)
 	if err != nil {
@@ -836,8 +836,8 @@ func (t *OKXTrader) PlaceLimitOrder(req *types.LimitOrderRequest) (*types.LimitO
 		"sz":      szStr,
 		"px":      fmt.Sprintf("%.8f", req.Price),
 		"clOrdId": genOkxClOrdID(),
-		"tag":     okxTag,
 	}
+	t.withTag(body)
 
 	// Add reduce only if specified
 	if req.ReduceOnly {

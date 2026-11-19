@@ -2,8 +2,6 @@ package binance
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
@@ -17,12 +15,12 @@ import (
 
 // OpenLong opens a long position with a fresh client order id.
 func (t *FuturesTrader) OpenLong(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
-	return t.openMarket(symbol, quantity, leverage, true, getBrOrderID())
+	return t.openMarket(symbol, quantity, leverage, true, t.newClientOrderID())
 }
 
 // OpenShort opens a short position with a fresh client order id.
 func (t *FuturesTrader) OpenShort(symbol string, quantity float64, leverage int) (map[string]interface{}, error) {
-	return t.openMarket(symbol, quantity, leverage, false, getBrOrderID())
+	return t.openMarket(symbol, quantity, leverage, false, t.newClientOrderID())
 }
 
 // OpenLongWithClientID opens a long position under a caller-chosen client
@@ -156,14 +154,6 @@ func (t *FuturesTrader) IsAmbiguousOrderError(err error) bool {
 	return apiErr.Code == -1007 || apiErr.Code == -1001
 }
 
-// ClientOrderIDForIntent derives a deterministic client order id from an
-// intent key: broker prefix + first 21 hex chars of sha256(key) = 31
-// characters, inside the futures client-id limit used by getBrOrderID.
-func (t *FuturesTrader) ClientOrderIDForIntent(intentKey string) string {
-	sum := sha256.Sum256([]byte(intentKey))
-	return "x-KzrpZaP9" + hex.EncodeToString(sum[:])[:21]
-}
-
 // CloseLong closes a long position
 func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]interface{}, error) {
 	// If quantity is 0, get current position quantity
@@ -198,7 +188,7 @@ func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]i
 		PositionSide(futures.PositionSideTypeLong).
 		Type(futures.OrderTypeMarket).
 		Quantity(quantityStr).
-		NewClientOrderID(getBrOrderID()).
+		NewClientOrderID(t.newClientOrderID()).
 		Do(context.Background())
 
 	if err != nil {
@@ -253,7 +243,7 @@ func (t *FuturesTrader) CloseShort(symbol string, quantity float64) (map[string]
 		PositionSide(futures.PositionSideTypeShort).
 		Type(futures.OrderTypeMarket).
 		Quantity(quantityStr).
-		NewClientOrderID(getBrOrderID()).
+		NewClientOrderID(t.newClientOrderID()).
 		Do(context.Background())
 
 	if err != nil {
@@ -500,7 +490,7 @@ func (t *FuturesTrader) PlaceLimitOrder(req *types.LimitOrderRequest) (*types.Li
 		TimeInForce(futures.TimeInForceTypeGTC).
 		Quantity(quantityStr).
 		Price(priceStr).
-		NewClientOrderID(getBrOrderID())
+		NewClientOrderID(t.newClientOrderID())
 
 	// Execute order
 	order, err := orderService.Do(context.Background())
@@ -722,7 +712,7 @@ func (t *FuturesTrader) SetStopLoss(symbol string, positionSide string, quantity
 		TriggerPrice(triggerPrice).
 		WorkingType(futures.WorkingTypeContractPrice).
 		ClosePosition(true).
-		ClientAlgoId(getBrOrderID()).
+		ClientAlgoId(t.newClientOrderID()).
 		Do(context.Background())
 
 	if err != nil {
@@ -761,7 +751,7 @@ func (t *FuturesTrader) SetTakeProfit(symbol string, positionSide string, quanti
 		TriggerPrice(triggerPrice).
 		WorkingType(futures.WorkingTypeContractPrice).
 		ClosePosition(true).
-		ClientAlgoId(getBrOrderID()).
+		ClientAlgoId(t.newClientOrderID()).
 		Do(context.Background())
 
 	if err != nil {

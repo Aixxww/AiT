@@ -117,6 +117,9 @@ type AutoTraderConfig struct {
 	// Proxy configuration (per-exchange)
 	ProxyURL string // Proxy URL (HTTP/HTTPS/SOCKS5)
 
+	// OD-19: optional exchange referral/broker id; empty = none sent.
+	ReferralID string
+
 	// AI configuration
 	UseQwen     bool
 	DeepSeekKey string
@@ -284,19 +287,29 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	switch config.Exchange {
 	case "binance":
 		logger.Infof("🏦 [%s] Using Binance Futures trading", config.Name)
-		trader = binance.NewFuturesTrader(config.BinanceAPIKey, config.BinanceSecretKey, userID, config.ProxyURL)
+		bt := binance.NewFuturesTrader(config.BinanceAPIKey, config.BinanceSecretKey, userID, config.ProxyURL)
+		bt.SetReferralID(config.ReferralID)
+		trader = bt
 	case "bybit":
 		logger.Infof("🏦 [%s] Using Bybit Futures trading", config.Name)
-		trader = bybit.NewBybitTrader(config.BybitAPIKey, config.BybitSecretKey)
+		bt := bybit.NewBybitTrader(config.BybitAPIKey, config.BybitSecretKey)
+		bt.SetReferralID(config.ReferralID)
+		trader = bt
 	case "okx":
 		logger.Infof("🏦 [%s] Using OKX Futures trading", config.Name)
-		trader = okx.NewOKXTrader(config.OKXAPIKey, config.OKXSecretKey, config.OKXPassphrase)
+		ot := okx.NewOKXTrader(config.OKXAPIKey, config.OKXSecretKey, config.OKXPassphrase)
+		ot.SetReferralID(config.ReferralID)
+		trader = ot
 	case "bitget":
 		logger.Infof("🏦 [%s] Using Bitget Futures trading", config.Name)
-		trader = bitget.NewBitgetTrader(config.BitgetAPIKey, config.BitgetSecretKey, config.BitgetPassphrase)
+		bt := bitget.NewBitgetTrader(config.BitgetAPIKey, config.BitgetSecretKey, config.BitgetPassphrase)
+		bt.SetReferralID(config.ReferralID)
+		trader = bt
 	case "gate":
 		logger.Infof("🏦 [%s] Using Gate.io Futures trading", config.Name)
-		trader = gate.NewGateTrader(config.GateAPIKey, config.GateSecretKey)
+		gt := gate.NewGateTrader(config.GateAPIKey, config.GateSecretKey)
+		gt.SetReferralID(config.ReferralID)
+		trader = gt
 	case "kucoin":
 		logger.Infof("🏦 [%s] Using KuCoin Futures trading", config.Name)
 		trader = kucoin.NewKuCoinTrader(config.KuCoinAPIKey, config.KuCoinSecretKey, config.KuCoinPassphrase)
