@@ -427,6 +427,10 @@ type HunterConfig struct {
 	// parameters. nil = defaults (estimator off); read through
 	// EffectiveV7ExpectedR.
 	V7ExpectedR *V7ExpectedRConfig `json:"v7_expected_r,omitempty"`
+	// V7CellRule holds the U12 dashboard's §5.3 rule parameters (N_min, CI
+	// level) and bootstrap settings. nil = defaults; read through
+	// EffectiveV7CellRule. Read-only: the dashboard gates nothing.
+	V7CellRule *V7CellRuleConfig `json:"v7_cell_rule,omitempty"`
 	// V7ConditionalEntry is the U9 TRIGGER-class conditional entry (owner
 	// decision: backend trigger check on completed 1m candles, default off).
 	// nil = off; read through EffectiveV7ConditionalEntry.

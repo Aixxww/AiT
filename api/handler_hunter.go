@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 
 	"github.com/gin-gonic/gin"
 )
@@ -311,5 +312,85 @@ func (s *Server) handleHunterV7Matrix(c *gin.Context) {
 		"matrix":           report,
 		"window_source":    "hunter_v7_signal_records",
 		"report_generated": true,
+	})
+}
+
+// hunterV7CellRule returns the dashboard's §5.3 rule config: the system
+// default strategy's hunter.v7_cell_rule when present, else the defaults.
+// Signal records carry no strategy id, so the dashboard reads one config.
+func (s *Server) hunterV7CellRule() store.V7CellRuleConfig {
+	if s.store == nil || s.store.Strategy() == nil {
+		return store.EffectiveV7CellRule(nil)
+	}
+	st, err := s.store.Strategy().GetDefault()
+	if err != nil || st == nil {
+		return store.EffectiveV7CellRule(nil)
+	}
+	cfg, err := st.ParseConfig()
+	if err != nil || cfg.CoinSource.Hunter == nil {
+		return store.EffectiveV7CellRule(nil)
+	}
+	return store.EffectiveV7CellRule(cfg.CoinSource.Hunter.V7CellRule)
+}
+
+// handleHunterV7Cells is the U12 dashboard: fee-net outcomes per class,
+// cell (class × RR band) and cell × regime, with the 90% bootstrap CI, the
+// stamped and the evaluated §5.3 cell status (one evaluation, no
+// hysteresis), and the calibration drift table per calibration_version
+// over the current and the previous window of the same length. Read-only.
+func (s *Server) handleHunterV7Cells(c *gin.Context) {
+	if s.store == nil {
+		SafeInternalError(c, "Hunter v7 cell dashboard", fmt.Errorf("store not initialized"))
+		return
+	}
+	days := 7
+	if v := c.Query("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			days = n
+		}
+	}
+	if days > 180 {
+		days = 180
+	}
+	source := store.V7CellSourceDefault
+	if v := c.Query("source"); v != "" {
+		if !store.ValidV7CellSource(v) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "source must be one of all, prompt_open_review, watch_audit, shadow"})
+			return
+		}
+		source = v
+	}
+	signalStore := s.store.HunterV7Signal()
+	if signalStore == nil {
+		SafeInternalError(c, "Hunter v7 cell dashboard", fmt.Errorf("signal store not initialized"))
+		return
+	}
+	to := time.Now().UTC()
+	from := to.AddDate(0, 0, -days)
+	prevFrom := from.AddDate(0, 0, -days)
+	rows, err := signalStore.CellSource(prevFrom, to)
+	if err != nil {
+		SafeInternalError(c, "Hunter v7 cell source", err)
+		return
+	}
+	current := make([]store.HunterV7SignalRecord, 0, len(rows))
+	for _, r := range rows {
+		if !r.Timestamp.Before(from) {
+			current = append(current, r)
+		}
+	}
+	rule := s.hunterV7CellRule()
+	c.JSON(http.StatusOK, gin.H{
+		"from":              from.Format(time.RFC3339),
+		"to":                to.Format(time.RFC3339),
+		"days":              days,
+		"source":            source,
+		"rule":              rule,
+		"hysteresis":        "none",
+		"tables":            store.BuildV7CellTables(current, source, rule),
+		"excluded_no_r":     store.V7CellExclusions(current, source),
+		"calibration_drift": store.BuildV7CalibrationDrift(rows, prevFrom, from, to, source, rule),
+		"window_source":     "hunter_v7_signal_records",
+		"report_generated":  true,
 	})
 }

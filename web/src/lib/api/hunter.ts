@@ -153,6 +153,87 @@ export interface V7TagCatalogResponse {
   source: string
 }
 
+/**
+ * U12 cell dashboard — GET /api/hunter/v7/cells (api/handler_hunter.go,
+ * store/hunter_v7_cells.go). Read-only; nothing here gates admission.
+ */
+export type V7CellSource =
+  | 'prompt_open_review'
+  | 'all'
+  | 'watch_audit'
+  | 'shadow'
+
+export type V7CellStatus = 'earned' | 'probation' | 'blocked'
+
+export interface V7CellRow {
+  signal_class: string
+  rr_band?: string
+  market_regime?: string
+  n: number
+  tp1: number
+  stop: number
+  none: number
+  tp1_first_rate: number
+  mean_fee_net_r: number
+  ci_lo: number
+  ci_hi: number
+  stamped_status: string[]
+  evaluated_status: V7CellStatus
+}
+
+export interface V7CellTables {
+  rows: number
+  classes: V7CellRow[]
+  cells: V7CellRow[]
+  cell_regimes: V7CellRow[]
+}
+
+export interface V7CellRule {
+  min_samples: number
+  ci_level: number
+  bootstrap_resamples: number
+  seed: number
+  quantiles: number
+}
+
+export interface V7CalibrationQuantile {
+  quantile: number
+  n: number
+  pred_mean: number
+  realized_mean: number
+  ci_lo: number
+  ci_hi: number
+  inside: boolean
+}
+
+export interface V7CalibrationWindow {
+  from: string
+  to: string
+  n: number
+  sufficient: boolean
+  quantiles_outside: number
+  quantiles: V7CalibrationQuantile[]
+}
+
+export interface V7CalibrationDrift {
+  calibration_version: string
+  current: V7CalibrationWindow
+  previous: V7CalibrationWindow
+  drift: boolean
+}
+
+export interface V7CellsResponse {
+  from: string
+  to: string
+  days: number
+  source: V7CellSource
+  rule: V7CellRule
+  hysteresis: 'none'
+  tables: V7CellTables
+  excluded_no_r: Record<string, number>
+  calibration_drift: V7CalibrationDrift[]
+}
+
 export const hunterApi = {
   async getV7Signals(limit: number = 80): Promise<V7SignalsResponse> {
     const result = await httpClient.request<V7SignalsResponse>(
@@ -161,6 +242,21 @@ export const hunterApi = {
     )
     if (!result.success || !result.data) {
       throw new Error('Failed to fetch v7 signals')
+    }
+    return result.data
+  },
+
+  async getV7Cells(
+    days = 7,
+    source: V7CellSource = 'prompt_open_review'
+  ): Promise<V7CellsResponse> {
+    const params = new URLSearchParams({ days: String(days), source })
+    const result = await httpClient.request<V7CellsResponse>(
+      `${API_BASE}/hunter/v7/cells?${params.toString()}`,
+      { silent: true }
+    )
+    if (!result.success || !result.data) {
+      throw new Error('Failed to fetch v7 cell dashboard')
     }
     return result.data
   },

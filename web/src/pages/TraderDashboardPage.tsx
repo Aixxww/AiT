@@ -53,6 +53,11 @@ const SignalPanel = lazy(() =>
     default: m.SignalPanel,
   }))
 )
+const CellsPanel = lazy(() =>
+  import('../components/hunter/CellsPanel').then((m) => ({
+    default: m.CellsPanel,
+  }))
+)
 
 // --- Helper Functions ---
 
@@ -1089,6 +1094,15 @@ export function TraderDashboardPage({
           <div className="mb-6 animate-slide-in">
             <Suspense fallback={null}>
               <SignalPanel language={language} refreshInterval={60000} />
+            </Suspense>
+          </div>
+        )}
+
+        {/* Hunter v7 cell dashboard (U12) — read-only outcome tables */}
+        {mountDeferredPanels && (
+          <div className="mb-6 animate-slide-in">
+            <Suspense fallback={null}>
+              <CellsPanel language={language} />
             </Suspense>
           </div>
         )}

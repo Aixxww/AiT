@@ -570,6 +570,8 @@ U10 record (owner decisions, implementation, partial parity result): `docs/t2-u1
 
 U11 record (payload / doctrine versions, LLM roles, Task C pass 1, hybrid payload, deletion test): `docs/t2-u11-payload-v2.md`.
 
+U12 record (cell dashboard endpoint and panel, evaluated cell status, calibration drift, acceptance): `docs/t2-u12-dashboards.md`.
+
 ---
 
 ## 7. R6: post-entry position management
