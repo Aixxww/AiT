@@ -574,6 +574,8 @@ U12 record (cell dashboard endpoint and panel, evaluated cell status, calibratio
 
 U13 record (BTC RV24 regime, per-regime fire rates, Poisson lower-bound targets, regime G3, live yield table): `docs/t2-u13-yield-target.md`.
 
+F08 record (daily-loss breaker: modes, UTC day, 15% limit, open block, persistence): `docs/t2-f08-daily-loss-breaker.md`.
+
 ---
 
 ## 7. R6: post-entry position management

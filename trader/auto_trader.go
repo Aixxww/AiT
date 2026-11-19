@@ -197,6 +197,7 @@ type AutoTrader struct {
 	v7OutcomeTracker       *SignalOutcomeTracker
 	v7OutcomeCancel        context.CancelFunc
 	conditional            hunterV7ConditionalState // U9 pending trigger entries
+	dailyLoss              dailyLossBreaker         // F08 daily-loss breaker state
 }
 
 // NewAutoTrader creates an automatic trader
