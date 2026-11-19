@@ -960,3 +960,41 @@ For TRIGGER:
   - the per-event mean R is +0.021 R better;
   - both confidence intervals overlap;
   - 339 of 374 paired events filled at zero cost on the reference candle.
+
+### 10.6 U15 close-out and the U14 re-run of the exit evidence
+
+**U15 adopts no exit variant.** U15 was "adopt the exit variant chosen under OD-22". No variant passed its gate:
+- the T-EXIT ladder/RSI variants;
+- U0-F E1–E6 against D (best E6: +0.035, P = 0.80);
+- U0-F2 V1–V3;
+- the single pre-registered U0-H2 test (V2 − A, FAIL).
+
+The owner's OD-22 (a) close-out (§10.3) stands: the live protector A keeps its semantics, now with the F29–F31 fixes and in config (U14, `docs/t2-u14-protector.md`). U15 builds nothing.
+
+**U14 re-run of the A-dependent evidence.** U14 found a clock defect in the pre-U14 U0-F harness. It shifted the position's open time by (wall-clock now − simulated now), but the rules read the simulated clock against that shifted value, so the position age was weeks negative:
+- the 15-minute early-loss exit stayed active for the whole walk;
+- the 20-minute pre-TP1 rules never fired.
+
+The shared protector step has one clock. With the old clock emulated and the fixes off, it reproduces the pre-U14 U0-F and U0-H2 outputs byte for byte. The tables below re-run every A-dependent result with the corrected clock plus F29–F31. Every script and gate is unchanged; only model A's rows change.
+
+| Result | Pre-U14 | U14 re-run |
+|---|---|---|
+| U0-F A − P (380 fills) | +0.017 [−0.080, +0.110] | +0.036 [−0.060, +0.130] |
+| U0-F A − D | −0.000 [−0.061, +0.058] | +0.020 [−0.042, +0.079] |
+| U0-F K / S / N groups | 123 / 168 / 89 | 85 / 139 / 156 |
+| U0-F E1–E6 against D (T-EXIT gate) | all fail | unchanged: these do not use A |
+| U0-F2 V2 against A on C0 (all 380) | +0.066 [+0.006, +0.129], P 0.96, PASS | +0.047 [−0.010, +0.105], P 0.91, fail |
+| U0-F2 V2 against A on C3 (U0-A score bands dropped) | +0.097, P 0.99, PASS | +0.082 [+0.017, +0.147], P 0.98, PASS |
+| U0-H2 V2 − A (136 live trades, the decisive pre-registered test) | +0.078 [−0.058, +0.216], P 0.825, FAIL | +0.077 [−0.057, +0.215], P 0.824, FAIL |
+
+Neither reading changes. A − D ≥ 0, so under the OD-22 rule A is kept. U0-H2 still fails. U0-F2 had been a screen that selected V2 for U0-H2; V2 now passes on fewer cuts.
+
+**Owner decision (U14 follow-up).** The owner accepts this re-run as sufficient to record the conclusions as unchanged:
+- **OD-22 (a) stands.**
+- **U0-H2 still fails.** Its gate has three criteria. On the re-run the mean criterion passes (+0.077 ≥ +0.05). The other two fail: P(mean > 0) is 0.824 against 0.9 required, and the folds are +0.225 / +0.064 / −0.062, where all three must be > 0. This is the same pattern as the original run.
+
+**Owner decision (U14 follow-up): threshold comparison.** Each protector threshold is compared in its own unit (`roe_pct`, `price_pct` or `r`), not converted to R first. R is used for display only (`docs/t2-u14-protector.md`).
+
+**Task C pass 2: deferred.** The fields audit marks no dictionary entry "safe" for a code or DB rename. The deferred items and the reason for each are recorded in `docs/t2-u11-payload-v2.md` (§ "Pass 2"). Nothing is scheduled.
+
+**OD-19 (F22 broker prefix): open.** A proposal is with the owner.
