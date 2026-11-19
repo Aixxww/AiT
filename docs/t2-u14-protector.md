@@ -42,6 +42,7 @@ Read through `store.EffectiveProtector`; nil means all defaults. `store/protecto
 The decay cap was an inline literal and is now `DynamicStopConfig.TimeDecayMaxFraction`; 0 reads as 0.5.
 
 **How levels are compared.**
+- **Owner decision (U14 follow-up):** per-unit comparison is the adopted rule, not a uniform conversion to R.
 - A level is compared in its own unit: ROE against the position's ROE, price against the price move, R against the move divided by the planned stop distance. The defaults therefore give exactly the pre-U14 decisions, with no rounding from converting units.
 - Levels that the old code wrote as compile-time constants keep that rounding: the near-TP1 levels are separate levels rather than 6 × 0.95, and the 0.55% and 35% are divided as decimals.
 - R = ROE / (100 · L · s), where s is the planned stop distance from the opening decision.

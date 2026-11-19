@@ -989,6 +989,12 @@ The shared protector step has one clock. With the old clock emulated and the fix
 
 Neither reading changes. A − D ≥ 0, so under the OD-22 rule A is kept. U0-H2 still fails. U0-F2 had been a screen that selected V2 for U0-H2; V2 now passes on fewer cuts.
 
+**Owner decision (U14 follow-up).** The owner accepts this re-run as sufficient to record the conclusions as unchanged:
+- **OD-22 (a) stands.**
+- **U0-H2 still fails.** Its gate has three criteria. On the re-run the mean criterion passes (+0.077 ≥ +0.05). The other two fail: P(mean > 0) is 0.824 against 0.9 required, and the folds are +0.225 / +0.064 / −0.062, where all three must be > 0. This is the same pattern as the original run.
+
+**Owner decision (U14 follow-up): threshold comparison.** Each protector threshold is compared in its own unit (`roe_pct`, `price_pct` or `r`), not converted to R first. R is used for display only (`docs/t2-u14-protector.md`).
+
 **Task C pass 2: deferred.** The fields audit marks no dictionary entry "safe" for a code or DB rename. The deferred items and the reason for each are recorded in `docs/t2-u11-payload-v2.md` (§ "Pass 2"). Nothing is scheduled.
 
 **OD-19 (F22 broker prefix): open.** A proposal is with the owner.
