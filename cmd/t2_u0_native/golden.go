@@ -15,9 +15,15 @@ import (
 
 	"github.com/Aixxww/AiT/kernel"
 	local "github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 var goldenOut = flag.String("golden-out", "", "U6 golden replay output (candidate set and tiers per config)")
+
+// U11: emit the T2 signal as t2_<setup> before assembly. The golden key
+// carries the upstream name, so with the prefix the output must be
+// byte-identical to the run without it.
+var goldenT2Prefix = flag.Bool("golden-t2-prefix", false, "U11: assemble T2 signals under their t2_ setup name")
 
 type goldenCand struct {
 	Key             string  `json:"key"` // stack|setup|direction
@@ -55,12 +61,17 @@ func goldenAdd(eventID string, sig *local.V7T2Signal, natives []local.V7SignalOu
 		for _, state := range states {
 			sigs := append([]local.V7SignalOutput(nil), natives...)
 			if sig != nil {
-				sigs = append(sigs, sig.ToV7SignalOutputWithLifecycle("", state))
+				t2 := sig.ToV7SignalOutputWithLifecycle("", state)
+				if *goldenT2Prefix {
+					t2.SetupType = local.V7SetupType(store.V7T2SetupPrefix + string(t2.SetupType))
+				}
+				sigs = append(sigs, t2)
 			}
 			row := goldenRow{EventID: eventID, Config: gc.name, State: state}
 			for _, c := range kernel.AssembleHunterV7CandidateCoins(sigs, "BOTH", geom) {
 				row.Cands = append(row.Cands, goldenCand{
-					Key: c.V7Stack + "|" + c.V7SetupType + "|" + c.Direction, Status: c.V7Status,
+					// U11: the upstream (unprefixed) setup name.
+					Key: c.V7Stack + "|" + store.V7CanonicalSetupType(c.V7SetupType) + "|" + c.Direction, Status: c.V7Status,
 					Tier: c.V7ExecutionTier, Reason: c.V7TierReason, Class: c.V7SignalClass, Admission: c.V7ClassAdmission,
 					RequiredRR: c.V7RequiredRR, RequiredMinStop: c.V7RequiredMinStop, Extra: goldenExtra(c),
 				})

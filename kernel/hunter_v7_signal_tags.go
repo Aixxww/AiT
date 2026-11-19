@@ -13,6 +13,9 @@ type HunterV7RecordTagOptions struct {
 	Tags           store.V7OutcomeTagConfig
 	Classes        map[string]store.V7SignalClassEntry
 	ProfileVersion string // "" = default registry + profile version
+	// DoctrineVersion is the prompt doctrine version (U11): "" reads as
+	// store.V7DoctrineVersionNone, the legacy doctrine's value.
+	DoctrineVersion string
 }
 
 // DefaultHunterV7RecordTagOptions is the option set with every default.
@@ -31,9 +34,10 @@ func HunterV7RecordTagOptionsFromConfig(cfg *store.StrategyConfig) HunterV7Recor
 		return o
 	}
 	return HunterV7RecordTagOptions{
-		Tags:           store.EffectiveV7OutcomeTags(cfg.CoinSource.Hunter.V7OutcomeTags),
-		Classes:        cfg.CoinSource.Hunter.EffectiveV7SignalClasses(),
-		ProfileVersion: store.V7EffectiveProfileVersion(cfg.RiskControl, cfg.CoinSource.Hunter),
+		Tags:            store.EffectiveV7OutcomeTags(cfg.CoinSource.Hunter.V7OutcomeTags),
+		Classes:         cfg.CoinSource.Hunter.EffectiveV7SignalClasses(),
+		ProfileVersion:  store.V7EffectiveProfileVersion(cfg.RiskControl, cfg.CoinSource.Hunter),
+		DoctrineVersion: store.EffectiveV7Prompt(cfg.CoinSource.Hunter.V7Prompt).DoctrineVersion(),
 	}
 }
 
@@ -59,6 +63,9 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 	if sig.Stack == local.V7StackT2 {
 		tags.Stack = store.V7StackT2
 	}
+	if opts.DoctrineVersion != "" {
+		tags.DoctrineVersion = opts.DoctrineVersion
+	}
 	if tags.ProfileVersion == "" {
 		tags.ProfileVersion = store.V7EffectiveProfileVersion(store.RiskControlConfig{}, nil)
 	}
@@ -69,7 +76,7 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 	class, admission := "", ""
 	if cc != nil {
 		class, admission = cc.V7SignalClass, cc.V7ClassAdmission
-	} else if entry, ok := opts.Classes[string(sig.SetupType)]; ok {
+	} else if entry, ok := store.LookupV7Setup(opts.Classes, string(sig.SetupType)); ok {
 		class, admission = entry.Class, entry.Admission
 	}
 	if cc != nil && cc.V7CalibrationVersion != "" {

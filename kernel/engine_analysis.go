@@ -288,6 +288,16 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 	if klineCount <= 0 {
 		klineCount = 30
 	}
+	// U11: the hybrid_v2 payload prints BarsPerTimeframe closed bars on
+	// each of its timeframes plus the unfinished bar, so it fetches those
+	// timeframes and one bar more. Legacy (the default) is unchanged.
+	if engine.hunterV7PromptHybridV2() {
+		pc := engine.hunterV7PromptConfig()
+		timeframes = hunterV7MergeTimeframes(timeframes, pc.Timeframes)
+		if klineCount < pc.BarsPerTimeframe+1 {
+			klineCount = pc.BarsPerTimeframe + 1
+		}
+	}
 
 	logger.Infof("📊 Strategy timeframes: %v, Primary: %s, Kline count: %d", timeframes, primaryTimeframe, klineCount)
 

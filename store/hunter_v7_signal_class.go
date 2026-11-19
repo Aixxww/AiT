@@ -106,10 +106,13 @@ func DefaultV7SignalClassRegistry() map[string]V7SignalClassEntry {
 
 // EffectiveV7SignalClasses returns the default registry with this
 // strategy's overrides applied (an override replaces the whole entry).
+// Keys are canonical setup types (U11, D2 (a)): an override may name a
+// Task-2 setup with or without the t2_ prefix; look entries up with
+// LookupV7Setup.
 func (h *HunterConfig) EffectiveV7SignalClasses() map[string]V7SignalClassEntry {
 	reg := DefaultV7SignalClassRegistry()
 	if h != nil {
-		for setup, e := range h.V7SignalClasses {
+		for setup, e := range canonicalV7SetupKeys(h.V7SignalClasses) {
 			reg[setup] = e
 		}
 	}

@@ -194,9 +194,16 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
 		sb.WriteString("- `blocked_reason_code` (REQUIRED when action is `wait`): one of `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, `oi_too_low`, `funding_crowded`, `account_risk`, `backend_guard_risk`, `no_reviewable_candidate`. Do NOT use free-text reasoning to replace this field.\n")
 		sb.WriteString("- `no_reviewable_candidate` is valid ONLY when Tier Summary has EXECUTABLE=0 and REVIEWABLE=0. If any EXECUTABLE/REVIEWABLE exists, use the real blocker such as `entry_not_in_zone`, `rr_insufficient`, `confirmation_missing`, or `backend_guard_risk`.\n")
-		sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
-		sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
-		sb.WriteString("- `trigger` (REQUIRED for Hunter v7 wait on `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `hunter_v7_signal_json.suggested_trigger` when present instead of hiding the trigger in reasoning.\n")
+		if e.hunterV7PromptHybridV2() {
+			// U11: hybrid_v2 field paths.
+			sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_v2_json.signal.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier` (`execution.tier`), `selected_hunter_v7_setup` (`signal.setup_type`), `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
+			sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
+			sb.WriteString("- `trigger` (REQUIRED for a Hunter v7 wait whose blocker is a level not yet reached, and for a conditional entry): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `signal.trigger_price` when present instead of hiding the trigger in reasoning.\n")
+		} else {
+			sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
+			sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
+			sb.WriteString("- `trigger` (REQUIRED for Hunter v7 wait on `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `hunter_v7_signal_json.suggested_trigger` when present instead of hiding the trigger in reasoning.\n")
+		}
 	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")
 
@@ -215,6 +222,13 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 }
 
 func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Builder) {
+	if e.hunterV7PromptHybridV2() {
+		// U11: the hybrid_v2 doctrine states every per-candidate limit as an
+		// execution.limits field, so the Task-2 floor notes below are folded
+		// into it.
+		sb.WriteString(hunterV7DoctrineV2Prompt(e.GetLanguage(), e.hunterV7DoctrineV2Options()))
+		return
+	}
 	maxTPMovePct, minSLMovePct, maxDriftPct := e.effectiveExecutionGeometry()
 	minRR := e.config.RiskControl.MinRiskRewardRatio
 	if minRR <= 0 {
@@ -357,7 +371,8 @@ func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
 		sb.WriteString("- AI500 / OI_Top filter tags (if available)\n")
 	}
 
-	if indicators.EnableQuantData {
+	// U11: the hybrid_v2 payload carries no quant data (hybrid spec B).
+	if indicators.EnableQuantData && !e.hunterV7PromptHybridV2() {
 		sb.WriteString("- Quantitative data (institutional/retail fund flow, position changes, multi-period price changes)\n")
 	}
 }
@@ -391,8 +406,10 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 			btcData.CurrentMACD, btcData.CurrentRSI7))
 	}
 
-	// Market environment classification (ADX-based regime detection)
-	if ctx.MarketEnv != nil {
+	// Market environment classification (ADX-based regime detection). The
+	// hybrid_v2 payload (U11) omits it: a regime label is on the deletion
+	// list (fields audit spec C, market_regime); the bars carry the trend.
+	if ctx.MarketEnv != nil && !e.hunterV7PromptHybridV2() {
 		env := ctx.MarketEnv
 		regimeLabel := "Transitional (balanced risk, standard position sizing)"
 		switch env.Regime {
@@ -667,75 +684,13 @@ type hunterV7PromptCandidate struct {
 }
 
 func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder, ctx *Context, positionSymbols map[string]bool) {
-	items := make([]hunterV7PromptCandidate, 0, len(ctx.CandidateCoins))
-	geometry := e.hunterV7ExecutionGeometry()
-	for _, coin := range ctx.CandidateCoins {
-		if positionSymbols[market.Normalize(coin.Symbol)] {
-			continue
-		}
-		data, ok := ctx.MarketDataMap[coin.Symbol]
-		if !ok {
-			continue
-		}
-		coin = hunterV7CandidateWithLiveMarketPrice(coin, data)
-		// Settle live-confirmable required confirmations before tiering, so a
-		// candidate whose only gap was "nobody has looked at the latest close
-		// yet" is not parked in REVIEWABLE until after the LLM has seen it.
-		coin = hunterV7ApplyLiveConfirmations(coin, data)
-		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, geometry)
-		coin.V7ExecutionTier = tier
-		coin.V7TierReason = reason
-		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
-		coin.V7Readiness = &readiness
-		tier, reason = hunterV7TierFromPromptReadiness(coin, tier, reason, readiness)
-		coin.V7ExecutionTier = tier
-		coin.V7TierReason = reason
-		// P1-4B shadow: observe whale_flow second-confirmation hypothesis
-		// across rounds. Shadow only — never changes the tier or the prompt.
-		if data != nil {
-			whaleShadowPoolObserve(coin, data.CurrentPrice)
-		}
-		items = append(items, hunterV7PromptCandidate{
-			Coin:   coin,
-			Data:   data,
-			Tier:   tier,
-			Reason: reason,
-		})
+	items := e.hunterV7PromptItems(ctx, positionSymbols)
+	if e.hunterV7PromptHybridV2() {
+		e.writeHunterV7HybridV2CandidatePrompt(sb, ctx, items)
+		return
 	}
 
-	sort.SliceStable(items, func(i, j int) bool {
-		ti := hunterV7TierRank(items[i].Tier)
-		tj := hunterV7TierRank(items[j].Tier)
-		if ti != tj {
-			return ti < tj
-		}
-		ri := 0.0
-		rj := 0.0
-		if items[i].Coin.V7Readiness != nil {
-			ri = items[i].Coin.V7Readiness.ReadyScore
-		}
-		if items[j].Coin.V7Readiness != nil {
-			rj = items[j].Coin.V7Readiness.ReadyScore
-		}
-		if ri != rj {
-			return ri > rj
-		}
-		return items[i].Coin.V7AIPriority > items[j].Coin.V7AIPriority
-	})
-
-	execCount, reviewableCount, watchCount, rejectedCount := 0, 0, 0, 0
-	for _, item := range items {
-		switch item.Tier {
-		case "EXECUTABLE":
-			execCount++
-		case "REVIEWABLE":
-			reviewableCount++
-		case "REJECTED":
-			rejectedCount++
-		default:
-			watchCount++
-		}
-	}
+	execCount, reviewableCount, watchCount, rejectedCount := hunterV7PromptTierCounts(items)
 
 	positionLimitReached := e.config.RiskControl.MaxPositions > 0 && len(ctx.Positions) >= e.config.RiskControl.MaxPositions
 	sb.WriteString(fmt.Sprintf("## Hunter v7 Candidate Tiers (%d total)\n\n", len(items)))
@@ -861,6 +816,85 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 		sb.WriteString(fmt.Sprintf("- %s: %d\n", reason, reasonCounts[reason]))
 	}
 	sb.WriteString("\n")
+}
+
+// hunterV7PromptItems re-prices, re-tiers and orders the cycle's
+// candidates for the prompt. Both payload versions share it (U11), so the
+// tier verdict and the order cannot differ between them.
+func (e *StrategyEngine) hunterV7PromptItems(ctx *Context, positionSymbols map[string]bool) []hunterV7PromptCandidate {
+	items := make([]hunterV7PromptCandidate, 0, len(ctx.CandidateCoins))
+	geometry := e.hunterV7ExecutionGeometry()
+	for _, coin := range ctx.CandidateCoins {
+		if positionSymbols[market.Normalize(coin.Symbol)] {
+			continue
+		}
+		data, ok := ctx.MarketDataMap[coin.Symbol]
+		if !ok {
+			continue
+		}
+		coin = hunterV7CandidateWithLiveMarketPrice(coin, data)
+		// Settle live-confirmable required confirmations before tiering, so a
+		// candidate whose only gap was "nobody has looked at the latest close
+		// yet" is not parked in REVIEWABLE until after the LLM has seen it.
+		coin = hunterV7ApplyLiveConfirmations(coin, data)
+		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, geometry)
+		coin.V7ExecutionTier = tier
+		coin.V7TierReason = reason
+		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
+		coin.V7Readiness = &readiness
+		tier, reason = hunterV7TierFromPromptReadiness(coin, tier, reason, readiness)
+		coin.V7ExecutionTier = tier
+		coin.V7TierReason = reason
+		// P1-4B shadow: observe whale_flow second-confirmation hypothesis
+		// across rounds. Shadow only — never changes the tier or the prompt.
+		if data != nil {
+			whaleShadowPoolObserve(coin, data.CurrentPrice)
+		}
+		items = append(items, hunterV7PromptCandidate{
+			Coin:   coin,
+			Data:   data,
+			Tier:   tier,
+			Reason: reason,
+		})
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		ti := hunterV7TierRank(items[i].Tier)
+		tj := hunterV7TierRank(items[j].Tier)
+		if ti != tj {
+			return ti < tj
+		}
+		ri := 0.0
+		rj := 0.0
+		if items[i].Coin.V7Readiness != nil {
+			ri = items[i].Coin.V7Readiness.ReadyScore
+		}
+		if items[j].Coin.V7Readiness != nil {
+			rj = items[j].Coin.V7Readiness.ReadyScore
+		}
+		if ri != rj {
+			return ri > rj
+		}
+		return items[i].Coin.V7AIPriority > items[j].Coin.V7AIPriority
+	})
+	return items
+}
+
+// hunterV7PromptTierCounts counts the prompt items per tier.
+func hunterV7PromptTierCounts(items []hunterV7PromptCandidate) (execCount, reviewableCount, watchCount, rejectedCount int) {
+	for _, item := range items {
+		switch item.Tier {
+		case "EXECUTABLE":
+			execCount++
+		case "REVIEWABLE":
+			reviewableCount++
+		case "REJECTED":
+			rejectedCount++
+		default:
+			watchCount++
+		}
+	}
+	return execCount, reviewableCount, watchCount, rejectedCount
 }
 
 func hunterV7TierFromPromptReadiness(coin CandidateCoin, tier, reason string, readiness local.V7ExecutionReadiness) (string, string) {

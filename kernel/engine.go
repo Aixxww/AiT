@@ -208,6 +208,9 @@ type Context struct {
 	AltcoinLeverage    int                                `json:"-"`
 	Timeframes         []string                           `json:"-"`
 	MarketEnv          *market.MarketEnvironment          `json:"-"` // Market regime (ADX-based)
+	// PromptTime is the prompt build time: the hybrid_v2 payload (U11)
+	// splits closed from unfinished bars at it. Zero = time.Now().
+	PromptTime time.Time `json:"-"`
 }
 
 // Decision AI trading decision
@@ -528,12 +531,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 			v7cfg.Aggressive = true
 		}
 		if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
-			v7cfg.T2 = &local.V7T2Config{
-				Enabled:            true,
-				EnabledSetups:      coinSource.Hunter.V7T2Setups,
-				SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
-				Lifecycle:          hunterV7T2Lifecycle(coinSource.Hunter.V7T2Lifecycle),
-			}
+			v7cfg.T2 = hunterV7T2ModuleConfig(coinSource.Hunter)
 			if e.v7T2Store == nil {
 				e.v7T2Store = local.NewV7T2EventStore()
 			}
@@ -680,7 +678,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
-		if entry, ok := hunterV7ClassRegistry(geometry)[cc.V7SetupType]; ok {
+		if entry, ok := store.LookupV7Setup(hunterV7ClassRegistry(geometry), cc.V7SetupType); ok {
 			cc.V7SignalClass, cc.V7ClassAdmission = entry.Class, entry.Admission
 		}
 		hunterV7StampCandidateRisk(&cc, geometry)
@@ -2103,7 +2101,7 @@ func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7Executi
 	if overrides == nil {
 		overrides = store.DefaultV7SetupGeometryOverrides()
 	}
-	o, ok := overrides[coin.V7SetupType]
+	o, ok := store.LookupV7Setup(overrides, coin.V7SetupType)
 	if !ok {
 		return geometry
 	}
@@ -2795,12 +2793,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 		v7cfg.Aggressive = true
 	}
 	if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
-		v7cfg.T2 = &local.V7T2Config{
-			Enabled:            true,
-			EnabledSetups:      coinSource.Hunter.V7T2Setups,
-			SymbolValidityGate: coinSource.Hunter.V7T2SymbolValidityGate,
-			Lifecycle:          hunterV7T2Lifecycle(coinSource.Hunter.V7T2Lifecycle),
-		}
+		v7cfg.T2 = hunterV7T2ModuleConfig(coinSource.Hunter)
 		if e.v7T2Store == nil {
 			e.v7T2Store = local.NewV7T2EventStore()
 		}
@@ -3762,6 +3755,18 @@ func hunterV7ClassRegistry(geometry HunterV7ExecutionGeometry) map[string]store.
 		return geometry.Classes
 	}
 	return store.DefaultV7SignalClassRegistry()
+}
+
+// hunterV7T2ModuleConfig is the Task-2 module config of a strategy with
+// the module enabled (both scan paths build it here).
+func hunterV7T2ModuleConfig(h *store.HunterConfig) *local.V7T2Config {
+	return &local.V7T2Config{
+		Enabled:            true,
+		EnabledSetups:      h.V7T2Setups,
+		SymbolValidityGate: h.V7T2SymbolValidityGate,
+		SetupPrefix:        h.V7T2SetupPrefix,
+		Lifecycle:          hunterV7T2Lifecycle(h.V7T2Lifecycle),
+	}
 }
 
 // hunterV7ClosedBarFeatures reports whether the strategy opted into

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Aixxww/AiT/datafetch"
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -251,5 +252,16 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 			out = append(out, o)
 		}
 	}
+	if cfg.SetupPrefix {
+		v7T2PrefixSetupTypes(out)
+	}
 	return out
+}
+
+// v7T2PrefixSetupTypes renames emitted setup types to t2_<setup> (U11,
+// D2 (a)). Signal IDs are assigned after this, from the emitted name.
+func v7T2PrefixSetupTypes(out []V7SignalOutput) {
+	for i := range out {
+		out[i].SetupType = V7SetupType(store.V7T2SetupPrefix + store.V7CanonicalSetupType(string(out[i].SetupType)))
+	}
 }

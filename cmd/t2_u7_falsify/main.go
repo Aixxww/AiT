@@ -177,7 +177,8 @@ func main() {
 		if want != *r.FeeNetR {
 			mismatch++
 		}
-		e := &ev{ID: r.EventID, Setup: rec.SetupType, Fold: fold[r.EventID], Score: events[i].Score, TrigMs: events[i].TrigMs,
+		e := &ev{ID: r.EventID, Setup: store.V7CanonicalSetupType(rec.SetupType), // U11: upstream name
+			Fold: fold[r.EventID], Score: events[i].Score, TrigMs: events[i].TrigMs,
 			Admitted: r.TrackedSource == store.V7OutcomeSourcePromptOpenReview, R: *r.FeeNetR,
 			row: store.V7CalibrationOutcome{Time: time.UnixMilli(events[i].TrigMs), SetupType: rec.SetupType, Direction: rec.Direction,
 				Class: rec.SignalClass, Family: rec.Family, RRBand: rec.RRBand, Outcome: r.FeeNetOutcome, RWin: rwin}}

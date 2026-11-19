@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"sync/atomic"
+
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -132,7 +134,7 @@ var v7SwingSetupPrefixes = []string{
 
 // V7StructureClassForSetup returns "SWING" or "FAST" for a setup type.
 func V7StructureClassForSetup(setup string) string {
-	s := strings.ToLower(setup)
+	s := strings.ToLower(store.V7CanonicalSetupType(setup))
 	for _, p := range v7SwingSetupPrefixes {
 		if strings.HasPrefix(s, p) {
 			return "SWING"
@@ -981,8 +983,14 @@ func v7ResolveGeometryMode(ctx *V7SymbolContext) V7GeometryMode {
 // v7StructureFamilyForSetup maps a setup type to the §3.3 anchor rule:
 // pullback/reversal families use the reaction-leg rule, everything
 // else the breakout/continuation pivot rule.
+// V7StructureFamilyForSetup is the exported family rule (U11: the hybrid
+// payload builds the M2 menus outside this package).
+func V7StructureFamilyForSetup(setup string) V7StructureFamilyClass {
+	return v7StructureFamilyForSetup(V7SetupType(setup))
+}
+
 func v7StructureFamilyForSetup(setup V7SetupType) V7StructureFamilyClass {
-	s := strings.ToLower(string(setup))
+	s := strings.ToLower(store.V7CanonicalSetupType(string(setup)))
 	if strings.Contains(s, "pullback") || strings.Contains(s, "reversal") {
 		return V7FamilyPullbackReversal
 	}

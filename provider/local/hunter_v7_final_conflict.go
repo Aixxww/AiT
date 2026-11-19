@@ -1,6 +1,10 @@
 package local
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/Aixxww/AiT/store"
+)
 
 // U3 (P3): one direction per symbol per cycle, covering native-vs-T2 pairs.
 //
@@ -104,7 +108,11 @@ func ResolveV7FinalDirectionConflicts(signals []V7SignalOutput, cfg V7FinalConfl
 }
 
 func (cfg V7FinalConflictConfig) isContext(s V7SignalOutput) bool {
-	return cfg.ContextNonVoting && cfg.ContextSetups[string(s.SetupType)]
+	if !cfg.ContextNonVoting {
+		return false
+	}
+	ctx, _ := store.LookupV7Setup(cfg.ContextSetups, string(s.SetupType))
+	return ctx
 }
 
 func resolveV7FinalSymbol(signals []V7SignalOutput, idx []int, cfg V7FinalConflictConfig, drop []bool, replace map[int]V7SignalOutput) (V7ConflictResolution, bool) {

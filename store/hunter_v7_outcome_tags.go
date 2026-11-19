@@ -152,7 +152,10 @@ func V7FeeNetRRAtTP1(e, stop, tp1, costPct float64) (float64, bool) {
 
 // V7Family is the setup type without its _long / _short suffix (plan §3.2
 // families group both directions; direction stays its own column).
+// The Task-2 prefix is stripped first (U11, D2 (a)), so a family keeps
+// one value whichever name the setup was emitted under.
 func V7Family(setupType string) string {
+	setupType = V7CanonicalSetupType(setupType)
 	for _, suf := range []string{"_long", "_short"} {
 		if strings.HasSuffix(setupType, suf) {
 			return strings.TrimSuffix(setupType, suf)

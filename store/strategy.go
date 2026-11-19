@@ -435,6 +435,14 @@ type HunterConfig struct {
 	// alignment, snapshot freshness gate). nil = all off; read through
 	// EffectiveV7DataTiming.
 	V7DataTiming *V7DataTimingConfig `json:"v7_data_timing,omitempty"`
+	// V7Prompt is the U11 prompt block (payload / doctrine version, hybrid
+	// bars, per-class LLM roles). nil = legacy payload and doctrine; read
+	// through EffectiveV7Prompt.
+	V7Prompt *V7PromptConfig `json:"v7_prompt,omitempty"`
+	// V7T2SetupPrefix emits Task-2 setup types as t2_<setup> (U11, D2 (a)).
+	// Default false keeps the emitted names unchanged; config, registry and
+	// guard lookups accept both names either way.
+	V7T2SetupPrefix bool `json:"v7_t2_setup_prefix,omitempty"`
 	// U3 final direction pass (runs with the T2 module). 0 / "" / false
 	// select the defaults: threshold 60, tie winner SHORT, CONTEXT
 	// non-voting (OD-12).
