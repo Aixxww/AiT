@@ -252,24 +252,14 @@ func main() {
 		groups[q] = append(groups[q], e)
 	}
 	boot := rand.New(rand.NewSource(cfg.Seed))
-	tail := (1 - cfg.BootstrapCI) / 2
 	for q, g := range groups {
 		pred, real := make([]float64, len(g)), make([]float64, len(g))
 		for i, e := range g {
 			pred[i], real[i] = e.ER, e.R
 		}
-		means := make([]float64, cfg.BootstrapResamples)
-		for s := range means {
-			sum := 0.0
-			for range real {
-				sum += real[boot.Intn(len(real))]
-			}
-			means[s] = sum / float64(len(real))
-		}
-		sort.Float64s(means)
-		n := cfg.BootstrapResamples
-		qo := quint{Q: q + 1, N: len(g), PredMean: mean(pred), RealMean: mean(real),
-			Lo: means[int(math.Round(float64(n)*tail))], Hi: means[int(math.Round(float64(n)*(1-tail)))-1]}
+		// U12: the shared bootstrap (same draws, same order statistics).
+		lo, hi, _ := store.V7BootstrapMeanCI(real, cfg.BootstrapResamples, cfg.BootstrapCI, boot)
+		qo := quint{Q: q + 1, N: len(g), PredMean: mean(pred), RealMean: mean(real), Lo: lo, Hi: hi}
 		qo.Inside = qo.PredMean >= qo.Lo && qo.PredMean <= qo.Hi
 		if qo.Inside {
 			res.F2Inside++
