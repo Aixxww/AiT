@@ -69,6 +69,9 @@ func NewFuturesTrader(apiKey, secretKey string, userId string, proxyURL ...strin
 	if hookRes != nil && hookRes.GetResult() != nil {
 		client = hookRes.GetResult()
 	}
+	// Refuse any create-order request without this bot's client id
+	// (order_guard.go). After the hook, which may replace the client.
+	installOrderGuard(client)
 
 	// Sync time to avoid "Timestamp ahead" error
 	syncBinanceServerTime(client)

@@ -28,7 +28,7 @@ import (
 // uses to confirm a position is still protected after a failed rebuild.
 
 // Ownership is decided by isOwnedClientID (client_ids.go): the OD-19
-// ownership prefix, with or without a referral part, or the legacy prefix.
+// ownership prefix, with or without a referral part.
 func ownedSideMatch(clientID string, orderSide futures.PositionSideType, want string) bool {
 	if !isOwnedClientID(clientID) {
 		return false

@@ -144,8 +144,8 @@ func (t *FuturesTrader) LookupOrderByClientID(symbol, clientOrderID string) (map
 // waiting for response from backend server; execution status unknown")
 // and -1001 (internal disconnect).
 func (t *FuturesTrader) IsAmbiguousOrderError(err error) bool {
-	if err == nil {
-		return false
+	if err == nil || errors.Is(err, ErrUnownedClientID) {
+		return false // refused by the order guard: never sent
 	}
 	var apiErr *common.APIError
 	if !errors.As(err, &apiErr) {

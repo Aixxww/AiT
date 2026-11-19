@@ -53,11 +53,21 @@ Ownership (`isOwnedClientID`) accepts:
 
 - `ait-…` (new, no referral);
 - `x-<any 1–12 alphanumerics>ait-…` (new, with a referral, including one changed while orders are open);
-- `x-KzrpZaP9…` (legacy). Orders placed before the upgrade, such as resting stops and TPs, stay owned, so F26/F27 still cancel them and F28 still counts them. Nothing new is placed with this prefix. It can be dropped once no legacy order is open on any account.
+Not owned: manual orders, `x-ftGmvgAN…` (the go-binance default), and `x-KzrpZaP9…` (the pre-OD-19 prefix, see below).
 
-Not owned: manual orders, and `x-ftGmvgAN…`, the go-binance default.
+**Legacy prefix removed (referral-leftovers cleanup, after #35).** During the transition, `x-KzrpZaP9…` was also accepted as owned, so orders placed before the upgrade stayed under F26/F27/F28. That recognition is now removed (`legacyOwnedOrderPrefix` is gone). It was removed after the owner verified that the live Binance account had 0 open orders, 0 open algo orders and 0 open positions, so no resting order with that prefix could be left unowned. Any such order found later is treated like a manual order: the bot neither cancels nor counts it.
 
-**go-binance auto prefix.** go-binance v2.8.9 fills in its own broker prefix (`x-ftGmvgAN`, from `common.GenerateSwapId`) when an order is sent without a client id. Every order this package creates sets its own id: the 4 regular `NewCreateOrderService` calls use `NewClientOrderID`, and the 2 `NewCreateAlgoOrderService` calls use `ClientAlgoId`. Any new create call must do the same.
+**go-binance auto prefix.** go-binance v2.8.9 fills in its own broker prefix (`x-ftGmvgAN`, from `common.GenerateSwapId`) when an order is sent without a client id. Every order this package creates sets its own id: the 4 regular `NewCreateOrderService` calls use `NewClientOrderID`, and the 2 `NewCreateAlgoOrderService` calls use `ClientAlgoId`.
+
+**Order guard** (`trader/binance/order_guard.go`). There is one choke point for any new create call: `NewFuturesTrader` wraps the client's HTTP transport, after the hook that may replace the client. The wrapper checks every POST to these endpoints:
+
+- `/fapi/v1/order` and `/fapi/v1/order/test`: `newClientOrderId`;
+- `/fapi/v1/batchOrders`: `newClientOrderId` of each order;
+- `/fapi/v1/algoOrder`: `clientAlgoId`.
+
+It reads the query string and the form body. If an id is missing or not owned (`isOwnedClientID`), the request is not sent. The caller gets an error wrapping `ErrUnownedClientID`, and the guard logs it at error level. `IsAmbiguousOrderError` returns false for this error, because the order was definitely not placed, so F04 does not run a read-back. Requests that only query, cancel or amend existing orders are not checked. `trader/binance/futures.go` is the only place that builds a go-binance futures client, so a new order path cannot bypass the guard. The one exception is go-binance's websocket order service, which does not use the HTTP transport; a test keeps it out of the package.
+
+The guard changes nothing in live trading today, because all 6 current paths already send their own id.
 
 Charset: the ids use only `[A-Za-z0-9-]`, inside Binance's documented client-id character set, and stay ≤ 32 chars (the limit this package already used).
 
@@ -68,8 +78,15 @@ Charset: the ids use only `[A-Za-z0-9-]`, inside Binance's documented client-id 
   - a configured id is sent as the `x-<id>` prefix and the id stays ≤ 32 chars;
   - invalid ids are dropped;
   - intent ids are deterministic;
-  - ownership covers the legacy, new and changed-referral forms;
-  - a legacy-prefix order is still cancelled by `CancelOwnedOrders`.
+  - ownership covers the new and changed-referral forms, and the removed `x-KzrpZaP9` prefix is not owned.
+- `trader/binance/order_guard_test.go`:
+  - all 6 current paths pass the guard and send our id, with and without a referral id;
+  - a create call with no id (go-binance's `x-ftGmvgAN`), with a foreign id, an algo order without `ClientAlgoId`, and a batch with one id missing are each refused, and nothing reaches the mock exchange;
+  - query, cancel and amend requests pass unchecked;
+  - installing the guard twice has no extra effect;
+  - no websocket order service is used in the package.
+  - Mutation check (run once, not committed): removing `NewClientOrderID` from `CloseLong` makes the path test fail, with the guard refusing `x-ftGmvgAN…`.
+- The Binance mock-exchange test helpers install the guard too, so the existing order tests run through it.
 - `trader/bybit/referral_test.go`, `trader/bitget/referral_test.go`, `trader/okx/referral_test.go`, `trader/gate/referral_test.go`: by default nothing is sent; a configured id is sent.
 - `store/exchange_referral_test.go`: the column exists and defaults to empty.
 - The existing F04/F26/F27/F28 tests pass unchanged. They build ids from `ownedOrderPrefix`, which is now `ait-`.
