@@ -618,6 +618,10 @@ type RiskControlConfig struct {
 	// armed; default shadow). nil = defaults; read through
 	// EffectiveDailyLossBreaker.
 	DailyLossBreaker *DailyLossBreakerConfig `json:"daily_loss_breaker,omitempty"`
+	// Protector is the U14 live position protector config (every
+	// threshold with its unit; defaults = the pre-U14 behaviour). nil =
+	// defaults; read through EffectiveProtector.
+	Protector *ProtectorConfig `json:"protector,omitempty"`
 	// GeometryRepair selects what the Hunter v7 open path does with LLM
 	// geometry that misses a backend constraint (CODE ENFORCED):
 	//   "" or "repair" — historical behaviour: refresh the decision price,

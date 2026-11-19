@@ -576,6 +576,8 @@ U13 record (BTC RV24 regime, per-regime fire rates, Poisson lower-bound targets,
 
 F08 record (daily-loss breaker: modes, UTC day, 15% limit, open block, persistence): `docs/t2-f08-daily-loss-breaker.md`.
 
+U14 record (protector config with units, shared step for live and replay, F29–F31, U0-F / U0-H2 re-run): `docs/t2-u14-protector.md`.
+
 ---
 
 ## 7. R6: post-entry position management
