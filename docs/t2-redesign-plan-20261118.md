@@ -572,6 +572,8 @@ U11 record (payload / doctrine versions, LLM roles, Task C pass 1, hybrid payloa
 
 U12 record (cell dashboard endpoint and panel, evaluated cell status, calibration drift, acceptance): `docs/t2-u12-dashboards.md`.
 
+U13 record (BTC RV24 regime, per-regime fire rates, Poisson lower-bound targets, regime G3, live yield table): `docs/t2-u13-yield-target.md`.
+
 ---
 
 ## 7. R6: post-entry position management

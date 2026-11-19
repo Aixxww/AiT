@@ -222,6 +222,33 @@ export interface V7CalibrationDrift {
   drift: boolean
 }
 
+/** U13 per-regime yield row (BTC RV24 tier). */
+export interface V7YieldRow {
+  stage: string
+  rv24_tier: string
+  rounds: number
+  events: number
+  rate_per_round: number
+  rate_ci_lo: number
+  rate_ci_hi: number
+  target_rate?: number
+  expected_events?: number
+  below_target: boolean
+}
+
+export interface V7YieldTable {
+  available: boolean
+  reason?: string
+  stage: string
+  forming_bar_tf: string
+  round_minutes: number
+  ci_level: number
+  t2_records: number
+  events: number
+  rounds_per_tier: Record<string, number>
+  rows: V7YieldRow[]
+}
+
 export interface V7CellsResponse {
   from: string
   to: string
@@ -232,6 +259,7 @@ export interface V7CellsResponse {
   tables: V7CellTables
   excluded_no_r: Record<string, number>
   calibration_drift: V7CalibrationDrift[]
+  yield?: V7YieldTable
 }
 
 export const hunterApi = {

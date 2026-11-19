@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { CellsPanel, cellLabel, formatR, formatRate } from './CellsPanel'
+import {
+  CellsPanel,
+  cellLabel,
+  formatPerDay,
+  formatR,
+  formatRate,
+} from './CellsPanel'
 import type { V7CellRow, V7CellsResponse } from '../../lib/api/hunter'
 
 vi.mock('../../lib/api', () => ({
@@ -201,5 +207,85 @@ describe('CellsPanel', () => {
     expect(
       await screen.findByText('Gagal memuat tabel sel')
     ).toBeInTheDocument()
+  })
+
+  it('shows the per-regime yield table with the below-target flag', async () => {
+    mockedGetV7Cells.mockResolvedValue(
+      response({
+        yield: {
+          available: true,
+          stage: 't2_triggered',
+          forming_bar_tf: '5m',
+          round_minutes: 5,
+          ci_level: 0.9,
+          t2_records: 40,
+          events: 6,
+          rounds_per_tier: { LOW: 600, MID: 800, HIGH: 616 },
+          rows: [
+            {
+              stage: 't2_triggered',
+              rv24_tier: 'LOW',
+              rounds: 600,
+              events: 30,
+              rate_per_round: 0.05,
+              rate_ci_lo: 0.036,
+              rate_ci_hi: 0.067,
+              target_rate: 0.0408,
+              expected_events: 24.5,
+              below_target: false,
+            },
+            {
+              stage: 't2_triggered',
+              rv24_tier: 'HIGH',
+              rounds: 616,
+              events: 1,
+              rate_per_round: 0.0016,
+              rate_ci_lo: 0.0001,
+              rate_ci_hi: 0.0077,
+              target_rate: 0.0464,
+              expected_events: 28.6,
+              below_target: true,
+            },
+          ],
+        },
+      })
+    )
+    render(<CellsPanel language="en" />)
+    expect(
+      await screen.findByText('Yield by BTC RV24 tier (T2 triggered)')
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('yield-below-HIGH')).toHaveTextContent(
+      'below target'
+    )
+    expect(screen.queryByTestId('yield-below-LOW')).not.toBeInTheDocument()
+    expect(screen.getByText('14.40')).toBeInTheDocument() // 0.05 per 5-min round = 14.4/day
+  })
+
+  it('explains an unavailable yield table', async () => {
+    mockedGetV7Cells.mockResolvedValue(
+      response({
+        yield: {
+          available: false,
+          reason: 'no T2 records in the window (T2 module off?)',
+          stage: 't2_triggered',
+          forming_bar_tf: '5m',
+          round_minutes: 5,
+          ci_level: 0.9,
+          t2_records: 0,
+          events: 0,
+          rounds_per_tier: {},
+          rows: [],
+        },
+      })
+    )
+    render(<CellsPanel language="en" />)
+    expect(await screen.findByTestId('yield-unavailable')).toHaveTextContent(
+      'T2 module off'
+    )
+  })
+
+  it('converts rates per round to per day', () => {
+    expect(formatPerDay(0.05, 5)).toBe('14.40')
+    expect(formatPerDay(0.05, 0)).toBe('—')
   })
 })
