@@ -40,6 +40,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Aixxww/AiT/cmd/internal/btcregime"
 	"github.com/Aixxww/AiT/cmd/t2_replay/replay"
 	local "github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
@@ -297,6 +298,12 @@ func main() {
 	// pre-U2 spec v2 run (9/694).
 	rrStageOut := flag.String("rr-stage-out", "", "optional: write per-event RR-stage rows (MEAS1 / U0) to this path")
 	rrMin := flag.Float64("rr-min", store.DefaultT2MinRiskRewardRatio, "measured-RR admission floor (RRMin) for the structure arm")
+	// U13: with -btc-dir, G3 is the regime-conditional target (sum over
+	// RV24 tiers of rounds x target rate, hunter.v7_yield_target) instead
+	// of the fixed 170. Without it the output is unchanged.
+	btcDir := flag.String("btc-dir", "", "U13: directory of BTCUSDT data.binance.vision kline zips (1h + forming-bar timeframe); enables the regime G3")
+	btcFine := flag.String("btc-fine", "5m", "U13: forming-bar price timeframe of the RV24 series")
+	yieldConfig := flag.String("yield-config", "", "U13: optional JSON file with a v7_yield_target block (overrides the defaults)")
 	flag.Parse()
 	if *rrMin <= 0 {
 		fatal("-rr-min must be > 0, got %v", *rrMin)
@@ -331,9 +338,9 @@ func main() {
 		MinClosed15m:  1 << 30,
 		MinClosed1h:   1 << 30,
 		MinClosed4h:   1 << 30,
-		ByDirection: map[string]*group{},
-		BySetup:     map[string]*group{},
-		ByFamily:    map[string]*group{},
+		ByDirection:   map[string]*group{},
+		BySetup:       map[string]*group{},
+		ByFamily:      map[string]*group{},
 	}
 
 	var rrStage []rrStageRow
@@ -517,6 +524,12 @@ func main() {
 	g1 := s.pTP1First() > 0.40
 	g2 := s.stopThenRate() < 0.35
 	g3 := s.Admitted >= 170
+	var regimeG3 map[string]interface{}
+	if *btcDir != "" {
+		var ok bool
+		regimeG3, ok = regimeG3Gate(*btcDir, *btcFine, *yieldConfig, *rrMin, events, rep.Records, s.Admitted)
+		g3 = ok
+	}
 	g4 := g4Breaches == 0
 	verdict := "UNRESOLVED"
 	switch {
@@ -528,21 +541,28 @@ func main() {
 		verdict = "FAIL"
 	}
 	rep.Gates = map[string]interface{}{
-		"spec":                       "geometry-v2",
-		"g1_p_tp1_first_gt_0.40":     g1,
-		"g2_stop_then_lt_0.35":       g2,
-		"g3_admitted_ge_170":         g3,
-		"g4_stops_beyond_s_struct":   g4,
-		"g4_breaches":                g4Breaches,
-		"verdict":                    verdict,
-		"p_tp1_first_structure":      s.pTP1First(),
-		"gate_p_tp1_first_gt_0.40":   s.pTP1First() > 0.40,
-		"stop_then_tp1_structure":    s.stopThenRate(),
-		"gate_stop_then_lt_0.35":     s.stopThenRate() < 0.35,
-		"p_tp1_first_control":        rep.Overall.Control.pTP1First(),
-		"stop_then_tp1_control":      rep.Overall.Control.stopThenRate(),
-		"historical_limit_caliber":   map[string]float64{"p_tp1_first": 0.329, "stop_then_tp1": 0.551},
-		"historical_note":            "limit-fill walk caliber; not directly comparable to either arm here",
+		"spec":                     "geometry-v2",
+		"g1_p_tp1_first_gt_0.40":   g1,
+		"g2_stop_then_lt_0.35":     g2,
+		"g3_admitted_ge_170":       g3,
+		"g4_stops_beyond_s_struct": g4,
+		"g4_breaches":              g4Breaches,
+		"verdict":                  verdict,
+		"p_tp1_first_structure":    s.pTP1First(),
+		"gate_p_tp1_first_gt_0.40": s.pTP1First() > 0.40,
+		"stop_then_tp1_structure":  s.stopThenRate(),
+		"gate_stop_then_lt_0.35":   s.stopThenRate() < 0.35,
+		"p_tp1_first_control":      rep.Overall.Control.pTP1First(),
+		"stop_then_tp1_control":    rep.Overall.Control.stopThenRate(),
+		"historical_limit_caliber": map[string]float64{"p_tp1_first": 0.329, "stop_then_tp1": 0.551},
+		"historical_note":          "limit-fill walk caliber; not directly comparable to either arm here",
+	}
+
+	if regimeG3 != nil {
+		rep.Gates["g3_mode"] = "regime_target"
+		rep.Gates["g3_regime_target"] = regimeG3
+		rep.Gates["g3_admitted_ge_170"] = s.Admitted >= 170 // legacy, reported only
+		rep.Gates["g3_admitted_ge_regime_target"] = g3
 	}
 
 	// Rates are NaN when their denominator is 0; JSON cannot encode NaN.
@@ -668,9 +688,9 @@ func printSummary(rep *report) {
 	printArm("tp1_fallback", rep.TP1Fallback)
 	fmt.Printf("nearest candidate dist (all): %+v\n", rep.NearestDist["all"])
 	fmt.Printf("fee-net R: %+v\n", rep.FeeNetR)
-	fmt.Printf("\nGATES (spec v2): G1 P(TP1 first)=%s (>40%%) %v | G2 stop->TP1=%s (<35%%) %v | G3 admitted=%d (>=170) %v | G4 breaches=%v | verdict=%v\n",
+	fmt.Printf("\nGATES (spec v2): G1 P(TP1 first)=%s (>40%%) %v | G2 stop->TP1=%s (<35%%) %v | G3 admitted=%d (%v) %v | G4 breaches=%v | verdict=%v\n",
 		pct(s.pTP1First()), rep.Gates["g1_p_tp1_first_gt_0.40"], pct(s.stopThenRate()), rep.Gates["g2_stop_then_lt_0.35"],
-		s.Admitted, rep.Gates["g3_admitted_ge_170"], rep.Gates["g4_breaches"], rep.Gates["verdict"])
+		s.Admitted, g3Label(rep), g3Value(rep), rep.Gates["g4_breaches"], rep.Gates["verdict"])
 }
 
 func fatal(format string, args ...interface{}) {
@@ -726,4 +746,67 @@ func rrStageRowFor(i int, ev replay.Event, class string, plan *local.V7Structure
 		r.FeeNetR = -1
 	}
 	return r, true
+}
+
+// regimeG3Gate is the U13 G3: admitted >= the sum over RV24 tiers of the
+// window's rounds in the tier x the stage's target rate. Events are
+// labelled by their tier at the trigger time.
+func regimeG3Gate(btcDir, fine, yieldConfig string, rrMin float64, events []replay.Event, records []eventRecord, admitted int) (map[string]interface{}, bool) {
+	var c *store.V7YieldTargetConfig
+	if yieldConfig != "" {
+		raw, err := os.ReadFile(yieldConfig)
+		if err != nil {
+			fatal("yield config: %v", err)
+		}
+		c = &store.V7YieldTargetConfig{}
+		if err := json.Unmarshal(raw, c); err != nil {
+			fatal("yield config: %v", err)
+		}
+	}
+	cfg := store.EffectiveV7YieldTarget(c)
+	series, err := btcregime.Series(btcDir, fine, cfg)
+	if err != nil {
+		fatal("btc series: %v", err)
+	}
+	from, to := store.V7YieldWindowUTC[0].UnixMilli(), store.V7YieldWindowUTC[1].UnixMilli()
+	rounds := series.RoundsPerTier(from, to)
+	stage := store.V7YieldStageM2Admitted(rrMin)
+	threshold, ok := store.V7YieldThreshold(stage, rounds, cfg)
+	if !ok {
+		fatal("no yield target for stage %s (set hunter.v7_yield_target.targets)", stage)
+	}
+	perTier := map[string]int{}
+	for _, r := range records {
+		if r.Feasible {
+			perTier[series.Tier(events[r.Index].TrigMs)]++
+		}
+	}
+	targets := map[string]float64{}
+	for _, tier := range store.V7RV24Tiers {
+		targets[tier], _ = cfg.Target(stage, tier)
+	}
+	return map[string]interface{}{
+		"stage":             stage,
+		"window":            store.V7YieldWindowUTC,
+		"forming_bar_tf":    fine,
+		"rounds_per_tier":   rounds,
+		"target_per_tier":   targets,
+		"admitted_per_tier": perTier,
+		"threshold":         threshold,
+		"admitted":          admitted,
+	}, float64(admitted) >= threshold
+}
+
+func g3Label(rep *report) string {
+	if t, ok := rep.Gates["g3_regime_target"].(map[string]interface{}); ok {
+		return fmt.Sprintf("regime target >=%.3f", t["threshold"])
+	}
+	return ">=170"
+}
+
+func g3Value(rep *report) interface{} {
+	if v, ok := rep.Gates["g3_admitted_ge_regime_target"]; ok {
+		return v
+	}
+	return rep.Gates["g3_admitted_ge_170"]
 }

@@ -22,6 +22,7 @@ import type {
   V7CellSource,
   V7CellStatus,
   V7CellsResponse,
+  V7YieldTable,
 } from '../../lib/api/hunter'
 import { t, type Language } from '../../i18n/translations'
 import { cn } from '../../lib/cn'
@@ -308,6 +309,108 @@ function DriftSection({
   )
 }
 
+/** Rate per round, as events per day for readability. */
+export function formatPerDay(
+  ratePerRound: number,
+  roundMinutes: number
+): string {
+  if (!Number.isFinite(ratePerRound) || roundMinutes <= 0) return '—'
+  return ((ratePerRound * 24 * 60) / roundMinutes).toFixed(2)
+}
+
+function YieldSection({
+  table,
+  language,
+}: {
+  table: V7YieldTable
+  language: Language
+}) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-foreground mb-1">
+        {t('v7Cells.yieldTitle', language)}
+      </div>
+      <div className="text-[10px] text-muted-foreground mb-2">
+        {t('v7Cells.yieldNote', language, {
+          ci: Math.round(table.ci_level * 100),
+          tf: table.forming_bar_tf,
+        })}
+      </div>
+      {!table.available ? (
+        <div
+          data-testid="yield-unavailable"
+          className="text-[11px] text-muted-foreground"
+        >
+          {t('v7Cells.yieldUnavailable', language)}
+          {table.reason ? ` (${table.reason})` : ''}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px] font-mono tabular-nums">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="py-1 pr-3 font-medium">
+                  {t('v7Cells.colTier', language)}
+                </th>
+                <th className="py-1 pr-3 font-medium text-right">
+                  {t('v7Cells.colRounds', language)}
+                </th>
+                <th className="py-1 pr-3 font-medium text-right">
+                  {t('v7Cells.colEvents', language)}
+                </th>
+                <th className="py-1 pr-3 font-medium text-right">
+                  {t('v7Cells.colPerDay', language)}
+                </th>
+                <th className="py-1 pr-3 font-medium text-right">
+                  {t('v7Cells.colCI', language)}
+                </th>
+                <th className="py-1 pr-3 font-medium text-right">
+                  {t('v7Cells.colTarget', language)}
+                </th>
+                <th className="py-1 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row) => (
+                <tr key={row.rv24_tier} className="border-t border-border/40">
+                  <td className="py-1 pr-3 text-foreground">{row.rv24_tier}</td>
+                  <td className="py-1 pr-3 text-right">{row.rounds}</td>
+                  <td className="py-1 pr-3 text-right">{row.events}</td>
+                  <td className="py-1 pr-3 text-right">
+                    {formatPerDay(row.rate_per_round, table.round_minutes)}
+                  </td>
+                  <td className="py-1 pr-3 text-right text-muted-foreground">
+                    [{formatPerDay(row.rate_ci_lo, table.round_minutes)},{' '}
+                    {formatPerDay(row.rate_ci_hi, table.round_minutes)}]
+                  </td>
+                  <td className="py-1 pr-3 text-right">
+                    {row.target_rate !== undefined
+                      ? formatPerDay(row.target_rate, table.round_minutes)
+                      : '—'}
+                  </td>
+                  <td
+                    className={
+                      row.below_target
+                        ? 'text-tier-rejected'
+                        : 'text-muted-foreground'
+                    }
+                  >
+                    {row.below_target ? (
+                      <span data-testid={`yield-below-${row.rv24_tier}`}>
+                        {t('v7Cells.belowTarget', language)}
+                      </span>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface CellsPanelProps {
   language: Language
   refreshInterval?: number
@@ -472,6 +575,9 @@ export function CellsPanel({
                 drift={data.calibration_drift ?? []}
                 language={language}
               />
+              {data.yield && (
+                <YieldSection table={data.yield} language={language} />
+              )}
             </>
           )}
         </div>

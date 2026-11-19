@@ -431,6 +431,11 @@ type HunterConfig struct {
 	// level) and bootstrap settings. nil = defaults; read through
 	// EffectiveV7CellRule. Read-only: the dashboard gates nothing.
 	V7CellRule *V7CellRuleConfig `json:"v7_cell_rule,omitempty"`
+	// V7YieldTarget holds the U13 regime-conditional yield targets (BTC
+	// RV24 tiers, per-stage target rates, RV24 rule constants). nil =
+	// defaults; read through EffectiveV7YieldTarget. Read-only: the cell
+	// dashboard shows it and t2_m2_eval's G3 uses it; nothing live gates on it.
+	V7YieldTarget *V7YieldTargetConfig `json:"v7_yield_target,omitempty"`
 	// V7ConditionalEntry is the U9 TRIGGER-class conditional entry (owner
 	// decision: backend trigger check on completed 1m candles, default off).
 	// nil = off; read through EffectiveV7ConditionalEntry.

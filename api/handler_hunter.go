@@ -315,22 +315,31 @@ func (s *Server) handleHunterV7Matrix(c *gin.Context) {
 	})
 }
 
-// hunterV7CellRule returns the dashboard's §5.3 rule config: the system
-// default strategy's hunter.v7_cell_rule when present, else the defaults.
-// Signal records carry no strategy id, so the dashboard reads one config.
-func (s *Server) hunterV7CellRule() store.V7CellRuleConfig {
+// hunterV7DefaultHunterConfig is the system default strategy's hunter
+// block (nil when there is none). Signal records carry no strategy id, so
+// the read-only dashboards read one config.
+func (s *Server) hunterV7DefaultHunterConfig() *store.HunterConfig {
 	if s.store == nil || s.store.Strategy() == nil {
-		return store.EffectiveV7CellRule(nil)
+		return nil
 	}
 	st, err := s.store.Strategy().GetDefault()
 	if err != nil || st == nil {
-		return store.EffectiveV7CellRule(nil)
+		return nil
 	}
 	cfg, err := st.ParseConfig()
-	if err != nil || cfg.CoinSource.Hunter == nil {
-		return store.EffectiveV7CellRule(nil)
+	if err != nil {
+		return nil
 	}
-	return store.EffectiveV7CellRule(cfg.CoinSource.Hunter.V7CellRule)
+	return cfg.CoinSource.Hunter
+}
+
+// hunterV7CellRule returns the dashboard's §5.3 rule config: the system
+// default strategy's hunter.v7_cell_rule when present, else the defaults.
+func (s *Server) hunterV7CellRule() store.V7CellRuleConfig {
+	if h := s.hunterV7DefaultHunterConfig(); h != nil {
+		return store.EffectiveV7CellRule(h.V7CellRule)
+	}
+	return store.EffectiveV7CellRule(nil)
 }
 
 // handleHunterV7Cells is the U12 dashboard: fee-net outcomes per class,
@@ -390,6 +399,7 @@ func (s *Server) handleHunterV7Cells(c *gin.Context) {
 		"tables":            store.BuildV7CellTables(current, source, rule),
 		"excluded_no_r":     store.V7CellExclusions(current, source),
 		"calibration_drift": store.BuildV7CalibrationDrift(rows, prevFrom, from, to, source, rule),
+		"yield":             s.hunterV7YieldTable(from, to),
 		"window_source":     "hunter_v7_signal_records",
 		"report_generated":  true,
 	})
