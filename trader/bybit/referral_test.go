@@ -38,3 +38,10 @@ func TestReferer_ConfiguredIsSent(t *testing.T) {
 	_, _ = bt.header.RoundTrip(req)
 	assert.Empty(t, rt.got.Header.Get("Referer"), "invalid id is dropped")
 }
+
+// N2: a trader without a transport does not panic and sends nothing.
+func TestSetReferralID_NilHeaderIsSafe(t *testing.T) {
+	bt := &BybitTrader{}
+	assert.NotPanics(t, func() { bt.SetReferralID("Ref123") })
+	assert.Nil(t, bt.header)
+}
