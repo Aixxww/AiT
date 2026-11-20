@@ -816,14 +816,23 @@ func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7Exe
 		return "REJECTED", "risk_score_gte_65"
 	}
 
-	if reason := hunterV7RequiredConfirmationWaitReason(coin); reason != "" {
-		if hunterV7AltLadderShortReboundPending(coin, reason) {
-			return "WATCH", "alt_ladder_short_rebound_pending"
+	// TA-1 kernel unit: Task-2 candidates skip the required-confirmation
+	// wait. Their tier comes from the shared checks below plus the U4 class
+	// lifecycle rule (hunterV7T2TierRule), whose reasons (t2_awaiting_trigger,
+	// t2_observe_only, backend_rr_infeasible, ...) must not be replaced by
+	// confirmation_missing_*. A T2 required confirmation is the lifecycle
+	// trigger itself (price reaching the entry makes the event TRIGGERED);
+	// it still reaches the LLM as must_confirm through the prompt payload.
+	if coin.V7Stack != local.V7StackT2 {
+		if reason := hunterV7RequiredConfirmationWaitReason(coin); reason != "" {
+			if hunterV7AltLadderShortReboundPending(coin, reason) {
+				return "WATCH", "alt_ladder_short_rebound_pending"
+			}
+			if ok, reviewReason := hunterV7LiveConfirmableReviewableReason(coin, reason); ok {
+				return "REVIEWABLE", reviewReason
+			}
+			return "WATCH", reason
 		}
-		if ok, reviewReason := hunterV7LiveConfirmableReviewableReason(coin, reason); ok {
-			return "REVIEWABLE", reviewReason
-		}
-		return "WATCH", reason
 	}
 	if reason := hunterV7ReadinessMissingExecutionWaitReason(coin); reason != "" {
 		return "WATCH", reason
