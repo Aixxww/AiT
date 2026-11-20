@@ -130,6 +130,12 @@ type validationOptions struct {
 	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
 	attempt           int // TA-2: attempt number within the round (artifact names in rejected/)
+
+	// TA-3: run state across restarts.
+	runID                string
+	stateFile            string
+	resume               bool
+	resumeAllowSHAChange bool
 }
 
 type validationOutcomeSummary struct {
@@ -254,6 +260,10 @@ func main() {
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
 	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
+	runID := flag.String("run-id", "", "TA-3: run identifier; enables the state file (watch state, T2 store, round counter) saved after every round")
+	stateFile := flag.String("state-file", "", "TA-3: state file path (default <out-dir>/state-<run-id>.json)")
+	resume := flag.Bool("resume", false, "TA-3: continue the run from its state file (requires --run-id)")
+	resumeAllowSHAChange := flag.Bool("resume-allow-sha-change", false, "TA-3: allow --resume with a harness built from a different commit")
 	flag.Parse()
 
 	opts := validationOptions{
@@ -275,10 +285,15 @@ func main() {
 		postTrackInterval: *postTrackInterval,
 		trackActiveOnly:   *trackActiveOnly,
 		binanceURL:        *binanceURL,
-		// Cross-round Task-2 trigger memory (shared by pointer, like the
-		// production engine's store; created once for the whole run).
-		t2Store:    local.NewV7T2EventStore(),
-		watchState: local.NewV7SignalStateManager(),
+		// Cross-round Task-2 trigger memory, created once for the run. TA-3:
+		// each attempt scores into a clone, committed only on acceptance,
+		// and the committed store is saved with --run-id.
+		t2Store:              local.NewV7T2EventStore(),
+		watchState:           local.NewV7SignalStateManager(),
+		runID:                *runID,
+		stateFile:            *stateFile,
+		resume:               *resume,
+		resumeAllowSHAChange: *resumeAllowSHAChange,
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -348,20 +363,54 @@ func runHarness(opts validationOptions, breakerConsecutive int) int {
 	if opts.store != nil {
 		defer opts.store.Close()
 	}
+	first, prior, err := prepareRunState(&opts)
+	if err != nil {
+		log.Printf("run state: %v", err)
+		return exitFatal
+	}
+	if opts.resume {
+		log.Printf("resuming run %q at round %d (cycle %d) of %d", opts.runID, first, first, opts.rounds)
+		if first > opts.rounds {
+			log.Printf("run %q already completed %d of %d rounds; nothing to do", opts.runID, prior.LastRound, opts.rounds)
+			return exitOK
+		}
+	}
 	attempt := func(round, n int) (validationReport, error) {
-		// Score into an isolated state copy. A rejected attempt must not count
-		// as another watch cycle or advance the module dry-run breaker.
+		// Score into isolated state copies. A rejected attempt must not count
+		// as another watch cycle, advance the module dry-run breaker, or
+		// create / trigger Task-2 events (TA-3).
 		attemptOpts := opts
 		attemptOpts.attempt = n
 		attemptOpts.watchState = opts.watchState.Clone()
+		attemptOpts.t2Store = opts.t2Store.Clone()
 		report, err := runValidationFn(attemptOpts, round)
 		if err == nil {
 			opts.watchState.ReplaceFrom(attemptOpts.watchState)
+			opts.t2Store.ReplaceFrom(attemptOpts.t2Store)
 		}
 		return report, err
 	}
-	out := runRoundsWithPolicy(1, opts.rounds, opts.roundInterval, defaultRoundPolicy(), newRunBreaker(breakerConsecutive),
-		attempt, sleepFn, nil)
+	accepted, rejected := prior.AcceptedRounds, prior.RejectedRounds
+	onRoundDone := func(round int, res roundResult) error {
+		if res.status == roundAccepted {
+			accepted++
+		} else {
+			rejected++
+		}
+		if opts.runID == "" {
+			return nil
+		}
+		st, err := snapshotHarnessState(opts, round, accepted, rejected)
+		if err != nil {
+			return fmt.Errorf("snapshot run state: %w", err)
+		}
+		if err := saveHarnessState(opts.stateFile, st); err != nil {
+			return fmt.Errorf("save run state: %w", err)
+		}
+		return nil
+	}
+	out := runRoundsWithPolicy(first, opts.rounds, opts.roundInterval, defaultRoundPolicy(), newRunBreaker(breakerConsecutive),
+		attempt, sleepFn, onRoundDone)
 	if err := writeValidationRunSummary(opts, out); err != nil {
 		log.Printf("write run summary failed: %v", err)
 		if out.exitCode == exitOK {
