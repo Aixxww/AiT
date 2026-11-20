@@ -1,6 +1,7 @@
 package datafetch
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,7 +192,15 @@ func binanceProxyFromEnvironment(req *http.Request) (*url.URL, error) {
 // to a Binance public endpoint. Returns the response body.
 // Retries on transient network errors (connection reset, timeout, EOF).
 // Circuit breaker failure is only recorded after ALL retries are exhausted.
-func (c *HTTPClient) doPublic(path string) ([]byte, error) {
+//
+// ctx carries only the optional per-fetch statistics (TA-5); it does not
+// cancel the request (request behaviour is unchanged).
+func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, err error) {
+	defer func() {
+		if err != nil {
+			fetchStatsFrom(ctx).recordFailure(path, err)
+		}
+	}()
 	if !c.breaker.Allow() {
 		return nil, fmt.Errorf("circuit breaker open for %s", path)
 	}
@@ -246,9 +255,9 @@ func (c *HTTPClient) doPublic(path string) ([]byte, error) {
 }
 
 // fetchJSON performs a GET request and unmarshals the JSON response into target.
-func fetchJSON[T any](c *HTTPClient, path string) (T, error) {
+func fetchJSON[T any](ctx context.Context, c *HTTPClient, path string) (T, error) {
 	var zero T
-	body, err := c.doPublic(path)
+	body, err := c.doPublic(ctx, path)
 	if err != nil {
 		return zero, err
 	}

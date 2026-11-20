@@ -10,7 +10,7 @@ import (
 // fetchAllTickers fetches 24hr ticker data for ALL USDT-M futures symbols in one call.
 func (f *DataFetcher) fetchAllTickers(ctx context.Context) (map[string]*ticker24hrRaw, error) {
 	path := "/fapi/v1/ticker/24hr"
-	raw, err := fetchJSON[[]ticker24hrRaw](f.client, path)
+	raw, err := fetchJSON[[]ticker24hrRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetchAllTickers: %w", err)
 	}
@@ -24,7 +24,7 @@ func (f *DataFetcher) fetchAllTickers(ctx context.Context) (map[string]*ticker24
 // fetchTicker fetches 24hr ticker data for a single USDT-M futures symbol.
 func (f *DataFetcher) fetchTicker(ctx context.Context, symbol string) (*ticker24hrRaw, error) {
 	path := "/fapi/v1/ticker/24hr?symbol=" + url.QueryEscape(symbol)
-	raw, err := fetchJSON[ticker24hrRaw](f.client, path)
+	raw, err := fetchJSON[ticker24hrRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetchTicker %s: %w", symbol, err)
 	}
@@ -34,7 +34,7 @@ func (f *DataFetcher) fetchTicker(ctx context.Context, symbol string) (*ticker24
 // fetchAllPremiumIndex fetches premium index (mark price, funding rate) for ALL symbols.
 func (f *DataFetcher) fetchAllPremiumIndex(ctx context.Context) (map[string]*premiumIndexRaw, error) {
 	path := "/fapi/v1/premiumIndex"
-	raw, err := fetchJSON[[]premiumIndexRaw](f.client, path)
+	raw, err := fetchJSON[[]premiumIndexRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetchAllPremiumIndex: %w", err)
 	}
@@ -48,7 +48,7 @@ func (f *DataFetcher) fetchAllPremiumIndex(ctx context.Context) (map[string]*pre
 // fetchPremiumIndex fetches premium index data for a single USDT-M futures symbol.
 func (f *DataFetcher) fetchPremiumIndex(ctx context.Context, symbol string) (*premiumIndexRaw, error) {
 	path := "/fapi/v1/premiumIndex?symbol=" + url.QueryEscape(symbol)
-	raw, err := fetchJSON[premiumIndexRaw](f.client, path)
+	raw, err := fetchJSON[premiumIndexRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetchPremiumIndex %s: %w", symbol, err)
 	}
@@ -58,7 +58,7 @@ func (f *DataFetcher) fetchPremiumIndex(ctx context.Context, symbol string) (*pr
 // fetchExchangeInfo fetches the full exchange info and returns trading USDT perpetual symbols.
 func (f *DataFetcher) fetchExchangeInfo(ctx context.Context) ([]string, error) {
 	path := "/fapi/v1/exchangeInfo"
-	raw, err := fetchJSON[exchangeInfoRaw](f.client, path)
+	raw, err := fetchJSON[exchangeInfoRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetchExchangeInfo: %w", err)
 	}
