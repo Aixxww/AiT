@@ -8,6 +8,18 @@ Revision 3: checks the §3 class assignments against SSA §H.3 (new §3.4), adds
 
 Revision 4: records the U0 evidence programme (§10): check 6, U0-A to U0-H, U0-F2 and the single pre-registered U0-H2 test. It also records the decisions that close the protector question (OD-22 (a) confirmed on live data; U14 locked to defect fixes only).
 
+## Standing design standard (owner, 2026-11-20)
+
+This is the highest standard for AiT architecture-logic design. It is the yardstick for every future design decision; a proposal that conflicts with it is flagged to the owner, not silently adopted.
+
+Owner's original:
+
+> 数据源筛选规则设计原则是，在每一次轮询中，发掘捕捉出当下几百个合约对中，不管是什么行情形态，能通过当前最新数据指标预判出方向且能有较高盈利RR 1.2或以上，值得当下入场的三五个信号标的。能将完整将最新数据指标喂给LLM，而LLM根据策略提示词分析出最终目标，以json输出出交易引擎以市价入场。
+
+English rendering:
+
+> Data-source screening rule design principle: in each polling round, from the hundreds of contract pairs currently available, regardless of market regime or morphology, discover and capture the three to five signal targets that, based on the latest data indicators, can predict direction with high-profit RR of 1.2 or above and are worth entering right now. Feed the complete latest data indicators to the LLM, and the LLM analyzes per the strategy prompt to produce the final target, outputting JSON for the trading engine to enter at market price.
+
 ## 0. How to read this plan
 
 ### 0.1 Evidence tags
