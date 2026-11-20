@@ -120,6 +120,8 @@ type validationOptions struct {
 	trackActiveOnly   bool
 	store             *store.Store
 	watchState        *local.V7SignalStateManager
+	t2Store           *local.V7T2EventStore
+	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
 }
 
@@ -236,6 +238,7 @@ func main() {
 	postTrackDuration := flag.Duration("post-track-duration", 0, "continue tracking ACTIVE validation outcomes after all rounds; 0 disables post tracking")
 	postTrackInterval := flag.Duration("post-track-interval", 30*time.Second, "post-round outcome tracking tick interval")
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
+	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
 	flag.Parse()
 
 	opts := validationOptions{
@@ -256,7 +259,11 @@ func main() {
 		postTrackDuration: *postTrackDuration,
 		postTrackInterval: *postTrackInterval,
 		trackActiveOnly:   *trackActiveOnly,
-		watchState:        local.NewV7SignalStateManager(),
+		binanceURL:        *binanceURL,
+		// Cross-round Task-2 trigger memory (shared by pointer, like the
+		// production engine's store; created once for the whole run).
+		t2Store:    local.NewV7T2EventStore(),
+		watchState: local.NewV7SignalStateManager(),
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -302,7 +309,8 @@ func main() {
 				}
 			})
 			backfillFetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
-				Timeout: 8 * time.Second,
+				BinanceURL: opts.binanceURL,
+				Timeout:    8 * time.Second,
 				KlineIntervals: []datafetch.KlineInterval{
 					{Interval: "1m", Limit: 120},
 				},
@@ -360,6 +368,25 @@ func main() {
 	}
 }
 
+// t2LifecycleParams mirrors kernel hunterV7T2Lifecycle (unexported): a
+// straight field copy; nil keeps every scanner constant.
+func t2LifecycleParams(c *store.V7T2LifecycleConfig) local.V7T2LifecycleParams {
+	if c == nil {
+		return local.V7T2LifecycleParams{}
+	}
+	return local.V7T2LifecycleParams{
+		MinAlertScore:           c.MinAlertScore,
+		MinWatchScore:           c.MinWatchScore,
+		ArmedExpiryHours:        c.ArmedExpiryHours,
+		WatchExpiryHours:        c.WatchExpiryHours,
+		CooldownMinutes:         c.CooldownMinutes,
+		ObserveOnlyOverride:     c.ObserveOnlyOverride,
+		ObserveOnlySetups:       append([]string(nil), c.ObserveOnlySetups...),
+		DisableTrigger:          c.DisableTrigger,
+		TriggeredSurfaceMinutes: c.TriggeredSurfaceMinutes,
+	}
+}
+
 func runValidation(opts validationOptions, round int) (validationReport, error) {
 	var report validationReport
 	start := time.Now()
@@ -370,6 +397,14 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	if err != nil {
 		return report, fmt.Errorf("load strategy config failed: %w", err)
 	}
+	hunterCfg := (*store.HunterConfig)(nil)
+	if strategyCfg != nil {
+		hunterCfg = strategyCfg.CoinSource.Hunter
+	}
+	// Task-2 module (M3): the harness enables it exactly when the
+	// strategy does. Its depth + 5m OI inputs must be fetched or the
+	// detector reads them as unavailable (fail-closed) and emits nothing.
+	t2Enabled := hunterCfg != nil && hunterCfg.V7T2Enabled
 	includeNonCryptoFutures := false
 	if strategyCfg != nil && strategyCfg.CoinSource.Hunter != nil {
 		includeNonCryptoFutures = strategyCfg.CoinSource.Hunter.IncludeNonCryptoFutures
@@ -379,6 +414,8 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		TopNForDetail:           opts.topDetail,
 		MaxWorkers:              opts.maxWorkers,
 		Timeout:                 15 * time.Second,
+		BinanceURL:              opts.binanceURL,
+		IncludeT2Inputs:         t2Enabled,
 		IncludeNonCryptoFutures: includeNonCryptoFutures,
 	})
 	snap, err := fetcher.Fetch(ctx)
@@ -418,6 +455,26 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		if strategyCfg.CoinSource.HunterLimit > 0 && (cfg.MaxOutput <= 0 || strategyCfg.CoinSource.HunterLimit < cfg.MaxOutput) {
 			cfg.MaxOutput = strategyCfg.CoinSource.HunterLimit
 		}
+	}
+
+	if t2Enabled {
+		// Mirror kernel hunterV7T2ModuleConfig (unexported): zero
+		// lifecycle keeps the scanner constants (ARMED 82 / WATCH 72,
+		// 4h / 2h expiry, 60 min cooldown, trigger on, 15 min surface).
+		cfg.T2 = &local.V7T2Config{
+			Enabled:            true,
+			EnabledSetups:      hunterCfg.V7T2Setups,
+			SymbolValidityGate: hunterCfg.V7T2SymbolValidityGate,
+			SetupPrefix:        hunterCfg.V7T2SetupPrefix,
+			Lifecycle:          t2LifecycleParams(hunterCfg.V7T2Lifecycle),
+		}
+		// Cross-round trigger memory, shared by pointer like the
+		// production engine's store (no per-attempt isolation: the
+		// production engine has none either).
+		cfg.T2Store = opts.t2Store
+		// U3 one-direction-per-symbol final pass, via the exported
+		// production accessor (built for offline tools).
+		cfg.FinalConflict = kernel.HunterV7FinalConflictConfigFor(hunterCfg)
 	}
 
 	v7Result := local.ScoreHunterV7Detailed(snap, cfg)
