@@ -52,6 +52,7 @@ type snapshotSummary struct {
 	DetailCompleted       int      `json:"detail_completed"`
 	DetailSkippedDeadline int      `json:"detail_skipped_deadline"`
 	FailedRequests        int      `json:"failed_requests"`
+	FetchErrorLog         string   `json:"fetch_error_log,omitempty"` // TA-6: file with this round's failed requests (path+query)
 	RestErrors            int      `json:"rest_errors"`
 	RestErrorRate         float64  `json:"rest_error_rate"`
 	UniverseCoverage      float64  `json:"universe_coverage"`
@@ -136,6 +137,8 @@ type validationOptions struct {
 	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
 	attempt           int // TA-2: attempt number within the round (artifact names in rejected/)
+
+	fetchErrors *fetchErrorLog // TA-6: failed-request log (<out-dir>/fetch-errors.jsonl)
 
 	// TA-3: run state across restarts.
 	runID                string
@@ -300,6 +303,7 @@ func main() {
 		stateFile:            *stateFile,
 		resume:               *resume,
 		resumeAllowSHAChange: *resumeAllowSHAChange,
+		fetchErrors:          newFetchErrorLog(*outDir),
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -456,6 +460,7 @@ func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutur
 func backfillFetcherConfig(opts validationOptions) datafetch.FetcherConfig {
 	return datafetch.FetcherConfig{
 		BinanceURL: opts.binanceURL,
+		ErrorSink:  opts.fetchErrors.sink(0, 0, fetchSourceBackfill), // TA-6
 		Timeout:    8 * time.Second,
 		KlineIntervals: []datafetch.KlineInterval{
 			{Interval: "1m", Limit: 120},
@@ -531,7 +536,9 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		includeNonCryptoFutures = strategyCfg.CoinSource.Hunter.IncludeNonCryptoFutures
 	}
 
-	fetcher := datafetch.NewDataFetcher(roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures))
+	fcfg := roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures)
+	fcfg.ErrorSink = opts.fetchErrors.sink(round, opts.attempt, fetchSourceRound) // TA-6
+	fetcher := datafetch.NewDataFetcher(fcfg)
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
 		return report, transientError(fmt.Errorf("fetch snapshot failed: %w", err))
@@ -625,6 +632,9 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		PotentialPool: v7Result.PotentialPool,
 	}
 	report.Snapshot = annotateSnapshotQuality(report.Snapshot)
+	if report.Snapshot.FailedRequests > 0 && opts.fetchErrors != nil {
+		report.Snapshot.FetchErrorLog = opts.fetchErrors.path // TA-6
+	}
 	report.FormatCheck, report.Issues = validateFormat(signals)
 	report.AIRecognition = validatePrompt(prompt, len(candidates))
 	report.OpportunityCover = validateCoverage(signals, geometry)
@@ -1791,7 +1801,11 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("| Round ms | %d |\n", r.Snapshot.RoundMs))
 	sb.WriteString(fmt.Sprintf("| Detail requested / completed / skipped (deadline) | %d / %d / %d |\n",
 		r.Snapshot.DetailRequested, r.Snapshot.DetailCompleted, r.Snapshot.DetailSkippedDeadline))
-	sb.WriteString(fmt.Sprintf("| Failed requests | %d |\n\n", r.Snapshot.FailedRequests))
+	sb.WriteString(fmt.Sprintf("| Failed requests | %d |\n", r.Snapshot.FailedRequests))
+	if r.Snapshot.FetchErrorLog != "" {
+		sb.WriteString(fmt.Sprintf("| Failed request log (path+query) | `%s` |\n", r.Snapshot.FetchErrorLog))
+	}
+	sb.WriteString("\n")
 
 	sb.WriteString("## 4. 实时信号\n\n")
 	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")

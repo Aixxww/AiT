@@ -23,6 +23,13 @@ type FetcherConfig struct {
 	// slow-derivative cadence for detail symbols only. Default false:
 	// zero extra requests, snapshots carry neither series.
 	IncludeT2Inputs bool
+
+	// ErrorSink (TA-6), optional: called once for every REST request that
+	// failed after its retries, with the request path including its query
+	// string and the final error. Public market-data endpoints only; no
+	// keys or signatures are ever in the path. Must be safe for concurrent
+	// use. Nil (default) = no sink.
+	ErrorSink func(path string, err error)
 }
 
 // DataFetcher performs one complete REST data fetch cycle.
@@ -56,7 +63,7 @@ func NewDataFetcher(cfg FetcherConfig) *DataFetcher {
 	}
 	return &DataFetcher{
 		cfg:    cfg,
-		client: NewHTTPClientWithTimeout(cfg.BinanceURL, cfg.Timeout),
+		client: newFetcherHTTPClient(cfg),
 	}
 }
 
