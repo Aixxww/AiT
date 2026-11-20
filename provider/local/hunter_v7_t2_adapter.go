@@ -252,10 +252,64 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 			out = append(out, o)
 		}
 	}
+	// TA-1: every emitted output, including the re-emitted TRIGGERED
+	// events above, carries the signal-contract context fields.
+	for i := range out {
+		ApplyV7T2ContractFields(&out[i], snap)
+	}
 	if cfg.SetupPrefix {
 		v7T2PrefixSetupTypes(out)
 	}
 	return out
+}
+
+// V7T2DataGapContextUnavailable marks a T2 output whose symbol is missing
+// from the snapshot, so its price/derivatives context is empty (TA-1).
+const V7T2DataGapContextUnavailable = "t2_context_unavailable"
+
+// v7T2LivePriceConfirmation is the confirmation a non-immediate T2 output
+// waits for: the event triggers when price reaches the entry (U1, spec
+// section 5.3), which the native confirmation evaluator knows as
+// live_price_in_entry_zone.
+const v7T2LivePriceConfirmation = "live_price_in_entry_zone"
+
+// ApplyV7T2ContractFields fills the signal-contract fields the Task-2
+// converter cannot (it has no snapshot): price_context and
+// derivatives_context, built from the symbol's datafetch snapshot exactly
+// as native modules build them (buildSymbolContext -> buildPriceCtx /
+// buildDerivCtx), and required_confirmations for outputs whose entry is not
+// immediate. A symbol absent from the snapshot gets empty contexts plus the
+// t2_context_unavailable data gap: values are never fabricated. Score,
+// status, entry mode, targets and lifecycle state are not touched.
+//
+// price_context.last is deliberately left 0 (owner decision, TA-1 path (a)).
+// The kernel measures backend RR and stop distance from PriceCtx.Last when
+// it is set and from the T2 entry zone otherwise (kernel
+// hunterV7StopDistancePct / hunterV7ReferencePrice); setting it moved 16
+// TRIGGERED tiers in the TA-1 golden replay. Using the scan price is a
+// separate future unit.
+// Exported for the offline TA-1 golden replay.
+func ApplyV7T2ContractFields(out *V7SignalOutput, snap *datafetch.Snapshot) {
+	if out == nil {
+		return
+	}
+	var ss *datafetch.SymbolSnapshot
+	if snap != nil {
+		ss = snap.Symbols[out.Symbol]
+	}
+	if ss == nil {
+		out.PriceCtx = &V7PriceContext{}
+		out.DerivativesCtx = &V7DerivativesContext{}
+		out.DataGaps = appendIfMissing(out.DataGaps, V7T2DataGapContextUnavailable)
+	} else {
+		ctx := buildSymbolContext(out.Symbol, ss, snap)
+		out.PriceCtx = buildPriceCtx(ctx)
+		out.PriceCtx.Last = 0 // see above: keeps the T2 RR reference on the entry zone
+		out.DerivativesCtx = buildDerivCtx(ctx)
+	}
+	if out.EntryMode != V7EntryImmediate {
+		out.RequiredConfirms = appendIfMissing(out.RequiredConfirms, v7T2LivePriceConfirmation)
+	}
 }
 
 // v7T2PrefixSetupTypes renames emitted setup types to t2_<setup> (U11,

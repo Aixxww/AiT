@@ -1211,44 +1211,7 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 		cfg.CoinSource.HunterLimit = len(candidates)
 	}
 	engine := kernel.NewStrategyEngine(&cfg)
-	md := make(map[string]*market.Data, len(signals)+1)
-	for _, sig := range signals {
-		price := 0.0
-		change1h := 0.0
-		change4h := 0.0
-		funding := 0.0
-		oi := 0.0
-		if sig.PriceCtx != nil {
-			price = sig.PriceCtx.Last
-			change1h = sig.PriceCtx.Change1h
-			change4h = sig.PriceCtx.Change4h
-		}
-		if sig.DerivativesCtx != nil {
-			funding = sig.DerivativesCtx.FundingRate
-			oi = sig.DerivativesCtx.OIValue
-		}
-		// Prefer the production converter so the prompt cycle sees the same
-		// TimeframeData (klines + EMA20 series) the live trader would; the
-		// pre-prompt live-confirmation pass depends on it. Fall back to the
-		// sparse context-only Data when the snapshot lacks klines.
-		if snap != nil {
-			if ss, ok := snap.Symbols[sig.Symbol]; ok && ss != nil && len(ss.Klines) > 0 {
-				if full, err := market.BuildDataFromSymbolSnapshot(sig.Symbol, ss, []string{"5m", "15m", "1h"}, "15m", 60); err == nil {
-					full.FundingRate = funding
-					md[sig.Symbol] = full
-					continue
-				}
-			}
-		}
-		md[sig.Symbol] = &market.Data{
-			Symbol:        sig.Symbol,
-			CurrentPrice:  price,
-			PriceChange1h: change1h,
-			PriceChange4h: change4h,
-			FundingRate:   funding,
-			OpenInterest:  &market.OIData{Latest: oi},
-		}
-	}
+	md := promptMarketData(signals, snap)
 	ctx := &kernel.Context{
 		CurrentTime:    time.Now().Format("2006-01-02 15:04:05"),
 		RuntimeMinutes: 0,
@@ -1263,6 +1226,63 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 	systemPrompt := engine.BuildSystemPrompt(1000, "balanced")
 	userPrompt := engine.BuildUserPrompt(ctx)
 	return systemPrompt + "\n\n--- USER PROMPT ---\n\n" + userPrompt
+}
+
+// promptMarketData builds the prompt's per-symbol market data. The full
+// production converter is preferred; a signal's own derivatives context
+// overrides funding only when present (TA-1: a T2 signal without one used
+// to show funding 0 instead of the snapshot's rate).
+func promptMarketData(signals []local.V7SignalOutput, snap *datafetch.Snapshot) map[string]*market.Data {
+	md := make(map[string]*market.Data, len(signals)+1)
+	for _, sig := range signals {
+		price := 0.0
+		change1h := 0.0
+		change4h := 0.0
+		funding := 0.0
+		oi := 0.0
+		if sig.PriceCtx != nil {
+			price = sig.PriceCtx.Last
+			change1h = sig.PriceCtx.Change1h
+			change4h = sig.PriceCtx.Change4h
+		}
+		hasDerivCtx := sig.DerivativesCtx != nil
+		if hasDerivCtx {
+			funding = sig.DerivativesCtx.FundingRate
+			oi = sig.DerivativesCtx.OIValue
+		} else if snap != nil {
+			// TA-1: without a derivatives context, fall back to the
+			// snapshot's own funding rate instead of reporting 0.
+			if ss, ok := snap.Symbols[sig.Symbol]; ok && ss != nil {
+				funding = ss.FundingRate
+			}
+		}
+		// Prefer the production converter so the prompt cycle sees the same
+		// TimeframeData (klines + EMA20 series) the live trader would; the
+		// pre-prompt live-confirmation pass depends on it. Fall back to the
+		// sparse context-only Data when the snapshot lacks klines.
+		if snap != nil {
+			if ss, ok := snap.Symbols[sig.Symbol]; ok && ss != nil && len(ss.Klines) > 0 {
+				if full, err := market.BuildDataFromSymbolSnapshot(sig.Symbol, ss, []string{"5m", "15m", "1h"}, "15m", 60); err == nil {
+					// BuildDataFromSymbolSnapshot already carries ss.FundingRate;
+					// only the signal's own derivatives context may override it.
+					if hasDerivCtx {
+						full.FundingRate = funding
+					}
+					md[sig.Symbol] = full
+					continue
+				}
+			}
+		}
+		md[sig.Symbol] = &market.Data{
+			Symbol:        sig.Symbol,
+			CurrentPrice:  price,
+			PriceChange1h: change1h,
+			PriceChange4h: change4h,
+			FundingRate:   funding,
+			OpenInterest:  &market.OIData{Latest: oi},
+		}
+	}
+	return md
 }
 
 func validateFormat(signals []local.V7SignalOutput) (formatCheck, []issue) {
