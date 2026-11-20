@@ -92,9 +92,16 @@ type Snapshot struct {
 type SnapshotMeta struct {
 	SymbolCount   int
 	FetchDuration time.Duration
-	RestErrors    int
+	RestErrors    int // detail symbols with at least one failed sub-request
 	WSConnected   bool
 	SocialFresh   bool
+
+	// TA-5 fetch observability (set by FetchWithOptions).
+	// DetailRequested = DetailCompleted + DetailSkippedDeadline.
+	DetailRequested       int // detail symbols selected for per-symbol fetches
+	DetailCompleted       int // detail symbols whose per-symbol fetches ran
+	DetailSkippedDeadline int // detail symbols skipped because ctx expired before their worker started
+	FailedRequests        int // individual REST requests that failed after retries (bulk + per-symbol)
 }
 
 // ---------------------------------------------------------------------------

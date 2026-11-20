@@ -83,6 +83,8 @@ func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineInterval
 
 func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (*Snapshot, error) {
 	start := time.Now()
+	stats := &fetchStats{}
+	ctx = withFetchStats(ctx, stats)
 	klineIntervals := opts.KlineIntervals
 	if len(klineIntervals) == 0 {
 		klineIntervals = f.cfg.KlineIntervals
@@ -144,8 +146,8 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 
 	// Phase 2: Per-symbol data for top N
 	detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
-	snapshots, perErrs := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
-	restErrors += perErrs
+	snapshots, detail := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
+	restErrors += detail.symbolErrors
 
 	snap := &Snapshot{
 		Symbols:   snapshots,
@@ -154,6 +156,11 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 			SymbolCount:   len(f.symbols),
 			FetchDuration: time.Since(start),
 			RestErrors:    restErrors,
+
+			DetailRequested:       detail.requested,
+			DetailCompleted:       detail.completed,
+			DetailSkippedDeadline: detail.skipped,
+			FailedRequests:        stats.failed(),
 		},
 	}
 

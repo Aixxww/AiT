@@ -24,7 +24,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 	premiums map[string]*premiumIndexRaw,
 	klineIntervals []KlineInterval,
 	refreshSlowDerivatives bool,
-) (map[string]*SymbolSnapshot, int) {
+) (map[string]*SymbolSnapshot, detailCounts) {
 
 	// Build partial snapshots from bulk data for ALL symbols first
 	all := make(map[string]*SymbolSnapshot, len(symbols))
@@ -63,7 +63,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 	}
 	sem := make(chan struct{}, workers)
 	results := make(chan perSymbolResult, len(detailSymbols))
-	var errCount int64
+	var errCount, completed, skipped int64
 
 	for _, sym := range detailSymbols {
 		sym := sym
@@ -72,8 +72,10 @@ func (f *DataFetcher) fetchPerSymbolData(
 		go func() {
 			defer func() { <-sem }()
 			if ctx.Err() != nil {
+				atomic.AddInt64(&skipped, 1) // TA-5: counted, no longer silent
 				return
 			}
+			atomic.AddInt64(&completed, 1)
 			ss, err := f.fetchOneSymbol(ctx, sym, base, klineIntervals, refreshSlowDerivatives)
 			if err != nil {
 				atomic.AddInt64(&errCount, 1)
@@ -97,7 +99,20 @@ func (f *DataFetcher) fetchPerSymbolData(
 		all[r.symbol] = r.snap
 	}
 
-	return all, int(atomic.LoadInt64(&errCount))
+	return all, detailCounts{
+		symbolErrors: int(atomic.LoadInt64(&errCount)),
+		requested:    len(detailSymbols),
+		completed:    int(atomic.LoadInt64(&completed)),
+		skipped:      int(atomic.LoadInt64(&skipped)),
+	}
+}
+
+// detailCounts summarises one per-symbol fetch pass (TA-5).
+type detailCounts struct {
+	symbolErrors int // symbols with at least one failed sub-request (RestErrors)
+	requested    int
+	completed    int
+	skipped      int // ctx expired before the symbol's worker started
 }
 
 // fetchOneSymbol fetches per-symbol data for a single symbol. OI history and
@@ -339,7 +354,7 @@ func cloneSymbolSnapshot(src *SymbolSnapshot) *SymbolSnapshot {
 // fetchOI fetches current open interest for a symbol (USDT value).
 func (f *DataFetcher) fetchOI(ctx context.Context, symbol string) (float64, error) {
 	path := fmt.Sprintf("/fapi/v1/openInterest?symbol=%s", symbol)
-	raw, err := fetchJSON[oiRaw](f.client, path)
+	raw, err := fetchJSON[oiRaw](ctx, f.client, path)
 	if err != nil {
 		return 0, err
 	}
@@ -349,7 +364,7 @@ func (f *DataFetcher) fetchOI(ctx context.Context, symbol string) (float64, erro
 // fetchOIHistory fetches OI history entries and returns period-over-period % changes.
 func (f *DataFetcher) fetchOIHistory(ctx context.Context, symbol, period string, limit int) ([]float64, error) {
 	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", symbol, period, limit)
-	entries, err := fetchJSON[[]oiHistEntry](f.client, path)
+	entries, err := fetchJSON[[]oiHistEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +389,7 @@ func (f *DataFetcher) fetchOIHistory(ctx context.Context, symbol, period string,
 // returned best-first, exactly as the endpoint orders them.
 func (f *DataFetcher) fetchDepth(ctx context.Context, symbol string) ([]DepthLevel, []DepthLevel, error) {
 	path := fmt.Sprintf("/fapi/v1/depth?symbol=%s&limit=100", symbol)
-	raw, err := fetchJSON[depthRaw](f.client, path)
+	raw, err := fetchJSON[depthRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -398,7 +413,7 @@ func (f *DataFetcher) fetchDepth(ctx context.Context, symbol string) ([]DepthLev
 // values preferred, contract count as fallback).
 func (f *DataFetcher) fetchOIHistorySeries(ctx context.Context, symbol, period string, limit int) ([]OIHistoryPoint, error) {
 	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", symbol, period, limit)
-	entries, err := fetchJSON[[]oiHistEntry](f.client, path)
+	entries, err := fetchJSON[[]oiHistEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +431,7 @@ func (f *DataFetcher) fetchOIHistorySeries(ctx context.Context, symbol, period s
 // fetchLSR fetches top trader long/short ratio entries.
 func (f *DataFetcher) fetchLSR(ctx context.Context, symbol string, limit int) ([]float64, error) {
 	path := fmt.Sprintf("/futures/data/topLongShortPositionRatio?symbol=%s&period=1h&limit=%d", symbol, limit)
-	entries, err := fetchJSON[[]lsrEntry](f.client, path)
+	entries, err := fetchJSON[[]lsrEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +445,7 @@ func (f *DataFetcher) fetchLSR(ctx context.Context, symbol string, limit int) ([
 // fetchKlines fetches klines from Binance Futures and parses them.
 func (f *DataFetcher) fetchKlines(ctx context.Context, symbol, interval string, limit int) ([]Kline, error) {
 	path := fmt.Sprintf("/fapi/v1/klines?symbol=%s&interval=%s&limit=%d", symbol, interval, limit)
-	body, err := f.client.doPublic(path)
+	body, err := f.client.doPublic(ctx, path)
 	if err != nil {
 		return nil, err
 	}

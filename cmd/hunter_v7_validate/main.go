@@ -43,17 +43,23 @@ type validationReport struct {
 }
 
 type snapshotSummary struct {
-	SymbolCount        int      `json:"symbol_count"`
-	UniverseCount      int      `json:"universe_count"`
-	FetchMs            int64    `json:"fetch_ms"`
-	RestErrors         int      `json:"rest_errors"`
-	RestErrorRate      float64  `json:"rest_error_rate"`
-	UniverseCoverage   float64  `json:"universe_coverage"`
-	Degraded           bool     `json:"degraded"`
-	DegradationReasons []string `json:"degradation_reasons,omitempty"`
-	BTC24h             float64  `json:"btc_24h"`
-	ETH24h             float64  `json:"eth_24h"`
-	Regime             string   `json:"regime"`
+	SymbolCount   int   `json:"symbol_count"`
+	UniverseCount int   `json:"universe_count"`
+	FetchMs       int64 `json:"fetch_ms"` // TA-5: snapshot fetch only (snap.Meta.FetchDuration); was the whole round
+	RoundMs       int64 `json:"round_ms"` // TA-5: strategy load + fetch + scoring + assembly + prompt build
+	// TA-5 fetch observability (datafetch.SnapshotMeta).
+	DetailRequested       int      `json:"detail_requested"`
+	DetailCompleted       int      `json:"detail_completed"`
+	DetailSkippedDeadline int      `json:"detail_skipped_deadline"`
+	FailedRequests        int      `json:"failed_requests"`
+	RestErrors            int      `json:"rest_errors"`
+	RestErrorRate         float64  `json:"rest_error_rate"`
+	UniverseCoverage      float64  `json:"universe_coverage"`
+	Degraded              bool     `json:"degraded"`
+	DegradationReasons    []string `json:"degradation_reasons,omitempty"`
+	BTC24h                float64  `json:"btc_24h"`
+	ETH24h                float64  `json:"eth_24h"`
+	Regime                string   `json:"regime"`
 }
 
 type formatCheck struct {
@@ -613,15 +619,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		HarnessGitSHA: sha,
 		HarnessDirty:  dirty,
 		Round:         round,
-		Snapshot: snapshotSummary{
-			SymbolCount:   snap.Meta.SymbolCount,
-			UniverseCount: len(universe),
-			FetchMs:       time.Since(start).Milliseconds(),
-			RestErrors:    snap.Meta.RestErrors,
-			BTC24h:        priceChange24h(snap, "BTCUSDT"),
-			ETH24h:        priceChange24h(snap, "ETHUSDT"),
-			Regime:        string(regime),
-		},
+		Snapshot:      buildSnapshotSummary(snap, len(universe), string(regime), time.Since(start)),
 		Config:        cfg,
 		Signals:       signals,
 		PotentialPool: v7Result.PotentialPool,
@@ -682,6 +680,26 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 // writeRoundArtifacts writes the prompt, raw JSON and markdown report of one
 // attempt. Accepted attempts go to <out-dir>; rejected attempts go to
 // <out-dir>/rejected/ with the attempt number in the file name (TA-2).
+// buildSnapshotSummary maps the snapshot metadata into the round report.
+// TA-5: fetch_ms is the snapshot fetch alone; round_ms is the whole round
+// so far (strategy load, fetch, scoring, assembly, prompt build).
+func buildSnapshotSummary(snap *datafetch.Snapshot, universeCount int, regime string, roundElapsed time.Duration) snapshotSummary {
+	return snapshotSummary{
+		SymbolCount:           snap.Meta.SymbolCount,
+		UniverseCount:         universeCount,
+		FetchMs:               snap.Meta.FetchDuration.Milliseconds(),
+		RoundMs:               roundElapsed.Milliseconds(),
+		DetailRequested:       snap.Meta.DetailRequested,
+		DetailCompleted:       snap.Meta.DetailCompleted,
+		DetailSkippedDeadline: snap.Meta.DetailSkippedDeadline,
+		FailedRequests:        snap.Meta.FailedRequests,
+		RestErrors:            snap.Meta.RestErrors,
+		BTC24h:                priceChange24h(snap, "BTCUSDT"),
+		ETH24h:                priceChange24h(snap, "ETHUSDT"),
+		Regime:                regime,
+	}
+}
+
 func writeRoundArtifacts(opts validationOptions, report validationReport, prompt, stamp string, rejected bool) (promptPath, rawPath, mdPath string, err error) {
 	dir := opts.outDir
 	if rejected {
@@ -1644,6 +1662,14 @@ func snapshotIssues(s snapshotSummary) []issue {
 				s.RestErrors, s.SymbolCount, restRate*100),
 		})
 	}
+	if s.DetailSkippedDeadline > 0 {
+		issues = append(issues, issue{
+			Severity: "medium",
+			Code:     "detail_truncated_by_deadline",
+			Detail: fmt.Sprintf("round deadline expired during the detail fetch: %d of %d detail symbols skipped (no OI/LSR/kline detail)",
+				s.DetailSkippedDeadline, s.DetailRequested),
+		})
+	}
 	coverage := s.UniverseCoverage
 	if s.UniverseCount > 0 && coverage < 0.30 {
 		issues = append(issues, issue{
@@ -1761,7 +1787,11 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	if len(r.Snapshot.DegradationReasons) > 0 {
 		sb.WriteString(fmt.Sprintf("| Degradation reasons | %s |\n", strings.Join(r.Snapshot.DegradationReasons, ", ")))
 	}
-	sb.WriteString(fmt.Sprintf("| Fetch ms | %d |\n\n", r.Snapshot.FetchMs))
+	sb.WriteString(fmt.Sprintf("| Fetch ms | %d |\n", r.Snapshot.FetchMs))
+	sb.WriteString(fmt.Sprintf("| Round ms | %d |\n", r.Snapshot.RoundMs))
+	sb.WriteString(fmt.Sprintf("| Detail requested / completed / skipped (deadline) | %d / %d / %d |\n",
+		r.Snapshot.DetailRequested, r.Snapshot.DetailCompleted, r.Snapshot.DetailSkippedDeadline))
+	sb.WriteString(fmt.Sprintf("| Failed requests | %d |\n\n", r.Snapshot.FailedRequests))
 
 	sb.WriteString("## 4. 实时信号\n\n")
 	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")
