@@ -14,15 +14,17 @@
 #     code=0" and later vanished with no exit line);
 #   - backoff 30 s x 2^n, capped at 600 s; n resets after 10 min of health;
 #   - at most 5 reconnects in any rolling hour; when the budget is spent the
-#     keeper WAITS for the window instead of exiting (the run depends on the
-#     tunnel; the supervisor waits on relay health meanwhile);
+#     keeper EXITS with code 4 (STOPPED_RECONNECT_BUDGET, the counterpart of
+#     supervise.sh exit 4 STOPPED_RESTART_BUDGET); the supervisor then waits
+#     on relay health, so nothing restarts blindly;
 #   - health probe every HEALTH_POLL s through the tunnel
 #     (GET http://127.0.0.1:PORT/fapi/v1/time); 3 failures in a row force a
 #     reconnect; each probe writes the heartbeat file;
 #   - an EXIT trap logs why the keeper stops. A SIGKILL or VM replacement
 #     cannot be logged; a stale heartbeat file shows it.
 #
-# Exit codes: 0 stopped by signal, 2 usage, 66 ssh missing,
+# Exit codes: 0 stopped by signal, 2 usage, 4 reconnect budget exhausted
+# (STOPPED_RECONNECT_BUDGET), 66 ssh missing,
 # 75 another keeper holds the port lock, 76 local port already in use.
 #
 # Tunables (environment): BACKOFF_BASE=30 BACKOFF_CAP=600
@@ -188,9 +190,9 @@ while :; do
 	done
 	reconnects=("${kept[@]+"${kept[@]}"}")
 	if [ "${#reconnects[@]}" -ge "$MAX_RECONNECTS_PER_HOUR" ]; then
-		wait_s=$((3600 - (now - reconnects[0])))
-		log "reconnect budget spent (${#reconnects[@]} in the last hour); waiting ${wait_s}s for the window"
-		nap "$wait_s"
+		log "STOPPED_RECONNECT_BUDGET: ${#reconnects[@]} reconnects in the last hour (limit $MAX_RECONNECTS_PER_HOUR); not reconnecting, exit 4"
+		STOP_REASON="reconnect budget exhausted (exit 4)"
+		exit 4
 	fi
 	delay=$((BACKOFF_BASE * (1 << streak)))
 	[ "$delay" -gt "$BACKOFF_CAP" ] && delay="$BACKOFF_CAP"

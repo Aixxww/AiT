@@ -147,10 +147,16 @@ check "a stopped keeper logs why it exits (never silent)" grep -q "tunnel keeper
 rm -rf "$W/tun"
 tun_bg FAKE_SSH_SLEEP=0 FAKE_SSH_EXIT=255 MAX_RECONNECTS_PER_HOUR=2
 first=$!
-wait_for 5 grep -q "reconnect budget spent" "$W/tun/tunnel-$port.log" 2>/dev/null
-kill -TERM "$first"; wait "$first" 2>/dev/null
+exited=1
+wait_for 10 bash -c "! kill -0 $first 2>/dev/null" || exited=0
+check "reconnect budget: keeper exits promptly on its own (no signal sent)" test "$exited" = 1
+if [ "$exited" = 0 ]; then kill -TERM "$first" 2>/dev/null; fi
+wait "$first" 2>/dev/null; code=$?
+check "  ... with exit code 4" test "$code" = 4
+check "  ... logging STOPPED_RECONNECT_BUDGET" grep -q "STOPPED_RECONNECT_BUDGET: 2 reconnects in the last hour (limit 2); not reconnecting, exit 4" "$W/tun/tunnel-$port.log"
+check "  ... and the exit reason" grep -q "tunnel keeper exiting: reconnect budget exhausted (exit 4)" "$W/tun/tunnel-$port.log"
+check "  ... no lingering keeper or ssh process" test -z "$(pgrep -f -- "--state-dir $W/tun" ; pgrep -f -- "$W/fake-ssh")"
 check "every ssh exit is logged with its code" test "$(grep -c "ssh exited with code 255" "$W/tun/tunnel-$port.log")" -ge 3
-check "reconnect budget: keeper waits instead of exiting" grep -q "reconnect budget spent (2 in the last hour); waiting" "$W/tun/tunnel-$port.log"
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
