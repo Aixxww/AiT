@@ -138,6 +138,14 @@ type HTTPClient struct {
 	limiter *RateLimiter
 	breaker *CircuitBreaker
 	baseURL string
+	// errorSink (TA-6): see FetcherConfig.ErrorSink.
+	errorSink func(path string, err error)
+}
+
+func newFetcherHTTPClient(cfg FetcherConfig) *HTTPClient {
+	c := NewHTTPClientWithTimeout(cfg.BinanceURL, cfg.Timeout)
+	c.errorSink = cfg.ErrorSink
+	return c
 }
 
 // NewHTTPClient creates an HTTP client with connection pooling, rate limiting,
@@ -199,6 +207,9 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 	defer func() {
 		if err != nil {
 			fetchStatsFrom(ctx).recordFailure(path, err)
+			if c.errorSink != nil {
+				c.errorSink(path, err)
+			}
 		}
 	}()
 	if !c.breaker.Allow() {
