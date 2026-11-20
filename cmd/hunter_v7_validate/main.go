@@ -318,6 +318,12 @@ func main() {
 		}
 		opts.store = st // closed by runHarness (os.Exit skips defers in main)
 		if opts.trackOutcomes {
+			// TA-7: the fee-net walk uses the strategy's round-trip cost,
+			// as the live trader does (trader/auto_trader.go).
+			strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
+			if err != nil {
+				log.Fatalf("load strategy config for outcome tracking failed: %v", err)
+			}
 			tracker := aittrader.NewSignalOutcomeTracker(&aittrader.TrackerConfig{
 				PollInterval:          time.Minute,
 				TimeoutDuration:       2 * time.Hour,
@@ -326,24 +332,10 @@ func main() {
 				ActiveOutcomeInterval: time.Second,
 				EnableDynamicStop:     true,
 				TrackPartialTargets:   true,
+				FeeNetCostPct:         validationFeeNetCostPct(strategyCfg),
 			}, nil)
 			tracker.SetOutcomeCallback(func(outcome aittrader.TrackedOutcome) {
-				if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, store.HunterV7SignalTrackUpdate{
-					Status:       string(outcome.Status),
-					CurrentPrice: outcome.CurrentPrice,
-					ExitPrice:    outcome.ExitPrice,
-					StopPrice:    outcome.StopUsed,
-					PnLPct:       outcome.PnLPct,
-					TP0Done:      outcome.TP0Done,
-					TP1Done:      outcome.TP1Done,
-					TP2Done:      outcome.TP2Done,
-					Remaining:    outcome.RemainingRatio,
-					RealizedPnL:  outcome.RealizedPnLPct,
-					MFE:          outcome.MaxFavorable,
-					MAE:          outcome.MaxAdverse,
-					ExitTime:     outcome.ExitTime,
-					Snapshots:    outcome.SnapshotJSON,
-				}); err != nil {
+				if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, validationTrackUpdate(outcome)); err != nil {
 					log.Printf("WARN update validation V7 outcome failed: %v", err)
 				}
 			})
@@ -440,6 +432,45 @@ func runHarness(opts validationOptions, breakerConsecutive int) int {
 		return exitFatal
 	}
 	return exitOK
+}
+
+// validationTrackUpdate maps a tracker outcome to the DB update exactly as
+// the live trader's callback does (trader/auto_trader.go), including the U5
+// fee-net walk fields (TA-7; they used to be dropped, so fee_net_outcome
+// stayed empty on every validation row).
+func validationTrackUpdate(outcome aittrader.TrackedOutcome) store.HunterV7SignalTrackUpdate {
+	return store.HunterV7SignalTrackUpdate{
+		Status:       string(outcome.Status),
+		CurrentPrice: outcome.CurrentPrice,
+		ExitPrice:    outcome.ExitPrice,
+		StopPrice:    outcome.StopUsed,
+		PnLPct:       outcome.PnLPct,
+		TP0Done:      outcome.TP0Done,
+		TP1Done:      outcome.TP1Done,
+		TP2Done:      outcome.TP2Done,
+		Remaining:    outcome.RemainingRatio,
+		RealizedPnL:  outcome.RealizedPnLPct,
+		MFE:          outcome.MaxFavorable,
+		MAE:          outcome.MaxAdverse,
+		ExitTime:     outcome.ExitTime,
+		Snapshots:    outcome.SnapshotJSON,
+
+		FeeNetOutcome:   outcome.FeeNetOutcome,
+		FeeNetR:         outcome.FeeNetR,
+		FeeNetEntry:     outcome.FeeNetEntry,
+		DriftAtEntryPct: outcome.DriftAtEntryPct,
+	}
+}
+
+// validationFeeNetCostPct is the strategy's effective fee-net round-trip
+// cost (v7_outcome_tags.fee_net_cost_pct, default when unset), the value
+// the live trader gives its tracker.
+func validationFeeNetCostPct(cfg *store.StrategyConfig) float64 {
+	var tags *store.V7OutcomeTagConfig
+	if cfg != nil && cfg.CoinSource.Hunter != nil {
+		tags = cfg.CoinSource.Hunter.V7OutcomeTags
+	}
+	return store.EffectiveV7OutcomeTags(tags).FeeNetCostPct
 }
 
 // roundFetcherConfig is the per-round snapshot fetcher's config. TA-0:
@@ -769,7 +800,9 @@ func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals [
 		if entry <= 0 || rec.Signal.Invalidation.Price <= 0 {
 			continue
 		}
-		if _, replacedID := opts.outcomeTracker.Register(
+		// TA-7: trigger price (drift_at_entry_pct) and outcome source, as live.
+		if _, replacedID := opts.outcomeTracker.RegisterWithMeta(
+			aittrader.TrackedSignalMeta{OutcomeSource: rec.Tags.OutcomeSource, TriggerPrice: rec.Tags.TriggerPrice},
 			dbRec.ID,
 			rec.Signal.Symbol,
 			string(rec.Signal.Direction),
