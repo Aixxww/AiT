@@ -14,6 +14,7 @@ import (
 	aittrader "github.com/Aixxww/AiT/trader"
 	"log"
 	"os"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +25,8 @@ import (
 
 type validationReport struct {
 	GeneratedAt       string                       `json:"generated_at"`
+	HarnessGitSHA     string                       `json:"harness_git_sha"`
+	HarnessDirty      bool                         `json:"harness_dirty"`
 	Round             int                          `json:"round"`
 	Snapshot          snapshotSummary              `json:"snapshot"`
 	Config            local.V7Config               `json:"config"`
@@ -120,11 +123,15 @@ type validationOptions struct {
 	trackActiveOnly   bool
 	store             *store.Store
 	watchState        *local.V7SignalStateManager
+	t2Store           *local.V7T2EventStore
+	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
 }
 
 type validationOutcomeSummary struct {
 	GeneratedAt        string                          `json:"generated_at"`
+	HarnessGitSHA      string                          `json:"harness_git_sha"`
+	HarnessDirty       bool                            `json:"harness_dirty"`
 	PostTrackDuration  string                          `json:"post_track_duration"`
 	PostTrackInterval  string                          `json:"post_track_interval"`
 	TrackActiveOnly    bool                            `json:"track_active_only"`
@@ -166,6 +173,8 @@ type validationOutcomeDetail struct {
 
 type validationRunSummary struct {
 	GeneratedAt          string                   `json:"generated_at"`
+	HarnessGitSHA        string                   `json:"harness_git_sha"`
+	HarnessDirty         bool                     `json:"harness_dirty"`
 	Rounds               int                      `json:"rounds"`
 	ValidRounds          int                      `json:"valid_rounds"`
 	SignalCount          int                      `json:"signal_count"`
@@ -236,6 +245,7 @@ func main() {
 	postTrackDuration := flag.Duration("post-track-duration", 0, "continue tracking ACTIVE validation outcomes after all rounds; 0 disables post tracking")
 	postTrackInterval := flag.Duration("post-track-interval", 30*time.Second, "post-round outcome tracking tick interval")
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
+	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
 	flag.Parse()
 
 	opts := validationOptions{
@@ -256,7 +266,11 @@ func main() {
 		postTrackDuration: *postTrackDuration,
 		postTrackInterval: *postTrackInterval,
 		trackActiveOnly:   *trackActiveOnly,
-		watchState:        local.NewV7SignalStateManager(),
+		binanceURL:        *binanceURL,
+		// Cross-round Task-2 trigger memory (shared by pointer, like the
+		// production engine's store; created once for the whole run).
+		t2Store:    local.NewV7T2EventStore(),
+		watchState: local.NewV7SignalStateManager(),
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -301,12 +315,7 @@ func main() {
 					log.Printf("WARN update validation V7 outcome failed: %v", err)
 				}
 			})
-			backfillFetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
-				Timeout: 8 * time.Second,
-				KlineIntervals: []datafetch.KlineInterval{
-					{Interval: "1m", Limit: 120},
-				},
-			})
+			backfillFetcher := datafetch.NewDataFetcher(backfillFetcherConfig(opts))
 			tracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []aittrader.TrackedCandle {
 				return validationBackfillCandles(backfillFetcher, symbol, from, to)
 			})
@@ -360,6 +369,76 @@ func main() {
 	}
 }
 
+// roundFetcherConfig is the per-round snapshot fetcher's config. TA-0:
+// --binance-url must reach this fetcher and the tracker backfill fetcher.
+func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutures bool) datafetch.FetcherConfig {
+	return datafetch.FetcherConfig{
+		TopNForDetail:           opts.topDetail,
+		MaxWorkers:              opts.maxWorkers,
+		Timeout:                 15 * time.Second,
+		BinanceURL:              opts.binanceURL,
+		IncludeT2Inputs:         t2Enabled,
+		IncludeNonCryptoFutures: includeNonCryptoFutures,
+	}
+}
+
+// backfillFetcherConfig is the outcome tracker's 1m backfill/latest-candle
+// fetcher config (same --binance-url as the round fetcher).
+func backfillFetcherConfig(opts validationOptions) datafetch.FetcherConfig {
+	return datafetch.FetcherConfig{
+		BinanceURL: opts.binanceURL,
+		Timeout:    8 * time.Second,
+		KlineIntervals: []datafetch.KlineInterval{
+			{Interval: "1m", Limit: 120},
+		},
+	}
+}
+
+// harnessBuildInfo returns the VCS revision and dirty flag embedded by
+// "go build" (TA-0). Binaries built without VCS stamping (go test,
+// -buildvcs=false, no .git) report "unknown" and false.
+func harnessBuildInfo() (sha string, dirty bool) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown", false
+	}
+	return buildInfoVCS(info.Settings)
+}
+
+func buildInfoVCS(settings []debug.BuildSetting) (sha string, dirty bool) {
+	sha = "unknown"
+	for _, s := range settings {
+		switch s.Key {
+		case "vcs.revision":
+			if s.Value != "" {
+				sha = s.Value
+			}
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	return sha, dirty
+}
+
+// t2LifecycleParams mirrors kernel hunterV7T2Lifecycle (unexported): a
+// straight field copy; nil keeps every scanner constant.
+func t2LifecycleParams(c *store.V7T2LifecycleConfig) local.V7T2LifecycleParams {
+	if c == nil {
+		return local.V7T2LifecycleParams{}
+	}
+	return local.V7T2LifecycleParams{
+		MinAlertScore:           c.MinAlertScore,
+		MinWatchScore:           c.MinWatchScore,
+		ArmedExpiryHours:        c.ArmedExpiryHours,
+		WatchExpiryHours:        c.WatchExpiryHours,
+		CooldownMinutes:         c.CooldownMinutes,
+		ObserveOnlyOverride:     c.ObserveOnlyOverride,
+		ObserveOnlySetups:       append([]string(nil), c.ObserveOnlySetups...),
+		DisableTrigger:          c.DisableTrigger,
+		TriggeredSurfaceMinutes: c.TriggeredSurfaceMinutes,
+	}
+}
+
 func runValidation(opts validationOptions, round int) (validationReport, error) {
 	var report validationReport
 	start := time.Now()
@@ -370,17 +449,20 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	if err != nil {
 		return report, fmt.Errorf("load strategy config failed: %w", err)
 	}
+	hunterCfg := (*store.HunterConfig)(nil)
+	if strategyCfg != nil {
+		hunterCfg = strategyCfg.CoinSource.Hunter
+	}
+	// Task-2 module (M3): the harness enables it exactly when the
+	// strategy does. Its depth + 5m OI inputs must be fetched or the
+	// detector reads them as unavailable (fail-closed) and emits nothing.
+	t2Enabled := hunterCfg != nil && hunterCfg.V7T2Enabled
 	includeNonCryptoFutures := false
 	if strategyCfg != nil && strategyCfg.CoinSource.Hunter != nil {
 		includeNonCryptoFutures = strategyCfg.CoinSource.Hunter.IncludeNonCryptoFutures
 	}
 
-	fetcher := datafetch.NewDataFetcher(datafetch.FetcherConfig{
-		TopNForDetail:           opts.topDetail,
-		MaxWorkers:              opts.maxWorkers,
-		Timeout:                 15 * time.Second,
-		IncludeNonCryptoFutures: includeNonCryptoFutures,
-	})
+	fetcher := datafetch.NewDataFetcher(roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures))
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
 		return report, fmt.Errorf("fetch snapshot failed: %w", err)
@@ -420,6 +502,26 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		}
 	}
 
+	if t2Enabled {
+		// Mirror kernel hunterV7T2ModuleConfig (unexported): zero
+		// lifecycle keeps the scanner constants (ARMED 82 / WATCH 72,
+		// 4h / 2h expiry, 60 min cooldown, trigger on, 15 min surface).
+		cfg.T2 = &local.V7T2Config{
+			Enabled:            true,
+			EnabledSetups:      hunterCfg.V7T2Setups,
+			SymbolValidityGate: hunterCfg.V7T2SymbolValidityGate,
+			SetupPrefix:        hunterCfg.V7T2SetupPrefix,
+			Lifecycle:          t2LifecycleParams(hunterCfg.V7T2Lifecycle),
+		}
+		// Cross-round trigger memory, shared by pointer like the
+		// production engine's store (no per-attempt isolation: the
+		// production engine has none either).
+		cfg.T2Store = opts.t2Store
+		// U3 one-direction-per-symbol final pass, via the exported
+		// production accessor (built for offline tools).
+		cfg.FinalConflict = kernel.HunterV7FinalConflictConfigFor(hunterCfg)
+	}
+
 	v7Result := local.ScoreHunterV7Detailed(snap, cfg)
 	universe := v7Result.Universe
 	regime := v7Result.Regime
@@ -452,9 +554,12 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		return report, fmt.Errorf("write prompt failed: %w", err)
 	}
 
+	sha, dirty := harnessBuildInfo()
 	report = validationReport{
-		GeneratedAt: now.Format("2006-01-02 15:04:05 MST"),
-		Round:       round,
+		GeneratedAt:   now.Format("2006-01-02 15:04:05 MST"),
+		HarnessGitSHA: sha,
+		HarnessDirty:  dirty,
+		Round:         round,
 		Snapshot: snapshotSummary{
 			SymbolCount:   snap.Meta.SymbolCount,
 			UniverseCount: len(universe),
@@ -751,10 +856,13 @@ func writeValidationRunSummary(opts validationOptions, reports []validationRepor
 }
 
 func buildValidationRunSummary(reports []validationReport, now time.Time) validationRunSummary {
+	sha, dirty := harnessBuildInfo()
 	summary := validationRunSummary{
-		GeneratedAt: now.Format("2006-01-02 15:04:05 MST"),
-		Rounds:      len(reports),
-		Round:       make([]validationRoundSummary, 0, len(reports)),
+		GeneratedAt:   now.Format("2006-01-02 15:04:05 MST"),
+		HarnessGitSHA: sha,
+		HarnessDirty:  dirty,
+		Rounds:        len(reports),
+		Round:         make([]validationRoundSummary, 0, len(reports)),
 	}
 	for _, report := range reports {
 		signalCount := report.OpportunityCover.SignalCount
@@ -829,8 +937,11 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 }
 
 func buildValidationOutcomeSummary(opts validationOptions, now time.Time) validationOutcomeSummary {
+	sha, dirty := harnessBuildInfo()
 	summary := validationOutcomeSummary{
 		GeneratedAt:       now.Format("2006-01-02 15:04:05 MST"),
+		HarnessGitSHA:     sha,
+		HarnessDirty:      dirty,
 		PostTrackDuration: opts.postTrackDuration.String(),
 		PostTrackInterval: opts.postTrackInterval.String(),
 		TrackActiveOnly:   opts.trackActiveOnly,
@@ -1475,7 +1586,8 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString("# Hunter v7 实时信号 JSON 与 AIT 识别验证报告\n\n")
 	sb.WriteString(fmt.Sprintf("> 生成时间：%s\n", r.GeneratedAt))
 	sb.WriteString(fmt.Sprintf("> 原始 JSON：`%s`\n", rawPath))
-	sb.WriteString(fmt.Sprintf("> Prompt 预览：`%s`\n\n", r.PromptPreviewPath))
+	sb.WriteString(fmt.Sprintf("> Prompt 预览：`%s`\n", r.PromptPreviewPath))
+	sb.WriteString(fmt.Sprintf("> Harness：`%s` dirty=%v\n\n", r.HarnessGitSHA, r.HarnessDirty))
 
 	sb.WriteString("## 1. 结论\n\n")
 	if r.FormatCheck.JSONMarshalOK && r.FormatCheck.JSONUnmarshalOK && r.FormatCheck.MissingFieldCount == 0 && !hasCriticalOrHighIssues(r.Issues) {
