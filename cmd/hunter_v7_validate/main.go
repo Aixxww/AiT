@@ -14,6 +14,7 @@ import (
 	aittrader "github.com/Aixxww/AiT/trader"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -27,6 +28,8 @@ type validationReport struct {
 	GeneratedAt       string                       `json:"generated_at"`
 	HarnessGitSHA     string                       `json:"harness_git_sha"`
 	HarnessDirty      bool                         `json:"harness_dirty"`
+	Accepted          bool                         `json:"accepted"`                  // TA-2: passed the contract and was persisted
+	RejectedReason    string                       `json:"rejected_reason,omitempty"` // TA-2: why this attempt is in rejected/
 	Round             int                          `json:"round"`
 	Snapshot          snapshotSummary              `json:"snapshot"`
 	Config            local.V7Config               `json:"config"`
@@ -126,6 +129,7 @@ type validationOptions struct {
 	t2Store           *local.V7T2EventStore
 	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
+	attempt           int // TA-2: attempt number within the round (artifact names in rejected/)
 }
 
 type validationOutcomeSummary struct {
@@ -185,6 +189,9 @@ type validationRunSummary struct {
 	ValidOpenReviewRate  float64                  `json:"valid_open_review_rate"`
 	DegradedRounds       []int                    `json:"degraded_rounds,omitempty"`
 	Round                []validationRoundSummary `json:"round"`
+	RejectedRounds       []rejectedRound          `json:"rejected_rounds,omitempty"` // TA-2: contract-rejected (skipped) rounds
+	ExitCode             int                      `json:"exit_code"`
+	ExitReason           string                   `json:"exit_reason,omitempty"`
 }
 
 type validationRoundSummary struct {
@@ -246,6 +253,7 @@ func main() {
 	postTrackInterval := flag.Duration("post-track-interval", 30*time.Second, "post-round outcome tracking tick interval")
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
+	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
 	flag.Parse()
 
 	opts := validationOptions{
@@ -283,8 +291,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("open store for signal persistence failed: %v", err)
 		}
-		defer st.Close()
-		opts.store = st
+		opts.store = st // closed by runHarness (os.Exit skips defers in main)
 		if opts.trackOutcomes {
 			tracker := aittrader.NewSignalOutcomeTracker(&aittrader.TrackerConfig{
 				PollInterval:          time.Minute,
@@ -325,48 +332,55 @@ func main() {
 			opts.outcomeTracker = tracker
 		}
 	}
-	reports := make([]validationReport, 0, opts.rounds)
-	for round := 1; round <= opts.rounds; round++ {
-		if opts.rounds > 1 {
-			fmt.Printf("Hunter v7 validation round %d/%d\n", round, opts.rounds)
+	os.Exit(runHarness(opts, *breakerConsecutive))
+}
+
+// Injection points for tests (no network, no real waits).
+var (
+	runValidationFn = runValidation
+	sleepFn         = time.Sleep
+)
+
+// runHarness runs the round loop under the TA-2 failure policy and returns
+// the process exit code: 0 done, 1 fatal, 2 transient (resumable),
+// 3 deterministic contract failure.
+func runHarness(opts validationOptions, breakerConsecutive int) int {
+	if opts.store != nil {
+		defer opts.store.Close()
+	}
+	attempt := func(round, n int) (validationReport, error) {
+		// Score into an isolated state copy. A rejected attempt must not count
+		// as another watch cycle or advance the module dry-run breaker.
+		attemptOpts := opts
+		attemptOpts.attempt = n
+		attemptOpts.watchState = opts.watchState.Clone()
+		report, err := runValidationFn(attemptOpts, round)
+		if err == nil {
+			opts.watchState.ReplaceFrom(attemptOpts.watchState)
 		}
-		const maxRoundAttempts = 3
-		var report validationReport
-		var err error
-		for attempt := 1; attempt <= maxRoundAttempts; attempt++ {
-			// Score into an isolated state copy. A rejected attempt must not count
-			// as another watch cycle or advance the module dry-run breaker.
-			attemptOpts := opts
-			attemptOpts.watchState = opts.watchState.Clone()
-			report, err = runValidation(attemptOpts, round)
-			if err == nil {
-				opts.watchState.ReplaceFrom(attemptOpts.watchState)
-				break
-			}
-			if attempt < maxRoundAttempts {
-				backoff := time.Duration(attempt*5) * time.Second
-				log.Printf("validation round %d attempt %d/%d failed: %v; retrying in %s", round, attempt, maxRoundAttempts, err, backoff)
-				time.Sleep(backoff)
-			}
-		}
-		if err != nil {
-			log.Fatalf("validation round %d failed after %d attempts: %v", round, maxRoundAttempts, err)
-		}
-		reports = append(reports, report)
-		if round < opts.rounds {
-			fmt.Printf("Sleeping %s before next Binance REST validation round\n", opts.roundInterval)
-			time.Sleep(opts.roundInterval)
+		return report, err
+	}
+	out := runRoundsWithPolicy(1, opts.rounds, opts.roundInterval, defaultRoundPolicy(), newRunBreaker(breakerConsecutive),
+		attempt, sleepFn, nil)
+	if err := writeValidationRunSummary(opts, out); err != nil {
+		log.Printf("write run summary failed: %v", err)
+		if out.exitCode == exitOK {
+			return exitFatal
 		}
 	}
-	if err := writeValidationRunSummary(opts, reports); err != nil {
-		log.Fatalf("write run summary failed: %v", err)
+	if out.exitCode != exitOK {
+		log.Printf("harness stopping with exit code %d: %s", out.exitCode, out.exitReason)
+		return out.exitCode
 	}
 	if err := runPostTrackOutcomes(opts); err != nil {
-		log.Fatalf("post-track outcomes failed: %v", err)
+		log.Printf("post-track outcomes failed: %v", err)
+		return exitFatal
 	}
 	if err := writeValidationOutcomeSummary(opts); err != nil {
-		log.Fatalf("write outcome summary failed: %v", err)
+		log.Printf("write outcome summary failed: %v", err)
+		return exitFatal
 	}
+	return exitOK
 }
 
 // roundFetcherConfig is the per-round snapshot fetcher's config. TA-0:
@@ -447,7 +461,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 
 	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
 	if err != nil {
-		return report, fmt.Errorf("load strategy config failed: %w", err)
+		return report, fatalError(fmt.Errorf("load strategy config failed: %w", err))
 	}
 	hunterCfg := (*store.HunterConfig)(nil)
 	if strategyCfg != nil {
@@ -465,7 +479,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	fetcher := datafetch.NewDataFetcher(roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures))
 	snap, err := fetcher.Fetch(ctx)
 	if err != nil {
-		return report, fmt.Errorf("fetch snapshot failed: %w", err)
+		return report, transientError(fmt.Errorf("fetch snapshot failed: %w", err))
 	}
 	// Gate transport quality before scoring. In particular, do not turn a
 	// failed retry into a synthetic watch/breaker cycle or persisted outcome.
@@ -474,7 +488,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		RestErrors:  snap.Meta.RestErrors,
 	})
 	if err := snapshotAcceptanceError(preflight); err != nil {
-		return report, err
+		return report, transientError(err)
 	}
 
 	cfg := local.DefaultV7Config()
@@ -530,7 +544,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		// Golden-replay capture: freeze this cycle's routing inputs so the
 		// refactor safety net can replay RouteDetailed deterministically.
 		if err := local.DumpV7GoldenFixture(opts.dumpUniverse, universe, regime, cfg); err != nil {
-			return report, fmt.Errorf("dump golden fixture failed: %w", err)
+			return report, fatalError(fmt.Errorf("dump golden fixture failed: %w", err))
 		}
 		fmt.Printf("golden fixture: %s (universe=%d regime=%s)\n", opts.dumpUniverse, len(universe), regime)
 	}
@@ -542,16 +556,6 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	stamp := now.Format("20060102-150405")
 	if opts.rounds > 1 {
 		stamp = fmt.Sprintf("%s-r%02d", stamp, round)
-	}
-	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
-		return report, fmt.Errorf("create out dir failed: %w", err)
-	}
-	promptPath := fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", opts.outDir, stamp)
-	rawPath := fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", opts.outDir, stamp)
-	mdPath := fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", opts.outDir, stamp)
-
-	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
-		return report, fmt.Errorf("write prompt failed: %w", err)
 	}
 
 	sha, dirty := harnessBuildInfo()
@@ -569,10 +573,9 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 			ETH24h:        priceChange24h(snap, "ETHUSDT"),
 			Regime:        string(regime),
 		},
-		Config:            cfg,
-		Signals:           signals,
-		PotentialPool:     v7Result.PotentialPool,
-		PromptPreviewPath: promptPath,
+		Config:        cfg,
+		Signals:       signals,
+		PotentialPool: v7Result.PotentialPool,
 	}
 	report.Snapshot = annotateSnapshotQuality(report.Snapshot)
 	report.FormatCheck, report.Issues = validateFormat(signals)
@@ -588,25 +591,75 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	report.Issues = append(report.Issues, coverageIssues(report.OpportunityCover)...)
 	report.Issues = append(report.Issues, snapshotIssues(report.Snapshot)...)
 
-	raw, err := json.MarshalIndent(report, "", "  ")
+	// TA-2: the contract decides where this attempt's artifacts go. A
+	// contract failure always fails the round; its artifacts are kept for
+	// diagnosis under <out-dir>/rejected/, never next to accepted rounds.
+	if acceptErr := reportAcceptanceError(report); acceptErr != nil {
+		report.Accepted = false
+		report.RejectedReason = acceptErr.Error()
+		if pp, _, _, werr := writeRoundArtifacts(opts, report, prompt, stamp, true); werr != nil {
+			log.Printf("WARN write rejected artifacts failed: %v", werr)
+		} else {
+			report.PromptPreviewPath = pp
+		}
+		return report, contractError(contractSignature(report), acceptErr)
+	}
+	report.Accepted = true
+	promptPath, rawPath, mdPath, err := writeRoundArtifacts(opts, report, prompt, stamp, false)
 	if err != nil {
-		return report, fmt.Errorf("marshal report failed: %w", err)
-	}
-	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
-		return report, fmt.Errorf("write raw report failed: %w", err)
-	}
-	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
-		return report, fmt.Errorf("write markdown report failed: %w", err)
-	}
-	if err := reportAcceptanceError(report); err != nil {
 		return report, err
 	}
+	report.PromptPreviewPath = promptPath
 	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, now.UTC(), snap); err != nil {
-		return report, err
+		// CreateInBatches runs in one transaction, so nothing was stored and
+		// the round can be retried. Move this attempt's artifacts aside.
+		for _, path := range []string{promptPath, rawPath, mdPath} {
+			_ = os.Remove(path)
+		}
+		report.Accepted = false
+		report.RejectedReason = err.Error()
+		if pp, _, _, werr := writeRoundArtifacts(opts, report, prompt, stamp, true); werr != nil {
+			log.Printf("WARN write rejected artifacts failed: %v", werr)
+		} else {
+			report.PromptPreviewPath = pp
+		}
+		return report, transientError(err)
 	}
 
 	printConsoleSummary(report, rawPath, mdPath)
 	return report, nil
+}
+
+// writeRoundArtifacts writes the prompt, raw JSON and markdown report of one
+// attempt. Accepted attempts go to <out-dir>; rejected attempts go to
+// <out-dir>/rejected/ with the attempt number in the file name (TA-2).
+func writeRoundArtifacts(opts validationOptions, report validationReport, prompt, stamp string, rejected bool) (promptPath, rawPath, mdPath string, err error) {
+	dir := opts.outDir
+	if rejected {
+		dir = filepath.Join(opts.outDir, "rejected")
+		stamp = fmt.Sprintf("%s-a%d", stamp, opts.attempt)
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", "", "", transientError(fmt.Errorf("create out dir failed: %w", err))
+	}
+	promptPath = fmt.Sprintf("%s/hunter-v7-live-prompt-%s.txt", dir, stamp)
+	rawPath = fmt.Sprintf("%s/hunter-v7-live-validation-raw-%s.json", dir, stamp)
+	mdPath = fmt.Sprintf("%s/hunter-v7-live-validation-report-%s.md", dir, stamp)
+	report.PromptPreviewPath = promptPath
+	if err := os.WriteFile(promptPath, []byte(prompt), 0644); err != nil {
+		return "", "", "", transientError(fmt.Errorf("write prompt failed: %w", err))
+	}
+	raw, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return "", "", "", fatalError(fmt.Errorf("marshal report failed: %w", err))
+	}
+	if err := os.WriteFile(rawPath, raw, 0644); err != nil {
+		return "", "", "", transientError(fmt.Errorf("write raw report failed: %w", err))
+	}
+	if err := os.WriteFile(mdPath, []byte(formatMarkdown(report, rawPath)), 0644); err != nil {
+		return "", "", "", transientError(fmt.Errorf("write markdown report failed: %w", err))
+	}
+	return promptPath, rawPath, mdPath, nil
 }
 
 func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals []local.V7SignalOutput, candidates []kernel.CandidateCoin, ts time.Time, snap *datafetch.Snapshot) error {
@@ -829,8 +882,9 @@ func writeValidationOutcomeSummary(opts validationOptions) error {
 	return nil
 }
 
-func writeValidationRunSummary(opts validationOptions, reports []validationReport) error {
-	if len(reports) == 0 {
+func writeValidationRunSummary(opts validationOptions, out runOutcome) error {
+	reports := out.reports
+	if len(reports) == 0 && len(out.rejected) == 0 && out.exitCode == exitOK {
 		return nil
 	}
 	if err := os.MkdirAll(opts.outDir, 0755); err != nil {
@@ -838,6 +892,8 @@ func writeValidationRunSummary(opts validationOptions, reports []validationRepor
 	}
 	now := time.Now()
 	summary := buildValidationRunSummary(reports, now)
+	summary.RejectedRounds = append([]rejectedRound(nil), out.rejected...)
+	summary.ExitCode, summary.ExitReason = out.exitCode, out.exitReason
 	stamp := now.Format("20060102-150405")
 	rawPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.json", opts.outDir, stamp)
 	mdPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.md", opts.outDir, stamp)
@@ -932,6 +988,16 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 		sb.WriteString(fmt.Sprintf("| %d | %s | %d | %d | %.1f%% | %d | %.1f%% | %d | %v | %s |\n",
 			round.Round, round.Regime, round.SignalCount, round.OpenReview, round.OpenReviewRate,
 			round.RestErrors, round.RestErrorRate*100, round.UniverseCount, round.Degraded, strings.Join(round.Reasons, ", ")))
+	}
+	if len(summary.RejectedRounds) > 0 {
+		sb.WriteString("\n## 3. Rejected rounds (contract, skipped; artifacts in rejected/)\n\n")
+		sb.WriteString("| Round | Attempts | Signature |\n|---:|---:|---|\n")
+		for _, rr := range summary.RejectedRounds {
+			sb.WriteString(fmt.Sprintf("| %d | %d | %s |\n", rr.Round, rr.Attempts, rr.Signature))
+		}
+	}
+	if summary.ExitCode != exitOK {
+		sb.WriteString(fmt.Sprintf("\n> RUN STOPPED: exit code %d: %s\n", summary.ExitCode, summary.ExitReason))
 	}
 	return sb.String()
 }
