@@ -5,6 +5,13 @@ import (
 	"sort"
 )
 
+// selectDetailSymbols picks up to limit detail symbols by quota (volume,
+// amplitude, gainers, losers, funding, then volume fill) and returns them
+// in LAUNCH order (fix 03): round-robin by rank within each quota, so the
+// strongest name of every signal dimension is fetched first and a round
+// truncated by its deadline loses the weakest tail of every quota instead
+// of whole quotas (before, the deadline cut the losers/funding quotas,
+// which were selected last). The selected set is unchanged.
 func selectDetailSymbols(
 	symbols []string,
 	tickers map[string]*ticker24hrRaw,
@@ -19,14 +26,19 @@ func selectDetailSymbols(
 
 	selected := make([]string, 0, limit)
 	seen := make(map[string]bool, limit)
-	add := func(sym string) {
+	rankOf := make(map[string]int, limit)   // rank within its quota (0 = best)
+	bucketOf := make(map[string]int, limit) // quota index, in selection order
+	bucket := -1
+	add := func(sym string, rank int) {
 		if len(selected) >= limit || seen[sym] {
 			return
 		}
 		seen[sym] = true
+		rankOf[sym], bucketOf[sym] = rank, bucket
 		selected = append(selected, sym)
 	}
 	addRanked := func(quota int, metric func(string) float64) {
+		bucket++
 		if quota <= 0 || len(selected) >= limit {
 			return
 		}
@@ -43,7 +55,7 @@ func selectDetailSymbols(
 			if seen[sym] {
 				continue
 			}
-			add(sym)
+			add(sym, added)
 			added++
 		}
 	}
@@ -73,6 +85,13 @@ func selectDetailSymbols(
 		return quoteVolume(tickers[sym])
 	})
 
+	sort.SliceStable(selected, func(i, j int) bool {
+		a, b := selected[i], selected[j]
+		if rankOf[a] != rankOf[b] {
+			return rankOf[a] < rankOf[b]
+		}
+		return bucketOf[a] < bucketOf[b]
+	})
 	return selected
 }
 

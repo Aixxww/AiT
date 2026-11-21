@@ -24,6 +24,14 @@ type FetcherConfig struct {
 	// zero extra requests, snapshots carry neither series.
 	IncludeT2Inputs bool
 
+	// FetchBudget (fix 03), optional: the detail-phase deadline, measured
+	// from the start of each fetch call (not from the caller's round
+	// start). Detail symbols whose worker has not started when it expires
+	// are skipped and counted in SnapshotMeta.DetailSkippedDeadline;
+	// requests already in flight finish. 0 (default) = only the caller's
+	// context applies, as before.
+	FetchBudget time.Duration
+
 	// ErrorSink (TA-6), optional: called once for every REST request that
 	// failed after its retries, with the request path including its query
 	// string and the final error. Public market-data endpoints only; no
@@ -90,6 +98,11 @@ func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineInterval
 
 func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (*Snapshot, error) {
 	start := time.Now()
+	if f.cfg.FetchBudget > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, f.cfg.FetchBudget)
+		defer cancel()
+	}
 	stats := &fetchStats{}
 	ctx = withFetchStats(ctx, stats)
 	klineIntervals := opts.KlineIntervals
