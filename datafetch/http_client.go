@@ -204,7 +204,10 @@ func binanceProxyFromEnvironment(req *http.Request) (*url.URL, error) {
 // ctx carries only the optional per-fetch statistics (TA-5); it does not
 // cancel the request (request behaviour is unchanged).
 func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, err error) {
+	stats := fetchStatsFrom(ctx)
+	callStart := time.Now()
 	defer func() {
+		stats.recordCall(path, time.Since(callStart), err != nil) // fix 02 (measurement only)
 		if err != nil {
 			fetchStatsFrom(ctx).recordFailure(path, err)
 			if c.errorSink != nil {
@@ -222,11 +225,15 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 		if attempt > 0 {
 			time.Sleep(time.Duration(300*(1<<attempt)) * time.Millisecond)
 		}
+		waitStart := time.Now()
 		c.limiter.Acquire()
+		limiterWait := time.Since(waitStart)
 
 		url := c.baseURL + path
+		netStart := time.Now()
 		resp, err := c.inner.Get(url)
 		if err != nil {
+			stats.recordAttempt(path, limiterWait, time.Since(netStart))
 			lastErr = fmt.Errorf("GET %s: %w", url, err)
 			if attempt < maxRetries && isRetryable(err) {
 				continue
@@ -236,6 +243,7 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		stats.recordAttempt(path, limiterWait, time.Since(netStart))
 		if err != nil {
 			lastErr = fmt.Errorf("read body %s: %w", url, err)
 			if attempt < maxRetries && isRetryable(err) {

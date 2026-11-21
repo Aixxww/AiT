@@ -168,6 +168,7 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 			DetailCompleted:       detail.completed,
 			DetailSkippedDeadline: detail.skipped,
 			FailedRequests:        stats.failed(),
+			EndpointLatency:       stats.endpointLatency(),
 		},
 	}
 
