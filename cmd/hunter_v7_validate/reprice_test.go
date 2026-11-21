@@ -37,7 +37,7 @@ func TestRepriceForPromptCopiesAndReprices(t *testing.T) {
 	prices := map[string]float64{"KUSDT": 123.4567, "SUSDT": 5.5, "OTHERUSDT": 1}
 	got, sum := repriceForPrompt(snap, []string{"KUSDT", "MISSINGUSDT", "SUSDT"}, prices, fetched, now, time.Minute)
 	if got.Symbols["KUSDT"].Price != 123.4567 || !got.Symbols["KUSDT"].Timestamp.Equal(fetched) || got.Symbols["SUSDT"].Price != 5.5 {
-		t.Fatalf("not repriced: %+v %+v", got.Symbols["KUSDT"], got.Symbols["SUSDT"])
+		t.Fatalf("not repriced: KUSDT price %v ts %v, SUSDT price %v", got.Symbols["KUSDT"].Price, got.Symbols["KUSDT"].Timestamp, got.Symbols["SUSDT"].Price)
 	}
 	if snap.Symbols["KUSDT"].Price != 100 || snap.Symbols["SUSDT"].Price != 5 {
 		t.Fatal("the scoring snapshot must not be modified")
