@@ -48,19 +48,21 @@ type snapshotSummary struct {
 	FetchMs       int64 `json:"fetch_ms"` // TA-5: snapshot fetch only (snap.Meta.FetchDuration); was the whole round
 	RoundMs       int64 `json:"round_ms"` // TA-5: strategy load + fetch + scoring + assembly + prompt build
 	// TA-5 fetch observability (datafetch.SnapshotMeta).
-	DetailRequested       int      `json:"detail_requested"`
-	DetailCompleted       int      `json:"detail_completed"`
-	DetailSkippedDeadline int      `json:"detail_skipped_deadline"`
-	FailedRequests        int      `json:"failed_requests"`
-	FetchErrorLog         string   `json:"fetch_error_log,omitempty"` // TA-6: file with this round's failed requests (path+query)
-	RestErrors            int      `json:"rest_errors"`
-	RestErrorRate         float64  `json:"rest_error_rate"`
-	UniverseCoverage      float64  `json:"universe_coverage"`
-	Degraded              bool     `json:"degraded"`
-	DegradationReasons    []string `json:"degradation_reasons,omitempty"`
-	BTC24h                float64  `json:"btc_24h"`
-	ETH24h                float64  `json:"eth_24h"`
-	Regime                string   `json:"regime"`
+	DetailRequested       int    `json:"detail_requested"`
+	DetailCompleted       int    `json:"detail_completed"`
+	DetailSkippedDeadline int    `json:"detail_skipped_deadline"`
+	FailedRequests        int    `json:"failed_requests"`
+	FetchErrorLog         string `json:"fetch_error_log,omitempty"` // TA-6: file with this round's failed requests (path+query)
+	// Fix 02: per-endpoint latency (p50/p95) of this round's snapshot fetch.
+	EndpointLatency    map[string]datafetch.EndpointLatency `json:"endpoint_latency,omitempty"`
+	RestErrors         int                                  `json:"rest_errors"`
+	RestErrorRate      float64                              `json:"rest_error_rate"`
+	UniverseCoverage   float64                              `json:"universe_coverage"`
+	Degraded           bool                                 `json:"degraded"`
+	DegradationReasons []string                             `json:"degradation_reasons,omitempty"`
+	BTC24h             float64                              `json:"btc_24h"`
+	ETH24h             float64                              `json:"eth_24h"`
+	Regime             string                               `json:"regime"`
 }
 
 type formatCheck struct {
@@ -734,6 +736,7 @@ func buildSnapshotSummary(snap *datafetch.Snapshot, universeCount int, regime st
 		DetailCompleted:       snap.Meta.DetailCompleted,
 		DetailSkippedDeadline: snap.Meta.DetailSkippedDeadline,
 		FailedRequests:        snap.Meta.FailedRequests,
+		EndpointLatency:       snap.Meta.EndpointLatency,
 		RestErrors:            snap.Meta.RestErrors,
 		BTC24h:                priceChange24h(snap, "BTCUSDT"),
 		ETH24h:                priceChange24h(snap, "ETHUSDT"),
@@ -1839,6 +1842,21 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		sb.WriteString(fmt.Sprintf("| Failed request log (path+query) | `%s` |\n", r.Snapshot.FetchErrorLog))
 	}
 	sb.WriteString("\n")
+	if len(r.Snapshot.EndpointLatency) > 0 {
+		sb.WriteString("| Endpoint | Calls | Attempts | Failed | Net p50/p95/max ms | Limiter wait p50/p95 ms | Call p50/p95 ms |\n")
+		sb.WriteString("|---|---:|---:|---:|---:|---:|---:|\n")
+		keys := make([]string, 0, len(r.Snapshot.EndpointLatency))
+		for k := range r.Snapshot.EndpointLatency {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			e := r.Snapshot.EndpointLatency[k]
+			sb.WriteString(fmt.Sprintf("| `%s` | %d | %d | %d | %d / %d / %d | %d / %d | %d / %d |\n",
+				k, e.Calls, e.Attempts, e.Failed, e.NetP50Ms, e.NetP95Ms, e.NetMaxMs, e.LimiterWaitP50Ms, e.LimiterWaitP95Ms, e.CallP50Ms, e.CallP95Ms))
+		}
+		sb.WriteString("\n")
+	}
 
 	sb.WriteString("## 4. 实时信号\n\n")
 	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")

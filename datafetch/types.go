@@ -102,6 +102,10 @@ type SnapshotMeta struct {
 	DetailCompleted       int // detail symbols whose per-symbol fetches ran
 	DetailSkippedDeadline int // detail symbols skipped because ctx expired before their worker started
 	FailedRequests        int // individual REST requests that failed after retries (bulk + per-symbol)
+
+	// Fix 02: per-endpoint latency for this fetch, keyed by request path
+	// without query (e.g. "/fapi/v1/klines"). Nil when no request was made.
+	EndpointLatency map[string]EndpointLatency
 }
 
 // ---------------------------------------------------------------------------
