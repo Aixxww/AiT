@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 )
@@ -193,7 +194,7 @@ func (w *WebHandler) HandleKlines(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyBinance(rw, r.Context(), fmt.Sprintf("https://fapi.binance.com/fapi/v1/klines?symbol=%s&interval=%s&limit=300", symbol, interval))
+	proxyBinance(rw, r.Context(), fmt.Sprintf("https://fapi.binance.com/fapi/v1/klines?symbol=%s&interval=%s&limit=300", url.QueryEscape(symbol), interval))
 }
 
 // HandleTicker proxies ticker data from Binance.
@@ -208,7 +209,7 @@ func (w *WebHandler) HandleTicker(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyBinance(rw, r.Context(), fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", symbol))
+	proxyBinance(rw, r.Context(), fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", url.QueryEscape(symbol)))
 }
 
 // HandleTickers handles GET /api/agent/tickers?symbols=BTCUSDT,ETHUSDT,SOLUSDT
@@ -248,7 +249,7 @@ func (w *WebHandler) HandleTickers(rw http.ResponseWriter, r *http.Request) {
 		idx, s := i, sym
 		safe.GoNamed("ticker-fetch-"+s, func() {
 			req, err := http.NewRequestWithContext(ctx, "GET",
-				fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", s), nil)
+				fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", url.QueryEscape(s)), nil)
 			if err != nil {
 				results <- result{idx: idx}
 				return

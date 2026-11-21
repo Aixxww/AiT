@@ -6,6 +6,7 @@ import (
 	"github.com/Aixxww/AiT/safe"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -199,7 +200,7 @@ func (b *Brain) sendBrief(hour int) {
 	// Fetch BTC/ETH prices for the brief
 	var btcPrice, ethPrice, btcChg, ethChg string
 	for _, sym := range []string{"BTCUSDT", "ETHUSDT"} {
-		resp, err := b.http.Get(fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", sym))
+		resp, err := b.http.Get(fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", url.QueryEscape(sym)))
 		if err != nil {
 			continue
 		}

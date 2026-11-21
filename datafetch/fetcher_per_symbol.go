@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"sync/atomic"
 )
 
@@ -353,7 +354,7 @@ func cloneSymbolSnapshot(src *SymbolSnapshot) *SymbolSnapshot {
 
 // fetchOI fetches current open interest for a symbol (USDT value).
 func (f *DataFetcher) fetchOI(ctx context.Context, symbol string) (float64, error) {
-	path := fmt.Sprintf("/fapi/v1/openInterest?symbol=%s", symbol)
+	path := fmt.Sprintf("/fapi/v1/openInterest?symbol=%s", url.QueryEscape(symbol))
 	raw, err := fetchJSON[oiRaw](ctx, f.client, path)
 	if err != nil {
 		return 0, err
@@ -363,7 +364,7 @@ func (f *DataFetcher) fetchOI(ctx context.Context, symbol string) (float64, erro
 
 // fetchOIHistory fetches OI history entries and returns period-over-period % changes.
 func (f *DataFetcher) fetchOIHistory(ctx context.Context, symbol, period string, limit int) ([]float64, error) {
-	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", symbol, period, limit)
+	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", url.QueryEscape(symbol), period, limit)
 	entries, err := fetchJSON[[]oiHistEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
@@ -388,7 +389,7 @@ func (f *DataFetcher) fetchOIHistory(ctx context.Context, symbol, period string,
 // limit=100 — the same request the task-2 scanner made). Levels are
 // returned best-first, exactly as the endpoint orders them.
 func (f *DataFetcher) fetchDepth(ctx context.Context, symbol string) ([]DepthLevel, []DepthLevel, error) {
-	path := fmt.Sprintf("/fapi/v1/depth?symbol=%s&limit=100", symbol)
+	path := fmt.Sprintf("/fapi/v1/depth?symbol=%s&limit=100", url.QueryEscape(symbol))
 	raw, err := fetchJSON[depthRaw](ctx, f.client, path)
 	if err != nil {
 		return nil, nil, err
@@ -412,7 +413,7 @@ func (f *DataFetcher) fetchDepth(ctx context.Context, symbol string) ([]DepthLev
 // applies its own series selection (spec section 2.4: positive notional
 // values preferred, contract count as fallback).
 func (f *DataFetcher) fetchOIHistorySeries(ctx context.Context, symbol, period string, limit int) ([]OIHistoryPoint, error) {
-	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", symbol, period, limit)
+	path := fmt.Sprintf("/futures/data/openInterestHist?symbol=%s&period=%s&limit=%d", url.QueryEscape(symbol), period, limit)
 	entries, err := fetchJSON[[]oiHistEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
@@ -430,7 +431,7 @@ func (f *DataFetcher) fetchOIHistorySeries(ctx context.Context, symbol, period s
 
 // fetchLSR fetches top trader long/short ratio entries.
 func (f *DataFetcher) fetchLSR(ctx context.Context, symbol string, limit int) ([]float64, error) {
-	path := fmt.Sprintf("/futures/data/topLongShortPositionRatio?symbol=%s&period=1h&limit=%d", symbol, limit)
+	path := fmt.Sprintf("/futures/data/topLongShortPositionRatio?symbol=%s&period=1h&limit=%d", url.QueryEscape(symbol), limit)
 	entries, err := fetchJSON[[]lsrEntry](ctx, f.client, path)
 	if err != nil {
 		return nil, err
@@ -444,7 +445,7 @@ func (f *DataFetcher) fetchLSR(ctx context.Context, symbol string, limit int) ([
 
 // fetchKlines fetches klines from Binance Futures and parses them.
 func (f *DataFetcher) fetchKlines(ctx context.Context, symbol, interval string, limit int) ([]Kline, error) {
-	path := fmt.Sprintf("/fapi/v1/klines?symbol=%s&interval=%s&limit=%d", symbol, interval, limit)
+	path := fmt.Sprintf("/fapi/v1/klines?symbol=%s&interval=%s&limit=%d", url.QueryEscape(symbol), interval, limit)
 	body, err := f.client.doPublic(ctx, path)
 	if err != nil {
 		return nil, err

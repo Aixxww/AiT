@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,7 +138,7 @@ func (s *Sentinel) scan() {
 }
 
 func (s *Sentinel) check(symbol string) {
-	resp, err := s.http.Get(fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", symbol))
+	resp, err := s.http.Get(fmt.Sprintf("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=%s", url.QueryEscape(symbol)))
 	if err != nil {
 		return
 	}
