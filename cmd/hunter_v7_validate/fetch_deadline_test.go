@@ -55,3 +55,20 @@ func TestRoundFetcherConfigCarriesBudget(t *testing.T) {
 		t.Fatalf("configured budget %v", c.FetchBudget)
 	}
 }
+
+// Owner decision: the gate's default is 25%. The rerun's typical truncated
+// round (~40 of 220 skipped, ~18%) passes; a heavier one (60/220) fails.
+func TestDefaultMaxDetailSkipPctIs25(t *testing.T) {
+	if defaultMaxDetailSkipPct != 25 {
+		t.Fatalf("default %v, want 25", defaultMaxDetailSkipPct)
+	}
+	m := func(skipped int) datafetch.SnapshotMeta {
+		return datafetch.SnapshotMeta{DetailRequested: 220, DetailSkippedDeadline: skipped}
+	}
+	if detailTruncationError(m(40), defaultMaxDetailSkipPct) != nil || detailTruncationError(m(55), defaultMaxDetailSkipPct) != nil {
+		t.Fatal("<= 25% must pass at the default")
+	}
+	if detailTruncationError(m(56), defaultMaxDetailSkipPct) == nil {
+		t.Fatal("56/220 (25.5%) must fail at the default")
+	}
+}
