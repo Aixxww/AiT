@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // fetchAllTickers fetches 24hr ticker data for ALL USDT-M futures symbols in one call.
@@ -130,4 +131,29 @@ var excludedNonCryptoUnderlyingSubtypes = map[string]bool{
 	"ETF":       true,
 	"INDEX":     true,
 	"RWA":       true,
+}
+
+// FetchTickerPrices makes ONE bulk GET /fapi/v1/ticker/24hr call (weight 40)
+// and returns every symbol's last price plus the time the response arrived
+// (fix 04: pre-prompt repricing). Symbols with an unparsable or non-positive
+// price are omitted.
+func (f *DataFetcher) FetchTickerPrices(ctx context.Context) (map[string]float64, time.Time, error) {
+	if f == nil {
+		return nil, time.Time{}, fmt.Errorf("nil data fetcher")
+	}
+	raw, err := f.fetchAllTickers(ctx)
+	received := time.Now()
+	if err != nil {
+		return nil, received, err
+	}
+	out := make(map[string]float64, len(raw))
+	for sym, t := range raw {
+		if t == nil {
+			continue
+		}
+		if p := parseFloat(t.LastPrice); p > 0 {
+			out[sym] = p
+		}
+	}
+	return out, received, nil
 }
