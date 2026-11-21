@@ -41,21 +41,45 @@ func NewRateLimiter(maxPerMin float64) *RateLimiter {
 	}
 }
 
+// NewRateLimiterBurst creates a limiter refilling perWindow tokens per
+// window with at most burst tokens banked (fix 05). The most it can admit in
+// any window is burst + perWindow, so a hard cap L is respected with
+// burst + perWindow <= L.
+func NewRateLimiterBurst(perWindow float64, window time.Duration, burst float64) *RateLimiter {
+	if burst < 1 {
+		burst = 1
+	}
+	return &RateLimiter{
+		tokens:     burst,
+		maxTokens:  burst,
+		refillRate: perWindow / window.Seconds(),
+		lastRefill: time.Now(),
+	}
+}
+
 // Acquire blocks until one token is available.
-func (r *RateLimiter) Acquire() {
+func (r *RateLimiter) Acquire() { r.AcquireN(1) }
+
+// AcquireN blocks until n tokens are available (n is capped at the bucket
+// size so a request heavier than the burst can still pass). n <= 0 returns
+// at once.
+func (r *RateLimiter) AcquireN(n float64) {
+	if r == nil || n <= 0 {
+		return
+	}
 	for {
 		r.mu.Lock()
+		need := math.Min(n, r.maxTokens)
 		now := time.Now()
 		elapsed := now.Sub(r.lastRefill).Seconds()
 		r.lastRefill = now
 		r.tokens = math.Min(r.maxTokens, r.tokens+elapsed*r.refillRate)
-		if r.tokens >= 1.0 {
-			r.tokens -= 1.0
+		if r.tokens >= need {
+			r.tokens -= need
 			r.mu.Unlock()
 			return
 		}
-		// How long until 1 token is available?
-		wait := time.Duration((1.0 - r.tokens) / r.refillRate * float64(time.Second))
+		wait := time.Duration((need - r.tokens) / r.refillRate * float64(time.Second))
 		r.mu.Unlock()
 		time.Sleep(wait)
 	}
@@ -140,12 +164,41 @@ type HTTPClient struct {
 	baseURL string
 	// errorSink (TA-6): see FetcherConfig.ErrorSink.
 	errorSink func(path string, err error)
+
+	// Fix 05 (optional): weight-based limiting instead of one token per
+	// request. weightLimiter is charged binanceRequestWeight(path);
+	// futuresDataLimiter is charged 1 per /futures/data request (those
+	// endpoints carry no IP weight and have their own per-IP limit).
+	weightLimiter      *RateLimiter
+	futuresDataLimiter *RateLimiter
 }
 
 func newFetcherHTTPClient(cfg FetcherConfig) *HTTPClient {
 	c := NewHTTPClientWithTimeout(cfg.BinanceURL, cfg.Timeout)
 	c.errorSink = cfg.ErrorSink
+	if cfg.WeightLimitPerMin > 0 {
+		// burst 10% of the rate: at most 1.1 x the rate in any minute.
+		c.weightLimiter = NewRateLimiterBurst(cfg.WeightLimitPerMin, time.Minute, cfg.WeightLimitPerMin*0.1)
+	}
+	if cfg.FuturesDataLimitPer5Min > 0 {
+		// burst 40% + refill 60% per 5 min: never more than the limit in
+		// any 5-minute window.
+		l := float64(cfg.FuturesDataLimitPer5Min)
+		c.futuresDataLimiter = NewRateLimiterBurst(l*0.6, 5*time.Minute, l*0.4)
+	}
 	return c
+}
+
+// acquire charges the limiters for one attempt of path.
+func (c *HTTPClient) acquire(path string) {
+	if strings.HasPrefix(path, "/futures/data/") && c.futuresDataLimiter != nil {
+		c.futuresDataLimiter.AcquireN(1)
+	}
+	if c.weightLimiter != nil {
+		c.weightLimiter.AcquireN(binanceRequestWeight(path))
+		return
+	}
+	c.limiter.Acquire()
 }
 
 // NewHTTPClient creates an HTTP client with connection pooling, rate limiting,
@@ -226,7 +279,7 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 			time.Sleep(time.Duration(300*(1<<attempt)) * time.Millisecond)
 		}
 		waitStart := time.Now()
-		c.limiter.Acquire()
+		c.acquire(path)
 		limiterWait := time.Since(waitStart)
 
 		url := c.baseURL + path
