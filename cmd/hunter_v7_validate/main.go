@@ -275,7 +275,7 @@ func main() {
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
 	fetchBudget := flag.Duration("fetch-budget", 3*time.Minute, "fix 03: detail-fetch deadline, measured from the start of the snapshot fetch")
-	maxDetailSkipPct := flag.Float64("max-detail-skip-pct", 10, "fix 03: fail the round as transient when more than this percent of detail symbols is skipped by the fetch deadline (>= 100 disables)")
+	maxDetailSkipPct := flag.Float64("max-detail-skip-pct", defaultMaxDetailSkipPct, "fix 03: fail the round as transient when more than this percent of detail symbols is skipped by the fetch deadline (>= 100 disables)")
 	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
 	runID := flag.String("run-id", "", "TA-3: run identifier; enables the state file (watch state, T2 store, round counter) saved after every round")
 	stateFile := flag.String("state-file", "", "TA-3: state file path (default <out-dir>/state-<run-id>.json)")
@@ -496,6 +496,12 @@ func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutur
 		IncludeNonCryptoFutures: includeNonCryptoFutures,
 	}
 }
+
+// defaultMaxDetailSkipPct is the --max-detail-skip-pct default: owner
+// decision after fix 03 (10 -> 25), so the gate rejects heavily truncated
+// rounds but accepts today's typical ~18% truncation until the two-tier
+// fetch (fix queue item 5) removes it.
+const defaultMaxDetailSkipPct = 25.0
 
 // roundFetchBudget is the detail-fetch deadline (fix 03); 3 minutes when
 // unset, the previous round-context value.
