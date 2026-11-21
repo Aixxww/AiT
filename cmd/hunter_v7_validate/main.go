@@ -39,6 +39,7 @@ type validationReport struct {
 	Signals           []local.V7SignalOutput       `json:"signals"`
 	PotentialPool     []local.V7PotentialCandidate `json:"potential_pool"`
 	PromptPreviewPath string                       `json:"prompt_preview_path"`
+	PromptReprice     repriceSummary               `json:"prompt_reprice"` // fix 04
 	Issues            []issue                      `json:"issues"`
 }
 
@@ -145,6 +146,10 @@ type validationOptions struct {
 	// Fix 03: detail-fetch deadline (from fetch start) and truncation gate.
 	fetchBudget      time.Duration
 	maxDetailSkipPct float64
+
+	// Fix 04: pre-prompt repricing.
+	promptReprice     bool
+	promptPriceMaxAge time.Duration
 
 	// TA-3: run state across restarts.
 	runID                string
@@ -275,6 +280,8 @@ func main() {
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
 	fetchBudget := flag.Duration("fetch-budget", 3*time.Minute, "fix 03: detail-fetch deadline, measured from the start of the snapshot fetch")
+	promptReprice := flag.Bool("prompt-reprice", true, "fix 04: reprice prompt symbols with one bulk ticker call right before the prompt is built")
+	promptPriceMaxAge := flag.Duration("prompt-price-max-age", defaultPromptPriceMaxAge, "fix 04: staleness cap for prompt prices; older prices are reported as prompt_price_stale")
 	maxDetailSkipPct := flag.Float64("max-detail-skip-pct", defaultMaxDetailSkipPct, "fix 03: fail the round as transient when more than this percent of detail symbols is skipped by the fetch deadline (>= 100 disables)")
 	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
 	runID := flag.String("run-id", "", "TA-3: run identifier; enables the state file (watch state, T2 store, round counter) saved after every round")
@@ -314,6 +321,8 @@ func main() {
 		fetchErrors:          newFetchErrorLog(*outDir),
 		fetchBudget:          *fetchBudget,
 		maxDetailSkipPct:     *maxDetailSkipPct,
+		promptReprice:        *promptReprice,
+		promptPriceMaxAge:    *promptPriceMaxAge,
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -688,7 +697,26 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	}
 	geometry := executionGeometryFromStrategy(strategyCfg)
 	candidates := kernel.AssembleHunterV7CandidateCoins(signals, "BOTH", geometry)
-	prompt := buildPrompt(candidates, signals, snap, strategyCfg)
+	// Fix 04: one bulk ticker call right before the prompt; the prompt sees
+	// prices seconds old. Scoring and the assembled tiers above are final.
+	promptSnap := snap
+	promptCandidates := candidates // persisted candidates stay as assembled
+	var reprice repriceSummary
+	if opts.promptReprice {
+		maxAge := opts.promptPriceMaxAge
+		if maxAge <= 0 {
+			maxAge = defaultPromptPriceMaxAge
+		}
+		prices, fetchedAt, err := fetcher.FetchTickerPrices(context.Background())
+		if err != nil {
+			return report, transientError(fmt.Errorf("pre-prompt reprice failed: %w", err))
+		}
+		now := time.Now()
+		promptSnap, reprice = repriceForPrompt(snap, promptSymbols(signals, candidates), prices, fetchedAt, now, maxAge)
+		promptCandidates = append([]kernel.CandidateCoin(nil), candidates...)
+		applyPromptFreshness(promptCandidates, promptSnap, snap, now, maxAge)
+	}
+	prompt := buildPrompt(promptCandidates, signals, promptSnap, strategyCfg)
 
 	now := time.Now()
 	stamp := now.Format("20060102-150405")
@@ -723,6 +751,8 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	report.Issues = append(report.Issues, promptIssues(report.AIRecognition)...)
 	report.Issues = append(report.Issues, coverageIssues(report.OpportunityCover)...)
 	report.Issues = append(report.Issues, snapshotIssues(report.Snapshot)...)
+	report.PromptReprice = reprice
+	report.Issues = append(report.Issues, repriceIssues(reprice)...)
 
 	// TA-2: the contract decides where this attempt's artifacts go. A
 	// contract failure always fails the round; its artifacts are kept for
