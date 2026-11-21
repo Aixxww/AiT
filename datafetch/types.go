@@ -106,6 +106,18 @@ type SnapshotMeta struct {
 	// Fix 02: per-endpoint latency for this fetch, keyed by request path
 	// without query (e.g. "/fapi/v1/klines"). Nil when no request was made.
 	EndpointLatency map[string]EndpointLatency
+
+	// Fix 05: two-tier fetch (FetcherConfig.Tiered); all zero otherwise.
+	// Counted over symbols whose worker ran (DetailCompleted):
+	// SlowRefreshed + SlowCarried + SlowMissing = DetailCompleted.
+	Tiered        bool
+	SlowEvery     int           // N: each symbol's slow tier is refreshed once every N fetches
+	FetchIndex    int           // 0-based count of this fetcher's previous tiered fetches
+	T2InputsTopN  int           // symbols given depth + 5m OI this fetch
+	SlowRefreshed int           // slow tier fetched this time (at least one slow request succeeded)
+	SlowCarried   int           // slow fields carried from an earlier fetch
+	SlowMissing   int           // no slow data yet (warm-up after the fetcher was created, or every slow fetch failed)
+	SlowMaxAge    time.Duration // oldest slow data in this snapshot
 }
 
 // ---------------------------------------------------------------------------

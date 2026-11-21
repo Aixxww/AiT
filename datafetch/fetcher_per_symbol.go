@@ -28,34 +28,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 ) (map[string]*SymbolSnapshot, detailCounts) {
 
 	// Build partial snapshots from bulk data for ALL symbols first
-	all := make(map[string]*SymbolSnapshot, len(symbols))
-	for _, sym := range symbols {
-		ss := &SymbolSnapshot{
-			Symbol: sym,
-			Klines: make(map[string][]Kline),
-			Social: SocialData{},
-		}
-		if t, ok := tickers[sym]; ok {
-			ss.Price = parseFloat(t.LastPrice)
-			ss.PriceChange24h = parseFloat(t.PriceChangePercent)
-			ss.Volume24h = parseFloat(t.Volume)
-			ss.QuoteVolume24h = parseFloat(t.QuoteVolume)
-			ss.HighPrice24h = parseFloat(t.HighPrice)
-			ss.LowPrice24h = parseFloat(t.LowPrice)
-			ss.TradeCount24h = t.Count
-		}
-		if p, ok := premiums[sym]; ok {
-			ss.MarkPrice = parseFloat(p.MarkPrice)
-			ss.IndexPrice = parseFloat(p.IndexPrice)
-			ss.FundingRate = parseFloat(p.LastFundingRate)
-			ss.NextFundingTime = p.NextFundingTime
-			if ss.IndexPrice > 0 {
-				ss.Spread = (ss.MarkPrice - ss.IndexPrice) / ss.IndexPrice * 100
-			}
-		}
-		ss.Timestamp = now()
-		all[sym] = ss
-	}
+	all := bulkBaseSnapshots(symbols, tickers, premiums)
 
 	// Semaphore-based worker pool
 	workers := f.cfg.MaxWorkers
@@ -106,6 +79,40 @@ func (f *DataFetcher) fetchPerSymbolData(
 		completed:    int(atomic.LoadInt64(&completed)),
 		skipped:      int(atomic.LoadInt64(&skipped)),
 	}
+}
+
+// bulkBaseSnapshots builds the partial snapshot of every symbol from the
+// bulk ticker and premiumIndex data (shared by the single- and two-tier fetch).
+func bulkBaseSnapshots(symbols []string, tickers map[string]*ticker24hrRaw, premiums map[string]*premiumIndexRaw) map[string]*SymbolSnapshot {
+	all := make(map[string]*SymbolSnapshot, len(symbols))
+	for _, sym := range symbols {
+		ss := &SymbolSnapshot{
+			Symbol: sym,
+			Klines: make(map[string][]Kline),
+			Social: SocialData{},
+		}
+		if t, ok := tickers[sym]; ok {
+			ss.Price = parseFloat(t.LastPrice)
+			ss.PriceChange24h = parseFloat(t.PriceChangePercent)
+			ss.Volume24h = parseFloat(t.Volume)
+			ss.QuoteVolume24h = parseFloat(t.QuoteVolume)
+			ss.HighPrice24h = parseFloat(t.HighPrice)
+			ss.LowPrice24h = parseFloat(t.LowPrice)
+			ss.TradeCount24h = t.Count
+		}
+		if p, ok := premiums[sym]; ok {
+			ss.MarkPrice = parseFloat(p.MarkPrice)
+			ss.IndexPrice = parseFloat(p.IndexPrice)
+			ss.FundingRate = parseFloat(p.LastFundingRate)
+			ss.NextFundingTime = p.NextFundingTime
+			if ss.IndexPrice > 0 {
+				ss.Spread = (ss.MarkPrice - ss.IndexPrice) / ss.IndexPrice * 100
+			}
+		}
+		ss.Timestamp = now()
+		all[sym] = ss
+	}
+	return all
 }
 
 // detailCounts summarises one per-symbol fetch pass (TA-5).

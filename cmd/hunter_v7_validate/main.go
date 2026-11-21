@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -55,15 +56,24 @@ type snapshotSummary struct {
 	FailedRequests        int    `json:"failed_requests"`
 	FetchErrorLog         string `json:"fetch_error_log,omitempty"` // TA-6: file with this round's failed requests (path+query)
 	// Fix 02: per-endpoint latency (p50/p95) of this round's snapshot fetch.
-	EndpointLatency    map[string]datafetch.EndpointLatency `json:"endpoint_latency,omitempty"`
-	RestErrors         int                                  `json:"rest_errors"`
-	RestErrorRate      float64                              `json:"rest_error_rate"`
-	UniverseCoverage   float64                              `json:"universe_coverage"`
-	Degraded           bool                                 `json:"degraded"`
-	DegradationReasons []string                             `json:"degradation_reasons,omitempty"`
-	BTC24h             float64                              `json:"btc_24h"`
-	ETH24h             float64                              `json:"eth_24h"`
-	Regime             string                               `json:"regime"`
+	EndpointLatency map[string]datafetch.EndpointLatency `json:"endpoint_latency,omitempty"`
+	// Fix 05: two-tier fetch (all symbols; slow tier 1/N per round).
+	TwoTier            bool     `json:"two_tier"`
+	SlowEvery          int      `json:"slow_every,omitempty"`
+	FetchIndex         int      `json:"fetch_index,omitempty"`
+	T2InputsTopN       int      `json:"t2_inputs_top_n,omitempty"`
+	SlowRefreshed      int      `json:"slow_refreshed,omitempty"`
+	SlowCarried        int      `json:"slow_carried,omitempty"`
+	SlowMissing        int      `json:"slow_missing,omitempty"`
+	SlowMaxAgeSec      int64    `json:"slow_max_age_sec,omitempty"`
+	RestErrors         int      `json:"rest_errors"`
+	RestErrorRate      float64  `json:"rest_error_rate"`
+	UniverseCoverage   float64  `json:"universe_coverage"`
+	Degraded           bool     `json:"degraded"`
+	DegradationReasons []string `json:"degradation_reasons,omitempty"`
+	BTC24h             float64  `json:"btc_24h"`
+	ETH24h             float64  `json:"eth_24h"`
+	Regime             string   `json:"regime"`
 }
 
 type formatCheck struct {
@@ -150,6 +160,16 @@ type validationOptions struct {
 	// Fix 04: pre-prompt repricing.
 	promptReprice     bool
 	promptPriceMaxAge time.Duration
+
+	// Fix 05: two-tier fetch. The round fetcher is kept across rounds and
+	// attempts (shared pointer: attempt copies of opts reuse it) so its
+	// slow-tier data carries over; it is not saved in the state file, so a
+	// restart warms up again.
+	twoTier                 bool
+	slowEvery               int
+	weightLimitPerMin       float64
+	futuresDataLimitPer5Min int
+	roundFetcher            *roundFetcherCache
 
 	// TA-3: run state across restarts.
 	runID                string
@@ -282,6 +302,10 @@ func main() {
 	fetchBudget := flag.Duration("fetch-budget", 3*time.Minute, "fix 03: detail-fetch deadline, measured from the start of the snapshot fetch")
 	promptReprice := flag.Bool("prompt-reprice", true, "fix 04: reprice prompt symbols with one bulk ticker call right before the prompt is built")
 	promptPriceMaxAge := flag.Duration("prompt-price-max-age", defaultPromptPriceMaxAge, "fix 04: staleness cap for prompt prices; older prices are reported as prompt_price_stale")
+	twoTier := flag.Bool("two-tier", true, "fix 05: two-tier fetch of every symbol (fast tier every round, slow tier 1/N of symbols per round); false = the legacy top-detail fetch")
+	slowEvery := flag.Int("slow-every", defaultSlowEvery, "fix 05: N, refresh each symbol's slow tier (1h OI history, long/short ratio, 1h/4h/1d klines) once every N rounds; slow fields are up to about N rounds old")
+	weightLimitPerMin := flag.Float64("weight-limit-per-min", defaultWeightLimitPerMin, "fix 05 (with --two-tier): Binance request-weight limit per minute for the round fetcher (Binance's IP limit is 2400)")
+	futuresDataLimit := flag.Int("futures-data-limit-per-5min", defaultFuturesDataLimitPer5Min, "fix 05 (with --two-tier): request limit per 5 minutes for /futures/data endpoints")
 	maxDetailSkipPct := flag.Float64("max-detail-skip-pct", defaultMaxDetailSkipPct, "fix 03: fail the round as transient when more than this percent of detail symbols is skipped by the fetch deadline (>= 100 disables)")
 	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
 	runID := flag.String("run-id", "", "TA-3: run identifier; enables the state file (watch state, T2 store, round counter) saved after every round")
@@ -323,6 +347,12 @@ func main() {
 		maxDetailSkipPct:     *maxDetailSkipPct,
 		promptReprice:        *promptReprice,
 		promptPriceMaxAge:    *promptPriceMaxAge,
+
+		twoTier:                 *twoTier,
+		slowEvery:               *slowEvery,
+		weightLimitPerMin:       *weightLimitPerMin,
+		futuresDataLimitPer5Min: *futuresDataLimit,
+		roundFetcher:            &roundFetcherCache{},
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -495,7 +525,7 @@ func validationFeeNetCostPct(cfg *store.StrategyConfig) float64 {
 // roundFetcherConfig is the per-round snapshot fetcher's config. TA-0:
 // --binance-url must reach this fetcher and the tracker backfill fetcher.
 func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutures bool) datafetch.FetcherConfig {
-	return datafetch.FetcherConfig{
+	cfg := datafetch.FetcherConfig{
 		TopNForDetail:           opts.topDetail,
 		MaxWorkers:              opts.maxWorkers,
 		Timeout:                 15 * time.Second,
@@ -504,6 +534,52 @@ func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutur
 		IncludeT2Inputs:         t2Enabled,
 		IncludeNonCryptoFutures: includeNonCryptoFutures,
 	}
+	if opts.twoTier {
+		cfg.Tiered = &datafetch.TieredFetchConfig{SlowEvery: opts.slowEvery, T2InputsTopN: opts.topDetail}
+		cfg.WeightLimitPerMin = opts.weightLimitPerMin
+		cfg.FuturesDataLimitPer5Min = opts.futuresDataLimitPer5Min
+	}
+	return cfg
+}
+
+// Fix 05 harness defaults (owner-approved plan). N=4 keeps the
+// /futures/data load at about 478 requests per round (5m OI for the 220
+// T2-input symbols + 1h OI history and long/short ratio for 1/4 of 515), so
+// even two rounds' bursts inside one 5-minute window stay under 1,000.
+// 1,800 weight/min (+10% burst) stays under Binance's 2,400 IP limit.
+const (
+	defaultSlowEvery               = 4
+	defaultWeightLimitPerMin       = 1800.0
+	defaultFuturesDataLimitPer5Min = 1000
+)
+
+// roundFetcherCache keeps the round fetcher across rounds (fix 05).
+type roundFetcherCache struct {
+	mu      sync.Mutex
+	key     string
+	fetcher *datafetch.DataFetcher
+}
+
+// roundFetcher returns the fetcher for this round. In two-tier mode it is
+// reused while the config is unchanged (a changed config, e.g. the strategy
+// toggling T2, starts a new fetcher and a new warm-up); the error sink is
+// set per round and attempt. The legacy mode builds one per round, as before.
+func roundFetcher(opts validationOptions, cfg datafetch.FetcherConfig) *datafetch.DataFetcher {
+	if cfg.Tiered == nil || opts.roundFetcher == nil {
+		return datafetch.NewDataFetcher(cfg)
+	}
+	c := opts.roundFetcher
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	sink := cfg.ErrorSink
+	keyCfg := cfg
+	keyCfg.ErrorSink, keyCfg.Tiered = nil, nil // no func or pointer values in the key
+	key := fmt.Sprintf("%+v|%+v", keyCfg, *cfg.Tiered)
+	if c.fetcher == nil || c.key != key {
+		c.fetcher, c.key = datafetch.NewDataFetcher(cfg), key
+	}
+	c.fetcher.SetErrorSink(sink)
+	return c.fetcher
 }
 
 // defaultMaxDetailSkipPct is the --max-detail-skip-pct default: owner
@@ -618,7 +694,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 
 	fcfg := roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures)
 	fcfg.ErrorSink = opts.fetchErrors.sink(round, opts.attempt, fetchSourceRound) // TA-6
-	fetcher := datafetch.NewDataFetcher(fcfg)
+	fetcher := roundFetcher(opts, fcfg)
 	// Fix 03: the deadline is the fetcher's FetchBudget, which starts with
 	// the fetch itself (it used to start at round entry, before strategy load).
 	snap, err := fetcher.Fetch(context.Background())
@@ -810,6 +886,14 @@ func buildSnapshotSummary(snap *datafetch.Snapshot, universeCount int, regime st
 		DetailSkippedDeadline: snap.Meta.DetailSkippedDeadline,
 		FailedRequests:        snap.Meta.FailedRequests,
 		EndpointLatency:       snap.Meta.EndpointLatency,
+		TwoTier:               snap.Meta.Tiered,
+		SlowEvery:             snap.Meta.SlowEvery,
+		FetchIndex:            snap.Meta.FetchIndex,
+		T2InputsTopN:          snap.Meta.T2InputsTopN,
+		SlowRefreshed:         snap.Meta.SlowRefreshed,
+		SlowCarried:           snap.Meta.SlowCarried,
+		SlowMissing:           snap.Meta.SlowMissing,
+		SlowMaxAgeSec:         int64(snap.Meta.SlowMaxAge / time.Second),
 		RestErrors:            snap.Meta.RestErrors,
 		BTC24h:                priceChange24h(snap, "BTCUSDT"),
 		ETH24h:                priceChange24h(snap, "ETHUSDT"),
@@ -1789,6 +1873,14 @@ func snapshotIssues(s snapshotSummary) []issue {
 				s.DetailSkippedDeadline, s.DetailRequested),
 		})
 	}
+	if s.TwoTier && s.SlowMissing > 0 {
+		issues = append(issues, issue{
+			Severity: "medium",
+			Code:     "slow_tier_missing",
+			Detail: fmt.Sprintf("two-tier fetch: %d of %d fetched symbols have no slow-tier data yet (1h OI history, long/short ratio, 1h/4h/1d klines); expected for up to %d rounds after start or resume (warm-up), otherwise their slow requests failed",
+				s.SlowMissing, s.DetailCompleted, s.SlowEvery),
+		})
+	}
 	coverage := s.UniverseCoverage
 	if s.UniverseCount > 0 && coverage < 0.30 {
 		issues = append(issues, issue{
@@ -1911,6 +2003,13 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	sb.WriteString(fmt.Sprintf("| Detail requested / completed / skipped (deadline) | %d / %d / %d |\n",
 		r.Snapshot.DetailRequested, r.Snapshot.DetailCompleted, r.Snapshot.DetailSkippedDeadline))
 	sb.WriteString(fmt.Sprintf("| Failed requests | %d |\n", r.Snapshot.FailedRequests))
+	if r.Snapshot.TwoTier {
+		sb.WriteString(fmt.Sprintf("| Two-tier fetch: slow every N / fetch index / T2-input top N | %d / %d / %d |\n",
+			r.Snapshot.SlowEvery, r.Snapshot.FetchIndex, r.Snapshot.T2InputsTopN))
+		sb.WriteString(fmt.Sprintf("| Slow tier refreshed / carried / missing | %d / %d / %d |\n",
+			r.Snapshot.SlowRefreshed, r.Snapshot.SlowCarried, r.Snapshot.SlowMissing))
+		sb.WriteString(fmt.Sprintf("| Slow tier max age s | %d |\n", r.Snapshot.SlowMaxAgeSec))
+	}
 	if r.Snapshot.FetchErrorLog != "" {
 		sb.WriteString(fmt.Sprintf("| Failed request log (path+query) | `%s` |\n", r.Snapshot.FetchErrorLog))
 	}

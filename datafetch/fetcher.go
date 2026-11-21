@@ -6,6 +6,7 @@ import (
 	"log"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,18 @@ type FetcherConfig struct {
 	// context applies, as before.
 	FetchBudget time.Duration
 
+	// WeightLimitPerMin (fix 05), optional: limit by Binance request weight
+	// per minute (binanceRequestWeight) instead of the legacy 1,200
+	// requests/min. 0 (default) = legacy limiter, unchanged.
+	WeightLimitPerMin float64
+	// FuturesDataLimitPer5Min (fix 05), optional: separate per-IP limit for
+	// /futures/data endpoints (no IP weight). 0 (default) = none.
+	FuturesDataLimitPer5Min int
+
+	// Tiered (fix 05), optional: two-tier fetch over every symbol. Nil
+	// (default) = the single-tier TopNForDetail fetch, unchanged.
+	Tiered *TieredFetchConfig
+
 	// ErrorSink (TA-6), optional: called once for every REST request that
 	// failed after its retries, with the request path including its query
 	// string and the final error. Public market-data endpoints only; no
@@ -45,6 +58,19 @@ type DataFetcher struct {
 	cfg     FetcherConfig
 	client  *HTTPClient
 	symbols []string // cached symbol list, refreshed on each Fetch
+
+	// Fix 05: carried slow-tier data of the two-tier fetch (cfg.Tiered).
+	tieredMu sync.Mutex
+	tiered   *tieredState
+}
+
+// SetErrorSink replaces the ErrorSink (TA-6) for later requests, so one
+// fetcher (and its carried two-tier state) can be reused across harness
+// rounds that each log to their own sink (fix 05). Not safe to call while a
+// fetch is running.
+func (f *DataFetcher) SetErrorSink(sink func(path string, err error)) {
+	f.cfg.ErrorSink = sink
+	f.client.errorSink = sink
 }
 
 type FetchOptions struct {
@@ -164,9 +190,21 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 		return vi > vj
 	})
 
-	// Phase 2: Per-symbol data for top N
-	detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
-	snapshots, detail := f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
+	// Phase 2: Per-symbol data. Fix 05: with cfg.Tiered, every symbol
+	// (fast tier + rolling slow tier; opts.KlineIntervals and
+	// RefreshSlowDerivatives are replaced by the tier config); otherwise the
+	// top N, unchanged.
+	var (
+		snapshots map[string]*SymbolSnapshot
+		detail    detailCounts
+		tm        tieredMeta
+	)
+	if f.cfg.Tiered != nil {
+		snapshots, detail, tm = f.fetchTieredData(ctx, bulk.tickers, bulk.premiums)
+	} else {
+		detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
+		snapshots, detail = f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
+	}
 	restErrors += detail.symbolErrors
 
 	snap := &Snapshot{
@@ -182,6 +220,15 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 			DetailSkippedDeadline: detail.skipped,
 			FailedRequests:        stats.failed(),
 			EndpointLatency:       stats.endpointLatency(),
+
+			Tiered:        f.cfg.Tiered != nil,
+			SlowEvery:     tm.slowEvery,
+			FetchIndex:    tm.fetchIndex,
+			T2InputsTopN:  tm.topN,
+			SlowRefreshed: tm.slowRefreshed,
+			SlowCarried:   tm.slowCarried,
+			SlowMissing:   tm.slowMissing,
+			SlowMaxAge:    tm.slowMaxAge,
 		},
 	}
 
