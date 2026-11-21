@@ -142,6 +142,10 @@ type validationOptions struct {
 
 	fetchErrors *fetchErrorLog // TA-6: failed-request log (<out-dir>/fetch-errors.jsonl)
 
+	// Fix 03: detail-fetch deadline (from fetch start) and truncation gate.
+	fetchBudget      time.Duration
+	maxDetailSkipPct float64
+
 	// TA-3: run state across restarts.
 	runID                string
 	stateFile            string
@@ -270,6 +274,8 @@ func main() {
 	postTrackInterval := flag.Duration("post-track-interval", 30*time.Second, "post-round outcome tracking tick interval")
 	trackActiveOnly := flag.Bool("track-active-only", true, "stop post tracking early when no ACTIVE validation outcomes remain")
 	binanceURL := flag.String("binance-url", "", "Binance futures REST base URL (default https://fapi.binance.com); point at the read-only relay for sandbox validation")
+	fetchBudget := flag.Duration("fetch-budget", 3*time.Minute, "fix 03: detail-fetch deadline, measured from the start of the snapshot fetch")
+	maxDetailSkipPct := flag.Float64("max-detail-skip-pct", 10, "fix 03: fail the round as transient when more than this percent of detail symbols is skipped by the fetch deadline (>= 100 disables)")
 	breakerConsecutive := flag.Int("breaker-consecutive", 3, "TA-2: exit 3 after this many consecutive rounds rejected with the same contract signature")
 	runID := flag.String("run-id", "", "TA-3: run identifier; enables the state file (watch state, T2 store, round counter) saved after every round")
 	stateFile := flag.String("state-file", "", "TA-3: state file path (default <out-dir>/state-<run-id>.json)")
@@ -306,6 +312,8 @@ func main() {
 		resume:               *resume,
 		resumeAllowSHAChange: *resumeAllowSHAChange,
 		fetchErrors:          newFetchErrorLog(*outDir),
+		fetchBudget:          *fetchBudget,
+		maxDetailSkipPct:     *maxDetailSkipPct,
 	}
 	if opts.rounds <= 0 {
 		opts.rounds = 1
@@ -482,10 +490,36 @@ func roundFetcherConfig(opts validationOptions, t2Enabled, includeNonCryptoFutur
 		TopNForDetail:           opts.topDetail,
 		MaxWorkers:              opts.maxWorkers,
 		Timeout:                 15 * time.Second,
+		FetchBudget:             roundFetchBudget(opts),
 		BinanceURL:              opts.binanceURL,
 		IncludeT2Inputs:         t2Enabled,
 		IncludeNonCryptoFutures: includeNonCryptoFutures,
 	}
+}
+
+// roundFetchBudget is the detail-fetch deadline (fix 03); 3 minutes when
+// unset, the previous round-context value.
+func roundFetchBudget(opts validationOptions) time.Duration {
+	if opts.fetchBudget > 0 {
+		return opts.fetchBudget
+	}
+	return 3 * time.Minute
+}
+
+// detailTruncationError rejects a snapshot whose detail fetch lost more than
+// maxPct percent of its symbols to the deadline (fix 03). The harness
+// reports it as transient, so the round is retried rather than accepted
+// with silently partial data. maxPct >= 100 disables the gate.
+func detailTruncationError(m datafetch.SnapshotMeta, maxPct float64) error {
+	if maxPct >= 100 || m.DetailRequested <= 0 || m.DetailSkippedDeadline <= 0 {
+		return nil
+	}
+	pct := float64(m.DetailSkippedDeadline) / float64(m.DetailRequested) * 100
+	if pct <= maxPct {
+		return nil
+	}
+	return fmt.Errorf("snapshot quality rejected: detail fetch truncated by deadline: %d of %d detail symbols skipped (%.1f%% > %.1f%%)",
+		m.DetailSkippedDeadline, m.DetailRequested, pct, maxPct)
 }
 
 // backfillFetcherConfig is the outcome tracker's 1m backfill/latest-candle
@@ -549,8 +583,6 @@ func t2LifecycleParams(c *store.V7T2LifecycleConfig) local.V7T2LifecycleParams {
 func runValidation(opts validationOptions, round int) (validationReport, error) {
 	var report validationReport
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
 
 	strategyCfg, err := loadStrategyConfig(opts.dbPath, opts.strategyID)
 	if err != nil {
@@ -572,9 +604,14 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	fcfg := roundFetcherConfig(opts, t2Enabled, includeNonCryptoFutures)
 	fcfg.ErrorSink = opts.fetchErrors.sink(round, opts.attempt, fetchSourceRound) // TA-6
 	fetcher := datafetch.NewDataFetcher(fcfg)
-	snap, err := fetcher.Fetch(ctx)
+	// Fix 03: the deadline is the fetcher's FetchBudget, which starts with
+	// the fetch itself (it used to start at round entry, before strategy load).
+	snap, err := fetcher.Fetch(context.Background())
 	if err != nil {
 		return report, transientError(fmt.Errorf("fetch snapshot failed: %w", err))
+	}
+	if err := detailTruncationError(snap.Meta, opts.maxDetailSkipPct); err != nil {
+		return report, transientError(err)
 	}
 	// Gate transport quality before scoring. In particular, do not turn a
 	// failed retry into a synthetic watch/breaker cycle or persisted outcome.
