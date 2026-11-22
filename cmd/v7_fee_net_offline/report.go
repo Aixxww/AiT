@@ -227,7 +227,7 @@ func markdownTable(title string, rows []groupStats, max int) string {
 			break
 		}
 		fmt.Fprintf(&b, "| `%s` | %d | %d | %d / %d / %d | %.0f%% | %+.3f | [%+.3f, %+.3f] | %s | %s |\n",
-			s.Key, s.Rows, s.N, s.TP1, s.Stop, s.None, s.TP1Rate*100, s.MeanR, s.CILo, s.CIHi, s.CellRule, notScored(s))
+			mdCell(s.Key), s.Rows, s.N, s.TP1, s.Stop, s.None, s.TP1Rate*100, s.MeanR, s.CILo, s.CIHi, s.CellRule, notScored(s))
 	}
 	b.WriteString("\n")
 	return b.String()
