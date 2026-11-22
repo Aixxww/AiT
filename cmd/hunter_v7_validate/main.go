@@ -42,7 +42,9 @@ type validationReport struct {
 	PromptPreviewPath string                       `json:"prompt_preview_path"`
 	PromptReprice     repriceSummary               `json:"prompt_reprice"` // fix 04
 	TierLayers        tierLayerReport              `json:"tier_layers"`    // fix 12: assembled vs prompt-final tier
-	Issues            []issue                      `json:"issues"`
+	// Fix 15: the settings in effect for this round.
+	EffectiveFlags effectiveFlags `json:"effective_flags"`
+	Issues         []issue        `json:"issues"`
 }
 
 type snapshotSummary struct {
@@ -150,6 +152,8 @@ type validationOptions struct {
 	t2Store           *local.V7T2EventStore
 	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
+	// Fix 15: the outcome tracker's fee-net cost (set once at start).
+	feeNetCostPct float64
 	// Fix 09: the tracker's 1m backfill (validationBackfillCandles), used to
 	// re-register saved ACTIVE rows on --resume; and what that did.
 	backfillCandles func(symbol string, from, to time.Time) []aittrader.TrackedCandle
@@ -247,6 +251,7 @@ type validationRunSummary struct {
 	Round                []validationRoundSummary `json:"round"`
 	RejectedRounds       []rejectedRound          `json:"rejected_rounds,omitempty"` // TA-2: contract-rejected (skipped) rounds
 	ResumeTracking       *resumeTrackingSummary   `json:"resume_tracking,omitempty"` // fix 09: saved ACTIVE rows settled on --resume
+	EffectiveFlags       *runEffectiveFlags       `json:"effective_flags,omitempty"` // fix 15: settings in effect for the run
 	ExitCode             int                      `json:"exit_code"`
 	ExitReason           string                   `json:"exit_reason,omitempty"`
 }
@@ -394,6 +399,7 @@ func main() {
 				TrackPartialTargets:   true,
 				FeeNetCostPct:         validationFeeNetCostPct(strategyCfg),
 			}, nil)
+			opts.feeNetCostPct = validationFeeNetCostPct(strategyCfg)
 			tracker.SetOutcomeCallback(func(outcome aittrader.TrackedOutcome) {
 				if err := st.HunterV7Signal().UpdateTrackOutcome(outcome.RecordID, validationTrackUpdate(outcome)); err != nil {
 					log.Printf("WARN update validation V7 outcome failed: %v", err)
@@ -851,6 +857,9 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	report.Issues = append(report.Issues, repriceIssues(reprice)...)
 	report.TierLayers = buildTierLayerReport(candidates, promptFinal) // fix 12
 
+	// Fix 15: the settings this round actually ran with.
+	report.EffectiveFlags = buildEffectiveFlags(opts, strategyCfg, cfg, geometry, promptStrategyConfig(len(promptCandidates), strategyCfg))
+
 	// TA-2: the contract decides where this attempt's artifacts go. A
 	// contract failure always fails the round; its artifacts are kept for
 	// diagnosis under <out-dir>/rejected/, never next to accepted rounds.
@@ -1189,6 +1198,7 @@ func writeValidationRunSummary(opts validationOptions, out runOutcome) error {
 	summary.RejectedRounds = append([]rejectedRound(nil), out.rejected...)
 	summary.ExitCode, summary.ExitReason = out.exitCode, out.exitReason
 	summary.ResumeTracking = opts.resumeTracking
+	summary.EffectiveFlags = buildRunEffectiveFlags(opts, reports)
 	stamp := now.Format("20060102-150405")
 	rawPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.json", opts.outDir, stamp)
 	mdPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.md", opts.outDir, stamp)
@@ -1290,6 +1300,13 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 		sb.WriteString("| Round | Attempts | Signature |\n|---:|---:|---|\n")
 		for _, rr := range summary.RejectedRounds {
 			sb.WriteString(fmt.Sprintf("| %d | %d | %s |\n", rr.Round, rr.Attempts, rr.Signature))
+		}
+	}
+	if ef := summary.EffectiveFlags; ef != nil {
+		title := fmt.Sprintf("\n## Effective settings (fix 15; resolved for round %d)\n\n", ef.FromRound)
+		sb.WriteString(effectiveFlagsMarkdown(ef.effectiveFlags, title))
+		if len(ef.RoundsWithDifferentSettings) > 0 {
+			sb.WriteString(fmt.Sprintf("> WARNING: rounds %v ran with different resolved settings (the strategy row is re-read every round); see each round's report effective_flags.\n", ef.RoundsWithDifferentSettings))
 		}
 	}
 	if rt := summary.ResumeTracking; rt != nil {
@@ -1586,17 +1603,7 @@ func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error
 // buildPrompt returns the prompt and, from the same build, the prompt-final
 // tier of every candidate it showed (fix 12).
 func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, snap *datafetch.Snapshot, strategyCfg *store.StrategyConfig) (string, []kernel.HunterV7PromptFinalTier) {
-	cfg := store.GetDefaultStrategyConfig("zh")
-	if strategyCfg != nil {
-		cfg = *strategyCfg
-	} else {
-		cfg.CoinSource.SourceType = "hunter_v7"
-		cfg.CoinSource.HunterLimit = len(candidates)
-		cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: len(candidates), V7MinAIPriority: 45, V7Aggressive: true}
-	}
-	if cfg.CoinSource.HunterLimit <= 0 || cfg.CoinSource.HunterLimit > len(candidates) {
-		cfg.CoinSource.HunterLimit = len(candidates)
-	}
+	cfg := promptStrategyConfig(len(candidates), strategyCfg)
 	engine := kernel.NewStrategyEngine(&cfg)
 	md := promptMarketData(signals, snap)
 	ctx := &kernel.Context{
@@ -1613,6 +1620,23 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 	systemPrompt := engine.BuildSystemPrompt(1000, "balanced")
 	userPrompt := engine.BuildUserPrompt(ctx)
 	return systemPrompt + "\n\n--- USER PROMPT ---\n\n" + userPrompt, ctx.HunterV7PromptFinal
+}
+
+// promptStrategyConfig is the strategy config the prompt is built with
+// (fix 15: shared with the effective-settings record).
+func promptStrategyConfig(candidateCount int, strategyCfg *store.StrategyConfig) store.StrategyConfig {
+	cfg := store.GetDefaultStrategyConfig("zh")
+	if strategyCfg != nil {
+		cfg = *strategyCfg
+	} else {
+		cfg.CoinSource.SourceType = "hunter_v7"
+		cfg.CoinSource.HunterLimit = candidateCount
+		cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: candidateCount, V7MinAIPriority: 45, V7Aggressive: true}
+	}
+	if cfg.CoinSource.HunterLimit <= 0 || cfg.CoinSource.HunterLimit > candidateCount {
+		cfg.CoinSource.HunterLimit = candidateCount
+	}
+	return cfg
 }
 
 // promptMarketData builds the prompt's per-symbol market data. The full
@@ -2108,6 +2132,7 @@ func formatMarkdown(r validationReport, rawPath string) string {
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
 
 	sb.WriteString(tierLayerMarkdown(r.TierLayers))
+	sb.WriteString(effectiveFlagsMarkdown(r.EffectiveFlags, "## Effective settings (fix 15)\n\n"))
 
 	sb.WriteString("## 6. 潜力池强制跟踪\n\n")
 	if len(r.PotentialPool) == 0 {
