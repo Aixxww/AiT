@@ -420,6 +420,11 @@ type V7SignalOutput struct {
 	TriggerPrice float64  `json:"trigger_price,omitempty"`
 	ATR15mPct    float64  `json:"atr_15m_pct,omitempty"`
 	DataGaps     []string `json:"data_gaps,omitempty"`
+	// T2EventID (fix 11) is the Task-2 lifecycle event the output belongs
+	// to (V7T2Event.EventID, "<symbol>:<setup>:<direction>:<zone>"), set by
+	// RunV7T2Module when an event store is used; "" for native signals.
+	// Recorded only: nothing reads it for scoring, tiers or lifecycle.
+	T2EventID string `json:"t2_event_id,omitempty"`
 
 	// Multi-dimensional scores (each 0-100)
 	SetupScore     float64 `json:"setup_score"`
@@ -513,6 +518,7 @@ type V7SignalTags struct {
 	DoctrineVersion    string
 	LifecycleState     string // T2 event state, or the native signal status
 	TriggerPrice       float64
+	T2EventID          string // fix 11: Task-2 lifecycle event id ("" = native / no event store)
 	DecisionPath       string // llm_full / none
 	OutcomeSource      string // prompt_open_review / watch_audit / shadow
 	DataGaps           []string
