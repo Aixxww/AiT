@@ -103,7 +103,11 @@ func TestStateSavesTrackedActiveIDs(t *testing.T) {
 func TestRestoreTrackedOutcomes(t *testing.T) {
 	st := openTestStore(t, filepath.Join(t.TempDir(), "v.db"))
 	defer st.Close()
-	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	// Relative to the wall clock: the tracker's timeout check uses
+	// time.Now(), so a fixed date made the in-window rows (40 min old, 2h
+	// timeout) time out once the real clock passed it. Minute-aligned so
+	// the fixture bars start on a minute.
+	now := time.Now().UTC().Truncate(time.Minute)
 	rows := []store.HunterV7SignalRecord{
 		resumeRow("AUSDT", now.Add(-30*time.Minute), "ACTIVE"),  // 0 re-register, stop hit during the gap
 		resumeRow("BUSDT", now.Add(-3*time.Hour), "ACTIVE"),     // 1 too old -> orphan
