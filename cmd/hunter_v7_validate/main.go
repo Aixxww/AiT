@@ -149,7 +149,11 @@ type validationOptions struct {
 	t2Store           *local.V7T2EventStore
 	binanceURL        string
 	outcomeTracker    *aittrader.SignalOutcomeTracker
-	attempt           int // TA-2: attempt number within the round (artifact names in rejected/)
+	// Fix 09: the tracker's 1m backfill (validationBackfillCandles), used to
+	// re-register saved ACTIVE rows on --resume; and what that did.
+	backfillCandles func(symbol string, from, to time.Time) []aittrader.TrackedCandle
+	resumeTracking  *resumeTrackingSummary
+	attempt         int // TA-2: attempt number within the round (artifact names in rejected/)
 
 	fetchErrors *fetchErrorLog // TA-6: failed-request log (<out-dir>/fetch-errors.jsonl)
 
@@ -236,6 +240,7 @@ type validationRunSummary struct {
 	DegradedRounds       []int                    `json:"degraded_rounds,omitempty"`
 	Round                []validationRoundSummary `json:"round"`
 	RejectedRounds       []rejectedRound          `json:"rejected_rounds,omitempty"` // TA-2: contract-rejected (skipped) rounds
+	ResumeTracking       *resumeTrackingSummary   `json:"resume_tracking,omitempty"` // fix 09: saved ACTIVE rows settled on --resume
 	ExitCode             int                      `json:"exit_code"`
 	ExitReason           string                   `json:"exit_reason,omitempty"`
 }
@@ -389,9 +394,10 @@ func main() {
 				}
 			})
 			backfillFetcher := datafetch.NewDataFetcher(backfillFetcherConfig(opts))
-			tracker.SetCandleBackfillSource(func(symbol string, from, to time.Time) []aittrader.TrackedCandle {
+			opts.backfillCandles = func(symbol string, from, to time.Time) []aittrader.TrackedCandle {
 				return validationBackfillCandles(backfillFetcher, symbol, from, to)
-			})
+			}
+			tracker.SetCandleBackfillSource(opts.backfillCandles)
 			tracker.SetCandleSource(func(symbol string) *aittrader.TrackedCandle {
 				return validationLatestCandle(backfillFetcher, symbol)
 			})
@@ -421,6 +427,14 @@ func runHarness(opts validationOptions, breakerConsecutive int) int {
 	}
 	if opts.resume {
 		log.Printf("resuming run %q at round %d (cycle %d) of %d", opts.runID, first, first, opts.rounds)
+		// Fix 09: settle the rows the tracker had ACTIVE before the restart.
+		rt, err := restoreTrackedOutcomes(opts, prior, time.Now(), opts.backfillCandles)
+		if err != nil {
+			log.Printf("resume tracking: %v", err)
+			return exitFatal
+		}
+		opts.resumeTracking = rt
+		log.Print(rt.logLine())
 		if first > opts.rounds {
 			log.Printf("run %q already completed %d of %d rounds; nothing to do", opts.runID, prior.LastRound, opts.rounds)
 			return exitOK
@@ -1033,8 +1047,8 @@ func validationBackfillCandles(fetcher *datafetch.DataFetcher, symbol string, fr
 	if minutes < 10 {
 		minutes = 10
 	}
-	if minutes > 120 {
-		minutes = 120
+	if minutes > validationBackfillMaxMinutes {
+		minutes = validationBackfillMaxMinutes
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
@@ -1164,6 +1178,7 @@ func writeValidationRunSummary(opts validationOptions, out runOutcome) error {
 	summary := buildValidationRunSummary(reports, now)
 	summary.RejectedRounds = append([]rejectedRound(nil), out.rejected...)
 	summary.ExitCode, summary.ExitReason = out.exitCode, out.exitReason
+	summary.ResumeTracking = opts.resumeTracking
 	stamp := now.Format("20060102-150405")
 	rawPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.json", opts.outDir, stamp)
 	mdPath := fmt.Sprintf("%s/hunter-v7-validation-run-summary-%s.md", opts.outDir, stamp)
@@ -1264,6 +1279,13 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 		sb.WriteString("| Round | Attempts | Signature |\n|---:|---:|---|\n")
 		for _, rr := range summary.RejectedRounds {
 			sb.WriteString(fmt.Sprintf("| %d | %d | %s |\n", rr.Round, rr.Attempts, rr.Signature))
+		}
+	}
+	if rt := summary.ResumeTracking; rt != nil {
+		sb.WriteString("\n## Resume: outcome tracking (fix 09)\n\n")
+		sb.WriteString(fmt.Sprintf("> %s\n", rt.logLine()))
+		if len(rt.Orphaned) > 0 {
+			sb.WriteString(fmt.Sprintf("> %s ids %v: compute their fee-net with cmd/v7_fee_net_offline\n", trackRestartOrphaned, rt.Orphaned))
 		}
 	}
 	if summary.ExitCode != exitOK {
