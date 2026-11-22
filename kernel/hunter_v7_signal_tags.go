@@ -57,6 +57,7 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 		DoctrineVersion:    store.V7DoctrineVersionNone,
 		LifecycleState:     sig.LifecycleState,
 		TriggerPrice:       sig.TriggerPrice,
+		T2EventID:          sig.T2EventID,
 		DecisionPath:       store.V7DecisionPathNone,
 		DataGaps:           append([]string{}, sig.DataGaps...),
 	}

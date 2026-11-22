@@ -230,6 +230,7 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 			continue
 		}
 		state := sig.EffectiveStatus()
+		eventID := ""
 		if store != nil {
 			res := store.Upsert(sig, ts.Price(), now)
 			if res.Dropped {
@@ -237,14 +238,18 @@ func RunV7T2Module(snap *datafetch.Snapshot, cfg *V7T2Config, store *V7T2EventSt
 			}
 			state = res.Event.Status
 			emitted[res.Event.EventID] = len(out)
+			eventID = res.Event.EventID
 		}
-		out = append(out, sig.ToV7SignalOutputWithLifecycle(v7Regime, state))
+		o := sig.ToV7SignalOutputWithLifecycle(v7Regime, state)
+		o.T2EventID = eventID // fix 11
+		out = append(out, o)
 	}
 	// U1/P1: freshly TRIGGERED events reach the pipeline whether or not
 	// the detector fired again on this scan.
 	if store != nil {
 		for _, ev := range store.FreshlyTriggered(now) {
 			o := ev.Signal.ToV7SignalOutputWithLifecycle(v7Regime, "TRIGGERED")
+			o.T2EventID = ev.EventID // fix 11
 			if i, ok := emitted[ev.EventID]; ok {
 				out[i] = o
 				continue

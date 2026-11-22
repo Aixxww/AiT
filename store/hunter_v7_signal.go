@@ -89,6 +89,7 @@ type HunterV7SignalRecord struct {
 	DoctrineVersion          string   `gorm:"column:doctrine_version" json:"doctrine_version"`
 	LifecycleStateAtDecision string   `gorm:"column:lifecycle_state_at_decision" json:"lifecycle_state_at_decision"`
 	TriggerPrice             *float64 `gorm:"column:trigger_price" json:"trigger_price,omitempty"`
+	T2EventID                string   `gorm:"column:t2_event_id" json:"t2_event_id,omitempty"` // fix 11: Task-2 lifecycle event id ("" = native)
 	DriftAtEntryPct          *float64 `gorm:"column:drift_at_entry_pct" json:"drift_at_entry_pct,omitempty"`
 	DecisionPath             string   `gorm:"column:decision_path" json:"decision_path"`
 	FeeNetR                  *float64 `gorm:"column:fee_net_r" json:"fee_net_r,omitempty"`
