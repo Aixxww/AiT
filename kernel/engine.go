@@ -128,6 +128,12 @@ type CandidateCoin struct {
 	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
 	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
 	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
+	// V7RRReferencePrice (fix 06), when > 0, is the price the backend RR and
+	// stop-distance checks measure from, read before V7PriceContext.Last.
+	// Task-2 candidates set it at assembly to the entry-zone edge (LONG =
+	// upper, SHORT = lower) so their RR geometry stays on the entry zone
+	// now that PriceCtx.Last carries the scan price. 0 for native signals.
+	V7RRReferencePrice float64 `json:"-"`
 	// U7 shadow E[R] (plan §2.4): logged only; no tier, ranking, prompt or
 	// execution path reads these.
 	// U9 drift contract and conditional entry. V7TriggerPrice is the
@@ -678,6 +684,7 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7VWAP15m:          vwap15m,
 			V7QuoteVolume24h:   sig.QuoteVolume24h,
 		}
+		cc.V7RRReferencePrice = hunterV7T2RRReferencePrice(cc.V7Stack, cc.Direction, cc.V7EntryZone)
 		if entry, ok := store.LookupV7Setup(hunterV7ClassRegistry(geometry), cc.V7SetupType); ok {
 			cc.V7SignalClass, cc.V7ClassAdmission = entry.Class, entry.Admission
 		}
@@ -2014,8 +2021,8 @@ func hunterV7StopDistancePct(coin CandidateCoin) float64 {
 	if coin.V7Invalidation.Price <= 0 {
 		return 0
 	}
-	price := 0.0
-	if coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
+	price := coin.V7RRReferencePrice
+	if price <= 0 && coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
 		price = coin.V7PriceContext.Last
 	}
 	if price <= 0 {
@@ -2124,6 +2131,9 @@ func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7Executi
 }
 
 func hunterV7ReferencePrice(coin CandidateCoin) float64 {
+	if coin.V7RRReferencePrice > 0 {
+		return coin.V7RRReferencePrice
+	}
 	if coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
 		return coin.V7PriceContext.Last
 	}
@@ -2132,6 +2142,22 @@ func hunterV7ReferencePrice(coin CandidateCoin) float64 {
 	}
 	if strings.EqualFold(coin.Direction, "LONG") && coin.V7EntryZone.Upper > 0 {
 		return coin.V7EntryZone.Upper
+	}
+	return 0
+}
+
+// hunterV7T2RRReferencePrice is a Task-2 candidate's RR reference price
+// (fix 06): the entry-zone edge, exactly the value the RR checks fell back
+// to while T2 PriceCtx.Last was 0. 0 for native signals or an unset edge.
+func hunterV7T2RRReferencePrice(stack, direction string, zone local.V7PriceZone) float64 {
+	if stack != local.V7StackT2 {
+		return 0
+	}
+	switch {
+	case strings.EqualFold(direction, "SHORT") && zone.Lower > 0:
+		return zone.Lower
+	case strings.EqualFold(direction, "LONG") && zone.Upper > 0:
+		return zone.Upper
 	}
 	return 0
 }

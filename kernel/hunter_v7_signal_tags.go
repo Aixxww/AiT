@@ -102,8 +102,10 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 
 	// Bands are measured from the assembly's reference price, the price the
 	// backend RR check uses (top of the entry zone for LONG, bottom for
-	// SHORT, or the live price when the producer carries one).
-	ref := hunterV7ReferencePrice(CandidateCoin{Direction: string(sig.Direction), V7PriceContext: sig.PriceCtx, V7EntryZone: sig.EntryZone})
+	// SHORT, or the live price when the producer carries one). Fix 06:
+	// Task-2 signals keep the entry-zone edge (V7RRReferencePrice).
+	ref := hunterV7ReferencePrice(CandidateCoin{Direction: string(sig.Direction), V7PriceContext: sig.PriceCtx, V7EntryZone: sig.EntryZone,
+		V7RRReferencePrice: hunterV7T2RRReferencePrice(sig.Stack, string(sig.Direction), sig.EntryZone)})
 	stop := sig.Invalidation.Price
 	tp1 := sig.TP1Price
 	if tp1 <= 0 && len(sig.Targets) > 0 {

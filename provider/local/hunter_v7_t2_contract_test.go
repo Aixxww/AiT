@@ -21,19 +21,19 @@ func ta1Snapshot(syms ...*datafetch.SymbolSnapshot) *datafetch.Snapshot {
 }
 
 // ta1AssertContextFromSnapshot checks the contexts equal what the native
-// builders produce from the same snapshot (nothing fabricated or altered),
-// except price_context.last, which must be 0.
+// builders produce from the same snapshot (nothing fabricated or altered).
+// Fix 06: price_context.last is the scan price (ss.Price), as for native
+// signals; it used to be forced to 0.
 func ta1AssertContextFromSnapshot(t *testing.T, out V7SignalOutput, snap *datafetch.Snapshot) {
 	t.Helper()
 	ss := snap.Symbols[out.Symbol]
 	ctx := buildSymbolContext(out.Symbol, ss, snap)
 	wantP, wantD := buildPriceCtx(ctx), buildDerivCtx(ctx)
-	wantP.Last = 0
 	if out.PriceCtx == nil || out.DerivativesCtx == nil {
 		t.Fatalf("%s: contexts must be set", out.Symbol)
 	}
-	if out.PriceCtx.Last != 0 {
-		t.Fatalf("%s: price_context.last = %v, must stay 0 in this unit", out.Symbol, out.PriceCtx.Last)
+	if out.PriceCtx.Last != ss.Price || ss.Price <= 0 {
+		t.Fatalf("%s: price_context.last = %v, want the scan price %v", out.Symbol, out.PriceCtx.Last, ss.Price)
 	}
 	if *out.PriceCtx != *wantP {
 		t.Fatalf("%s price_context = %+v, want %+v", out.Symbol, *out.PriceCtx, *wantP)
