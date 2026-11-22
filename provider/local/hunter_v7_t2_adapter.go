@@ -282,12 +282,12 @@ const v7T2LivePriceConfirmation = "live_price_in_entry_zone"
 // t2_context_unavailable data gap: values are never fabricated. Score,
 // status, entry mode, targets and lifecycle state are not touched.
 //
-// price_context.last is deliberately left 0 (owner decision, TA-1 path (a)).
-// The kernel measures backend RR and stop distance from PriceCtx.Last when
-// it is set and from the T2 entry zone otherwise (kernel
-// hunterV7StopDistancePct / hunterV7ReferencePrice); setting it moved 16
-// TRIGGERED tiers in the TA-1 golden replay. Using the scan price is a
-// separate future unit.
+// price_context.last is the scan price (ss.Price, as native modules carry
+// it; fix 06). It used to be left 0 because the kernel measured backend RR
+// and stop distance from PriceCtx.Last when set, which moved 16 TRIGGERED
+// tiers in the TA-1 golden replay. The kernel now measures T2 RR from
+// CandidateCoin.V7RRReferencePrice (the entry-zone edge, the old fallback)
+// before Last, so the RR geometry is unchanged.
 // Exported for the offline TA-1 golden replay.
 func ApplyV7T2ContractFields(out *V7SignalOutput, snap *datafetch.Snapshot) {
 	if out == nil {
@@ -304,7 +304,6 @@ func ApplyV7T2ContractFields(out *V7SignalOutput, snap *datafetch.Snapshot) {
 	} else {
 		ctx := buildSymbolContext(out.Symbol, ss, snap)
 		out.PriceCtx = buildPriceCtx(ctx)
-		out.PriceCtx.Last = 0 // see above: keeps the T2 RR reference on the entry zone
 		out.DerivativesCtx = buildDerivCtx(ctx)
 	}
 	if out.EntryMode != V7EntryImmediate {

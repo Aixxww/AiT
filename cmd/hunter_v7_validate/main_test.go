@@ -241,7 +241,7 @@ func TestTA1P4UnblockWatchPassesContract(t *testing.T) {
 
 		full := o
 		local.ApplyV7T2ContractFields(&full, snap)
-		if full.Status != local.V7StatusWaitConfirm || full.PriceCtx == nil || full.PriceCtx.Last != 0 ||
+		if full.Status != local.V7StatusWaitConfirm || full.PriceCtx == nil || full.PriceCtx.Last != snap.Symbols[o.Symbol].Price || full.PriceCtx.Last <= 0 ||
 			full.DerivativesCtx == nil || len(full.RequiredConfirms) != 1 || full.RequiredConfirms[0] != "live_price_in_entry_zone" {
 			t.Fatalf("%s full TA-1 shape: %+v", o.LifecycleState, full)
 		}
