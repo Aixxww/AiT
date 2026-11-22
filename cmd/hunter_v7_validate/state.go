@@ -12,8 +12,9 @@ import (
 // TA-3: run state persisted across harness restarts.
 //
 // With --run-id the harness saves, after every completed round (accepted or
-// contract-rejected), the native watch state, the Task-2 event store and
-// the round counter to --state-file (default <out-dir>/state-<run-id>.json),
+// contract-rejected), the native watch state, the Task-2 event store, the
+// outcome tracker's ACTIVE record ids (fix 09) and the round counter to
+// --state-file (default <out-dir>/state-<run-id>.json),
 // atomically. --resume loads that file and continues with the next round;
 // cycle numbers equal round numbers, so they continue too and are never
 // reused (the Tier A restarts re-ran cycle 1 and duplicated 77 rows).
@@ -34,6 +35,10 @@ type harnessState struct {
 	WatchState      json.RawMessage `json:"watch_state"`
 	T2State         json.RawMessage `json:"t2_state"`
 	SavedAt         time.Time       `json:"saved_at"`
+
+	// Fix 09: record ids the outcome tracker had ACTIVE after this round
+	// (always written, [] when none; absent = a file saved before fix 09).
+	TrackedActiveIDs []int64 `json:"tracked_active_ids"`
 }
 
 func defaultStateFile(outDir, runID string) string {
@@ -148,8 +153,12 @@ func snapshotHarnessState(opts validationOptions, lastRound, accepted, rejected 
 	if err != nil {
 		return harnessState{}, err
 	}
+	ids := trackedActiveIDs(opts.outcomeTracker)
+	if ids == nil {
+		ids = []int64{}
+	}
 	sha, _ := harnessBuildInfo()
-	return harnessState{
+	st := harnessState{
 		SchemaVersion:   harnessStateSchemaVersion,
 		RunID:           opts.runID,
 		HarnessGitSHA:   sha,
@@ -161,5 +170,7 @@ func snapshotHarnessState(opts validationOptions, lastRound, accepted, rejected 
 		WatchState:      ws,
 		T2State:         ts,
 		SavedAt:         time.Now().UTC(),
-	}, nil
+	}
+	st.TrackedActiveIDs = ids
+	return st, nil
 }
