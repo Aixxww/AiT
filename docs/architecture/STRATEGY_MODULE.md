@@ -313,7 +313,7 @@ minPositionSize := config.RiskControl.MinPositionSize     // Default: 12 USDT
 ```go
 altcoinMaxLeverage := config.RiskControl.AltcoinMaxLeverage  // Default: 5x
 btcethMaxLeverage := config.RiskControl.BTCETHMaxLeverage    // Default: 5x
-minRiskRewardRatio := config.RiskControl.MinRiskRewardRatio  // Default: 1:3
+minRiskRewardRatio := config.RiskControl.MinRiskRewardRatio  // Default: 1:1.2 (fix 07; was 1:3)
 minConfidence := config.RiskControl.MinConfidence            // Default: 75
 ```
 
