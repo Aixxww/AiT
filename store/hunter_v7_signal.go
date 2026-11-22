@@ -101,6 +101,13 @@ type HunterV7SignalRecord struct {
 	ExpectedR      *float64 `gorm:"column:expected_r" json:"expected_r,omitempty"`
 	ExpectedRLower *float64 `gorm:"column:expected_r_lower" json:"expected_r_lower,omitempty"`
 	DataGaps       string   `gorm:"column:data_gaps" json:"data_gaps"`
+
+	// Fix 12: the prompt-final tier (what the LLM saw, after the prompt-time
+	// live re-check); execution_tier / tier_reason stay the assembled tier.
+	// "" = not shown in a prompt (not a candidate, held position, no market
+	// data) or written by a path that does not record it.
+	PromptFinalTier       string `gorm:"column:prompt_final_tier" json:"prompt_final_tier,omitempty"`
+	PromptFinalTierReason string `gorm:"column:prompt_final_tier_reason" json:"prompt_final_tier_reason,omitempty"`
 }
 
 // v7OpenReviewSourceFilter keeps only open-review outcomes (plus rows from

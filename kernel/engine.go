@@ -217,7 +217,35 @@ type Context struct {
 	// PromptTime is the prompt build time: the hybrid_v2 payload (U11)
 	// splits closed from unfinished bars at it. Zero = time.Now().
 	PromptTime time.Time `json:"-"`
+
+	// HunterV7PromptFinal (fix 12) is output only: BuildUserPrompt fills it
+	// with the prompt-final tier of every Hunter v7 candidate it showed the
+	// LLM (after the prompt-time reprice, live confirmation and readiness
+	// re-check). Nil until a hunter_v7 prompt is built.
+	HunterV7PromptFinal []HunterV7PromptFinalTier `json:"-"`
 }
+
+// HunterV7PromptFinalTier is one candidate's prompt-final tier (fix 12).
+// The three tier layers are distinct by design: the module status (the
+// signal's own status), the assembled tier (CandidateCoin.V7ExecutionTier
+// at assembly, persisted as execution_tier) and this prompt-final tier,
+// which is what the LLM sees. Recorded only: nothing reads it back for
+// scoring, tiers, guards or execution.
+type HunterV7PromptFinalTier struct {
+	Symbol     string `json:"symbol"`
+	SetupType  string `json:"setup_type"`
+	SignalID   string `json:"signal_id,omitempty"`
+	Tier       string `json:"tier"`
+	TierReason string `json:"tier_reason"`
+	// AssembledTier / AssembledReason are the candidate's tier before the
+	// prompt-time re-check, for the promoted / demoted comparison.
+	AssembledTier   string `json:"assembled_tier"`
+	AssembledReason string `json:"assembled_tier_reason"`
+}
+
+// HunterV7PromptFinalKey is the record-matching key of a candidate (the
+// same Symbol|SetupType key the signal records use).
+func HunterV7PromptFinalKey(symbol, setupType string) string { return symbol + "|" + setupType }
 
 // Decision AI trading decision
 type Decision struct {

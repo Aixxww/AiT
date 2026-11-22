@@ -247,12 +247,14 @@ func markdownSummary(s summary) string {
 	}{{"Deduplicated sample (use this for the cell rule)", s.TablesDedup}, {"All rows (overlapping walks; n overstates independent samples)", s.Tables}} {
 		fmt.Fprintf(&b, "## %s\n\n", part.title)
 		b.WriteString("### (a) Is WATCH too strict?\n\n")
-		b.WriteString(markdownTable("By tier", part.tables["tier"], 0))
-		b.WriteString(markdownTable("WATCH by tier_reason", part.tables["WATCH x tier_reason"], 25))
-		b.WriteString(markdownTable("By tier x class x rr_band", part.tables["tier x class x rr_band"], 30))
+		b.WriteString(markdownTable("By assembled tier (DB execution_tier)", part.tables["tier"], 0))
+		b.WriteString(markdownTable("By prompt-final tier (what the LLM saw; DB prompt_final_tier)", part.tables["prompt-final tier"], 0))
+		b.WriteString(markdownTable("Assembled tier -> prompt-final tier", part.tables["assembled tier x prompt-final tier"], 0))
+		b.WriteString(markdownTable("Assembled WATCH by tier_reason", part.tables["WATCH x tier_reason"], 25))
+		b.WriteString(markdownTable("By assembled tier x class x rr_band", part.tables["tier x class x rr_band"], 30))
 		b.WriteString("### (b) Should short ignition stay shadow-only?\n\n")
 		b.WriteString(markdownTable("ignition_early_short, pooled", part.tables["short ignition"], 0))
-		b.WriteString(markdownTable("ignition_early_short by tier and tier_reason", part.tables["short ignition x tier"], 0))
+		b.WriteString(markdownTable("ignition_early_short by assembled tier and tier_reason", part.tables["short ignition x tier"], 0))
 		b.WriteString(markdownTable("ignition_early_short by rr_band", part.tables["short ignition x rr_band"], 0))
 	}
 	return b.String()
