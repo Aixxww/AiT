@@ -1742,6 +1742,12 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 	}
 	out.TP1Price = sig.Target1
 	out.TP2Price = sig.Target2
+	// Fix 14 (P2-14): planned reward-to-risk at TP1 / TP2 from the setup's
+	// own recorded prices (entry, stop, targets), the formula native
+	// modules use (|TP - entry| / |entry - stop|). 0 = left empty: the
+	// geometry cannot give a value (see v7T2PlannedRR). Recorded only.
+	out.TP1RR = v7T2PlannedRR(sig.Direction, sig.Entry, sig.Stop, sig.Target1)
+	out.TP2RR = v7T2PlannedRR(sig.Direction, sig.Entry, sig.Stop, sig.Target2)
 	if sig.EffectiveStatus() == "ARMED" {
 		out.Status = V7StatusCandidate
 		out.Confidence = "B"
@@ -1763,6 +1769,29 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 	out.ATR15mPct = sig.ATR15mPct
 	out.DataGaps = []string{V7T2DataGapGlobalLSR, V7T2DataGapMarketCap}
 	return out
+}
+
+// v7T2PlannedRR is |tp - entry| / |entry - stop| (the native rrOf), or 0
+// when it cannot be computed honestly: a missing price, zero risk, a
+// direction other than LONG/SHORT, or a stop or target on the wrong side of
+// the entry for the direction (no value is invented for broken geometry).
+func v7T2PlannedRR(direction string, entry, stop, tp float64) float64 {
+	if entry <= 0 || stop <= 0 || tp <= 0 {
+		return 0
+	}
+	switch direction {
+	case "LONG":
+		if !(stop < entry && tp > entry) {
+			return 0
+		}
+	case "SHORT":
+		if !(stop > entry && tp < entry) {
+			return 0
+		}
+	default:
+		return 0
+	}
+	return math.Abs(tp-entry) / math.Abs(entry-stop)
 }
 
 // ToV7SignalOutputWithLifecycle converts with the event's lifecycle state
