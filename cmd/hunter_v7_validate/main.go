@@ -41,6 +41,7 @@ type validationReport struct {
 	PotentialPool     []local.V7PotentialCandidate `json:"potential_pool"`
 	PromptPreviewPath string                       `json:"prompt_preview_path"`
 	PromptReprice     repriceSummary               `json:"prompt_reprice"` // fix 04
+	TierLayers        tierLayerReport              `json:"tier_layers"`    // fix 12: assembled vs prompt-final tier
 	Issues            []issue                      `json:"issues"`
 }
 
@@ -207,7 +208,7 @@ type validationOutcomeDetail struct {
 	Symbol       string  `json:"symbol"`
 	Direction    string  `json:"direction"`
 	SetupType    string  `json:"setup_type"`
-	Tier         string  `json:"tier"`
+	Tier         string  `json:"tier"` // fix 12: the assembled tier (what the tracker registered)
 	Status       string  `json:"status"`
 	EntryPrice   float64 `json:"entry_price"`
 	ExitPrice    float64 `json:"exit_price,omitempty"`
@@ -223,6 +224,11 @@ type validationOutcomeDetail struct {
 	TP2Done      bool    `json:"tp2_done,omitempty"`
 	RemainingPct float64 `json:"remaining_pct,omitempty"`
 	RealizedPnL  float64 `json:"realized_pnl_pct,omitempty"`
+
+	// Fix 12: the prompt-final tier, from the DB row ("" = not shown in the
+	// prompt / not recorded); recordID is the row id used for the lookup.
+	PromptTier string `json:"prompt_final_tier,omitempty"`
+	recordID   int64
 }
 
 type validationRunSummary struct {
@@ -806,7 +812,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		promptCandidates = append([]kernel.CandidateCoin(nil), candidates...)
 		applyPromptFreshness(promptCandidates, promptSnap, snap, now, maxAge)
 	}
-	prompt := buildPrompt(promptCandidates, signals, promptSnap, strategyCfg)
+	prompt, promptFinal := buildPrompt(promptCandidates, signals, promptSnap, strategyCfg)
 
 	now := time.Now()
 	stamp := now.Format("20060102-150405")
@@ -843,6 +849,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	report.Issues = append(report.Issues, snapshotIssues(report.Snapshot)...)
 	report.PromptReprice = reprice
 	report.Issues = append(report.Issues, repriceIssues(reprice)...)
+	report.TierLayers = buildTierLayerReport(candidates, promptFinal) // fix 12
 
 	// TA-2: the contract decides where this attempt's artifacts go. A
 	// contract failure always fails the round; its artifacts are kept for
@@ -863,7 +870,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 		return report, err
 	}
 	report.PromptPreviewPath = promptPath
-	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, now.UTC(), snap); err != nil {
+	if err := persistValidationSignals(opts, round, v7Result.RawSignals, candidates, promptFinal, now.UTC(), snap); err != nil {
 		// CreateInBatches runs in one transaction, so nothing was stored and
 		// the round can be retried. Move this attempt's artifacts aside.
 		for _, path := range []string{promptPath, rawPath, mdPath} {
@@ -944,7 +951,7 @@ func writeRoundArtifacts(opts validationOptions, report validationReport, prompt
 	return promptPath, rawPath, mdPath, nil
 }
 
-func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals []local.V7SignalOutput, candidates []kernel.CandidateCoin, ts time.Time, snap *datafetch.Snapshot) error {
+func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals []local.V7SignalOutput, candidates []kernel.CandidateCoin, promptFinal []kernel.HunterV7PromptFinalTier, ts time.Time, snap *datafetch.Snapshot) error {
 	if !opts.persistSignals || opts.store == nil {
 		return nil
 	}
@@ -953,6 +960,9 @@ func persistValidationSignals(opts validationOptions, cycleNum int, rawSignals [
 	if len(dbRecords) == 0 {
 		return nil
 	}
+	// Fix 12: execution_tier stays the assembled tier (it also decides
+	// tracking below); prompt_final_tier records what the LLM saw.
+	kernel.ApplyHunterV7PromptFinalTiers(dbRecords, promptFinal)
 	if err := opts.store.HunterV7Signal().CreateBatch(dbRecords); err != nil {
 		return fmt.Errorf("persist hunter v7 validation signals failed: %w", err)
 	}
@@ -1267,7 +1277,8 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 		sb.WriteString("> INVALID_SAMPLE_DO_NOT_USE_FOR_WINRATE: 本次所有轮次均为 degraded，all_open_review_rate 仅可用于 smoke 回归，不可作为胜率/开仓率验收。\n\n")
 	}
 	sb.WriteString("## 2. Round 明细\n\n")
-	sb.WriteString("| Round | Regime | Signals | Open-review | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons |\n")
+	sb.WriteString("> Open-review = EXECUTABLE + REVIEWABLE at the **prompt-final tier** (what the LLM saw), over all module signals.\n\n")
+	sb.WriteString("| Round | Regime | Signals | Open-review (prompt-final) | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons |\n")
 	sb.WriteString("|---:|---|---:|---:|---:|---:|---:|---:|---|---|\n")
 	for _, round := range summary.Round {
 		sb.WriteString(fmt.Sprintf("| %d | %s | %d | %d | %.1f%% | %d | %.1f%% | %d | %v | %s |\n",
@@ -1340,7 +1351,7 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 			addSignalToSetupOutcome(bucket, sig)
 			summary.Details = append(summary.Details, validationOutcomeDetail{
 				Symbol: sig.Symbol, Direction: sig.Direction, SetupType: sig.SetupType,
-				Tier: sig.Tier, Status: string(sig.Status), EntryPrice: sig.SignalPrice,
+				Tier: sig.Tier, recordID: sig.RecordID, Status: string(sig.Status), EntryPrice: sig.SignalPrice,
 				ExitPrice: sig.ExitPrice, StopPrice: sig.StopPrice, TP0Price: sig.TP0Price,
 				TP1Price: sig.TP1Price, TP2Price: sig.TP2Price,
 				PnLPct: opts.outcomeTracker.FinalPnLPctForReport(sig), MFE: sig.MaxFavorable, MAE: sig.MaxAdverse,
@@ -1356,6 +1367,18 @@ func buildValidationOutcomeSummary(opts validationOptions, now time.Time) valida
 			if sig.Status == aittrader.TrackedStop && sig.MaxFavorable > 1.0 {
 				summary.MFE1LossStopCount++
 			}
+		}
+	}
+	// Fix 12: the prompt-final tier of each tracked row, from the DB.
+	ids := map[int64]bool{}
+	for _, d := range summary.Details {
+		if d.recordID > 0 {
+			ids[d.recordID] = true
+		}
+	}
+	if pt := promptFinalTiersByID(opts.store, sortedIDs(ids)); pt != nil {
+		for i := range summary.Details {
+			summary.Details[i].PromptTier = pt[summary.Details[i].recordID]
 		}
 	}
 	sort.Slice(summary.Status, func(i, j int) bool {
@@ -1508,11 +1531,15 @@ func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath stri
 		sb.WriteString("- 无逐笔 outcome。\n")
 		return sb.String()
 	}
-	sb.WriteString("| Symbol | Dir | Setup | Tier | Status | Entry | Exit | TP0/TP1/TP2 | PnL% | Realized% | MFE% | MAE% | TP0/TP1/TP2 | Remaining |\n")
-	sb.WriteString("|---|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---|---:|\n")
+	sb.WriteString("| Symbol | Dir | Setup | Assembled tier | Prompt-final tier | Status | Entry | Exit | TP0/TP1/TP2 | PnL% | Realized% | MFE% | MAE% | TP0/TP1/TP2 | Remaining |\n")
+	sb.WriteString("|---|---|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---|---:|\n")
 	for _, item := range summary.Details {
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %.6g | %.6g | %.6g / %.6g / %.6g | %.3f | %.3f | %.3f | %.3f | %t/%t/%t | %.1f%% |\n",
-			item.Symbol, item.Direction, item.SetupType, item.Tier, item.Status, item.EntryPrice, item.ExitPrice,
+		pt := item.PromptTier
+		if pt == "" {
+			pt = "-"
+		}
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %.6g | %.6g | %.6g / %.6g / %.6g | %.3f | %.3f | %.3f | %.3f | %t/%t/%t | %.1f%% |\n",
+			item.Symbol, item.Direction, item.SetupType, item.Tier, pt, item.Status, item.EntryPrice, item.ExitPrice,
 			item.TP0Price, item.TP1Price, item.TP2Price, item.PnLPct, item.RealizedPnL, item.MFE, item.MAE,
 			item.TP0Done, item.TP1Done, item.TP2Done, item.RemainingPct))
 	}
@@ -1556,7 +1583,9 @@ func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error
 	return &cfg, nil
 }
 
-func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, snap *datafetch.Snapshot, strategyCfg *store.StrategyConfig) string {
+// buildPrompt returns the prompt and, from the same build, the prompt-final
+// tier of every candidate it showed (fix 12).
+func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutput, snap *datafetch.Snapshot, strategyCfg *store.StrategyConfig) (string, []kernel.HunterV7PromptFinalTier) {
 	cfg := store.GetDefaultStrategyConfig("zh")
 	if strategyCfg != nil {
 		cfg = *strategyCfg
@@ -1583,7 +1612,7 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 	}
 	systemPrompt := engine.BuildSystemPrompt(1000, "balanced")
 	userPrompt := engine.BuildUserPrompt(ctx)
-	return systemPrompt + "\n\n--- USER PROMPT ---\n\n" + userPrompt
+	return systemPrompt + "\n\n--- USER PROMPT ---\n\n" + userPrompt, ctx.HunterV7PromptFinal
 }
 
 // promptMarketData builds the prompt's per-symbol market data. The full
@@ -2053,28 +2082,32 @@ func formatMarkdown(r validationReport, rawPath string) string {
 	}
 
 	sb.WriteString("## 4. 实时信号\n\n")
-	sb.WriteString("| # | Symbol | Dir | Setup | Status | Priority | Timing | Risk | Entry | Reasons |\n")
-	sb.WriteString("|---:|---|---|---|---|---:|---:|---:|---|---|\n")
+	sb.WriteString("| # | Symbol | Dir | Setup | Status (module) | Assembled tier | Prompt-final tier | Priority | Timing | Risk | Entry | Reasons |\n")
+	sb.WriteString("|---:|---|---|---|---|---|---|---:|---:|---:|---|---|\n")
+	assembledTiers, finalTiers := r.TierLayers.tierMaps()
 	for i, sig := range r.Signals {
 		if i >= 30 {
 			break
 		}
-		sb.WriteString(fmt.Sprintf("| %d | %s | %s | `%s` | `%s` | %.1f | %.1f | %.1f | `%s` | %s |\n",
-			i+1, sig.Symbol, sig.Direction, sig.SetupType, sig.Status, sig.AIPriority,
+		at, ft := signalTierColumns(sig.Symbol, string(sig.SetupType), assembledTiers, finalTiers)
+		sb.WriteString(fmt.Sprintf("| %d | %s | %s | `%s` | `%s` | %s | %s | %.1f | %.1f | %.1f | `%s` | %s |\n",
+			i+1, sig.Symbol, sig.Direction, sig.SetupType, sig.Status, at, ft, sig.AIPriority,
 			sig.TimingScore, sig.RiskScore, sig.EntryMode, strings.Join(sig.ReasonCodes, ", ")))
 	}
 	sb.WriteString("\n")
 
 	sb.WriteString("## 5. 机会覆盖\n\n")
 	sb.WriteString(fmt.Sprintf("- setup 分布：%s\n", sortedMap(r.OpportunityCover.BySetupType)))
-	sb.WriteString(fmt.Sprintf("- status 分布：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
+	sb.WriteString(fmt.Sprintf("- status 分布 [module status]：%s\n", sortedMap(r.OpportunityCover.ByStatus)))
 	sb.WriteString(fmt.Sprintf("- entry_mode 分布：%s\n", sortedMap(r.OpportunityCover.ByEntryMode)))
-	sb.WriteString(fmt.Sprintf("- runtime tier 分布（后端初筛）：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
-	sb.WriteString(fmt.Sprintf("- prompt-final tier 分布（AIT 最终可执行口径）：%s\n", sortedMap(r.AIRecognition.PromptTierCounts)))
+	sb.WriteString(fmt.Sprintf("- runtime tier 分布（后端初筛）[assembled tier, re-assembled per signal]：%s\n", sortedMap(r.OpportunityCover.ByExecutionTier)))
+	sb.WriteString(fmt.Sprintf("- prompt-final tier 分布（AIT 最终可执行口径）[prompt-final tier, parsed from the prompt]：%s\n", sortedMap(r.AIRecognition.PromptTierCounts)))
 	sb.WriteString(fmt.Sprintf("- 潜力池：top=%d，未命中模块=%d\n", r.OpportunityCover.PotentialPoolCount, r.OpportunityCover.UnmatchedPotentialCount))
 	sb.WriteString(fmt.Sprintf("- 覆盖家族：momentum=%v, reversal=%v, squeeze=%v, range=%v, funding=%v, accumulation=%v, distribution=%v\n\n",
 		r.OpportunityCover.HasMomentum, r.OpportunityCover.HasReversal, r.OpportunityCover.HasSqueeze,
 		r.OpportunityCover.HasRange, r.OpportunityCover.HasFunding, r.OpportunityCover.HasAccumulation, r.OpportunityCover.HasDistribution))
+
+	sb.WriteString(tierLayerMarkdown(r.TierLayers))
 
 	sb.WriteString("## 6. 潜力池强制跟踪\n\n")
 	if len(r.PotentialPool) == 0 {
@@ -2158,8 +2191,9 @@ func printConsoleSummary(r validationReport, rawPath, mdPath string) {
 	fmt.Printf("signals: total=%d long=%d short=%d setups=%s\n",
 		r.OpportunityCover.SignalCount, r.OpportunityCover.LongCount, r.OpportunityCover.ShortCount, sortedMap(r.OpportunityCover.BySetupType))
 	fmt.Printf("potential_pool: top=%d unmatched=%d\n", r.OpportunityCover.PotentialPoolCount, r.OpportunityCover.UnmatchedPotentialCount)
-	fmt.Printf("runtime tiers: %s\n", sortedMap(r.OpportunityCover.ByExecutionTier))
-	fmt.Printf("prompt-final tiers: %s\n", sortedMap(r.AIRecognition.PromptTierCounts))
+	fmt.Printf("assembled tiers (DB execution_tier): %s\n", sortedMap(r.TierLayers.AssembledCounts))
+	fmt.Printf("prompt-final tiers (LLM; DB prompt_final_tier): %s (promoted %d, demoted %d)\n",
+		sortedMap(r.TierLayers.PromptFinalCounts), len(r.TierLayers.Promoted), len(r.TierLayers.Demoted))
 	fmt.Printf("format: json=%v/%v missing=%d executable_gaps=%d prompt_v7_json=%v\n",
 		r.FormatCheck.JSONMarshalOK, r.FormatCheck.JSONUnmarshalOK, r.FormatCheck.MissingFieldCount,
 		r.FormatCheck.ExecutableGapCount, r.AIRecognition.PromptContainsV7JSON)

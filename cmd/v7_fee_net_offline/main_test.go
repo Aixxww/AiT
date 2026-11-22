@@ -404,3 +404,34 @@ func TestTablesMatchDashboardCells(t *testing.T) {
 		}
 	}
 }
+
+// Fix 12: the stored prompt-final tier is read and tabled next to the
+// assembled tier; an empty value is named, never merged into a tier.
+func TestPromptFinalTierGrouping(t *testing.T) {
+	r1 := store.HunterV7SignalRecord{Symbol: "AUSDT", Direction: "LONG", SetupType: "x", ExecutionTier: "WATCH", PromptFinalTier: "REVIEWABLE", InvalidationPrice: 98, TP1Price: 103}
+	r2 := store.HunterV7SignalRecord{Symbol: "BUSDT", Direction: "LONG", SetupType: "x", ExecutionTier: "WATCH", InvalidationPrice: 98, TP1Price: 103}
+	classes := store.DefaultV7SignalClassRegistry()
+	win := 1.0
+	rs := []result{
+		{inputRow: buildInputRow(r1, false, classes), Walk: walkResult{Status: "walked", Outcome: store.V7FeeNetTP1, R: &win}},
+		{inputRow: buildInputRow(r2, false, classes), Walk: walkResult{Status: "walked", Outcome: store.V7FeeNetTP1, R: &win}},
+	}
+	if rs[0].PromptTier != "REVIEWABLE" || rs[1].PromptTier != "" {
+		t.Fatalf("prompt tiers %q %q", rs[0].PromptTier, rs[1].PromptTier)
+	}
+	tables := buildTables(rs, false, store.EffectiveV7CellRule(nil))
+	keys := map[string]int{}
+	for _, g := range tables["prompt-final tier"] {
+		keys[g.Key] = g.N
+	}
+	if keys["REVIEWABLE"] != 1 || keys["not_in_prompt_or_unrecorded"] != 1 || len(keys) != 2 {
+		t.Fatalf("prompt-final groups %v", keys)
+	}
+	cross := map[string]bool{}
+	for _, g := range tables["assembled tier x prompt-final tier"] {
+		cross[g.Key] = true
+	}
+	if !cross["WATCH -> REVIEWABLE"] || !cross["WATCH -> not_in_prompt_or_unrecorded"] {
+		t.Fatalf("cross groups %v", cross)
+	}
+}

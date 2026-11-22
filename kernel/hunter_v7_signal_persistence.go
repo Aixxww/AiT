@@ -207,3 +207,25 @@ func HunterV7SignalEntryPrice(sig local.V7SignalOutput) float64 {
 	}
 	return 0
 }
+
+// ApplyHunterV7PromptFinalTiers stamps the prompt-final tier (fix 12) on
+// the DB records of one cycle, matching by Symbol|SetupType as the record
+// builder does. Records not shown in the prompt keep "". It returns how
+// many records were stamped. execution_tier is not touched.
+func ApplyHunterV7PromptFinalTiers(records []store.HunterV7SignalRecord, final []HunterV7PromptFinalTier) int {
+	if len(final) == 0 {
+		return 0
+	}
+	byKey := make(map[string]HunterV7PromptFinalTier, len(final))
+	for _, f := range final {
+		byKey[HunterV7PromptFinalKey(f.Symbol, f.SetupType)] = f
+	}
+	n := 0
+	for i := range records {
+		if f, ok := byKey[HunterV7PromptFinalKey(records[i].Symbol, records[i].SetupType)]; ok {
+			records[i].PromptFinalTier, records[i].PromptFinalTierReason = f.Tier, f.TierReason
+			n++
+		}
+	}
+	return n
+}

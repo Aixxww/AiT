@@ -676,6 +676,25 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 	return sb.String()
 }
 
+// hunterV7PromptFinalTiers lists the prompt-final tier of every prompt
+// item with its assembled tier (looked up in the assembled candidates).
+func hunterV7PromptFinalTiers(assembled []CandidateCoin, items []hunterV7PromptCandidate) []HunterV7PromptFinalTier {
+	before := make(map[string]CandidateCoin, len(assembled))
+	for _, c := range assembled {
+		before[HunterV7PromptFinalKey(c.Symbol, c.V7SetupType)] = c
+	}
+	out := make([]HunterV7PromptFinalTier, 0, len(items))
+	for _, it := range items {
+		key := HunterV7PromptFinalKey(it.Coin.Symbol, it.Coin.V7SetupType)
+		b := before[key]
+		out = append(out, HunterV7PromptFinalTier{
+			Symbol: it.Coin.Symbol, SetupType: it.Coin.V7SetupType, SignalID: it.Coin.V7SignalID,
+			Tier: it.Tier, TierReason: it.Reason, AssembledTier: b.V7ExecutionTier, AssembledReason: b.V7TierReason,
+		})
+	}
+	return out
+}
+
 type hunterV7PromptCandidate struct {
 	Coin   CandidateCoin
 	Data   *market.Data
@@ -685,6 +704,7 @@ type hunterV7PromptCandidate struct {
 
 func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder, ctx *Context, positionSymbols map[string]bool) {
 	items := e.hunterV7PromptItems(ctx, positionSymbols)
+	ctx.HunterV7PromptFinal = hunterV7PromptFinalTiers(ctx.CandidateCoins, items) // fix 12: recorded only
 	if e.hunterV7PromptHybridV2() {
 		e.writeHunterV7HybridV2CandidatePrompt(sb, ctx, items)
 		return

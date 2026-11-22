@@ -136,11 +136,19 @@ func TestBuildPromptShowsRepricedPrice(t *testing.T) {
 		t.Fatalf("candidates %d", len(cands))
 	}
 	tierBefore := cands[0].V7ExecutionTier
-	oldPrompt := buildPrompt(cands, signals, snap, nil)
+	oldPrompt, _ := buildPrompt(cands, signals, snap, nil)
 	got, _ := repriceForPrompt(snap, promptSymbols(signals, cands), map[string]float64{"KUSDT": 101.2345}, now, now, time.Minute)
 	pc := append([]kernel.CandidateCoin(nil), cands...)
 	applyPromptFreshness(pc, got, snap, now, time.Minute)
-	newPrompt := buildPrompt(pc, signals, got, nil)
+	newPrompt, final := buildPrompt(pc, signals, got, nil)
+	// Fix 12: the same build returns the prompt-final tier of the shown
+	// candidate, and the prompt's own tier summary agrees with it.
+	if len(final) != 1 || final[0].Symbol != "KUSDT" || final[0].Tier == "" || final[0].AssembledTier != tierBefore {
+		t.Fatalf("prompt-final %+v (assembled %s)", final, tierBefore)
+	}
+	if counts := parsePromptTierCounts(newPrompt); counts[final[0].Tier] != 1 {
+		t.Fatalf("prompt tier summary %v vs recorded %s", counts, final[0].Tier)
+	}
 	if !strings.Contains(newPrompt, "101.2345") {
 		t.Fatal("repriced price not in the prompt")
 	}

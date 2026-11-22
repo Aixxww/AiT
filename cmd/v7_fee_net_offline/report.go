@@ -69,7 +69,9 @@ func groupings() []grouping {
 		return r.CanonSetup == "ignition_early_short"
 	}
 	return []grouping{
-		{"tier", func(r result) (string, bool) { return r.Tier, true }},
+		{"tier", func(r result) (string, bool) { return r.Tier, true }}, // assembled tier (execution_tier)
+		{"prompt-final tier", func(r result) (string, bool) { return promptTierKey(r.PromptTier), true }},
+		{"assembled tier x prompt-final tier", func(r result) (string, bool) { return r.Tier + " -> " + promptTierKey(r.PromptTier), true }},
 		{"tier x class", func(r result) (string, bool) { return r.Tier + " | " + r.Class, true }},
 		{"tier x class x rr_band", func(r result) (string, bool) { return r.Tier + " | " + r.Class + " | " + r.RRBand, true }},
 		{"class x rr_band (all tiers)", func(r result) (string, bool) { return r.Class + " | " + r.RRBand, true }},
@@ -82,6 +84,16 @@ func groupings() []grouping {
 		{"short ignition x rr_band", func(r result) (string, bool) { return r.RRBand, isShortIgnition(r) }},
 		{"market_regime", func(r result) (string, bool) { return r.Regime, true }},
 	}
+}
+
+// promptTierKey names an empty prompt-final tier (fix 12): the row was not
+// shown in a prompt, or was written before the column existed / by a path
+// that does not record it.
+func promptTierKey(t string) string {
+	if t == "" {
+		return "not_in_prompt_or_unrecorded"
+	}
+	return t
 }
 
 // buildTables groups the sample under each grouping and applies the cell

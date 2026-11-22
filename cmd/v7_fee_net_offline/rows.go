@@ -108,7 +108,8 @@ type inputRow struct {
 	Direction     string    `json:"direction"`
 	Setup         string    `json:"setup_type"`
 	CanonSetup    string    `json:"canonical_setup"`
-	Tier          string    `json:"execution_tier"`
+	Tier          string    `json:"execution_tier"`    // the assembled tier (fix 12 naming)
+	PromptTier    string    `json:"prompt_final_tier"` // fix 12: what the LLM saw; "" = not in a prompt / not recorded
 	TierReason    string    `json:"tier_reason"`
 	Stack         string    `json:"stack"`
 	Class         string    `json:"signal_class"`
@@ -135,7 +136,7 @@ func buildInputRow(r store.HunterV7SignalRecord, tp1FallbackTarget1 bool, classe
 	in := inputRow{
 		ID: r.ID, Time: r.Timestamp, Symbol: r.Symbol, Direction: strings.ToUpper(r.Direction),
 		Setup: r.SetupType, CanonSetup: store.V7CanonicalSetupType(r.SetupType),
-		Tier: r.ExecutionTier, TierReason: r.TierReason, Stack: r.Stack,
+		Tier: r.ExecutionTier, PromptTier: r.PromptFinalTier, TierReason: r.TierReason, Stack: r.Stack,
 		Class: r.SignalClass, ClassSource: "stored", RRBand: r.RRBand, Regime: r.MarketRegime,
 		OutcomeSource: r.OutcomeSource,
 		Stop:          r.InvalidationPrice, TP0: r.TP0Price, TP1: r.TP1Price, TP2: r.TP2Price,
