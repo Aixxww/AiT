@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -50,16 +51,21 @@ func TestEffectiveFlagsWithStoredStrategy(t *testing.T) {
 	if ef.AssemblyGeometry.NativeMinRR != 3.0 || ef.PromptGeometry.NativeMinRR != 3.0 {
 		t.Fatalf("native floor %v / %v", ef.AssemblyGeometry.NativeMinRR, ef.PromptGeometry.NativeMinRR)
 	}
-	// The harness assembly geometry does not carry the strategy's T2 floor;
-	// the prompt geometry does. Both are reported, and the gap is noted.
-	if ef.AssemblyGeometry.T2MinRR != store.DefaultT2MinRiskRewardRatio || ef.PromptGeometry.T2MinRR != 1.3 {
+	// Fix 17: the assembly carries the strategy's T2 floor, like the
+	// prompt; the two geometries are identical and no gap note fires.
+	if ef.AssemblyGeometry.T2MinRR != 1.3 || ef.PromptGeometry.T2MinRR != 1.3 {
 		t.Fatalf("T2 floor %v / %v", ef.AssemblyGeometry.T2MinRR, ef.PromptGeometry.T2MinRR)
 	}
+	if !reflect.DeepEqual(ef.AssemblyGeometry, ef.PromptGeometry) {
+		t.Fatalf("assembly and prompt geometries differ:\n%+v\n%+v", ef.AssemblyGeometry, ef.PromptGeometry)
+	}
 	notes := strings.Join(ef.Notes, "\n")
-	for _, want := range []string{"assembly and prompt geometries differ", "t2_min_risk_reward_ratio 1.30, but the assembly used 1.20",
-		"min_risk_reward_ratio (3.00) differs from the code default (1.20)"} {
-		if !strings.Contains(notes, want) {
-			t.Fatalf("notes lack %q:\n%s", want, notes)
+	if !strings.Contains(notes, "min_risk_reward_ratio (3.00) differs from the code default (1.20)") {
+		t.Fatalf("stored-vs-default note missing:\n%s", notes)
+	}
+	for _, gone := range []string{"assembly and prompt geometries differ", "but the assembly used"} {
+		if strings.Contains(notes, gone) {
+			t.Fatalf("note %q must not fire when the geometries match:\n%s", gone, notes)
 		}
 	}
 	if !ef.T2.Enabled || len(ef.T2.EnabledSetups) != 2 || ef.T2.EnabledSetupsFrom != "configured list" || ef.Router.MinAIPriority != 55 || !ef.FinalConflict.Enabled {
@@ -74,19 +80,24 @@ func TestEffectiveFlagsWithStoredStrategy(t *testing.T) {
 	}
 	md := effectiveFlagsMarkdown(ef, "## Effective settings\n\n")
 	for _, want := range []string{"| native RR floor (assembly) | 3.00 (strategy min_risk_reward_ratio; stored value 3.00) |",
-		"| T2 RR floor (assembly / prompt) | 1.20 / 1.30", "| T2 module | on |", "ignition_early_short", "> NOTE: "} {
+		"| T2 RR floor (assembly / prompt) | 1.30 / 1.30", "| T2 module | on |", "ignition_early_short", "> NOTE: "} {
 		if !strings.Contains(md, want) {
 			t.Fatalf("markdown lacks %q\n%s", want, md)
 		}
 	}
 }
 
-// Without a strategy the harness defaults apply, and the 1.5 assembly
-// fallback is named as such.
+// Without a strategy the assembly uses the default strategy config, the
+// one the prompt uses (fix 17: it used the 1.5 kernel fallback before).
 func TestEffectiveFlagsWithoutStrategy(t *testing.T) {
 	ef := buildEffectiveFlags(validationOptions{}, nil, roundCfg(nil), executionGeometryFromStrategy(nil), promptStrategyConfig(1, nil))
-	if ef.Strategy.Loaded || ef.AssemblyGeometry.NativeMinRR != local.V7MinExecutableRR || !strings.HasPrefix(ef.Strategy.NativeMinRRSource, "unset: kernel fallback 1.50") {
+	def := store.GetDefaultStrategyConfig("zh").RiskControl.MinRiskRewardRatio
+	if ef.Strategy.Loaded || ef.AssemblyGeometry.NativeMinRR != def || ef.PromptGeometry.NativeMinRR != def ||
+		!strings.HasPrefix(ef.Strategy.NativeMinRRSource, "no strategy: default strategy config 1.20") {
 		t.Fatalf("%+v %+v", ef.Strategy, ef.AssemblyGeometry)
+	}
+	if !reflect.DeepEqual(ef.AssemblyGeometry, ef.PromptGeometry) || strings.Contains(strings.Join(ef.Notes, "\n"), "geometries differ") {
+		t.Fatalf("geometries must match without a strategy: notes %v", ef.Notes)
 	}
 	if ef.T2.Enabled || !strings.Contains(strings.Join(ef.Notes, "\n"), "T2 module was off") {
 		t.Fatalf("t2 %+v notes %v", ef.T2, ef.Notes)
@@ -144,5 +155,28 @@ func TestWrittenRunSummaryHasEffectiveFlags(t *testing.T) {
 	md, _ := os.ReadFile(mds[0])
 	if !strings.Contains(string(md), "| native RR floor (assembly) | 3.00") {
 		t.Fatal("run summary markdown lacks the effective settings")
+	}
+}
+
+// Fix 17: the gap notes still fire for a gap that genuinely exists (here a
+// deliberately different assembly geometry), and an unset stored native
+// floor is named as the kernel fallback on both paths.
+func TestEffectiveFlagsNotesStillReportRealGaps(t *testing.T) {
+	s := effectiveFixtureStrategy()
+	odd := executionGeometryFromStrategy(s)
+	odd.T2MinRR = 0 // falls back to the store default 1.2
+	ef := buildEffectiveFlags(validationOptions{strategyID: "tierA"}, s, roundCfg(s), odd, promptStrategyConfig(3, s))
+	notes := strings.Join(ef.Notes, "\n")
+	for _, want := range []string{"assembly and prompt geometries differ", "t2_min_risk_reward_ratio 1.30, but the assembly used 1.20"} {
+		if !strings.Contains(notes, want) {
+			t.Fatalf("notes lack %q:\n%s", want, notes)
+		}
+	}
+	u := effectiveFixtureStrategy()
+	u.RiskControl.MinRiskRewardRatio = 0
+	ef = buildEffectiveFlags(validationOptions{}, u, roundCfg(u), executionGeometryFromStrategy(u), promptStrategyConfig(3, u))
+	if ef.AssemblyGeometry.NativeMinRR != local.V7MinExecutableRR || ef.PromptGeometry.NativeMinRR != local.V7MinExecutableRR ||
+		!strings.HasPrefix(ef.Strategy.NativeMinRRSource, "unset: kernel fallback 1.50") {
+		t.Fatalf("unset stored floor: %v / %v (%s)", ef.AssemblyGeometry.NativeMinRR, ef.PromptGeometry.NativeMinRR, ef.Strategy.NativeMinRRSource)
 	}
 }
