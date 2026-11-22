@@ -313,7 +313,7 @@ minPositionSize := config.RiskControl.MinPositionSize     // 默认: 12 USDT
 ```go
 altcoinMaxLeverage := config.RiskControl.AltcoinMaxLeverage  // 默认: 5x
 btcethMaxLeverage := config.RiskControl.BTCETHMaxLeverage    // 默认: 5x
-minRiskRewardRatio := config.RiskControl.MinRiskRewardRatio  // 默认: 1:3
+minRiskRewardRatio := config.RiskControl.MinRiskRewardRatio  // 默认: 1:1.2（fix 07；原为 1:3）
 minConfidence := config.RiskControl.MinConfidence            // 默认: 75
 ```
 
