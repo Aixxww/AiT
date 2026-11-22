@@ -160,6 +160,9 @@ type summary struct {
 	Tables        map[string][]groupStats `json:"tables_all_rows"`
 	TablesDedup   map[string][]groupStats `json:"tables_dedup"`
 	ClassFallback int                     `json:"rows_class_from_registry"`
+
+	// Fix 13: what every label, table and column means (legend.go).
+	Legend outputLegendJSON `json:"legend"`
 }
 
 func buildSummary(results []result, wc walkConfig, costFrom string, window time.Duration, rule store.V7CellRuleConfig, ks *klineStore, db string, f rowFilter) summary {
@@ -199,6 +202,7 @@ func buildSummary(results []result, wc walkConfig, costFrom string, window time.
 	}
 	s.Agreement = compareStored(results)
 	s.Klines = map[string]any{"cache_dir": ks.dir, "offline": ks.offline, "day_files_fetched": ks.Fetched, "day_files_from_cache": ks.Cached, "errors": ks.Errors}
+	s.Legend = buildOutputLegend()
 	s.Tables = buildTables(results, false, rule)
 	s.TablesDedup = buildTables(results, true, rule)
 	return s
@@ -241,6 +245,7 @@ func markdownSummary(s summary) string {
 	fmt.Fprintf(&b, "- Market regime of the rows: %s. **Conclusions hold only for these regimes; a sample from one market phase (e.g. a falling market) says nothing about the others.**\n", kv(s.Regimes))
 	fmt.Fprintf(&b, "- Agreement with fee-net already stored by the tracker: %d compared, %d same outcome, %d same R; %d stored rows not walked here.\n\n",
 		s.Agreement.Compared, s.Agreement.SameOutcome, s.Agreement.SameR, s.Agreement.StoredNoWalk)
+	b.WriteString(legendMarkdown())
 	for _, part := range []struct {
 		title  string
 		tables map[string][]groupStats
