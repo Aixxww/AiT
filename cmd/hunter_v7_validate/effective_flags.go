@@ -145,9 +145,12 @@ func buildEffectiveFlags(opts validationOptions, strategyCfg *store.StrategyConf
 			s.ConfiguredT2Setups = append(s.ConfiguredT2Setups, h.V7T2Setups...)
 		}
 	}
-	if s.ConfiguredMinRR > 0 {
+	switch {
+	case !s.Loaded:
+		s.NativeMinRRSource = fmt.Sprintf("no strategy: default strategy config %.2f (store.GetDefaultStrategyConfig)", store.GetDefaultStrategyConfig("zh").RiskControl.MinRiskRewardRatio)
+	case s.ConfiguredMinRR > 0:
 		s.NativeMinRRSource = "strategy min_risk_reward_ratio"
-	} else {
+	default:
 		s.NativeMinRRSource = fmt.Sprintf("unset: kernel fallback %.2f (local.V7MinExecutableRR)", local.V7MinExecutableRR)
 	}
 	ef.Notes = effectiveFlagNotes(ef)

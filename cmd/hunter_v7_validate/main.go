@@ -1563,20 +1563,18 @@ func formatOutcomeSummaryMarkdown(summary validationOutcomeSummary, rawPath stri
 	return sb.String()
 }
 
-// executionGeometryFromStrategy mirrors the production engine's geometry
-// derivation so validate-side tiering matches what the live kernel would emit.
+// executionGeometryFromStrategy is the assembly geometry: the full
+// production geometry (kernel.HunterV7ExecutionGeometryForConfig, which the
+// live engine and the prompt use) of the same strategy config the prompt is
+// built with (promptStrategyConfig; with no strategy, the default config).
+// Fix 17: it used to pass only the TP cap, min stop, drift and native RR
+// floor, so the assembled tiers fell back to kernel defaults for the T2
+// floors, class profiles, setup overrides, conditional classes, T2
+// reviewable states and class registry, and to the 1.5 native fallback with
+// no strategy, while the prompt-final tiers used the carried values.
 func executionGeometryFromStrategy(strategyCfg *store.StrategyConfig) kernel.HunterV7ExecutionGeometry {
-	if strategyCfg == nil {
-		return kernel.HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)
-	}
-	riskControl := strategyCfg.RiskControl
-	return kernel.HunterV7EffectiveExecutionGeometry(
-		riskControl.MaxTakeProfitPriceMovePct,
-		riskControl.MinStopLossPriceMovePct,
-		riskControl.MaxEntryPriceDeviationPct,
-		riskControl.MinRiskRewardRatio,
-		true,
-	)
+	cfg := promptStrategyConfig(0, strategyCfg) // the candidate count only sets HunterLimit, which no geometry reads
+	return kernel.HunterV7ExecutionGeometryForConfig(&cfg)
 }
 
 func loadStrategyConfig(dbPath, strategyID string) (*store.StrategyConfig, error) {
