@@ -244,26 +244,10 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		}
 	}
 
-	// Create client via registry (covers all registered providers)
-	if aiModel == "custom" {
-		mcpClient = mcp.New()
-	} else if aiModel == "" {
+	if aiModel == "" {
 		aiModel = "deepseek"
-		mcpClient = mcp.NewAIClientByProvider(aiModel)
-	} else {
-		mcpClient = mcp.NewAIClientByProvider(aiModel)
 	}
-	if mcpClient == nil {
-		mcpClient = mcp.New()
-	}
-
-	// Payment providers (claw402) ignore customURL
-	switch aiModel {
-	case "claw402":
-		mcpClient.SetAPIKey(apiKey, "", config.CustomModelName)
-	default:
-		mcpClient.SetAPIKey(apiKey, customURL, config.CustomModelName)
-	}
+	mcpClient = newTraderAIClient(aiModel, apiKey, customURL, config.CustomModelName)
 	logger.Infof("🤖 [%s] Using %s AI", config.Name, aiModel)
 
 	if config.CustomAPIURL != "" || config.CustomModelName != "" {
@@ -1099,4 +1083,26 @@ func deriveWalletAddress(privateKeyHex string) string {
 
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return address.Hex()
+}
+
+// newTraderAIClient builds the trader's AI client for a provider. "custom"
+// (Settings → AI models → other model, #75) is the generic OpenAI-compatible
+// client configured with the entry's base URL and model name; like every
+// OpenAI-compatible client it takes the default streaming decision path.
+func newTraderAIClient(provider, apiKey, customURL, customModelName string) mcp.AIClient {
+	var client mcp.AIClient
+	if provider != "custom" {
+		client = mcp.NewAIClientByProvider(provider)
+	}
+	if client == nil {
+		client = mcp.New()
+	}
+	// Payment providers (claw402) ignore customURL
+	switch provider {
+	case "claw402":
+		client.SetAPIKey(apiKey, "", customModelName)
+	default:
+		client.SetAPIKey(apiKey, customURL, customModelName)
+	}
+	return client
 }

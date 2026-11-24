@@ -121,6 +121,9 @@ export interface UpdateModelConfigRequest {
       api_key: string
       custom_api_url?: string
       custom_model_name?: string
+      /** Custom (OpenAI-compatible) entries only (#75). */
+      name?: string
+      provider?: string
     }
   }
 }

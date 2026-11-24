@@ -42,6 +42,9 @@ export function getShortName(fullName: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : fullName
 }
 
+// #75: user-defined OpenAI-compatible entry ("Add other model").
+export const CUSTOM_PROVIDER = 'custom'
+
 export const DEFAULT_CLAW402_MODEL = 'deepseek-v4-flash'
 
 // Models available through Claw402 (x402 USDC payment protocol)

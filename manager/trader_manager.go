@@ -462,7 +462,7 @@ func (tm *TraderManager) LoadUserTradersFromStore(st *store.Store, userID string
 		}
 
 		if aiModelCfg == nil {
-			logger.Infof("⚠️ AI model %s for trader %s does not exist, skipping", traderCfg.AIModelID, traderCfg.Name)
+			logger.Errorf("❌ AI model %s for trader %s does not exist (deleted or never configured); trader not started — select another AI model", traderCfg.AIModelID, traderCfg.Name)
 			continue
 		}
 
@@ -562,7 +562,7 @@ func (tm *TraderManager) LoadTradersFromStore(st *store.Store) error {
 		}
 
 		if aiModelCfg == nil {
-			logger.Infof("⚠️  AI model %s for trader %s does not exist, skipping", traderCfg.AIModelID, traderCfg.Name)
+			logger.Errorf("❌ AI model %s for trader %s does not exist (deleted or never configured); trader not started — select another AI model", traderCfg.AIModelID, traderCfg.Name)
 			continue
 		}
 

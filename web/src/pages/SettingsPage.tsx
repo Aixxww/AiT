@@ -21,6 +21,7 @@ import { api } from '../lib/api'
 import { ExchangeConfigModal } from '../components/trader/ExchangeConfigModal'
 import { TelegramConfigModal } from '../components/trader/TelegramConfigModal'
 import { ModelConfigModal } from '../components/trader/ModelConfigModal'
+import { CUSTOM_PROVIDER } from '../components/trader/model-constants'
 import { SecuritySettings } from '../components/settings/SecuritySettings'
 import type { Exchange, AIModel } from '../types'
 import { Button } from '../components/ui/Button'
@@ -259,7 +260,8 @@ export function SettingsPage() {
     modelId: string,
     apiKey: string,
     customApiUrl?: string,
-    customModelName?: string
+    customModelName?: string,
+    displayName?: string
   ) => {
     try {
       const existingModel = configuredModels.find((m) => m.id === modelId)
@@ -267,6 +269,28 @@ export function SettingsPage() {
       const modelToUpdate = existingModel || modelTemplate
       if (!modelToUpdate) {
         toast.error('Model not found')
+        return
+      }
+
+      // #75: a custom (other) entry is saved on its own, by id ("custom"
+      // creates a new entry), with its display name.
+      if (modelToUpdate.provider === CUSTOM_PROVIDER) {
+        await api.updateModelConfigs({
+          models: {
+            [existingModel ? existingModel.id : CUSTOM_PROVIDER]: {
+              provider: CUSTOM_PROVIDER,
+              name: displayName || modelToUpdate.name,
+              enabled: true,
+              api_key: apiKey,
+              custom_api_url: customApiUrl || '',
+              custom_model_name: customModelName || '',
+            },
+          },
+        })
+        toast.success('Model config saved')
+        await refreshModelConfigs()
+        setShowModelModal(false)
+        setEditingModel(null)
         return
       }
 
@@ -298,15 +322,17 @@ export function SettingsPage() {
 
       const request = {
         models: Object.fromEntries(
-          updatedModels.map((m) => [
-            m.provider,
-            {
-              enabled: m.enabled,
-              api_key: m.apiKey || '',
-              custom_api_url: m.customApiUrl || '',
-              custom_model_name: m.customModelName || '',
-            },
-          ])
+          updatedModels
+            .filter((m) => m.provider !== CUSTOM_PROVIDER)
+            .map((m) => [
+              m.provider,
+              {
+                enabled: m.enabled,
+                api_key: m.apiKey || '',
+                custom_api_url: m.customApiUrl || '',
+                custom_model_name: m.customModelName || '',
+              },
+            ])
         ),
       }
       await api.updateModelConfigs(request)
@@ -321,6 +347,15 @@ export function SettingsPage() {
 
   const handleDeleteModel = async (modelId: string) => {
     try {
+      const target = configuredModels.find((m) => m.id === modelId)
+      if (target?.provider === CUSTOM_PROVIDER) {
+        await api.deleteModelConfig(modelId)
+        await refreshModelConfigs()
+        setShowModelModal(false)
+        setEditingModel(null)
+        toast.success('Model config removed')
+        return
+      }
       const updatedModels = configuredModels.map((m) =>
         m.id === modelId
           ? {
@@ -334,15 +369,17 @@ export function SettingsPage() {
       )
       const request = {
         models: Object.fromEntries(
-          updatedModels.map((m) => [
-            m.provider,
-            {
-              enabled: m.enabled,
-              api_key: m.apiKey || '',
-              custom_api_url: m.customApiUrl || '',
-              custom_model_name: m.customModelName || '',
-            },
-          ])
+          updatedModels
+            .filter((m) => m.provider !== CUSTOM_PROVIDER)
+            .map((m) => [
+              m.provider,
+              {
+                enabled: m.enabled,
+                api_key: m.apiKey || '',
+                custom_api_url: m.customApiUrl || '',
+                custom_model_name: m.customModelName || '',
+              },
+            ])
         ),
       }
       await api.updateModelConfigs(request)

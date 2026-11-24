@@ -24,6 +24,7 @@ import { ModelCard } from './ModelCard'
 import {
   CLAW402_MODELS,
   AI_PROVIDER_CONFIG,
+  CUSTOM_PROVIDER,
   DEFAULT_CLAW402_MODEL,
   getShortName,
 } from './model-constants'
@@ -37,7 +38,8 @@ interface ModelConfigModalProps {
     modelId: string,
     apiKey: string,
     baseUrl?: string,
-    modelName?: string
+    modelName?: string,
+    displayName?: string
   ) => void
   onDelete: (modelId: string) => void
   onClose: () => void
@@ -58,6 +60,7 @@ export function ModelConfigModal({
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [modelName, setModelName] = useState('')
+  const [displayName, setDisplayName] = useState('')
 
   // Always prefer allModels (supportedModels) for provider/id lookup;
   // fall back to configuredModels for edit mode details (apiKey etc.)
@@ -72,8 +75,13 @@ export function ModelConfigModal({
       setApiKey(selectedModel.apiKey || '')
       setBaseUrl(selectedModel.customApiUrl || '')
       setModelName(selectedModel.customModelName || '')
+      if (selectedModel.provider === CUSTOM_PROVIDER) {
+        setDisplayName(selectedModel.name || '')
+      }
     }
   }, [editingModelId, selectedModel])
+
+  const isCustomSelected = selectedModel?.provider === CUSTOM_PROVIDER
 
   const handleSelectModel = (modelId: string) => {
     setSelectedModelId(modelId)
@@ -96,6 +104,14 @@ export function ModelConfigModal({
     // Allow empty key when editing an existing model (backend preserves existing key)
     if (!key && !editingModelId) return
     const trimmedModelName = modelName.trim()
+    if (isCustomSelected) {
+      // #75: a custom entry has no provider defaults.
+      const name = displayName.trim()
+      const url = baseUrl.trim()
+      if (!name || !url || !trimmedModelName) return
+      onSave(selectedModelId, key, url, trimmedModelName, name)
+      return
+    }
     const resolvedModelName =
       selectedModel?.provider === 'claw402'
         ? trimmedModelName || DEFAULT_CLAW402_MODEL
@@ -231,6 +247,9 @@ export function ModelConfigModal({
             selectedModel.id !== 'claw402' && (
               <StandardProviderConfigForm
                 selectedModel={selectedModel}
+                isCustom={isCustomSelected}
+                displayName={displayName}
+                onDisplayNameChange={setDisplayName}
                 apiKey={apiKey}
                 baseUrl={baseUrl}
                 modelName={modelName}
@@ -267,9 +286,13 @@ function ModelSelectionStep({
   const [showOtherProviders, setShowOtherProviders] = useState(false)
   const claw402Model =
     availableModels.find((model) => model.provider === 'claw402') || null
+  const customModel =
+    availableModels.find((model) => model.provider === CUSTOM_PROVIDER) || null
   const otherProviders = availableModels.filter(
     (model) =>
-      model.provider !== 'claw402' && !model.provider?.startsWith('blockrun')
+      model.provider !== 'claw402' &&
+      model.provider !== CUSTOM_PROVIDER &&
+      !model.provider?.startsWith('blockrun')
   )
 
   return (
@@ -420,6 +443,27 @@ function ModelSelectionStep({
             </div>
           )}
         </div>
+      )}
+      {customModel && (
+        <Button
+          variant="unstyled"
+          type="button"
+          data-testid="add-other-model"
+          onClick={() => onSelectModel(customModel.id)}
+          className="w-full flex items-center justify-between px-4 py-4 rounded-xl border border-white/10 bg-black/20 text-left transition-all hover:bg-white/5"
+        >
+          <div>
+            <div className="text-sm font-semibold text-foreground">
+              + {t('modelConfig.addOtherModel', language)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {t('modelConfig.addOtherModelDesc', language)}
+            </div>
+          </div>
+          <span className="text-sm" style={{ color: 'var(--color-info)' }}>
+            →
+          </span>
+        </Button>
       )}
       <div className="text-xs text-center pt-2 text-muted-foreground">
         {t('modelConfig.modelsConfigured', language)}
@@ -1407,6 +1451,9 @@ function Claw402ConfigForm({
 
 function StandardProviderConfigForm({
   selectedModel,
+  isCustom,
+  displayName,
+  onDisplayNameChange,
   apiKey,
   baseUrl,
   modelName,
@@ -1419,6 +1466,9 @@ function StandardProviderConfigForm({
   language,
 }: {
   selectedModel: AIModel
+  isCustom: boolean
+  displayName: string
+  onDisplayNameChange: (value: string) => void
   apiKey: string
   baseUrl: string
   modelName: string
@@ -1532,6 +1582,31 @@ function StandardProviderConfigForm({
         </div>
       )}
 
+      {isCustom && (
+        <div className="space-y-2">
+          <label
+            htmlFor="custom-model-display-name"
+            className="flex items-center gap-2 text-sm font-semibold text-foreground"
+          >
+            {t('modelConfig.displayName', language)}
+          </label>
+          <input
+            id="custom-model-display-name"
+            type="text"
+            value={displayName}
+            onChange={(e) => onDisplayNameChange(e.target.value)}
+            placeholder={t('modelConfig.displayNamePlaceholder', language)}
+            className="w-full px-4 py-3 rounded-xl"
+            style={{
+              background: 'var(--color-background)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-foreground)',
+            }}
+            required
+          />
+        </div>
+      )}
+
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <svg
@@ -1594,9 +1669,11 @@ function StandardProviderConfigForm({
               />
             </svg>
             {t('customBaseURL', language)}
+            {isCustom ? ' *' : ''}
           </label>
           <input
             type="url"
+            required={isCustom}
             value={baseUrl}
             onChange={(e) => onBaseUrlChange(e.target.value)}
             placeholder={t('customBaseURLPlaceholder', language)}
@@ -1608,7 +1685,9 @@ function StandardProviderConfigForm({
             }}
           />
           <div className="text-xs text-muted-foreground">
-            {t('leaveBlankForDefault', language)}
+            {isCustom
+              ? t('modelConfig.customRequired', language)
+              : t('leaveBlankForDefault', language)}
           </div>
         </div>
       )}
@@ -1632,9 +1711,11 @@ function StandardProviderConfigForm({
               />
             </svg>
             {t('customModelName', language)}
+            {isCustom ? ' *' : ''}
           </label>
           <input
             type="text"
+            required={isCustom}
             value={modelName}
             onChange={(e) => onModelNameChange(e.target.value)}
             placeholder={t('customModelNamePlaceholder', language)}
@@ -1646,7 +1727,9 @@ function StandardProviderConfigForm({
             }}
           />
           <div className="text-xs text-muted-foreground">
-            {t('leaveBlankForDefaultModel', language)}
+            {isCustom
+              ? t('modelConfig.customRequired', language)
+              : t('leaveBlankForDefaultModel', language)}
           </div>
         </div>
       )}
@@ -1694,7 +1777,12 @@ function StandardProviderConfigForm({
         <Button
           variant="unstyled"
           type="submit"
-          disabled={!selectedModel || !apiKey.trim()}
+          disabled={
+            !selectedModel ||
+            !apiKey.trim() ||
+            (isCustom &&
+              (!displayName.trim() || !baseUrl.trim() || !modelName.trim()))
+          }
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: 'var(--color-purple)', color: 'white' }}
         >

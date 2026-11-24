@@ -1,12 +1,14 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/security"
+	"github.com/Aixxww/AiT/store"
 	"github.com/Aixxww/AiT/wallet"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +42,17 @@ type UpdateModelConfigRequest struct {
 		APIKey          string `json:"api_key"`
 		CustomAPIURL    string `json:"custom_api_url"`
 		CustomModelName string `json:"custom_model_name"`
+		// Name and Provider are used by custom model entries (#75):
+		// provider "custom" with a new id (or "custom") creates an entry,
+		// an existing custom id updates it.
+		Name     string `json:"name,omitempty"`
+		Provider string `json:"provider,omitempty"`
 	} `json:"models"`
+}
+
+// isCustomModelUpdate reports whether an update targets a custom entry.
+func isCustomModelUpdate(modelID, provider string) bool {
+	return strings.EqualFold(provider, store.ProviderCustom) || store.IsCustomModelID(modelID)
 }
 
 // handleGetModelConfigs Get AI model configurations
@@ -134,6 +146,18 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 			tradersToReload[t.ID] = true
 		}
 
+		if isCustomModelUpdate(modelID, modelData.Provider) {
+			if _, err := s.store.AIModel().UpsertCustom(userID, modelID, modelData.Name, modelData.Enabled, modelData.APIKey, modelData.CustomAPIURL, modelData.CustomModelName); err != nil {
+				if errors.Is(err, store.ErrCustomModelInvalid) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+				SafeInternalError(c, fmt.Sprintf("Update custom model %s", modelID), err)
+				return
+			}
+			continue
+		}
+
 		err := s.store.AIModel().Update(userID, modelID, modelData.Enabled, modelData.APIKey, modelData.CustomAPIURL, modelData.CustomModelName)
 		if err != nil {
 			SafeInternalError(c, fmt.Sprintf("Update model %s", modelID), err)
@@ -171,7 +195,39 @@ func (s *Server) handleGetSupportedModels(c *gin.Context) {
 		{"id": "minimax", "name": "MiniMax", "provider": "minimax", "defaultModel": "MiniMax-M2.7"},
 		{"id": "mimo", "name": "Xiaomi MiMo", "provider": "mimo", "defaultModel": "mimo-v2.5-pro"},
 		{"id": "claw402", "name": "Claw402 (Base USDC)", "provider": "claw402", "defaultModel": "deepseek-v4-flash"},
+		// #75: user-defined OpenAI-compatible endpoint (base URL + model name required).
+		{"id": "custom", "name": "Other (OpenAI-compatible)", "provider": "custom", "defaultModel": ""},
 	}
 
 	c.JSON(http.StatusOK, supportedModels)
+}
+
+// handleDeleteModelConfig deletes a custom model entry (#75). Built-in
+// provider entries are disabled, not deleted. Traders that referenced the
+// deleted entry are unloaded; on reload they fail with a "model does not
+// exist" error instead of falling back to another model.
+func (s *Server) handleDeleteModelConfig(c *gin.Context) {
+	userID := c.GetString("user_id")
+	modelID := c.Param("id")
+	model, err := s.store.AIModel().Get(userID, modelID)
+	if err != nil || model == nil || model.UserID != userID {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("AI model %s not found", modelID)})
+		return
+	}
+	if model.Provider != store.ProviderCustom {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("AI model %s is a built-in %s entry; disable it instead of deleting it", modelID, model.Provider)})
+		return
+	}
+	traders, _ := s.store.Trader().ListByAIModelID(userID, modelID)
+	if err := s.store.AIModel().Delete(userID, modelID); err != nil {
+		SafeInternalError(c, fmt.Sprintf("Delete model %s", modelID), err)
+		return
+	}
+	for _, t := range traders {
+		logger.Errorf("❌ Trader %s (%s) referenced deleted AI model %s; it will not start until another model is selected", t.Name, t.ID, modelID)
+		if s.traderManager != nil {
+			s.traderManager.RemoveTrader(t.ID)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Model deleted", "affected_traders": len(traders)})
 }

@@ -152,6 +152,15 @@ export const configApi = {
     return result.data!
   },
 
+  // Deletes a custom (other) AI model entry (#75). Built-in entries are
+  // disabled through updateModelConfigs instead.
+  async deleteModelConfig(modelId: string): Promise<void> {
+    const result = await httpClient.delete(
+      `${API_BASE}/models/${encodeURIComponent(modelId)}`
+    )
+    if (!result.success) throw new Error('Failed to delete AI model')
+  },
+
   async deleteExchange(exchangeId: string): Promise<void> {
     const result = await httpClient.delete(
       `${API_BASE}/exchanges/${exchangeId}`
