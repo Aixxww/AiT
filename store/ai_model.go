@@ -1,6 +1,8 @@
 package store
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/crypto"
@@ -315,4 +317,91 @@ func (s *AIModelStore) Delete(userID, id string) error {
 	}
 	logger.Infof("🗑️ Deleted AI model: id=%s, userID=%s", id, userID)
 	return nil
+}
+
+// ProviderCustom is the provider of user-defined OpenAI-compatible models
+// (Settings → AI models → "Add other model", #75). They resolve to the
+// generic mcp client with CustomAPIURL / CustomModelName and take the
+// default streaming decision path like every other OpenAI-compatible model.
+const ProviderCustom = "custom"
+
+// IsCustomModelID reports whether id was generated for a custom model entry.
+func IsCustomModelID(id string) bool {
+	return strings.Contains(id, "_"+ProviderCustom+"_")
+}
+
+// ErrCustomModelInvalid reports a custom model entry that cannot be used.
+var ErrCustomModelInvalid = errors.New("invalid custom model")
+
+func newCustomModelID(userID string) (string, error) {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s_%s_%s", userID, ProviderCustom, hex.EncodeToString(b)), nil
+}
+
+// UpsertCustom creates (id empty or "custom") or updates a custom model
+// entry and returns its id. Name, base URL and model name are required, since
+// the generic client has no provider defaults; an API key is required on
+// creation and, as in Update, an empty key keeps the stored one.
+func (s *AIModelStore) UpsertCustom(userID, id, name string, enabled bool, apiKey, customAPIURL, customModelName string) (string, error) {
+	name = strings.TrimSpace(name)
+	customAPIURL = strings.TrimSpace(customAPIURL)
+	customModelName = strings.TrimSpace(customModelName)
+	switch {
+	case name == "":
+		return "", fmt.Errorf("%w: display name is required", ErrCustomModelInvalid)
+	case customAPIURL == "":
+		return "", fmt.Errorf("%w: base URL is required", ErrCustomModelInvalid)
+	case customModelName == "":
+		return "", fmt.Errorf("%w: model name is required", ErrCustomModelInvalid)
+	}
+
+	if id == "" || id == ProviderCustom {
+		if strings.TrimSpace(apiKey) == "" {
+			return "", fmt.Errorf("%w: API key is required", ErrCustomModelInvalid)
+		}
+		newID, err := newCustomModelID(userID)
+		if err != nil {
+			return "", fmt.Errorf("generate custom model id: %w", err)
+		}
+		model := &AIModel{
+			ID:              newID,
+			UserID:          userID,
+			Name:            name,
+			Provider:        ProviderCustom,
+			Enabled:         enabled,
+			APIKey:          crypto.EncryptedString(apiKey),
+			CustomAPIURL:    customAPIURL,
+			CustomModelName: customModelName,
+		}
+		if err := s.db.Create(model).Error; err != nil {
+			return "", err
+		}
+		logger.Infof("✓ Created custom AI model: ID=%s, Name=%s", newID, name)
+		return newID, nil
+	}
+
+	var existing AIModel
+	if err := s.db.Where("user_id = ? AND id = ?", userID, id).First(&existing).Error; err != nil {
+		return "", fmt.Errorf("%w: custom model %s not found", ErrCustomModelInvalid, id)
+	}
+	if existing.Provider != ProviderCustom {
+		return "", fmt.Errorf("%w: model %s is a built-in %s model", ErrCustomModelInvalid, id, existing.Provider)
+	}
+	updates := map[string]interface{}{
+		"name":              name,
+		"enabled":           enabled,
+		"custom_api_url":    customAPIURL,
+		"custom_model_name": customModelName,
+		"updated_at":        time.Now().UTC(),
+	}
+	if apiKey != "" {
+		updates["api_key"] = crypto.EncryptedString(apiKey)
+	}
+	if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
+		return "", err
+	}
+	return id, nil
 }

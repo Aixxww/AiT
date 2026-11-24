@@ -1338,6 +1338,12 @@ export const translations = {
       otherApiEntry: 'Other API Providers',
       otherApiEntryDesc:
         'Use your own API key for OpenAI, Claude, Gemini, DeepSeek, and more.',
+      addOtherModel: 'Add other model',
+      addOtherModelDesc:
+        'Any OpenAI-compatible endpoint: your own base URL, model name and API key.',
+      displayName: 'Display name *',
+      displayNamePlaceholder: 'e.g. WorkBuddy DeepSeek',
+      customRequired: 'Required for a custom model.',
       payPerCall: 'Pay-per-call USDC · All AI Models · No API Key',
       recommended: 'Best',
       allModelsClaw: 'Pay-per-call with USDC — supports all major AI models',
@@ -2851,6 +2857,12 @@ export const translations = {
       otherApiEntry: '其他 API 模型',
       otherApiEntryDesc:
         '如果你已经有自己的 OpenAI、Claude、Gemini、DeepSeek 等 API Key，再从这里进入。',
+      addOtherModel: '添加其他模型',
+      addOtherModelDesc:
+        '任意 OpenAI 兼容接口：自定义 Base URL、模型名称和 API Key。',
+      displayName: '显示名称 *',
+      displayNamePlaceholder: '例如 WorkBuddy DeepSeek',
+      customRequired: '自定义模型必填。',
       payPerCall: 'USDC 按次付费 · 支持全部 AI 模型 · 无需 API Key',
       recommended: '推荐',
       allModelsClaw: '用 USDC 按次付费，支持所有主流 AI 模型',
@@ -4310,6 +4322,12 @@ export const translations = {
       otherApiEntry: 'Penyedia API Lain',
       otherApiEntryDesc:
         'Gunakan API key Anda sendiri untuk OpenAI, Claude, Gemini, DeepSeek, dan lainnya.',
+      addOtherModel: 'Tambah model lain',
+      addOtherModelDesc:
+        'Endpoint apa pun yang kompatibel dengan OpenAI: base URL, nama model, dan API key Anda sendiri.',
+      displayName: 'Nama tampilan *',
+      displayNamePlaceholder: 'mis. WorkBuddy DeepSeek',
+      customRequired: 'Wajib untuk model kustom.',
       payPerCall: 'Bayar per panggilan USDC · Semua Model AI · Tanpa API Key',
       recommended: 'Terbaik',
       allModelsClaw:

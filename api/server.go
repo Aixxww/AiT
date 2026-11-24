@@ -278,8 +278,10 @@ CRITICAL: The "id" field (e.g. "abc123_deepseek") is what you must use for ai_mo
 			s.routeWithSchema(protected, "PUT", "/models", "Configure an AI model provider",
 				`Body: {"models":{"<model_id>":{"enabled":<bool>,"api_key":"<string>","custom_api_url":"<string, leave empty to use provider default>","custom_model_name":"<string, leave empty to use provider default>"}}}
 model_id values: "openai","deepseek","qwen","kimi","grok","gemini","claude"
+Custom OpenAI-compatible entry: {"models":{"custom":{"provider":"custom","name":"<display name>","enabled":true,"api_key":"<key>","custom_api_url":"<https base URL>","custom_model_name":"<model>"}}} creates a new entry; use its returned id to update it
 Defaults when custom fields empty: openai→api.openai.com/v1, deepseek→api.deepseek.com, qwen→dashscope.aliyuncs.com/compatible-mode/v1, kimi→api.moonshot.ai/v1, grok→api.x.ai/v1, gemini→generativelanguage.googleapis.com/v1beta/openai, claude→api.anthropic.com/v1`,
 				s.handleUpdateModelConfigs)
+			s.route(protected, "DELETE", "/models/:id", "Delete a custom AI model entry (built-in entries are disabled instead)", s.handleDeleteModelConfig)
 
 			// Exchange configuration
 			s.routeWithSchema(protected, "GET", "/exchanges", "List exchange accounts",
