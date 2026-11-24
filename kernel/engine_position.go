@@ -16,22 +16,30 @@ import (
 // RiskControl.MinRiskRewardRatio is unset (<= 0).
 const legacyMinRiskRewardRatio = 3.0
 
+// legacyMinConfidenceFloor / legacyContradictionConfidenceCap apply only when
+// the strategy leaves min_confidence unset (#77); a configured value replaces
+// both.
+const (
+	legacyMinConfidenceFloor         = 60
+	legacyContradictionConfidenceCap = 70
+)
+
 type HunterScoreInfo struct {
 	LongScore  float64
 	ShortScore float64
 	Direction  string
 }
 
-func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor) error {
+func validateDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int) error {
 	for i := range decisions {
-		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor); err != nil {
+		if err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, minOpenConfidence); err != nil {
 			return fmt.Errorf("decision #%d validation failed: %w", i+1, err)
 		}
 	}
 	return nil
 }
 
-func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor) error {
+func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int) error {
 	validActions := map[string]bool{
 		"open_long":   true,
 		"open_short":  true,
@@ -154,9 +162,21 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		}
 
 		// Confidence cross-validation with Hunter scores
-		const minConfidenceHard = 60
+		// #77: the strategy's min_confidence is the floor; the 60 sanity floor
+		// applies only when the strategy leaves it unset.
+		minConfidenceHard := legacyMinConfidenceFloor
+		if minOpenConfidence > 0 {
+			minConfidenceHard = minOpenConfidence
+		}
 		if d.Confidence < minConfidenceHard {
 			return fmt.Errorf("confidence %d below absolute minimum %d", d.Confidence, minConfidenceHard)
+		}
+		// The direction-contradiction cap lowers confidence to the open
+		// threshold (the lowest size band), as it did when the threshold was
+		// the old hard-coded 70; it no longer hard-codes 70 (#77).
+		contradictionCap := legacyContradictionConfidenceCap
+		if minOpenConfidence > 0 {
+			contradictionCap = minOpenConfidence
 		}
 
 		if hunterScoreMap != nil {
@@ -169,16 +189,16 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 				// Direction contradiction: AI opens LONG but Hunter says SHORT is stronger
 				if d.Action == "open_long" && info.ShortScore > info.LongScore+10 {
 					if d.Confidence > 80 {
-						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter SHORT (%.1f) > LONG (%.1f) — capping confidence to 70",
-							d.Symbol, d.Confidence, info.ShortScore, info.LongScore)
-						d.Confidence = 70
+						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter SHORT (%.1f) > LONG (%.1f) — capping confidence to %d",
+							d.Symbol, d.Confidence, info.ShortScore, info.LongScore, contradictionCap)
+						d.Confidence = contradictionCap
 					}
 				}
 				if d.Action == "open_short" && info.LongScore > info.ShortScore+10 {
 					if d.Confidence > 80 {
-						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter LONG (%.1f) > SHORT (%.1f) — capping confidence to 70",
-							d.Symbol, d.Confidence, info.LongScore, info.ShortScore)
-						d.Confidence = 70
+						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter LONG (%.1f) > SHORT (%.1f) — capping confidence to %d",
+							d.Symbol, d.Confidence, info.LongScore, info.ShortScore, contradictionCap)
+						d.Confidence = contradictionCap
 					}
 				}
 

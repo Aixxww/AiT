@@ -125,7 +125,9 @@ func TestValidateOpenDecisionRejectsLowConfidence(t *testing.T) {
 	}
 }
 
-func TestValidateOpenDecisionAllowsHunterV7MediumConfidence(t *testing.T) {
+// #77: the configured min_confidence (75) is authoritative for hunter_v7;
+// the former cap at 70 is gone.
+func TestValidateOpenDecisionUsesConfiguredHunterV7MinConfidence(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.config.StrategyConfig.CoinSource.SourceType = "hunter_v7"
 	at.config.StrategyConfig.RiskControl.MinConfidence = 75
@@ -138,14 +140,14 @@ func TestValidateOpenDecisionAllowsHunterV7MediumConfidence(t *testing.T) {
 		Price:           36.3,
 		StopLoss:        37.03,
 		TakeProfit:      34.85,
-		Confidence:      70,
+		Confidence:      75,
 	}
 
 	if err := at.validateOpenDecision(decision, 36.3, "short"); err != nil {
-		t.Fatalf("expected Hunter v7 confidence 70 to pass, got: %v", err)
+		t.Fatalf("expected Hunter v7 confidence 75 to pass, got: %v", err)
 	}
 
-	decision.Confidence = 69
+	decision.Confidence = 70
 	err := at.validateOpenDecision(decision, 36.3, "short")
 	if err == nil || !strings.Contains(err.Error(), "Confidence") {
 		t.Fatalf("expected Hunter v7 confidence 69 rejection, got: %v", err)

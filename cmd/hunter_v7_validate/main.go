@@ -748,6 +748,7 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 	cfg.CycleNumber = round
 	cfg.WatchStateManager = opts.watchState
 	if strategyCfg != nil {
+		cfg.MinRiskRewardRatio = strategyCfg.RiskControl.MinRiskRewardRatio // #77: same floor as the live engine
 		if strategyCfg.CoinSource.Hunter != nil {
 			if strategyCfg.CoinSource.Hunter.V7MaxOutput > 0 {
 				cfg.MaxOutput = strategyCfg.CoinSource.Hunter.V7MaxOutput

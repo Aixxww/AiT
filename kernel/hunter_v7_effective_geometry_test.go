@@ -12,7 +12,7 @@ import (
 func TestEffectiveGeometryDefaults(t *testing.T) {
 	g := HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)
 	e := HunterV7EffectiveGeometryOf(g)
-	if e.NativeMinRR != local.V7MinExecutableRR || e.T2MinRR != store.DefaultT2MinRiskRewardRatio || e.T2MinSLMovePct != store.DefaultT2MinStopLossPriceMovePct {
+	if e.NativeMinRR != store.DefaultMinRiskRewardRatio || e.T2MinRR != store.DefaultT2MinRiskRewardRatio || e.T2MinSLMovePct != store.DefaultT2MinStopLossPriceMovePct {
 		t.Fatalf("defaults %+v", e)
 	}
 	found := false

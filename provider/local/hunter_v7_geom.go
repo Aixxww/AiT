@@ -1,5 +1,7 @@
 package local
 
+import "github.com/Aixxww/AiT/store"
+
 // ============================================================================
 // Hunter v7 — Geometry primitives (U2.1+, lean-core redesign)
 // ============================================================================
@@ -11,18 +13,19 @@ package local
 // the resolution is one implementation with the variant made explicit at the
 // call site, not a forced single semantic.
 
-// Risk/reward floors. These were two independent literals — the provider's
-// quality gate and the kernel's hunterV7BackendMinRR — kept in sync by hand.
-// One constant pair now feeds both.
-const (
-	// V7MinAbsoluteRR is the hard floor: geometry below it is invalid_rr and
-	// can never execute.
-	V7MinAbsoluteRR = 1.2
-	// V7MinExecutableRR is the executable floor: geometry between the two
-	// floors is thin_rr_wait_confirm — reviewable only if live repricing
-	// restores it.
-	V7MinExecutableRR = 1.5
-)
+// Risk/reward floor (#77): the strategy's RiskControl.MinRiskRewardRatio is
+// authoritative. The kernel passes it as V7Config.MinRiskRewardRatio; the
+// former code floors (1.2 absolute / 1.5 executable) are gone. Geometry below
+// the floor is invalid_rr and can never execute.
+
+// EffectiveMinRR is the router's RR floor: the configured value, or the
+// store default when the strategy leaves it unset.
+func (c V7Config) EffectiveMinRR() float64 {
+	if c.MinRiskRewardRatio > 0 {
+		return c.MinRiskRewardRatio
+	}
+	return store.DefaultMinRiskRewardRatio
+}
 
 // V7ZonePositionPct returns price's raw position inside the zone as a
 // percentage of the zone span: 0 = lower bound, 100 = upper bound, negative =

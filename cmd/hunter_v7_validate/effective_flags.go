@@ -151,7 +151,7 @@ func buildEffectiveFlags(opts validationOptions, strategyCfg *store.StrategyConf
 	case s.ConfiguredMinRR > 0:
 		s.NativeMinRRSource = "strategy min_risk_reward_ratio"
 	default:
-		s.NativeMinRRSource = fmt.Sprintf("unset: kernel fallback %.2f (local.V7MinExecutableRR)", local.V7MinExecutableRR)
+		s.NativeMinRRSource = fmt.Sprintf("unset: store default %.2f (store.DefaultMinRiskRewardRatio)", store.DefaultMinRiskRewardRatio)
 	}
 	ef.Notes = effectiveFlagNotes(ef)
 	return ef

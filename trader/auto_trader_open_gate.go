@@ -35,16 +35,14 @@ func isOpenAction(action string) bool {
 	return action == "open_long" || action == "open_short"
 }
 
-// maxPositionsLimit is the limit enforceMaxPositions applies.
-func (at *AutoTrader) maxPositionsLimit() int {
+// maxPositionsLimit is the limit enforceMaxPositions applies: 0 when there
+// is no strategy config (no limit), the configured value otherwise, and an
+// error when the configured value is invalid (#77: no silent default).
+func (at *AutoTrader) maxPositionsLimit() (int, error) {
 	if at.config.StrategyConfig == nil {
-		return 0 // no limit configured: enforceMaxPositions does not apply
+		return 0, nil
 	}
-	maxPositions := at.config.StrategyConfig.RiskControl.MaxPositions
-	if maxPositions <= 0 {
-		maxPositions = 3 // same default as enforceMaxPositions
-	}
-	return maxPositions
+	return at.config.StrategyConfig.RiskControl.ValidateMaxPositions()
 }
 
 func (at *AutoTrader) pendingConditionalEntryCount() int {
@@ -81,8 +79,11 @@ func (at *AutoTrader) noteOpenOrderSubmitted() {
 // capOpensToFreeSlots keeps every non-open decision and at most freeSlots
 // opens, in execution order. The dropped opens are returned for recording.
 func (at *AutoTrader) capOpensToFreeSlots(decisions []kernel.Decision, positionCount int) (kept, dropped []kernel.Decision, freeSlots int) {
-	limit := at.maxPositionsLimit()
-	if limit <= 0 {
+	limit, err := at.maxPositionsLimit()
+	if err != nil {
+		// Invalid config: keep no open (each would fail the same check).
+		limit = 0
+	} else if at.config.StrategyConfig == nil {
 		return decisions, nil, -1
 	}
 	freeSlots = limit - positionCount - at.pendingConditionalEntryCount()
@@ -125,7 +126,11 @@ func (at *AutoTrader) capResponseOpens(ctx *kernel.Context, decisions []kernel.D
 	}
 	kept, dropped, freeSlots := at.capOpensToFreeSlots(decisions, positionCount)
 	for _, d := range dropped {
-		msg := maxPositionsResponseCapError(d, freeSlots, at.maxPositionsLimit())
+		limit, limitErr := at.maxPositionsLimit()
+		msg := maxPositionsResponseCapError(d, freeSlots, limit)
+		if limitErr != nil {
+			msg = fmt.Sprintf("❌ [RISK CONTROL] %s %s not executed: %v", d.Symbol, d.Action, limitErr)
+		}
 		at.logErrorf("%s", msg)
 		if record != nil {
 			record.ExecutionLog = append(record.ExecutionLog, msg)

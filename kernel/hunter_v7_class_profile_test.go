@@ -172,10 +172,10 @@ func TestSetupOverrideReachesValidatorAndHydration(t *testing.T) {
 		return &Decision{Symbol: "SCALPUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 102.2,
 			Confidence: 80, Reasoning: "t", SelectedHunterV7SignalID: id}
 	}
-	if err := validateDecision(mk("SCALP"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err != nil {
+	if err := validateDecision(mk("SCALP"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err != nil {
 		t.Fatalf("validator must accept RR 1.1 for intraday_scalp_long: %v", err)
 	}
-	if err := validateDecision(mk(""), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err == nil {
+	if err := validateDecision(mk(""), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err == nil {
 		t.Fatalf("without the selected signal the strategy floor 1.5 applies")
 	}
 	ds := []Decision{*mk("SCALP"), *mk("DISP")}

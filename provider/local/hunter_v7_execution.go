@@ -16,14 +16,12 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 	sig.ConfirmSummary = &summary
 
 	quality := V7ExecNearConfirm
+	minRR := cfg.EffectiveMinRR() // #77: the strategy's floor, not a code literal
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)
-	if !rrOK || rr < V7MinAbsoluteRR {
+	if !rrOK || rr < minRR {
 		quality = V7ExecInvalidRR
 		sig.Status = V7StatusWaitConfirm
 		sig.RiskTags = appendIfMissing(sig.RiskTags, "invalid_rr_context_only")
-	} else if rr < V7MinExecutableRR {
-		sig.Status = V7StatusWaitConfirm
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "thin_rr_wait_confirm")
 	}
 
 	thresholds := cfg.GetSetupThresholds(sig.SetupType)
@@ -51,7 +49,7 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 
 	switch sig.SetupType {
 	case V7SetupPanicReversalLong:
-		if sig.TimingScore >= 45 && sig.RiskScore < 55 && rrOK && rr >= V7MinExecutableRR {
+		if sig.TimingScore >= 45 && sig.RiskScore < 55 && rrOK && rr >= minRR {
 			quality = betterV7ExecutionQuality(quality, V7ExecReady)
 		}
 	case V7SetupIntradayScalp:
@@ -104,14 +102,14 @@ func finalizeV7SignalForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, cfg
 		}
 	}
 
-	if quality == V7ExecNearConfirm && sig.Status == V7StatusCandidate && sig.TimingScore >= 60 && rrOK && rr >= V7MinExecutableRR {
+	if quality == V7ExecNearConfirm && sig.Status == V7StatusCandidate && sig.TimingScore >= 60 && rrOK && rr >= minRR {
 		quality = V7ExecReady
 	}
 	sig.ExecutionQuality = quality
 	readiness := CalculateV7ExecutionReadiness(sig, ctx)
 	sig.ExecutionReadiness = &readiness
-	repairV7DisplacementRRTagForExecution(sig, ctx, rr, rrOK)
-	annotateV7ExecutionSemantics(sig, ctx, rr, rrOK)
+	repairV7DisplacementRRTagForExecution(sig, ctx, rr, rrOK, minRR)
+	annotateV7ExecutionSemantics(sig, ctx, rr, rrOK, minRR)
 }
 
 func leaderMomentumUpperZoneChaseRisk(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
@@ -360,7 +358,7 @@ func v7ActionableTargetsForExecution(sig *V7SignalOutput, price float64) []V7Tar
 	return targets
 }
 
-func annotateV7ExecutionSemantics(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool) {
+func annotateV7ExecutionSemantics(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool, minRR float64) {
 	if sig == nil || ctx == nil {
 		return
 	}
@@ -371,7 +369,7 @@ func annotateV7ExecutionSemantics(sig *V7SignalOutput, ctx *V7SymbolContext, rr 
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, string(sig.MarketShape))
 	}
 
-	sig.EntrySignal = inferV7EntrySignal(sig, ctx, rr, rrOK)
+	sig.EntrySignal = inferV7EntrySignal(sig, ctx, rr, rrOK, minRR)
 	if sig.EntrySignal != "" {
 		sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, string(sig.EntrySignal))
 	}
@@ -402,7 +400,7 @@ func inferV7MarketShape(setup V7SetupType) V7MarketShape {
 	}
 }
 
-func inferV7EntrySignal(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool) V7EntrySignal {
+func inferV7EntrySignal(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool, minRR float64) V7EntrySignal {
 	if sig.LiquidityScore > 0 && sig.LiquidityScore < 50 {
 		return V7EntrySignalLiquidityBlocked
 	}
@@ -425,10 +423,10 @@ func inferV7EntrySignal(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, r
 	}
 
 	if sig.SetupType == V7SetupTrendBreakoutLong || sig.SetupType == V7SetupAccumulationLong {
-		if v7BreakoutConfirmedForOpen(sig, ctx, rr, rrOK) {
+		if v7BreakoutConfirmedForOpen(sig, ctx, rr, rrOK, minRR) {
 			return V7EntrySignalOpenNow
 		}
-		if v7BreakoutTriggerNear(sig, ctx) {
+		if v7BreakoutTriggerNear(sig, ctx, minRR) {
 			return V7EntrySignalTriggerNear
 		}
 		return V7EntrySignalBreakoutWait
@@ -448,7 +446,7 @@ func inferV7EntrySignal(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, r
 	return V7EntrySignalNoTrade
 }
 
-func v7BreakoutConfirmedForOpen(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool) bool {
+func v7BreakoutConfirmedForOpen(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool, minRR float64) bool {
 	if sig == nil || ctx == nil || ctx.CurrentPrice <= 0 || sig.EntryZone.Upper <= 0 {
 		return false
 	}
@@ -461,7 +459,7 @@ func v7BreakoutConfirmedForOpen(sig *V7SignalOutput, ctx *V7SymbolContext, rr fl
 	if sig.RiskScore >= 45 || (sig.LiquidityScore > 0 && sig.LiquidityScore < 70) {
 		return false
 	}
-	if !rrOK || rr < V7MinExecutableRR {
+	if !rrOK || rr < minRR {
 		return false
 	}
 	if ctx.CurrentPrice < sig.EntryZone.Upper {
@@ -494,7 +492,7 @@ func hunterV7BreakoutFlowOK(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
 		containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive")
 }
 
-func v7BreakoutTriggerNear(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
+func v7BreakoutTriggerNear(sig *V7SignalOutput, ctx *V7SymbolContext, minRR float64) bool {
 	if sig == nil || ctx == nil || ctx.CurrentPrice <= 0 || sig.EntryZone.Upper <= 0 {
 		return false
 	}
@@ -525,17 +523,17 @@ func v7BreakoutTriggerNear(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
 		return false
 	}
 	rr, rrOK := v7SignalRiskReward(sig, ctx.CurrentPrice)
-	return rrOK && rr >= V7MinExecutableRR
+	return rrOK && rr >= minRR
 }
 
-func repairV7DisplacementRRTagForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool) {
+func repairV7DisplacementRRTagForExecution(sig *V7SignalOutput, ctx *V7SymbolContext, rr float64, rrOK bool, minRR float64) {
 	if sig == nil || ctx == nil || sig.SetupType != V7SetupDisplacementLong {
 		return
 	}
 	if !containsV7String(sig.RiskTags, "displacement_rr_insufficient") {
 		return
 	}
-	if !rrOK || rr < V7MinExecutableRR {
+	if !rrOK || rr < minRR {
 		return
 	}
 	if sig.RiskScore >= 55 || (sig.LiquidityScore > 0 && sig.LiquidityScore < 70) {

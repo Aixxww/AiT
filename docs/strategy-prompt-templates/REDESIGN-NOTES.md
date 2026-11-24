@@ -65,7 +65,7 @@ Duplicates removed:
 |---|---|---|
 | C1 | §2 says REVIEWABLE "is not a market-entry permission" and must output a blocker. §4 lists "open-after-live-recheck (REVIEWABLE gaps settled)" as a release grade. The payload's `execution_policy` is `reviewable_open_allowed_only_if_live_confirmed`. | S2: REVIEWABLE opens only when every `must_confirm` / `required_confirmations` item is visibly satisfied in this cycle's data; otherwise it waits. S5 says what a REVIEWABLE wait must state. |
 | C2 | `entry_standards` names `short_squeeze_long`, which is outside the brief's canonical list. | Not named. S3 adds a generic rule: a setup_type outside the families has no playbook, so use `execution_contract` + `tag_semantics` only, at conservative size at most. See open question Q1. Superseded by #74: it is now in the momentum family. |
-| C3 | Per-family rules appear in both `entry_standards` and doctrine §3. Displacement review (capped effective_rr ≥ 1.5, VWAP, taker > 0.52, OI/volume) existed only in the sections. | Merged into S3. The displacement floor comes from `local.V7MinExecutableRR`, and the confirmations are the `required_confirmations` that `repairV7DisplacementRRTagForExecution` attaches, so no taker literal is repeated. |
+| C3 | Per-family rules appear in both `entry_standards` and doctrine §3. Displacement review (capped effective_rr ≥ 1.5, VWAP, taker > 0.52, OI/volume) existed only in the sections. | Merged into S3. The displacement floor is the configured min RR (#77; it was `local.V7MinExecutableRR` = 1.5), and the confirmations are the `required_confirmations` that `repairV7DisplacementRRTagForExecution` attaches, so no taker literal is repeated. |
 | C4 | Stop rule: Hard Constraints prefer ≥ min + drift (2.50%); §4 repairs the stop to "minimum + 0.10%" (2.10%), which is inside the drift band the first rule warns about. | S4: aim for the drift buffer and widen the stop toward it when repairing; min + 0.10% is the absolute floor. Both numbers are unchanged. |
 | C5 | Two sizing schemes: confidence bands (Position Sizing Guidance) and release grades (§4), with "conservative size" undefined. | S4: the release grade picks a point within the confidence band. Normal uses the band; conservative and open-after-live-recheck use the low end of the band. No new numbers. |
 | C6 | Alt-ladder text tells the LLM to place candidates into tiers ("may enter REVIEWABLE-small", "upgrade to EXECUTABLE", "mark reviewable_retest_pending"). The LLM cannot assign tiers, and no output field exists for that tag. | Rewritten as LLM actions: while REVIEWABLE, small size at most; normal size needs a 5m/15m close below the trigger with sell flow intact. The soft-release admission numbers (zone ≤ 45, OI ≥ 0.8%, taker ≤ 0.38) are tier gates enforced by `hunterV7AltLadderSoft*`, so the prose no longer restates them. The stop tolerance the LLM does choose (≤ 2.45% when taker ≤ 0.34) is kept and comes from the constants. |
@@ -89,7 +89,7 @@ Duplicates removed:
 
 | Conflict | Resolution in the redesign |
 |---|---|
-| RR floor | Hard Constraints and S4 use `risk_control.min_risk_reward_ratio` (1.2). The displacement review floor is `local.V7MinExecutableRR` (1.5). The Task-2 per-candidate `min_rr` note is unchanged. No template RR is used. |
+| RR floor | Hard Constraints and S4 use `risk_control.min_risk_reward_ratio` (1.2). The displacement review floor is the same configured min RR (#77 removed the 1.5 code floor). The Task-2 per-candidate `min_rr` note is unchanged. No template RR is used. |
 | Max positions | Hard Constraints (`max_positions` = 1). `trading_frequency` refers to that limit without restating the number. |
 | Cadence | Cycle-based rules only (`trading_frequency`). `TestRedesignedSystemPromptVocabulary` forbids minute/day cadence phrases. |
 | Regime names | Updated in #74: S2 lists the code's `V7MarketRegime` values (including the canonical four), and the funding rule names `compression` and `trend_continuation`. TREND/CHAOTIC/TRANSITION are forbidden by the test. |
@@ -104,7 +104,7 @@ From config or the backend constant (rendered, never typed):
 | Prompt value | Source |
 |---|---|
 | RR floor, TP cap, min stop, drift, stop buffer | `risk_control` via `effectiveExecutionGeometry()` |
-| Displacement review RR 1.50 | `local.V7MinExecutableRR` |
+| Displacement review RR | `risk_control.min_risk_reward_ratio` (#77; was `local.V7MinExecutableRR` = 1.50) |
 | whale_flow LONG zone ≤ 45, taker ≥ 0.56 | `hunterV7WhaleLongMaxZonePos`, `hunterV7WhaleLongMinTaker` (tier rule and trader guard) |
 | alt_ladder_breakdown_short stop ≤ 2.45% when taker ≤ 0.34 | `hunterV7AltLadderSoftStopStrong`, `hunterV7AltLadderSoftTakerStrong` |
 | Protection ladder 5 / 10·50 / 15·45 / 8 / −8·15 min / −12 / 5.7 / 1 | `store.EffectiveProtector(risk_control.protector)` with units |

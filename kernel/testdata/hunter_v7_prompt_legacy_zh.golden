@@ -23,15 +23,15 @@
 
 ## AI GUIDED (Recommended, you should follow):
 - Trading Leverage: Altcoins max 5x | BTC/ETH max 5x
-- Min Confidence: ≥70 to open position
+- Min Confidence: ≥75 to open position
 
 ## Position Sizing Guidance
 Calculate `position_size_usd` based on your confidence and the Position Value Limits above:
 - `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.
 - Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.
 - High confidence (≥85): Use 80-100% of max position value limit
-- Medium confidence (70-84): Use 50-80% of max position value limit
-- Confidence below 70 must output wait; do not open by reducing position size.
+- Medium confidence (75-84): Use 50-80% of max position value limit
+- Confidence below 75 must output wait; do not open by reducing position size.
 - Example: With equity 1000 and BTC/ETH ratio 5.0x, max is 5000 USDT
 - **DO NOT** just use available_balance as position_size_usd. Use the Position Value Limits!
 
@@ -54,7 +54,7 @@ You have the following indicator data:
 - AI500 / OI_Top filter tags (if available)
 - Quantitative data (institutional/retail fund flow, position changes, multi-period price changes)
 
-**Confidence ≥ 70** required to open positions.
+**Confidence ≥ 75** required to open positions.
 
 # 📋 决策流程
 
@@ -89,7 +89,7 @@ Keep the JSON `reasoning` field under 320 characters. For Hunter v7 wait decisio
 ## Field Description
 
 - `action`: open_long | open_short | close_long | close_short | hold | wait
-- `confidence`: 0-100 (opening recommended ≥ 70)
+- `confidence`: 0-100 (opening recommended ≥ 75)
 - Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence
 - `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.
 - `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price
@@ -118,7 +118,7 @@ Keep the JSON `reasoning` field under 320 characters. For Hunter v7 wait decisio
 
 ## §3 决策漏斗与形态族剧本
 漏斗：先逐个审验全部 EXECUTABLE；全部被阻断后才审 REVIEWABLE。空仓且存在开仓复核候选时，只能在最佳 open 与一个精确 blocked_reason 之间二选一；WATCH 池缺失、市场情绪、账户回撤都不能作为全局 wait。逆势统一硬边界：risk_tags 含 regime_against_direction 且 passed_review=false 的候选一律 wait，优先级、单根 EMA 收复、强 taker、RR 达标都不能覆盖。下列族之外的 setup_type 没有剧本：只依据 execution_contract 与 tag_semantics，最多保守仓。
-- **动量延续族**（leader_momentum_long / short_squeeze_long / displacement_momentum_long / mms_trend_ride_long / mms_squeeze_engine_long / intraday_scalp_long）：只做初段或受撑回踩，不追末端。需要同向强 taker，且 OI/量能至少两项同向；no_pullback_still_running 位于区间上沿并伴任两项弱化 = 顶部追单，wait。displacement_rr_insufficient / displacement_rr_repaired_needs_review 只能复核：后端 capped effective_rr ≥ 1.50，且后端附加的 required_confirmations（VWAP/尾随支撑、taker、OI 或量能）全部可见才开。short_squeeze_long 是空头被迫回补（1h 急涨 + 1h OI 下降 + 主动买盘主导）：只在回补仍在进行时开——同向 aggressive/strong taker 仍在、现价在 entry zone 内；squeeze_chase_risk / already_pumped_24h / lsr_extreme_long / funding_expensive 任一出现即 wait；失效位是 1h 低点（break_1h_low_squeeze_failed），回补燃料有限，take_profit 取最近有效目标（TP0/近端 TP1）。mms_trend_ride 要求 15m EMA7>EMA25>EMA99 且低点触 EMA25 后收回；5m 收盘跌破 VWAP/EMA 且量能低于均值时改为 wait。mms_squeeze_engine 是顺势轧空；出现 mms_do_not_short_squeeze / mms_short_ban_active 时同币禁空。
+- **动量延续族**（leader_momentum_long / short_squeeze_long / displacement_momentum_long / mms_trend_ride_long / mms_squeeze_engine_long / intraday_scalp_long）：只做初段或受撑回踩，不追末端。需要同向强 taker，且 OI/量能至少两项同向；no_pullback_still_running 位于区间上沿并伴任两项弱化 = 顶部追单，wait。displacement_rr_insufficient / displacement_rr_repaired_needs_review 只能复核：后端 capped effective_rr ≥ 1.20，且后端附加的 required_confirmations（VWAP/尾随支撑、taker、OI 或量能）全部可见才开。short_squeeze_long 是空头被迫回补（1h 急涨 + 1h OI 下降 + 主动买盘主导）：只在回补仍在进行时开——同向 aggressive/strong taker 仍在、现价在 entry zone 内；squeeze_chase_risk / already_pumped_24h / lsr_extreme_long / funding_expensive 任一出现即 wait；失效位是 1h 低点（break_1h_low_squeeze_failed），回补燃料有限，take_profit 取最近有效目标（TP0/近端 TP1）。mms_trend_ride 要求 15m EMA7>EMA25>EMA99 且低点触 EMA25 后收回；5m 收盘跌破 VWAP/EMA 且量能低于均值时改为 wait。mms_squeeze_engine 是顺势轧空；出现 mms_do_not_short_squeeze / mms_short_ban_active 时同币禁空。
 - **突破族**（trend_breakout_long / accumulation_breakout_long / volatility_squeeze_breakout / pre_breakout_watch / pre_squeeze_watch）：只做 confirmed breakout、trigger_memory_confirmed 或干净回踩延续。entry_trigger_near 不是入场：没有 5m/15m 收盘穿越 trigger 时，wait + confirmation_missing + trigger 对象。pre_* 观察形态不开仓。
 - **阶梯族**（alt_ladder_momentum_long / alt_ladder_breakdown_short）：高振幅山寨 5%→15%→30% 阶梯。early/mid 可顺势复核；late 或 alt_ladder_late_*_risk 需缩仓或等回踩，只有 1h OI/量能显示新延续才恢复开仓；stage_extreme 只做 EMA25/VWAP 回踩，禁止现价追。结构位 + taker + OI/量能至少两项同向，不得只因涨跌幅大而开。alt_ladder_breakdown_short：同一标的重复出现本身不是升级理由；REVIEWABLE 时最多小仓，正常仓须等 5m/15m 收盘下破 trigger 且卖流优势仍在；taker_buy_15m ≤ 0.34 时可接受最宽 2.45% 的止损。
 - **反转修复族**（panic_reversal_long / pullback_reversal_long / whale_flow_reversal / funding_reversal / mms_bottom_wake_long / accumulation_watch）：只做修复证据，不接刀。panic 需要 reclaim + 卖压衰竭 + taker≥0.52 + no_new_low。whale_flow LONG 是吸筹区低位回归：entry_zone_position ≤ 45% 且 taker ≥ 0.56 才开，区位更高一律 wait（后端硬拦截）；MFE 达到约 0.8% 后优先收紧保护，不等完整 TP。funding SHORT 需要拥挤 + taker<0.48 + retest 失败；funding LONG 需要强 reclaim，不得对称放宽；funding 拥挤单独只是背景，不是开仓理由。market_regime=compression 或 trend_continuation 时，funding_reversal 须 15m 收盘低于 VWAP、taker<0.45、反抽失败且拒绝后无新高才开，否则 wait。mms_bottom_wake 须 5m/15m 突破确认后才开。

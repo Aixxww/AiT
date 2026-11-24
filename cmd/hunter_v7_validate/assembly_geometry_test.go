@@ -28,8 +28,8 @@ func TestAssemblyGeometryEqualsPromptGeometry(t *testing.T) {
 	if g.T2MinRR != 1.3 || g.MinRR != 3.0 || g.ClassProfiles[store.V7ClassTrigger].T2.MinRiskRewardRatio != 1.6 || !g.ConditionalClasses[store.V7ClassTrigger] {
 		t.Fatalf("carried values %+v", g)
 	}
-	if n := executionGeometryFromStrategy(nil); n.MinRR != store.GetDefaultStrategyConfig("zh").RiskControl.MinRiskRewardRatio || n.MinRR == local.V7MinExecutableRR {
-		t.Fatalf("no strategy: native floor %v, want the default config's 1.2 (not the 1.5 fallback)", n.MinRR)
+	if n := executionGeometryFromStrategy(nil); n.MinRR != store.GetDefaultStrategyConfig("zh").RiskControl.MinRiskRewardRatio {
+		t.Fatalf("no strategy: native floor %v, want the default config's 1.2 ", n.MinRR)
 	}
 }
 
