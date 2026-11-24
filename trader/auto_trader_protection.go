@@ -35,7 +35,10 @@ func (at *AutoTrader) freshPositions() ([]map[string]interface{}, error) {
 func (at *AutoTrader) closeUnprotectedPosition(symbol, side string, quantity float64, protectionErr error) error {
 	logger.Errorf("  🚨 %v; emergency-closing unprotected %s %s", protectionErr, symbol, side)
 	if closeErr := at.emergencyClosePositionAndVerify(symbol, side, quantity); closeErr != nil {
-		return fmt.Errorf("%w; emergency close FAILED, position may be unprotected: %v", protectionErr, closeErr)
+		// AUD-C5: never only returned; the alert stays until the per-poll
+		// stop audit confirms a stop or the position is gone.
+		at.raiseNakedPositionAlert(symbol, side, fmt.Sprintf("%v; emergency close failed: %v", protectionErr, closeErr))
+		return fmt.Errorf("%w; %w, position may be unprotected: %v", protectionErr, errNakedEmergencyCloseFailed, closeErr)
 	}
 	return fmt.Errorf("%w; opened position was emergency-closed", protectionErr)
 }

@@ -124,6 +124,7 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		logger.Infof("❌ Drawdown monitoring: failed to get positions: %v", err)
 		return e.cfg.BaseInterval()
 	}
+	at.clearNakedAlertsForClosedPositions(positions) // AUD-C5
 	if len(positions) == 0 {
 		return e.cfg.IdleInterval()
 	}
@@ -155,10 +156,16 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 		openedAt := at.resolveProtectionPositionOpenedAt(symbol, side)
 		at.ensurePeakPnLCacheInitialized(symbol, side, currentPnLPct, openedAt)
 		at.UpdatePeakPnL(symbol, side, currentPnLPct)
-		out := at.protectPosition(e, protectorObs{
+		obs := protectorObs{
 			Symbol: symbol, Side: side, Entry: entryPrice, Mark: markPrice, Qty: quantity, Leverage: leverage,
 			Now: protectionNow(), OpenedAt: openedAt, Plan: plannedRiskByPosition[positionRiskKey(symbol, side)],
-		})
+		}
+		// AUD-C5: the position must have an exchange stop before the
+		// protector rules run (the hard-loss close below is unchanged).
+		if at.auditProtectiveStop(e, obs) {
+			continue // emergency-closed: nothing left to protect
+		}
+		out := at.protectPosition(e, obs)
 		if out.FastPoll {
 			nextInterval = e.cfg.FastInterval()
 		}

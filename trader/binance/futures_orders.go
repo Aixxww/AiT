@@ -39,6 +39,9 @@ func (t *FuturesTrader) OpenShortWithClientID(symbol string, quantity float64, l
 // OpenShort bodies except that the client order id is a parameter; the
 // -4411 retry reuses the same id (the first submission was rejected).
 func (t *FuturesTrader) openMarket(symbol string, quantity float64, leverage int, long bool, clientOrderID string) (map[string]interface{}, error) {
+	// AUD-C3: an order changes positions; the 15 s position cache must not
+	// serve the pre-order view to the next max_positions check.
+	defer t.InvalidatePositionCache()
 	label := "short"
 	side, posSide := futures.SideTypeSell, futures.PositionSideTypeShort
 	if long {
@@ -156,8 +159,13 @@ func (t *FuturesTrader) IsAmbiguousOrderError(err error) bool {
 
 // CloseLong closes a long position
 func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]interface{}, error) {
+	// AUD-C3: an order changes positions; the 15 s position cache must not
+	// serve the pre-order view to the next max_positions check.
+	defer t.InvalidatePositionCache()
 	// If quantity is 0, get current position quantity
 	if quantity == 0 {
+		// Close-all must size from the live position, not the cached view.
+		t.InvalidatePositionCache()
 		positions, err := t.GetPositions()
 		if err != nil {
 			return nil, err
@@ -211,8 +219,13 @@ func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]i
 
 // CloseShort closes a short position
 func (t *FuturesTrader) CloseShort(symbol string, quantity float64) (map[string]interface{}, error) {
+	// AUD-C3: an order changes positions; the 15 s position cache must not
+	// serve the pre-order view to the next max_positions check.
+	defer t.InvalidatePositionCache()
 	// If quantity is 0, get current position quantity
 	if quantity == 0 {
+		// Close-all must size from the live position, not the cached view.
+		t.InvalidatePositionCache()
 		positions, err := t.GetPositions()
 		if err != nil {
 			return nil, err
@@ -450,6 +463,9 @@ func (t *FuturesTrader) CancelAllOrders(symbol string) error {
 // PlaceLimitOrder places a limit order for grid trading
 // This implements the GridTrader interface for FuturesTrader
 func (t *FuturesTrader) PlaceLimitOrder(req *types.LimitOrderRequest) (*types.LimitOrderResult, error) {
+	// AUD-C3: an order changes positions; the 15 s position cache must not
+	// serve the pre-order view to the next max_positions check.
+	defer t.InvalidatePositionCache()
 	// Format quantity to correct precision
 	quantityStr, err := t.FormatQuantity(req.Symbol, req.Quantity)
 	if err != nil {

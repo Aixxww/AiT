@@ -116,7 +116,7 @@ func (at *AutoTrader) registerHunterV7ConditionalEntry(ctx *kernel.Context, deci
 	if _, ok := at.conditional.pending[key]; ok {
 		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s blocked: a pending entry already exists (conditional_pending_exists)", decision.Symbol, side)
 	}
-	if err := at.enforceMaxPositions(len(positions) + len(at.conditional.pending)); err != nil {
+	if err := at.enforceMaxPositions(at.effectivePositionCount(len(positions)) + len(at.conditional.pending)); err != nil {
 		return err
 	}
 	inval := decision.HunterV7InvalidationPrice

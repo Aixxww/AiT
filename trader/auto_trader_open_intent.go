@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -52,10 +53,20 @@ func (at *AutoTrader) openIntentKey(decision *kernel.Decision, side string) stri
 //   - found (live or filled)          -> adopted, returned as success;
 //   - found but CANCELED/EXPIRED/REJECTED -> the original error;
 //   - absent on every read             -> the original error (not placed);
-//   - any read failed                  -> an order_state_unknown error. The
-//     order is never resubmitted; the next cycle's same-symbol position
-//     check prevents a duplicate entry.
-func (at *AutoTrader) openMarketPosition(decision *kernel.Decision, side string, quantity float64) (map[string]interface{}, error) {
+//   - any read failed                  -> an errOpenOrderStateUnknown error.
+//     The order is never resubmitted. AUD-C5: the caller treats it as
+//     filled (handleOpenOrderStateUnknown reads the position and places the
+//     stop), and the per-poll stop audit catches a fill reported later.
+func (at *AutoTrader) openMarketPosition(decision *kernel.Decision, side string, quantity float64) (order map[string]interface{}, err error) {
+	// AUD-C3: whatever the outcome, the cached positions are stale now, and
+	// an order that may have reached the exchange occupies a position slot
+	// for the rest of this response.
+	defer func() {
+		at.invalidatePositionCacheAfterOrder()
+		if err == nil || errors.Is(err, errOpenOrderStateUnknown) {
+			at.noteOpenOrderSubmitted()
+		}
+	}()
 	ct, ok := at.trader.(clientIDOrderTrader)
 	if !ok {
 		if side == "long" {
@@ -64,8 +75,6 @@ func (at *AutoTrader) openMarketPosition(decision *kernel.Decision, side string,
 		return at.trader.OpenShort(decision.Symbol, quantity, decision.Leverage)
 	}
 	cid := ct.ClientOrderIDForIntent(at.openIntentKey(decision, side))
-	var order map[string]interface{}
-	var err error
 	if side == "long" {
 		order, err = ct.OpenLongWithClientID(decision.Symbol, quantity, decision.Leverage, cid)
 	} else {
@@ -101,5 +110,10 @@ func (at *AutoTrader) openMarketPosition(decision *kernel.Decision, side string,
 	if absent == openReadBackAttempts {
 		return nil, fmt.Errorf("%w; read-back: order %s absent on %d reads, not placed", err, cid, absent)
 	}
-	return nil, fmt.Errorf("%w; read-back inconclusive for %s (absent %d, unknown %d): order_state_unknown, not resubmitted", err, cid, absent, unknown)
+	return nil, fmt.Errorf("%w (%v); read-back inconclusive for %s (absent %d, unknown %d), not resubmitted", errOpenOrderStateUnknown, err, cid, absent, unknown)
 }
+
+// errOpenOrderStateUnknown marks an open whose order may have filled but
+// could not be confirmed. AUD-C5: the caller must treat it as filled and
+// protect the position (handleOpenOrderStateUnknown).
+var errOpenOrderStateUnknown = errors.New("order_state_unknown")

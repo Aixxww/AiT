@@ -82,6 +82,11 @@ func (at *AutoTrader) GetStatus() map[string]interface{} {
 		"ai_provider":     aiProvider,
 	}
 
+	// AUD-C5: positions without a confirmed exchange stop.
+	naked := at.NakedPositionAlerts()
+	result["naked_position_count"] = len(naked)
+	result["naked_position_alerts"] = naked
+
 	// Add strategy info
 	if at.config.StrategyConfig != nil {
 		result["strategy_type"] = at.config.StrategyConfig.StrategyType
