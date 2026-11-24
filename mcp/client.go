@@ -690,16 +690,25 @@ func (client *Client) BuildRequestBodyFromRequest(req *Request) map[string]any {
 
 	if req.Stream {
 		requestBody["stream"] = true
+		// Without include_usage, OpenAI-compatible servers omit token usage
+		// from the SSE stream and usage reporting silently drops to zero.
+		requestBody["stream_options"] = map[string]any{"include_usage": true}
 	}
 
 	return requestBody
 }
 
 // CallWithRequestStream streams the LLM response via SSE (Server-Sent Events).
-// onChunk is called with the full accumulated text so far after each received chunk.
+// onChunk is called with the full accumulated text so far after each received chunk;
+// it may be nil when the caller only needs the final text.
 // Returns the complete final text when the stream ends.
 //
-// Idle timeout: if no chunk arrives for 30 seconds the stream is cancelled automatically.
+// Retries use the same policy as CallWithRequest (Cfg.MaxRetries, IsRetryableError,
+// RetryWaitBase backoff). Every attempt is a streaming request; there is no
+// non-stream fallback. A failed attempt is not retried once partial text has been
+// delivered to a non-nil onChunk, so a caller never sees the stream restart.
+//
+// Idle timeout: if no SSE line arrives for 60 seconds the stream is cancelled automatically.
 // This prevents the scanner from blocking indefinitely on a hung or stalled connection.
 func (client *Client) CallWithRequestStream(req *Request, onChunk func(string)) (string, error) {
 	if client.APIKey == "" {
@@ -709,6 +718,51 @@ func (client *Client) CallWithRequestStream(req *Request, onChunk func(string)) 
 		req.Model = client.Model
 	}
 	req.Stream = true
+
+	var lastErr error
+	maxRetries := client.Cfg.MaxRetries
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			client.Log.Warnf("⚠  AI API stream call failed, retrying (%d/%d)...", attempt, maxRetries)
+		}
+
+		delivered := false
+		var chunkFn func(string)
+		if onChunk != nil {
+			chunkFn = func(text string) {
+				delivered = true
+				onChunk(text)
+			}
+		}
+
+		result, err := client.callWithRequestStream(req, chunkFn)
+		if err == nil {
+			if attempt > 1 {
+				client.Log.Infof("✓ AI API stream retry succeeded")
+			}
+			return result, nil
+		}
+
+		lastErr = err
+		if delivered || !client.Hooks.IsRetryableError(err) {
+			return result, err
+		}
+
+		if attempt < maxRetries {
+			waitTime := client.Cfg.RetryWaitBase * time.Duration(attempt)
+			client.Log.Infof("⏳ Waiting %v before retry...", waitTime)
+			time.Sleep(waitTime)
+		}
+	}
+
+	return "", fmt.Errorf("still failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// callWithRequestStream performs a single streaming attempt.
+func (client *Client) callWithRequestStream(req *Request, onChunk func(string)) (string, error) {
+	client.Log.Infof("📡 [%s] Request AI Server (stream): BaseURL: %s", client.String(), client.BaseURL)
+	client.LastUsage = TokenUsage{Provider: client.Provider, Model: client.Model}
 
 	requestBody := client.Hooks.BuildRequestBodyFromRequest(req)
 	jsonData, err := client.Hooks.MarshalRequestBody(requestBody)
@@ -760,15 +814,31 @@ func (client *Client) CallWithRequestStream(req *Request, onChunk func(string)) 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		// Same wording as the non-stream path so error matching and UI text stay consistent.
+		return "", fmt.Errorf("API returned error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	text, usage, err := ParseSSEStream(resp.Body, onChunk, func() {
+	// Tee the body so a server that ignores "stream": true and answers with a
+	// plain chat.completion JSON can still be parsed.
+	var bodyBuf bytes.Buffer
+	text, usage, err := ParseSSEStream(io.TeeReader(resp.Body, &bodyBuf), onChunk, func() {
 		select {
 		case resetCh <- struct{}{}:
 		default:
 		}
 	})
+	if err == nil && text == "" && bodyBuf.Len() > 0 {
+		trimmed := bytes.TrimSpace(bodyBuf.Bytes())
+		if len(trimmed) > 0 && trimmed[0] == '{' {
+			// ParseMCPResponse records LastUsage and reports usage itself.
+			return client.Hooks.ParseMCPResponse(trimmed)
+		}
+	}
+	if usage != nil {
+		client.LastUsage.PromptTokens = usage.PromptTokens
+		client.LastUsage.CompletionTokens = usage.CompletionTokens
+		client.LastUsage.TotalTokens = usage.TotalTokens
+	}
 	ReportStreamUsage(usage, client.Provider, client.Model)
 	return text, err
 }
@@ -789,10 +859,11 @@ func ParseSSEStream(body io.Reader, onChunk func(string), onLine func()) (string
 		}
 
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
+		// The SSE spec allows "data:" with or without a following space.
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")
 		if data == "[DONE]" {
 			break
 		}

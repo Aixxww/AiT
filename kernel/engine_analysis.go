@@ -243,19 +243,24 @@ func buildHunterV7DecisionRequest(systemPrompt, userPrompt string) (*mcp.Request
 		WithUserPrompt(userPrompt).
 		WithTemperature(hunterV7DecisionTemperature).
 		WithMaxTokens(hunterV7DecisionMaxOutputTokens).
+		// Some gateways (WorkBuddy, issue #68) reject non-stream chat requests.
+		WithStream(true).
 		Build()
 }
 
+// callStrategyDecisionAI sends the decision call as a streaming request for every
+// provider that speaks OpenAI chat.completion SSE. Providers that cannot (Claude,
+// claw402) keep their previous non-stream call; see mcp.SupportsChatCompletionStream.
 func callStrategyDecisionAI(mcpClient mcp.AIClient, engine *StrategyEngine, systemPrompt, userPrompt string) (string, error) {
 	if engine != nil && strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
 		req, err := buildHunterV7DecisionRequest(systemPrompt, userPrompt)
 		if err == nil {
 			logger.Infof("⚡ Hunter v7 decision output capped at %d tokens to reduce execution drift", hunterV7DecisionMaxOutputTokens)
-			return mcpClient.CallWithRequest(req)
+			return mcp.CallWithRequestPreferStream(mcpClient, req)
 		}
 		logger.Warnf("⚠️ Hunter v7 request builder failed, falling back to default call: %v", err)
 	}
-	return mcpClient.CallWithMessages(systemPrompt, userPrompt)
+	return mcp.CallWithMessagesPreferStream(mcpClient, systemPrompt, userPrompt)
 }
 
 // ============================================================================

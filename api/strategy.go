@@ -877,8 +877,8 @@ func (s *Server) runRealAITest(userID, modelID, systemPrompt, userPrompt string)
 		aiClient.SetAPIKey(apiKey, model.CustomAPIURL, model.CustomModelName)
 	}
 
-	// Call AI API
-	response, err := aiClient.CallWithMessages(systemPrompt, userPrompt)
+	// Call AI API (streaming where supported: some gateways reject non-stream chat requests, issue #68)
+	response, err := mcp.CallWithMessagesPreferStream(aiClient, systemPrompt, userPrompt)
 	if err != nil {
 		return "", fmt.Errorf("AI API call failed: %w", err)
 	}
