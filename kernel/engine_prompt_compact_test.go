@@ -238,9 +238,9 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"an uncapped far TP never justifies an open",
 		"rr/effective_rr >= 1.50, backend RR is validated",
 		"do not invent a stricter structural RR",
-		"Min Confidence: ≥70 to open position",
-		"Confidence below 70 must output wait; do not open by reducing position size.",
-		"`confidence`: 0-100 (opening recommended ≥ 70)",
+		"Min Confidence: ≥75 to open position", // #77: configured 75, no cap at 70
+		"Confidence below 75 must output wait; do not open by reducing position size.",
+		"`confidence`: 0-100 (opening recommended ≥ 75)",
 		"Hunter v7 Strategy Execution Framework (Five Segments)",
 		"choose between the best open and one precise blocked_reason",
 		"no_pullback_still_running at the upper zone",

@@ -72,7 +72,7 @@ func TestAudit_A3_TrendBreakoutExecutableWithoutTakerData(t *testing.T) {
 // error, so it counts as a successful AI call (resets the failure counter
 // and safe mode) instead of a failure.
 func TestAudit_B1_ProseOnlyResponseIsSilentSuccessfulWait(t *testing.T) {
-	fd, err := parseFullDecisionResponse("Market looks unclear, I would wait for now.", 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2))
+	fd, err := parseFullDecisionResponse("Market looks unclear, I would wait for now.", 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0)
 	if err != nil {
 		t.Fatalf("FLAW no longer present: prose-only response now returns an error (%v); update AUD-B1", err)
 	}
@@ -112,7 +112,7 @@ func TestAudit_B3_FirstDecisionBlockWins(t *testing.T) {
 // only when the strategy config sets MinConfidence.
 func TestAudit_B4_KernelConfidenceFloorIs60(t *testing.T) {
 	d := &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 103, Confidence: 65}
-	err := validateDecision(d, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100}, FixedDecisionRRFloor(1.2))
+	err := validateDecision(d, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100}, FixedDecisionRRFloor(1.2), 0)
 	if err != nil {
 		t.Fatalf("FLAW no longer present: kernel now rejects confidence 65 (%v); update AUD-B4", err)
 	}
@@ -131,10 +131,10 @@ func TestAudit_B5_TriggerPriceInflatesKernelRR(t *testing.T) {
 		return d
 	}
 	prices := map[string]float64{"XUSDT": 100.5}
-	if err := validateDecision(mk(0), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2)); err == nil {
+	if err := validateDecision(mk(0), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err == nil {
 		t.Fatal("RR 0.33 at the market price must fail a 2.0 floor")
 	}
-	if err := validateDecision(mk(99.4), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2)); err != nil {
+	if err := validateDecision(mk(99.4), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err != nil {
 		t.Fatalf("FLAW no longer present: trigger-based RR is no longer trusted (%v); update AUD-B5", err)
 	}
 }

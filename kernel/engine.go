@@ -552,6 +552,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 
 	case "hunter_v7":
 		v7cfg := local.DefaultV7Config()
+		v7cfg.MinRiskRewardRatio = e.config.RiskControl.MinRiskRewardRatio // #77
 		if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
 			v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
 		}
@@ -785,7 +786,7 @@ func HunterV7EffectiveExecutionGeometry(maxTPMovePct, minSLMovePct, maxDriftPct,
 		geometry.MaxDriftPct = 0.5
 	}
 	if geometry.MinRR <= 0 {
-		geometry.MinRR = hunterV7BackendMinRR
+		geometry.MinRR = store.DefaultMinRiskRewardRatio // #77: unset only
 	}
 	minFeasibleTPPct := (geometry.MinSLMovePct + geometry.MaxDriftPct) * geometry.MinRR
 	minFeasibleTPPct += 0.25
@@ -833,7 +834,7 @@ func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7Exe
 		return "REJECTED", "invalid_rr"
 	}
 	for _, tag := range coin.V7RiskTags {
-		if hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin, tag) {
+		if hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin, tag, geometry.MinRR) {
 			continue
 		}
 		if action, ok := local.HunterV7TagLLMAction(tag); ok && action == local.V7TagActionRejectOnly {
@@ -944,7 +945,7 @@ func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7Exe
 	if ok, reason := hunterV7ExecutableCandidateReason(coin); ok {
 		return "EXECUTABLE", reason
 	}
-	if ok, reason := hunterV7ReviewableCandidateReason(coin); ok {
+	if ok, reason := hunterV7ReviewableCandidateReason(coin, geometry.MinRR); ok {
 		return "REVIEWABLE", reason
 	}
 	// Fallback: confirmed breakout + aggressive taker → force REVIEWABLE for any setup type
@@ -1184,7 +1185,7 @@ func ClassifyHunterV7CandidateTierForRuntime(coin CandidateCoin, geometry Hunter
 	return classifyHunterV7CandidateTierWithGeometry(coin, geometry)
 }
 
-func hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin CandidateCoin, tag string) bool {
+func hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin CandidateCoin, tag string, minRR float64) bool {
 	if tag != "displacement_rr_insufficient" || coin.V7SetupType != "displacement_momentum_long" {
 		return false
 	}
@@ -1192,7 +1193,7 @@ func hunterV7StaleDisplacementRRTagMaskedByLiquidity(coin CandidateCoin, tag str
 		return false
 	}
 	rr, ok := hunterV7FinalConfirmationRR(coin)
-	return ok && rr >= hunterV7BackendMinRR
+	return ok && rr >= minRR
 }
 
 func hunterV7NonFundingCrowdedLongWait(coin CandidateCoin) bool {
@@ -1306,7 +1307,7 @@ func hunterV7NearConfirmExecutableReason(coin CandidateCoin) (bool, string) {
 	return false, ""
 }
 
-func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
+func hunterV7ReviewableCandidateReason(coin CandidateCoin, minRR float64) (bool, string) {
 	if coin.V7RiskScore >= 65 || hunterV7DangerRiskTagBlocksOpenReview(coin) {
 		return false, ""
 	}
@@ -1340,7 +1341,7 @@ func hunterV7ReviewableCandidateReason(coin CandidateCoin) (bool, string) {
 		hunterV7TakerBuyAligned(coin) {
 		return true, "breakout_trigger_near_reviewable"
 	}
-	if hunterV7BreakoutTriggerNearFlowReviewable(coin) {
+	if hunterV7BreakoutTriggerNearFlowReviewable(coin, minRR) {
 		return true, "breakout_trigger_near_flow_reviewable"
 	}
 	if spec, ok := hunterV7SetupTierSpecs[coin.V7SetupType]; ok {
@@ -2075,7 +2076,6 @@ func hunterV7StopDistancePct(coin CandidateCoin) float64 {
 }
 
 const (
-	hunterV7BackendMinRR            = local.V7MinExecutableRR
 	hunterV7BackendMinStopPct       = 2.0
 	hunterV7BackendStopRepairBuffer = 0.10
 )
@@ -2090,7 +2090,7 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	// executor receive through the candidate stamps.
 	geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct = hunterV7CandidateRisk(coin, geometry)
 	if geometry.MinRR <= 0 {
-		geometry.MinRR = hunterV7BackendMinRR
+		geometry.MinRR = store.DefaultMinRiskRewardRatio // #77: unset only
 	}
 	if geometry.MinSLMovePct <= 0 {
 		geometry.MinSLMovePct = hunterV7BackendMinStopPct
@@ -2842,6 +2842,7 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	e.SetSnapshotEngine(NewOneShotSnapshotEngine(snap))
 
 	v7cfg := local.DefaultV7Config()
+	v7cfg.MinRiskRewardRatio = e.config.RiskControl.MinRiskRewardRatio // #77
 	coinSource := e.config.CoinSource
 	if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
 		v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
@@ -3493,7 +3494,7 @@ func hunterV7EntryZonePositionPct(coin CandidateCoin) (float64, bool) {
 	return (coin.V7PriceContext.Last - lower) / (upper - lower) * 100, true
 }
 
-func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {
+func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin, minRR float64) bool {
 	if coin.V7EntrySignal != "entry_trigger_near" {
 		return false
 	}
@@ -3516,7 +3517,7 @@ func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin) bool {
 		return false
 	}
 	rr, ok := hunterV7FinalConfirmationRR(coin)
-	return ok && rr >= hunterV7BackendMinRR
+	return ok && rr >= minRR
 }
 
 func hunterV7DisplacementReviewOnlyRisk(coin CandidateCoin) bool {

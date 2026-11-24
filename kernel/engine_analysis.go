@@ -158,6 +158,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7"),
 		priceMap,
 		rrFloor,
+		riskConfig.MinConfidence, // #77: the configured min-open confidence
 	)
 
 	if decision != nil {
@@ -490,7 +491,7 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 // AI Response Parsing
 // ============================================================================
 
-func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor) (*FullDecision, error) {
+func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -509,7 +510,7 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 	// executes; validation failures are no longer returned as an error, so
 	// they no longer count as AI failures or feed safe mode. Only an
 	// unparseable response (above) is an AI failure.
-	demoteInvalidDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, hunterV7Mode)
+	demoteInvalidDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, hunterV7Mode, minOpenConfidence)
 	fillMissingDecisionReasoning(decisions, cotTrace)
 
 	return &FullDecision{
@@ -544,10 +545,10 @@ func normalizeHunterV7WaitReasons(decisions []Decision) {
 // demoteInvalidDecisions replaces every decision that fails validation with
 // a wait carrying blocked_reason_code=backend_guard_risk, recording the
 // original action and the validator message. It returns the number demoted.
-func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, hunterV7Mode bool) int {
+func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, hunterV7Mode bool, minOpenConfidence int) int {
 	demoted := 0
 	for i := range decisions {
-		err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor)
+		err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, minOpenConfidence)
 		if err == nil && hunterV7Mode {
 			err = validateHunterV7WaitReason(decisions[i])
 		}

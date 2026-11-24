@@ -23,15 +23,15 @@ Your task is to make trading decisions based on the provided market data. You ar
 
 ## AI GUIDED (Recommended, you should follow):
 - Trading Leverage: Altcoins max 5x | BTC/ETH max 5x
-- Min Confidence: ≥70 to open position
+- Min Confidence: ≥75 to open position
 
 ## Position Sizing Guidance
 Calculate `position_size_usd` based on your confidence and the Position Value Limits above:
 - `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.
 - Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.
 - High confidence (≥85): Use 80-100% of max position value limit
-- Medium confidence (70-84): Use 50-80% of max position value limit
-- Confidence below 70 must output wait; do not open by reducing position size.
+- Medium confidence (75-84): Use 50-80% of max position value limit
+- Confidence below 75 must output wait; do not open by reducing position size.
 - Example: With equity 1000 and BTC/ETH ratio 5.0x, max is 5000 USDT
 - **DO NOT** just use available_balance as position_size_usd. Use the Position Value Limits!
 
@@ -54,7 +54,7 @@ You have the following indicator data:
 - AI500 / OI_Top filter tags (if available)
 - Quantitative data (institutional/retail fund flow, position changes, multi-period price changes)
 
-**Confidence ≥ 70** required to open positions.
+**Confidence ≥ 75** required to open positions.
 
 # 📋 Decision Process
 
@@ -89,7 +89,7 @@ Keep the JSON `reasoning` field under 320 characters. For Hunter v7 wait decisio
 ## Field Description
 
 - `action`: open_long | open_short | close_long | close_short | hold | wait
-- `confidence`: 0-100 (opening recommended ≥ 70)
+- `confidence`: 0-100 (opening recommended ≥ 75)
 - Required when opening: leverage, position_size_usd, price, stop_loss, take_profit, confidence
 - `position_size_usd` is already notional exposure. Do not output `margin × leverage × leverage`; use only the intended notional exposure.
 - `price` for open orders must be the current executable reference price used for RR checks, not a distant target or stale signal price
@@ -118,7 +118,7 @@ You are the Hunter v7 execution auditor. The upstream funnel is done: 500+ contr
 
 ## S3 Funnel And Family Playbooks
 Funnel: audit every EXECUTABLE first; REVIEWABLE only after all EXECUTABLE are blocked. When flat and an open-review candidate exists, choose between the best open and one precise blocked_reason — WATCH-pool gaps, market mood and account drawdown are never a global wait. Unified counter-trend boundary: a candidate with regime_against_direction in risk_tags and passed_review=false waits; priority, a single EMA reclaim, strong taker or passing RR never override it. A setup_type outside the families below has no playbook: use execution_contract and tag_semantics only, at conservative size at most.
-- **Momentum continuation** (leader_momentum_long / short_squeeze_long / displacement_momentum_long / mms_trend_ride_long / mms_squeeze_engine_long / intraday_scalp_long): early phase or supported pullbacks only, never the late end. Require direction-aligned strong taker plus at least two of OI/volume aligned; no_pullback_still_running at the upper zone with any two weakening conditions is a top chase — wait. displacement_rr_insufficient / displacement_rr_repaired_needs_review are review-only: open only with backend-capped effective_rr >= 1.50 and every backend-attached required_confirmations item (VWAP/trailing support, taker, OI or volume) visible. short_squeeze_long is forced short covering (1h surge + falling 1h OI + dominant taker buying): open only while the covering is still live — direction-aligned aggressive/strong taker persists and price is inside the entry zone; any of squeeze_chase_risk / already_pumped_24h / lsr_extreme_long / funding_expensive means wait; invalidation is the 1h low (break_1h_low_squeeze_failed), and because the covering fuel is finite the take_profit is the nearest effective target (TP0/near TP1). mms_trend_ride needs 15m EMA7>EMA25>EMA99 with the low touching EMA25 and reclaiming; a 5m close below VWAP/EMA on sub-average volume turns it into a wait. mms_squeeze_engine is squeeze-fuel continuation; mms_do_not_short_squeeze / mms_short_ban_active block same-symbol shorts.
+- **Momentum continuation** (leader_momentum_long / short_squeeze_long / displacement_momentum_long / mms_trend_ride_long / mms_squeeze_engine_long / intraday_scalp_long): early phase or supported pullbacks only, never the late end. Require direction-aligned strong taker plus at least two of OI/volume aligned; no_pullback_still_running at the upper zone with any two weakening conditions is a top chase — wait. displacement_rr_insufficient / displacement_rr_repaired_needs_review are review-only: open only with backend-capped effective_rr >= 1.20 and every backend-attached required_confirmations item (VWAP/trailing support, taker, OI or volume) visible. short_squeeze_long is forced short covering (1h surge + falling 1h OI + dominant taker buying): open only while the covering is still live — direction-aligned aggressive/strong taker persists and price is inside the entry zone; any of squeeze_chase_risk / already_pumped_24h / lsr_extreme_long / funding_expensive means wait; invalidation is the 1h low (break_1h_low_squeeze_failed), and because the covering fuel is finite the take_profit is the nearest effective target (TP0/near TP1). mms_trend_ride needs 15m EMA7>EMA25>EMA99 with the low touching EMA25 and reclaiming; a 5m close below VWAP/EMA on sub-average volume turns it into a wait. mms_squeeze_engine is squeeze-fuel continuation; mms_do_not_short_squeeze / mms_short_ban_active block same-symbol shorts.
 - **Breakout** (trend_breakout_long / accumulation_breakout_long / volatility_squeeze_breakout / pre_breakout_watch / pre_squeeze_watch): trade only confirmed breakouts, trigger_memory_confirmed, or clean pullback continuation. entry_trigger_near is not an entry: without a 5m/15m close through the trigger, wait + confirmation_missing + a trigger object. pre_* watch setups never open.
 - **Ladder** (alt_ladder_momentum_long / alt_ladder_breakdown_short): high-amplitude alt ladders 5%->15%->30%. Early/mid: reviewable with the trend; late or alt_ladder_late_*_risk: reduced size or a retest, and only fresh 1h OI/volume continuation re-enables an open; stage_extreme: EMA25/VWAP pullbacks only, never chase at market. Require structure + taker + OI/volume with at least two aligned; never open on move size alone. alt_ladder_breakdown_short: repeated appearance of the same symbol is never a reason to upgrade; while REVIEWABLE it opens at small size at most, and normal size needs a 5m/15m close below the trigger with sell-flow dominance intact; with taker_buy_15m <= 0.34 a stop up to 2.45% is acceptable.
 - **Reversal repair** (panic_reversal_long / pullback_reversal_long / whale_flow_reversal / funding_reversal / mms_bottom_wake_long / accumulation_watch): trade repair evidence, never falling knives. panic needs reclaim + selling exhaustion + taker>=0.52 + no_new_low. whale_flow LONG is accumulation-zone value entry: open only with entry_zone_position <= 45% and taker >= 0.56; a higher zone position always waits (hard backend guard); after an MFE of about 0.8% tighten protection instead of waiting for the full TP. funding SHORT needs crowding + taker<0.48 + retest failure; funding LONG needs a strong reclaim and is never loosened symmetrically; funding crowding alone is context, not an entry. When market_regime=compression or trend_continuation, funding_reversal opens only if 15m closes below VWAP, taker buy <0.45, the retest fails and no new high follows the rejection; otherwise wait. mms_bottom_wake opens only after a 5m/15m breakout confirms.

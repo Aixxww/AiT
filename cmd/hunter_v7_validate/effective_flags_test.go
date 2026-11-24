@@ -175,8 +175,8 @@ func TestEffectiveFlagsNotesStillReportRealGaps(t *testing.T) {
 	u := effectiveFixtureStrategy()
 	u.RiskControl.MinRiskRewardRatio = 0
 	ef = buildEffectiveFlags(validationOptions{}, u, roundCfg(u), executionGeometryFromStrategy(u), promptStrategyConfig(3, u))
-	if ef.AssemblyGeometry.NativeMinRR != local.V7MinExecutableRR || ef.PromptGeometry.NativeMinRR != local.V7MinExecutableRR ||
-		!strings.HasPrefix(ef.Strategy.NativeMinRRSource, "unset: kernel fallback 1.50") {
+	if ef.AssemblyGeometry.NativeMinRR != store.DefaultMinRiskRewardRatio || ef.PromptGeometry.NativeMinRR != store.DefaultMinRiskRewardRatio ||
+		!strings.HasPrefix(ef.Strategy.NativeMinRRSource, "unset: store default 1.20") {
 		t.Fatalf("unset stored floor: %v / %v (%s)", ef.AssemblyGeometry.NativeMinRR, ef.PromptGeometry.NativeMinRR, ef.Strategy.NativeMinRRSource)
 	}
 }

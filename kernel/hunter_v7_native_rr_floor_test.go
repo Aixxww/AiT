@@ -34,12 +34,12 @@ func TestDefaultStrategyNativeRRFloorIs1_2(t *testing.T) {
 	}
 }
 
-// The 1.5 assembly fallback applies only when the strategy floor is unset;
-// a configured floor, above or below 1.5, is used as is.
+// #77: the unset fallback is the store default (1.2), not a code floor of
+// 1.5; a configured floor is used as is.
 func TestNativeRRFallbackOnlyWhenUnset(t *testing.T) {
 	for _, c := range []struct{ in, want float64 }{
-		{0, local.V7MinExecutableRR},
-		{-1, local.V7MinExecutableRR},
+		{0, store.DefaultMinRiskRewardRatio},
+		{-1, store.DefaultMinRiskRewardRatio},
 		{1.2, 1.2},
 		{3.0, 3.0},
 	} {
@@ -47,8 +47,12 @@ func TestNativeRRFallbackOnlyWhenUnset(t *testing.T) {
 			t.Errorf("strategy floor %.2f -> assembly floor %.2f, want %.2f", c.in, got, c.want)
 		}
 	}
-	if local.V7MinExecutableRR != 1.5 {
-		t.Fatalf("assembly fallback %.2f, want 1.5 (unchanged)", local.V7MinExecutableRR)
+	// The router receives the same configured floor (no separate 1.5).
+	if got := (local.V7Config{MinRiskRewardRatio: 1.2}).EffectiveMinRR(); got != 1.2 {
+		t.Fatalf("router floor %.2f, want 1.2", got)
+	}
+	if got := (local.V7Config{}).EffectiveMinRR(); got != store.DefaultMinRiskRewardRatio {
+		t.Fatalf("router unset floor %.2f, want the store default", got)
 	}
 	// The decision validator's own unset fallback is unchanged too.
 	if legacyMinRiskRewardRatio != 3.0 {

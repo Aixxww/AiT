@@ -613,7 +613,9 @@ type V7AttributionSummary struct {
 
 // V7Config holds configuration for the Hunter v7 engine.
 type V7Config struct {
-	MaxOutput              int                          `json:"max_output"`
+	MaxOutput int `json:"max_output"`
+	// MinRiskRewardRatio is the strategy's RR floor (#77); 0 = store default.
+	MinRiskRewardRatio     float64                      `json:"min_risk_reward_ratio,omitempty"`
 	MinOutput              int                          `json:"min_output"`
 	WatchOutput            int                          `json:"watch_output"`
 	MinAIPriority          float64                      `json:"min_ai_priority"`

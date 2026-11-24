@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -20,7 +21,6 @@ func getDefaultAITOSAPIKey() string {
 // Hard limits to prevent token explosion in AI requests
 const (
 	MaxCandidateCoins = 10
-	MaxPositions      = 3
 	MaxTimeframes     = 4
 	MinKlineCount     = 10
 	MaxKlineCount     = 30
@@ -76,10 +76,8 @@ func (c *StrategyConfig) ClampLimits() {
 		c.Indicators.Klines.SelectedTimeframes = c.Indicators.Klines.SelectedTimeframes[:MaxTimeframes]
 	}
 
-	// Clamp max positions
-	if c.RiskControl.MaxPositions > MaxPositions {
-		c.RiskControl.MaxPositions = MaxPositions
-	}
+	// #77: max positions is not clamped; RiskControl.MaxPositions is
+	// authoritative (see ValidateMaxPositions).
 
 }
 
@@ -110,6 +108,11 @@ func (Strategy) TableName() string { return "strategies" }
 // signals (redesign plan OD-9: provisional, with a pre-registered revert to
 // 1.5 if the t2 [1.2,1.5) cell's 90% upper bound is < 0 at n >= 30).
 const DefaultT2MinRiskRewardRatio = 1.2
+
+// DefaultMinRiskRewardRatio is the native RR floor of a new strategy and the
+// fallback when a strategy leaves MinRiskRewardRatio unset (#77). A configured
+// value is always authoritative.
+const DefaultMinRiskRewardRatio = 1.2
 
 // EffectiveT2MinRiskRewardRatio is the single accessor for the T2 RR floor
 // (plan overlap O-1). Every T2 RR admission reads it: the kernel assembly
@@ -720,14 +723,14 @@ func GetDefaultStrategyConfig(lang string) StrategyConfig {
 			PriceRankingLimit:    10,
 		},
 		RiskControl: RiskControlConfig{
-			MaxPositions:                 3,   // Max 3 coins simultaneously (CODE ENFORCED)
-			BTCETHMaxLeverage:            5,   // BTC/ETH exchange leverage (AI guided)
-			AltcoinMaxLeverage:           5,   // Altcoin exchange leverage (AI guided)
-			BTCETHMaxPositionValueRatio:  5.0, // BTC/ETH: max position = 5x equity (CODE ENFORCED)
-			AltcoinMaxPositionValueRatio: 1.0, // Altcoin: max position = 1x equity (CODE ENFORCED)
-			MaxMarginUsage:               0.9, // Max 90% margin usage (CODE ENFORCED)
-			MinPositionSize:              12,  // Min 12 USDT per position (CODE ENFORCED)
-			MinRiskRewardRatio:           1.2, // Min 1.2:1 (fix 07: design standard, = T2 floor; was 3.0)
+			MaxPositions:                 3,                         // Default for a new strategy; the configured value is authoritative (#77)
+			BTCETHMaxLeverage:            5,                         // BTC/ETH exchange leverage (AI guided)
+			AltcoinMaxLeverage:           5,                         // Altcoin exchange leverage (AI guided)
+			BTCETHMaxPositionValueRatio:  5.0,                       // BTC/ETH: max position = 5x equity (CODE ENFORCED)
+			AltcoinMaxPositionValueRatio: 1.0,                       // Altcoin: max position = 1x equity (CODE ENFORCED)
+			MaxMarginUsage:               0.9,                       // Max 90% margin usage (CODE ENFORCED)
+			MinPositionSize:              12,                        // Min 12 USDT per position (CODE ENFORCED)
+			MinRiskRewardRatio:           DefaultMinRiskRewardRatio, // Min 1.2:1 (fix 07: design standard, = T2 floor; was 3.0)
 			T2MinRiskRewardRatio:         DefaultT2MinRiskRewardRatio,
 			MinConfidence:                75,  // Min 75% confidence (AI guided)
 			MaxEntryPriceDeviationPct:    0.5, // Max AI decision price vs execution price drift (CODE ENFORCED)
@@ -1291,4 +1294,16 @@ func (c *StrategyConfig) getEffectiveTimeframeCount() int {
 		count++
 	}
 	return count
+}
+
+// ErrInvalidMaxPositions reports a strategy without a usable max_positions.
+var ErrInvalidMaxPositions = errors.New("invalid risk_control.max_positions")
+
+// ValidateMaxPositions returns the configured max positions, or an error
+// when it is missing or not positive (#77: no silent default).
+func (r RiskControlConfig) ValidateMaxPositions() (int, error) {
+	if r.MaxPositions <= 0 {
+		return 0, fmt.Errorf("%w: %d (must be >= 1; set it in the strategy config)", ErrInvalidMaxPositions, r.MaxPositions)
+	}
+	return r.MaxPositions, nil
 }

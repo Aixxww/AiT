@@ -34,6 +34,12 @@ func validateStrategyConfig(config *store.StrategyConfig) []string {
 		warnings = append(warnings, "AITOS API key is not configured. AITOS data sources may not work properly.")
 	}
 
+	// #77: max_positions is authoritative; a missing value is not defaulted,
+	// so every open is blocked until it is set.
+	if _, err := config.RiskControl.ValidateMaxPositions(); err != nil && config.StrategyType != "grid_trading" {
+		warnings = append(warnings, fmt.Sprintf("%v. New positions will be blocked until max_positions is set.", err))
+	}
+
 	return warnings
 }
 

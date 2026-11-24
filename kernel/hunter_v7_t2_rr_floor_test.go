@@ -24,7 +24,8 @@ func rrCoin(stack string, rewardPct float64) CandidateCoin {
 }
 
 func defaultGeometry() HunterV7ExecutionGeometry {
-	g := HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true) // MinRR 1.5, MaxTP 4.0
+	// #77: the native floor is the configured value; these tests configure 1.5.
+	g := HunterV7EffectiveExecutionGeometry(0, 0, 0, 1.5, true) // MinRR 1.5, MaxTP 4.0
 	g.T2MinRR = 1.2
 	return g
 }
@@ -93,16 +94,16 @@ func TestValidatorUsesSelectedCandidateRRFloor(t *testing.T) {
 		return &Decision{Symbol: sym, Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 102.6,
 			Confidence: 80, Reasoning: "t", SelectedHunterV7SignalID: id}
 	}
-	if err := validateDecision(mk("AUSDT", "t2-1"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err != nil {
+	if err := validateDecision(mk("AUSDT", "t2-1"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err != nil {
 		t.Fatalf("T2 decision at RR 1.3 must pass the 1.2 floor: %v", err)
 	}
-	if err := validateDecision(mk("BUSDT", "n-1"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err == nil {
+	if err := validateDecision(mk("BUSDT", "n-1"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err == nil {
 		t.Fatalf("native decision at RR 1.3 must fail the 1.5 floor")
 	}
-	if err := validateDecision(mk("AUSDT", ""), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err == nil {
+	if err := validateDecision(mk("AUSDT", ""), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err == nil {
 		t.Fatalf("decision without a signal id must keep the strategy floor")
 	}
-	if err := validateDecision(mk("AUSDT", "unknown"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor); err == nil {
+	if err := validateDecision(mk("AUSDT", "unknown"), 10000, 20, 10, 10.0, 1.5, nil, priceMap, floor, 0); err == nil {
 		t.Fatalf("unknown signal id must keep the strategy floor")
 	}
 }

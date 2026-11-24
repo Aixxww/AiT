@@ -722,15 +722,17 @@ func (at *AutoTrader) enforceMinPositionSize(positionSizeUSD float64) error {
 	return nil
 }
 
-// enforceMaxPositions checks maximum positions count (CODE ENFORCED)
+// enforceMaxPositions checks maximum positions count (CODE ENFORCED). The
+// strategy's max_positions is authoritative (#77): a missing or invalid value
+// blocks the open with a validation error instead of defaulting to 3.
 func (at *AutoTrader) enforceMaxPositions(currentPositionCount int) error {
 	if at.config.StrategyConfig == nil {
 		return nil
 	}
 
-	maxPositions := at.config.StrategyConfig.RiskControl.MaxPositions
-	if maxPositions <= 0 {
-		maxPositions = 3 // Default: 3 positions
+	maxPositions, err := at.config.StrategyConfig.RiskControl.ValidateMaxPositions()
+	if err != nil {
+		return fmt.Errorf("❌ [RISK CONTROL] open blocked: %w", err)
 	}
 
 	if currentPositionCount >= maxPositions {
@@ -2348,13 +2350,9 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 	return nil
 }
 
+// effectiveMinOpenConfidence is the strategy's min_confidence as configured
+// (#77: the former hunter_v7 cap at 70 overrode the owner's value).
 func (at *AutoTrader) effectiveMinOpenConfidence(configured int) int {
-	if configured <= 0 {
-		return configured
-	}
-	if at.isHunterV7Strategy() && configured > 70 {
-		return 70
-	}
 	return configured
 }
 

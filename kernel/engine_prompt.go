@@ -252,13 +252,10 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 			e.config.RiskControl.EffectiveT2MinStopLossPriceMovePct()))
 	}
 }
+
+// effectiveMinOpenConfidence is the strategy's min_confidence as configured
+// (#77: the former hunter_v7 cap at 70 overrode the owner's value).
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
-	if configured <= 0 {
-		return configured
-	}
-	if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") && configured > 70 {
-		return 70
-	}
 	return configured
 }
 
