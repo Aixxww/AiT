@@ -44,6 +44,11 @@ type ClaudeClient struct {
 
 func (c *ClaudeClient) BaseClient() *mcp.Client { return c.Client }
 
+// ChatCompletionStreamUnsupported marks Claude as non-OpenAI SSE: the Messages
+// API streams typed events (content_block_delta), which mcp.ParseSSEStream
+// does not read, so decision calls stay on the non-stream path.
+func (c *ClaudeClient) ChatCompletionStreamUnsupported() {}
+
 // NewClaudeClient creates a ClaudeClient with default settings.
 func NewClaudeClient() mcp.AIClient {
 	return NewClaudeClientWithOptions()

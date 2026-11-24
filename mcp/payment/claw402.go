@@ -100,6 +100,11 @@ type Claw402Client struct {
 
 func (c *Claw402Client) BaseClient() *mcp.Client { return c.Client }
 
+// ChatCompletionStreamUnsupported keeps claw402 off mcp.Client.CallWithRequestStream,
+// which has no x402 payment handshake. claw402 already streams through its own
+// Call hook (X402CallStream), so its call paths are left unchanged.
+func (c *Claw402Client) ChatCompletionStreamUnsupported() {}
+
 // NewClaw402Client creates a claw402 client (backward compatible).
 func NewClaw402Client() mcp.AIClient {
 	return NewClaw402ClientWithOptions()
