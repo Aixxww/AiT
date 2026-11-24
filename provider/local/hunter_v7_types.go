@@ -27,7 +27,28 @@ const (
 	V7RegimeCompression V7MarketRegime = "compression"
 	V7RegimeRotation    V7MarketRegime = "rotation"
 	V7RegimeMixed       V7MarketRegime = "mixed"
+	// V7RegimeTrendContinuation: both majors keep the same 4h EMA20/EMA60
+	// trend structure, but the 24h change and ADX have not confirmed it
+	// (a pause inside the trend). Issue #74 (Q2/AUD-A2): consumers treat it
+	// as compression, which caught these markets before the value existed.
+	V7RegimeTrendContinuation V7MarketRegime = "trend_continuation"
 )
+
+// V7MarketRegimes lists every regime DetectV7MarketRegime can return.
+func V7MarketRegimes() []V7MarketRegime {
+	return []V7MarketRegime{
+		V7RegimeTrendUp, V7RegimeTrendDown, V7RegimeRange, V7RegimeTrendContinuation,
+		V7RegimePanicDump, V7RegimePullback, V7RegimeManiaPump, V7RegimeCompression,
+		V7RegimeRotation, V7RegimeMixed,
+	}
+}
+
+// v7RegimeActsAsCompression: trend_continuation is a subset of the old
+// compression condition, so module gating, weights and TP multipliers stay
+// those of compression (no screening change; retuning needs evidence).
+func v7RegimeActsAsCompression(regime V7MarketRegime) bool {
+	return regime == V7RegimeCompression || regime == V7RegimeTrendContinuation
+}
 
 // V7SetupType identifies the trading setup pattern.
 type V7SetupType string

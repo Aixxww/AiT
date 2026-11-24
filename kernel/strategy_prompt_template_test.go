@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 )
 
@@ -89,10 +90,10 @@ func TestRedesignedTemplateSystemPromptBudget(t *testing.T) {
 	}
 }
 
-// hunterV7PromptSetupFamilies is the brief's canonical setup_type list
-// (doctrine S3 families); the prompt may name no other setup_type.
+// hunterV7PromptSetupFamilies is the canonical setup_type list (doctrine S3
+// families). Issue #74 (Q1): short_squeeze_long joined the momentum family.
 var hunterV7PromptSetupFamilies = []string{
-	"leader_momentum_long", "displacement_momentum_long", "mms_trend_ride_long", "mms_squeeze_engine_long", "intraday_scalp_long",
+	"leader_momentum_long", "short_squeeze_long", "displacement_momentum_long", "mms_trend_ride_long", "mms_squeeze_engine_long", "intraday_scalp_long",
 	"trend_breakout_long", "accumulation_breakout_long", "volatility_squeeze_breakout", "pre_breakout_watch", "pre_squeeze_watch",
 	"alt_ladder_momentum_long", "alt_ladder_breakdown_short",
 	"panic_reversal_long", "pullback_reversal_long", "whale_flow_reversal", "funding_reversal", "mms_bottom_wake_long", "accumulation_watch",
@@ -103,8 +104,8 @@ var hunterV7PromptSetupFamilies = []string{
 // section 4): foreign regime labels, foreign setup names, foreign action
 // enums and fixed minute cadences.
 var hunterV7ForbiddenPromptTerms = []string{
-	"short_squeeze_long", "module_no_match",
-	"CHAOTIC", "TRANSITION", "trend_continuation",
+	"module_no_match",
+	"CHAOTIC", "TRANSITION",
 	"Long Squeeze", "Short Squeeze", "Liquidation Wick",
 	"OPEN_LONG", "OPEN_SHORT", "CLOSE_POSITION",
 	"5-minute", "15-minute", "5-Min", "every 5 minutes", "every 15 minutes", "每 5 分钟", "每5分钟", "每15分钟", "分钟循环", "trades/day", "每天2-4笔",
@@ -196,5 +197,79 @@ func TestHunterV7DoctrineProtectionLadderFollowsConfig(t *testing.T) {
 	custom := hunterV7DoctrinePrompt(LangEnglish, NewStrategyEngine(&c).hunterV7DoctrineInputs())
 	if !strings.Contains(custom, "<= -1.5R anytime") || !strings.Contains(custom, "~40% giveback") {
 		t.Fatalf("doctrine does not follow the configured protector levels:\n%s", custom)
+	}
+}
+
+// Issue #74 (Q1): short_squeeze_long is a named member of the momentum
+// family, with its own playbook, in both languages.
+func TestHunterV7DoctrineShortSqueezeInMomentumFamily(t *testing.T) {
+	e := NewStrategyEngine(loadStrategyTemplate(t, strategyTemplateRedesigned))
+	in := e.hunterV7DoctrineInputs()
+	for lang, family := range map[Language]string{LangEnglish: "**Momentum continuation** (", LangChinese: "**动量延续族**（"} {
+		d := hunterV7DoctrinePrompt(lang, in)
+		i := strings.Index(d, family)
+		if i < 0 {
+			t.Fatalf("%s: momentum family missing", lang)
+		}
+		line := d[i:]
+		line = line[:strings.Index(line, "\n")]
+		for _, want := range []string{"short_squeeze_long /", "short_squeeze_long is", "break_1h_low_squeeze_failed", "squeeze_chase_risk"} {
+			if lang == LangChinese && want == "short_squeeze_long is" {
+				want = "short_squeeze_long 是"
+			}
+			if !strings.Contains(line, want) {
+				t.Errorf("%s: momentum family line lacks %q", lang, want)
+			}
+		}
+	}
+}
+
+// Issue #74 (Q2): the doctrine's market_regime list is exactly the code's
+// enum, and the code enum contains every canonical value.
+func TestHunterV7DoctrineRegimeListMatchesCode(t *testing.T) {
+	codeVals := map[string]bool{}
+	var names []string
+	for _, r := range local.V7MarketRegimes() {
+		codeVals[string(r)] = true
+		names = append(names, string(r))
+	}
+	for _, canonical := range []string{"trend_up", "trend_down", "range", "trend_continuation"} {
+		if !codeVals[canonical] {
+			t.Errorf("canonical regime %q missing from the code enum", canonical)
+		}
+	}
+	e := NewStrategyEngine(loadStrategyTemplate(t, strategyTemplateRedesigned))
+	want := strings.Join(names, " / ")
+	for _, lang := range []Language{LangEnglish, LangChinese} {
+		if d := hunterV7DoctrinePrompt(lang, e.hunterV7DoctrineInputs()); !strings.Contains(d, want) {
+			t.Errorf("%s: doctrine regime list is not the code enum %q", lang, want)
+		}
+	}
+}
+
+// Issue #74 (D7): S4 describes what the protector executes (rendered from
+// its config) and no longer claims a 5m EMA20/VWAP trail.
+func TestHunterV7DoctrineTP0MatchesProtector(t *testing.T) {
+	e := NewStrategyEngine(loadStrategyTemplate(t, strategyTemplateRedesigned))
+	in := e.hunterV7DoctrineInputs()
+	en := hunterV7DoctrinePrompt(LangEnglish, in)
+	for _, want := range []string{"closes 35% of the position", "breakeven +0.1%", "once MFE reaches 0.5R", "best price at 0.4R", "base risk 35% ROE", "planning hints"} {
+		if !strings.Contains(en, want) {
+			t.Errorf("S4 lacks %q", want)
+		}
+	}
+	for _, lang := range []Language{LangEnglish, LangChinese} {
+		d := hunterV7DoctrinePrompt(lang, in)
+		for _, stale := range []string{"trail the rest at breakeven or 5m EMA20/VWAP", "保本或 5m EMA20/VWAP 追踪", "tp0_reduce_pct_min"} {
+			if strings.Contains(d, stale) {
+				t.Errorf("%s: doctrine still claims %q", lang, stale)
+			}
+		}
+	}
+	c := *loadStrategyTemplate(t, strategyTemplateRedesigned)
+	c.RiskControl.Protector = &store.ProtectorConfig{TP0CloseRatio: 0.5, TrailingDisabled: true}
+	custom := hunterV7DoctrinePrompt(LangEnglish, NewStrategyEngine(&c).hunterV7DoctrineInputs())
+	if !strings.Contains(custom, "closes 50% of the position") || !strings.Contains(custom, "dynamic trailing stop is disabled") {
+		t.Fatalf("S4 does not follow the protector config")
 	}
 }

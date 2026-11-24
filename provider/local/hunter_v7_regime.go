@@ -59,7 +59,14 @@ func DetectV7MarketRegime(snap *datafetch.Snapshot) V7MarketRegime {
 		return V7RegimeTrendDown
 	}
 
-	// 5. Compression
+	// 5. Trend continuation: the trend structure holds on both majors but
+	// trend_up/trend_down did not confirm it. Checked before compression,
+	// whose condition it is a strict subset of (issue #74).
+	if isTrendContinuation(btcAnalysis, ethAnalysis) {
+		return V7RegimeTrendContinuation
+	}
+
+	// 6. Compression
 	if isCompression(btcAnalysis, ethAnalysis) {
 		return V7RegimeCompression
 	}
@@ -226,6 +233,23 @@ func isCompression(btc, eth regimeAnalysis) bool {
 		return true
 	}
 	return false
+}
+
+// isTrendContinuation: BTC and ETH both keep the same 4h EMA20/EMA60 side
+// (both above or both below) and both satisfy the compression condition
+// (bbWidth > 0, ADX < 25). It runs after isTrendUp/isTrendDown, so it only
+// fires when the 24h change or ADX did not confirm the trend: a pause or
+// shallow pullback inside an intact trend structure.
+func isTrendContinuation(btc, eth regimeAnalysis) bool {
+	if !isCompression(btc, eth) {
+		return false
+	}
+	if btc.ema20_4h <= 0 || btc.ema60_4h <= 0 || eth.ema20_4h <= 0 || eth.ema60_4h <= 0 {
+		return false
+	}
+	btcUp, ethUp := btc.ema20_4h > btc.ema60_4h, eth.ema20_4h > eth.ema60_4h
+	btcDown, ethDown := btc.ema20_4h < btc.ema60_4h, eth.ema20_4h < eth.ema60_4h
+	return (btcUp && ethUp) || (btcDown && ethDown)
 }
 
 // isRange: ADX < 20, moderate change, no clear direction

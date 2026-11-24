@@ -14,6 +14,9 @@ func regimeModuleWeight(regime V7MarketRegime, setup V7SetupType) float64 {
 	if w, ok := regimeWeightMatrix[key]; ok {
 		return w
 	}
+	if regime == V7RegimeTrendContinuation {
+		return regimeModuleWeight(V7RegimeCompression, setup)
+	}
 	return 1.0 // default: no adjustment
 }
 

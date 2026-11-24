@@ -95,7 +95,7 @@ func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	}
 
 	// 6. Regime fitness
-	if regime == V7RegimeRange || regime == V7RegimeCompression {
+	if regime == V7RegimeRange || v7RegimeActsAsCompression(regime) {
 		base += 6
 	} else if regime == V7RegimeTrendDown || regime == V7RegimePanicDump {
 		base -= 10

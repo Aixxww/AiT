@@ -33,11 +33,13 @@ var regimeTPMultiplier = map[V7MarketRegime]float64{
 	V7RegimeRotation:    1.0,
 	V7RegimeRange:       0.8,
 	V7RegimeCompression: 1.2,
-	V7RegimeTrendDown:   0.9,
-	V7RegimePanicDump:   1.4,
-	V7RegimePullback:    1.1,
-	V7RegimeManiaPump:   1.5,
-	V7RegimeMixed:       1.0,
+	// trend_continuation was compression before issue #74.
+	V7RegimeTrendContinuation: 1.2,
+	V7RegimeTrendDown:         0.9,
+	V7RegimePanicDump:         1.4,
+	V7RegimePullback:          1.1,
+	V7RegimeManiaPump:         1.5,
+	V7RegimeMixed:             1.0,
 }
 
 // CalcMultiTimeframeTP computes TP0/TP1/TP2 targets.
