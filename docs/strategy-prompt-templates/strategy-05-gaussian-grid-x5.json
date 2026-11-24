@@ -1,0 +1,116 @@
+{
+  "name": "高斯网格x5防38-21腰斩版 (导入)",
+  "description": "",
+  "config": {
+    "strategy_type": "grid_trading",
+    "language": "en",
+    "coin_source": {
+      "source_type": "ai500",
+      "use_ai500": true,
+      "ai500_limit": 10,
+      "use_oi_top": false,
+      "oi_top_limit": 10,
+      "use_oi_low": false,
+      "oi_low_limit": 10,
+      "use_hyper_all": false,
+      "use_hyper_main": false
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "15m",
+          "1h",
+          "4h"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": false,
+      "enable_macd": false,
+      "enable_rsi": false,
+      "enable_atr": false,
+      "enable_boll": false,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "nofxos_api_key": "<redacted>",
+      "enable_quant_data": true,
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10,
+      "enable_netflow_ranking": true,
+      "netflow_ranking_duration": "1h",
+      "netflow_ranking_limit": 10,
+      "enable_price_ranking": true,
+      "price_ranking_duration": "1h,4h,24h",
+      "price_ranking_limit": 10
+    },
+    "risk_control": {
+      "max_positions": 3,
+      "btc_eth_max_leverage": 5,
+      "altcoin_max_leverage": 5,
+      "btc_eth_max_position_value_ratio": 5,
+      "altcoin_max_position_value_ratio": 1,
+      "max_margin_usage": 0.9,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 3,
+      "min_confidence": 75,
+      "profit_drawdown_pct": 0,
+      "profit_threshold_pct": 0
+    },
+    "prompt_sections": {
+      "role_definition": "# 你是一个专业的加密货币交易AI\n\n你的任务是根据提供的市场数据做出交易决策。你是一个经验丰富的量化交易员，擅长技术分析和风险管理。",
+      "trading_frequency": "# ⏱️ 交易频率意识\n\n- 优秀交易员：每天2-4笔 ≈ 每小时0.1-0.2笔\n- 每小时超过2笔 = 过度交易\n- 单笔持仓时间 ≥ 30-60分钟\n如果你发现自己每个周期都在交易 → 标准太低；如果持仓不到30分钟就平仓 → 太冲动。",
+      "entry_standards": "# 🎯 入场标准（严格）\n\n只在多个信号共振时入场。自由使用任何有效的分析方法，避免单一指标、信号矛盾、横盘震荡、或平仓后立即重新开仓等低质量行为。",
+      "decision_process": "# 📋 决策流程\n\n1. 检查持仓 → 是否止盈/止损\n2. 扫描候选币种 + 多时间框架 → 是否存在强信号\n3. 先写思维链，再输出结构化JSON"
+    },
+    "grid_config": {
+      "symbol": "HYPEUSDT",
+      "grid_count": 23,
+      "total_investment": 1000,
+      "leverage": 5,
+      "upper_price": 0,
+      "lower_price": 0,
+      "use_atr_bounds": true,
+      "atr_multiplier": 5,
+      "distribution": "gaussian",
+      "max_drawdown_pct": 66,
+      "stop_loss_pct": 90,
+      "daily_loss_limit_pct": 66,
+      "max_position_size_pct": 0,
+      "use_maker_only": true,
+      "enable_direction_adjust": true,
+      "direction_bias_ratio": 0.35,
+      "profit_drawdown_threshold": 80,
+      "enable_trapped_reduce": true,
+      "trapped_reduce_threshold_pct": 7,
+      "enable_profit_reduce": true,
+      "profit_reduce_step_pct": 7,
+      "direction_hysteresis_min": 0,
+      "t_trade_spread_pct": 0.2
+    }
+  },
+  "exported_at": "2026-05-14T15:10:30.589Z",
+  "version": "1.0"
+}

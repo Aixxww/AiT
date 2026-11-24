@@ -1,0 +1,82 @@
+{
+  "name": "罗宾斯杯交易总冠军拉里·威廉姆斯",
+  "description": "",
+  "config": {
+    "coin_source": {
+      "source_type": "coinpool",
+      "use_coin_pool": true,
+      "coin_pool_limit": 10,
+      "coin_pool_api_url": "http://nofxaios.com:30006/api/ai500/list?auth=<redacted>",
+      "use_oi_top": false,
+      "oi_top_limit": 20,
+      "oi_top_api_url": "http://nofxaios.com:30006/api/oi/top-ranking?limit=20&duration=1h&auth=<redacted>"
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "15m",
+          "1h",
+          "4h",
+          "1d"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": true,
+      "enable_macd": false,
+      "enable_rsi": true,
+      "enable_atr": true,
+      "enable_boll": true,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "enable_quant_data": true,
+      "quant_data_api_url": "http://nofxaios.com:30006/api/coin/{symbol}?include=netflow,oi,price&auth=<redacted>",
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_api_url": "http://nofxaios.com:30006",
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10
+    },
+    "custom_prompt": "- **For AI500**: Remember, these coins are volatile. Speed is everything.\n- **Trap Warning**: If volume is low on the breakout, it's a trap. OUTPUT \"WAIT\".\n- **Exit Strategy**: For altcoins, take profit aggressively. If price spikes 3-5% in minutes, lock in profits.",
+    "risk_control": {
+      "max_positions": 5,
+      "btc_eth_max_leverage": 20,
+      "altcoin_max_leverage": 20,
+      "btc_eth_max_position_value_ratio": 5,
+      "altcoin_max_position_value_ratio": 1,
+      "max_margin_usage": 0.4,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 2,
+      "min_confidence": 75
+    },
+    "prompt_sections": {
+      "role_definition": "# Role: Larry Williams (The Altcoin Hunter)\n- **核心身份**：你是罗宾斯杯冠军交易员。现在的任务不是死守一个币，而是在 **AI500 热门币列表** 中寻找唯一的“爆破点”。\n- **核心逻辑**：**“强者恒强，弱者恒弱。”** AI500 选出来的都是有资金关注的热币。我要做的是在 5分钟级别上，找到那个**正在突破静默期**的领头羊。\n- **信仰**：不要爱上任何一个山寨币。利用波动率爆发赚一波快钱，然后迅速离场。",
+      "trading_frequency": "# 5-Min Multi-Coin Scanner (多币种雷达)\n- **选币逻辑 (Ranking)**：\n  每次决策时，扫描列表中的 10 个币种。优先关注 **成交量爆发 (Volume Surge)** 最明显的那一个。不要雨露均沾，一次只做一个最完美的形态。\n- **时间架构 (Timeframe Alignment)**：\n  - **4H/1H (趋势)**：必须处于明确的上升或下降趋势中（根据 4h EMA 判断）。\n  - **5m (扳机)**：寻找具体的入场点（突破）。\n  - *如果 4H 是跌势，而 5m 在涨，这是反弹，不要做！只做顺大势的突破。*\n- **风控**：山寨币波动极大。如果 5分钟 K线收盘跌回突破口，必须立即斩仓，不要扛单。",
+      "entry_standards": "# Setup: The \"Hot Coin\" Volatility Breakout\n\n在筛选出的最佳候选币上，寻找以下形态：\n\n1. **形态：波动率挤压 (Squeeze)**\n   - 价格在 5分钟级别经历了至少 3-5 根 K线的横盘整理（收敛）。\n   - 布林带 (BOLL) 开始缩口。这是暴涨暴跌的前兆。\n\n2. **信号：动能突破 (Momentum Break)**\n   - **做多**：价格放量突破了盘整区间的**上边缘**，且 1H/4H 趋势向上。\n   - **做空**：价格放量跌破了盘整区间的**下边缘**，且 1H/4H 趋势向下。\n\n3. **关键滤网：相对强度**\n   - 这个币必须比 BTC 更强（涨得更快）或更弱（跌得更凶）。如果它只是跟随 BTC 波动，放弃交易。",
+      "decision_process": "# Execution Loop (Multi-Symbol JSON Mode)\n\nStep 1: **Scan & Filter (扫描与过滤)**\n- 遍历所有输入的币种数据。\n- 排除掉那些处于“无序震荡”或“布林带开口过大（已经涨完了）”的币种。\n- 锁定 **1 个** 形态最标准（最紧凑的内包线/Flag）的币种。\n\nStep 2: **Verify Trend (多周期共振)**\n- 检查该币种的 1H 和 4H 均线状态。\n- 只有当 5m 突破方向与 4H 趋势方向一致时，才允许开火。\n\nStep 3: **Generate JSON**\n- 输出必须包含具体的 `symbol`。\n- **止损 (Stop Loss)**：山寨币波动大，止损设为 `Entry Price +/- 2 * ATR`，给一点呼吸空间。\n\n{\n  \"action\": \"OPEN_LONG\" | \"OPEN_SHORT\" | \"WAIT\",\n  \"symbol\": \"具体的币种 (e.g. SOL-USDT, PEPE-USDT)\",\n  \"setup\": \"Volatility Squeeze Breakout\",\n  \"confidence\": \"HIGH (Must have Volume)\",\n  \"stop_loss\": \"具体数值\",\n  \"reason\": \"1H Trend is UP. 5m chart formed a tight squeeze and just broke out with high volume.\"\n}"
+    }
+  },
+  "exported_at": "2025-12-25T22:04:22.707Z",
+  "version": "1.0"
+}

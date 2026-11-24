@@ -1,0 +1,102 @@
+{
+  "name": "妖币猎手",
+  "description": "",
+  "config": {
+    "language": "zh",
+    "coin_source": {
+      "source_type": "hunter",
+      "excluded_coins": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "DOGEUSDT"
+      ],
+      "use_ai500": true,
+      "ai500_limit": 3,
+      "use_oi_top": false,
+      "oi_top_limit": 3,
+      "use_oi_low": false,
+      "oi_low_limit": 3,
+      "use_hyper_all": false,
+      "use_hyper_main": false,
+      "use_square_heat": false,
+      "use_hunter": true,
+      "hunter_limit": 8,
+      "hunter_direction": "BOTH",
+      "hunter_config": {
+        "enable_funding_rate_signal": false,
+        "enable_cooldown": false,
+        "strategy_mode": "breakout"
+      }
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "4h",
+          "1h"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": true,
+      "enable_macd": false,
+      "enable_rsi": false,
+      "enable_atr": true,
+      "enable_boll": true,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "nofxos_api_key": "<redacted>",
+      "enable_quant_data": true,
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10,
+      "enable_netflow_ranking": true,
+      "netflow_ranking_duration": "1h",
+      "netflow_ranking_limit": 10,
+      "enable_price_ranking": false,
+      "price_ranking_duration": "1h,4h,24h",
+      "price_ranking_limit": 10
+    },
+    "custom_prompt": "#  附加风控与陷阱警告 (CRITICAL)\n\n1. 量价共振锁：突破切片对应的即时成交量必须显著大于前 3 根 K 线平均量。若价格破位但量能或持仓量(OI)萎缩，判定为诱多/诱空陷阱，必须输出 \"wait\"。\n2. 资金费率预警：费率绝对值 > 0.05% 时触发预警。高位横盘遇极端正费率防杀多；1h趋势向上遇极端负费率视为逼空动能，禁止盲目做空。\n3. 绝对止损 (SL计算规则)：\n  - 若执行 Path A (做空)：SL = 盘整区间上沿 + max(0.5 * ATR14(5m), 盘整幅度 * 0.3)\n  - 若执行 Path A (做多)：SL = 盘整区间下沿 - max(0.5 * ATR14(5m), 盘整幅度 * 0.3)\n  - 若执行 Path B (做多)：SL = 触碰均线(EMA20或EMA50)的当前数值 - (1 * ATR14(5m))\n4. 动态止盈 (TP)：严禁死等固定盈亏比。当触及 1.5:1 盈亏比，或价格瞬间刺透 5m 布林带上/下轨外侧时，保住利润全平或将仓位止损移至开仓价盈亏比之上。",
+    "risk_control": {
+      "max_positions": 1,
+      "btc_eth_max_leverage": 5,
+      "altcoin_max_leverage": 20,
+      "btc_eth_max_position_value_ratio": 10,
+      "altcoin_max_position_value_ratio": 10,
+      "max_margin_usage": 0.85,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 1.5,
+      "min_confidence": 75
+    },
+    "prompt_sections": {
+      "role_definition": "# 角色\n你是专注山寨币高频动能交易的顶级量化AI。核心策略：寻找波动率挤压后的唯一爆破点，利用动能爆发“快进快出”，绝不扛单，严格过滤插针假突破。\n\n# 核心纪律 (STRICT)\n1. 仅分析输入数据中的标的，严禁推测。强制跳过 BTCUSDT 和 ETHUSDT。\n2. 每次仅输出一个胜率最高的交易信号，若无完美共振，必须输出 \"wait\"。",
+      "trading_frequency": "# 交易频率与持仓约束\n1. 动量法则：开仓后 30 分钟内若未脱离成本区（说明动能判定失败或衰竭），直接市价全平，绝不扛单。\n2. 纪律约束：宁可错过，绝不做错。若不满足严格的开仓标准，连续输出 \"wait\" 是完全正确且符合预期的行为。",
+      "entry_standards": "# 开仓标准（按顺序严格执行）\n\nStep 1: 高级别风控 (4h)\n- 强阻/强撑避让：预期止盈目标距离 4h 支撑/阻力位 < 1 * ATR14，直接放弃。\n- 极端形态规避：4h 出现放量长影线（影线 > 实体60%），或价格已触及 4h 布林带极宽的上下轨外侧，禁止顺势开仓。\n\nStep 2: 大势与相对强度 (1h)\n- 趋势过滤：做多需价格运行于 1h EMA20 之上，做空需在之下。均线走平或无序缠绕立即放弃。\n- 相对强度：标的走势必须显著强于（领涨）或弱于（领跌）大盘，完全联动大盘的平庸币种不碰。\n\nStep 3: 形态分流与动能触发 (选择 Path A 或 Path B)\n- 若标的ATR14(5m)的数值为0，或价格连续 5 根 K 线最高价等于最低价，视为流动性枯竭或数据精度丢失，立即输出 wait\nPath A: 波动率挤压突破 (常规双杀模式)\n 锁定标的：5m 级别至少 3-5 根 K 线横盘整理，布林带显著缩口。排除大开口无序震荡。\n空间穿透验证：即时价格突破 5m 盘整区间的绝对幅度必须满足 ⁠(突破价 - 区间边界) >= 0.3 * ATR14(5m)。未达标即视为插针，输出 \"wait\"。\n量价共振锁：突破切片对应的即时成交量必须显著大于前 3 根 K 线平均量，且持仓量(OI)不能萎缩。\n\nPath B: 强势妖币回调接针\n锁定标的：1h 机构资金净流入排名 Top 3 且 OI 显著增长，但 5m 布林带已处于大开口状态（错过初升段的飞人）。\n触发条件：禁止追高。耐心等待 5m 价格急速回调，首次触碰 5m EMA20 或 EMA50。\n企稳确认：触碰均线后，当前数据切片必须显示价格未击穿均线，且出现下影线或阳线反弹迹象。\n\nStep 4: 动能突破与防插针确认 (Trigger)\n- 空间穿透验证：即时价格突破 5m 盘整区间的绝对幅度必须满足 (突破价 - 区间边缘) >= 0.3 * ATR14(5m)。未达标即视为高频试探插针，输出 \"wait\"。",
+      "decision_process": "# 决策流程与输出格式\n\n1. 检查持仓：是否触发 30 分钟时间止损或动态止盈。\n2. 依次分析：1h趋势、5m挤压状态、突破幅度(ATR验证)、量能验证情况及止盈止损设定逻辑。\n3. 输出阶段：先写思维链，再严格按JSON格式输出。"
+    }
+  },
+  "exported_at": "2026-05-25T00:44:01.659Z",
+  "version": "1.0"
+}

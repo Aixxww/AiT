@@ -1,0 +1,113 @@
+{
+  "name": "猎手v7 (导入)",
+  "description": "",
+  "config": {
+    "language": "zh",
+    "prompt_compact_mode": "hunter_v7_only",
+    "coin_source": {
+      "source_type": "hunter_v7",
+      "excluded_coins": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "DOGEUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "TRXUSDT"
+      ],
+      "use_ai500": true,
+      "ai500_limit": 3,
+      "use_oi_top": false,
+      "oi_top_limit": 3,
+      "use_oi_low": false,
+      "oi_low_limit": 3,
+      "use_hyper_all": false,
+      "use_hyper_main": false,
+      "use_square_heat": false,
+      "use_hunter": true,
+      "hunter_limit": 10,
+      "hunter_direction": "BOTH",
+      "hunter_config": {
+        "enable_funding_rate_signal": false,
+        "enable_cooldown": false,
+        "v7_max_output": 18,
+        "v7_min_ai_priority": 50,
+        "v7_aggressive": true,
+        "v7_t2_enabled": true
+      }
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "15m",
+          "1h",
+          "4h"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": true,
+      "enable_macd": true,
+      "enable_rsi": true,
+      "enable_atr": true,
+      "enable_boll": true,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "enable_quant_data": true,
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10,
+      "enable_netflow_ranking": false,
+      "netflow_ranking_duration": "1h",
+      "netflow_ranking_limit": 10,
+      "enable_price_ranking": false,
+      "price_ranking_duration": "1h,4h,24h",
+      "price_ranking_limit": 10
+    },
+    "custom_prompt": "Hunter v7 专业执行补充：\n- 本策略以 tag_semantics 为唯一标签语义来源；未知标签只能作为背景。\n- 每轮必须主动寻找可开仓形态，但不得覆盖 liquidity、risk、RR、entry、confirmation 硬边界。\n- REVIEWABLE 不是自动开仓；它代表可以用实时 K 线、资金流和后端几何做最终复核。\n- 若无 open，输出下一轮最明确触发条件，便于后续轮询捕捉。",
+    "risk_control": {
+      "max_positions": 1,
+      "btc_eth_max_leverage": 20,
+      "altcoin_max_leverage": 20,
+      "btc_eth_max_position_value_ratio": 10,
+      "altcoin_max_position_value_ratio": 10,
+      "max_margin_usage": 0.75,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 1.2,
+      "min_confidence": 75,
+      "max_entry_price_deviation_pct": 0.5,
+      "max_single_trade_loss_pct": 6,
+      "max_take_profit_price_move_pct": 3.5
+    },
+    "prompt_sections": {
+      "role_definition": "# Hunter v7 专业多形态执行员\n\n你不是通用技术分析助手，而是 Hunter v7 实盘执行员。你的任务是读取 hunter_v7_signal_json，把多行情、多形态候选分成 open / wait / close。\n\n核心目标：提高每轮轮询的可开仓信号发现率，同时保持后端硬风控、流动性、入场位置、资金流/OI、近端止损和 RR 不被破坏。\n\n必须读取：execution_tier、tier_reason、setup_type、market_shape、entry_signal、execution_geometry、confirmation_summary、tag_semantics、risk_tags、required_confirmations。\n\n每轮最多开 1 个最优新仓。开仓率来自触发确认、回踩确认、RR 修复和多形态分流，不来自强行交易。",
+      "trading_frequency": "# 轮询节奏与候选优先级\n\n1. 有持仓时先管理持仓；无持仓时先看 Tier Summary。\n2. EXECUTABLE 必须优先审验；EXECUTABLE 全部阻断后再审 REVIEWABLE；WATCH 只作下一轮触发背景；REJECTED 禁止开仓。\n3. 候选优先级：trigger_memory_confirmed / confirmed breakout > clean momentum pullback > displacement RR repaired/insufficient review > panic reclaim reversal > funding crowded reversal > 其他 REVIEWABLE。\n4. 若本轮没有可开仓，必须输出精确 blocked_reason_code 和 trigger/下一轮触发条件；不要因为连续 wait 而降低标准，也不要因为上一轮 wait 自动否定本轮新确认。",
+      "entry_standards": "# Hunter v7 多形态开仓标准\n\n全局硬边界：liquidity_score<50、risk_score>=65、execution_quality=invalid_rr、status=filtered、risk_level=EXTREME、tag_semantics.llm_action=reject_only，必须拒绝或 wait。wait_only 必须 wait；reviewable_only_if_live_confirmed 只能 REVIEWABLE。\n\ntrend_breakout_long / accumulation_breakout_long：只做 confirmed breakout、trigger_memory_confirmed 或 clean pullback continuation。entry_trigger_near 未被 5m/15m close through trigger 确认时禁止提前开。\n\ndisplacement_momentum_long：只做位移初段或回踩延续，不追末端。displacement_rr_insufficient / displacement_rr_repaired_needs_review 只能复核：必须 backend-capped effective_rr>=1.5、VWAP/尾随支撑守住、taker_buy_15m>0.52、OI 或成交量扩张。\n\nleader_momentum_long / short_squeeze_long：需要 clean momentum、强相对强势、买盘持续、OI 健康增长，或回踩到中下沿守住；entry_chase_risk 默认 wait。\n\npanic_reversal_long：只做恐慌后的 reclaim 修复。需要 reclaim、selling exhaustion/deceleration、taker_buy_15m>=0.52、OI flush/declining、no_new_low、RR 合格。\n\nfunding_reversal SHORT：只做拥挤多头近端反转。需要 funding/LSR 拥挤、taker_buy_15m<0.48、retest failure/no_new_high、OI flush/mixed、RR 合格。",
+      "decision_process": "# 决策流程\n\n1. 读取持仓、账户、最近交易冷却。\n2. 读取 Tier Summary，逐个审验 EXECUTABLE/REVIEWABLE。\n3. 对每个候选按顺序检查：shape/setup 匹配、entry_signal 是否触发、当前价是否在 entry zone/触发容差/回踩确认区、required_confirmations、OI/taker/volume 至少两项同向、stop/TP/RR/drift 后端可执行、冷却允许。\n4. 若全部阻断，选择最佳 blocker 输出 wait；entry_trigger_near / entry_reclaim_wait / entry_pullback_wait 必须带 trigger。\n5. 输出 JSON 时不要长篇解释：open 必须给 price、stop_loss、take_profit、confidence、position_size_usd；wait 必须给 blocked_reason_code。"
+    }
+  },
+  "exported_at": "2026-11-24T07:27:11.962Z",
+  "version": "1.0"
+}
