@@ -6,6 +6,7 @@ import { PunkAvatar, getTraderAvatar } from '../components/common/PunkAvatar'
 import { confirmToast, notify } from '../lib/notify'
 import { formatPrice, formatQuantity } from '../utils/format'
 import { useFlashOnChange, flashClass } from '../hooks/useFlashOnChange'
+import { displayName } from '../i18n/displayNames'
 import { t, type Language } from '../i18n/translations'
 import {
   LogOut,
@@ -267,7 +268,7 @@ export function TraderDashboardPage({
   const handleClosePosition = async (symbol: string, side: string) => {
     if (!selectedTraderId) return
 
-    const sideLabel = side === 'LONG' ? 'LONG' : 'SHORT'
+    const sideLabel = displayName('direction', side, language)
     const confirmMsg = t('traderDashboard.confirmClosePosition', language, {
       symbol,
       side: sideLabel,
@@ -423,61 +424,74 @@ export function TraderDashboardPage({
 
   return (
     <DeepVoidBackground className="min-h-screen pb-12">
-      <div className="w-full px-4 md:px-8 relative z-10 pt-6">
+      <div className="ait-page relative z-10 pt-4 sm:pt-6">
         {/* Trader Header */}
-        <div
-          className="mb-6 rounded-lg p-6 animate-scale-in ait-glass group"
-          style={{
-            background:
-              'linear-gradient(135deg, var(--color-panel) 0%, var(--color-surface) 100%)',
-          }}
-        >
-          <div className="flex items-start justify-between mb-4">
-            <h2 className="text-2xl font-bold flex items-center gap-4 text-foreground">
-              <div className="relative">
+        <section className="mb-4 ait-card p-4 sm:p-6 animate-scale-in">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="relative shrink-0">
                 <PunkAvatar
                   seed={getTraderAvatar(
                     selectedTrader.trader_id,
                     selectedTrader.trader_name
                   )}
-                  size={56}
-                  className="rounded-xl border-2 border-primary/30"
+                  size={52}
+                  className="rounded-card border border-border"
                 />
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-profit rounded-full border-2 border-background animate-pulse" />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-panel ${
+                    status?.is_running === false
+                      ? 'bg-muted-foreground'
+                      : 'bg-profit'
+                  }`}
+                />
               </div>
-              <div className="flex flex-col">
-                <span className="text-3xl tracking-tight text-foreground font-semibold">
+              <div className="min-w-0">
+                <h1 className="t-title truncate">
                   {selectedTrader.trader_name}
-                </span>
-                <span className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-                  ID: {selectedTrader.trader_id.slice(0, 8)}...
-                </span>
-              </div>
-            </h2>
-
-            <div className="flex items-center gap-4">
-              {/* Trader Selector */}
-              {traders && traders.length > 0 && (
-                <div className="flex items-center gap-2 ait-glass px-1 py-1 rounded-lg border border-white/5">
-                  <AiTSelect
-                    value={selectedTraderId || ''}
-                    onChange={(val) => onTraderSelect(val)}
-                    options={traders.map((t) => ({
-                      value: t.trader_id,
-                      label: t.trader_name,
-                    }))}
-                    className="bg-transparent text-sm font-medium cursor-pointer transition-colors text-foreground px-2 py-1"
-                  />
+                </h1>
+                <div className="flex items-center gap-2 t-caption text-muted-foreground">
+                  <span
+                    className={`ait-pill ${
+                      status?.is_running === false
+                        ? 'bg-surface-alt text-muted-foreground'
+                        : 'bg-profit/10 text-profit'
+                    }`}
+                  >
+                    {status?.is_running === false
+                      ? t('traderDashboard.statusStopped', language)
+                      : t('traderDashboard.statusRunning', language)}
+                  </span>
+                  <span
+                    data-raw
+                    className="t-num truncate"
+                    title={selectedTrader.trader_id}
+                  >
+                    {t('traderDashboard.traderId', language)}{' '}
+                    {selectedTrader.trader_id.slice(0, 8)}
+                  </span>
                 </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              {traders && traders.length > 0 && (
+                <AiTSelect
+                  value={selectedTraderId || ''}
+                  onChange={(val) => onTraderSelect(val)}
+                  options={traders.map((t) => ({
+                    value: t.trader_id,
+                    label: t.trader_name,
+                  }))}
+                  className="h-9 px-3 rounded-control bg-surface-alt border border-border text-[13px] font-medium text-foreground"
+                />
               )}
 
-              {/* Wallet Address Display for Perp-DEX */}
               {exchanges && isPerpDex && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg ait-glass border border-primary/20">
+                <div className="flex items-center gap-1 h-9 px-2.5 rounded-control bg-surface-alt border border-border">
                   {walletAddress ? (
                     <>
-                      <span className="text-xs font-mono text-primary">
+                      <span className="t-caption t-num text-foreground">
                         {showWalletAddress
                           ? walletAddress
                           : truncateAddress(walletAddress)}
@@ -486,7 +500,12 @@ export function TraderDashboardPage({
                         variant="unstyled"
                         type="button"
                         onClick={() => setShowWalletAddress(!showWalletAddress)}
-                        className="p-1 rounded hover:bg-white/10 transition-colors"
+                        className="p-1.5 rounded hover:bg-panel"
+                        aria-label={
+                          showWalletAddress
+                            ? t('traderDashboard.hideAddress', language)
+                            : t('traderDashboard.showFullAddress', language)
+                        }
                         title={
                           showWalletAddress
                             ? t('traderDashboard.hideAddress', language)
@@ -503,7 +522,8 @@ export function TraderDashboardPage({
                         variant="unstyled"
                         type="button"
                         onClick={handleCopyAddress}
-                        className="p-1 rounded hover:bg-white/10 transition-colors"
+                        className="p-1.5 rounded hover:bg-panel"
+                        aria-label={t('traderDashboard.copyAddress', language)}
                         title={t('traderDashboard.copyAddress', language)}
                       >
                         {copiedAddress ? (
@@ -514,7 +534,7 @@ export function TraderDashboardPage({
                       </Button>
                     </>
                   ) : (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="t-caption text-muted-foreground">
                       {t('traderDashboard.noAddressConfigured', language)}
                     </span>
                   )}
@@ -522,75 +542,61 @@ export function TraderDashboardPage({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-6 text-sm flex-wrap text-muted-foreground font-mono pl-2">
-            <span className="flex items-center gap-2">
-              <span className="opacity-60">AI Model:</span>
-              <span
-                className="font-bold px-2 py-0.5 rounded text-xs tracking-wide"
-                style={{
-                  background: selectedTrader.ai_model.includes('qwen')
-                    ? 'color-mix(in srgb, var(--color-purple) 15%, transparent)'
-                    : 'color-mix(in srgb, var(--color-info) 15%, transparent)',
-                  color: selectedTrader.ai_model.includes('qwen')
-                    ? 'var(--color-purple)'
-                    : 'var(--color-info)',
-                  border: `1px solid color-mix(in srgb, ${
-                    selectedTrader.ai_model.includes('qwen')
-                      ? 'var(--color-purple)'
-                      : 'var(--color-info)'
-                  } 25%, transparent)`,
-                }}
-              >
-                {getModelDisplayName(
-                  selectedTrader.ai_model.split('_').pop() ||
-                    selectedTrader.ai_model
-                )}
-              </span>
-            </span>
-            <span className="w-px h-3 bg-white/10 hidden md:block" />
-            <span className="flex items-center gap-2">
-              <span className="opacity-60">Exchange:</span>
-              <span className="text-foreground font-semibold">
-                {getExchangeDisplayNameFromList(
-                  selectedTrader.exchange_id,
-                  exchanges
-                )}
-              </span>
-            </span>
-            <span className="w-px h-3 bg-white/10 hidden md:block" />
-            <span className="flex items-center gap-2">
-              <span className="opacity-60">Strategy:</span>
-              <span className="text-primary font-semibold tracking-wide">
-                {selectedTrader.strategy_name || 'No Strategy'}
-              </span>
-            </span>
-            {status && (
-              <div className="hidden md:contents">
-                <span className="w-px h-3 bg-white/10" />
-                <span>
-                  Cycles:{' '}
-                  <span className="text-foreground">{status.call_count}</span>
-                </span>
-                <span className="w-px h-3 bg-white/10" />
-                <span>
-                  Runtime:{' '}
-                  <span className="text-foreground">
-                    {status.runtime_minutes} min
-                  </span>
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Debug Info */}
-        <div className="mb-4 px-3 py-1.5 rounded bg-black/40 border border-white/5 text-[10px] font-mono text-muted-foreground flex justify-between items-center opacity-95 hover:opacity-100 transition-opacity">
-          <span className="text-profit">SYSTEM_STATUS::ONLINE</span>
+          {/* Key facts: label over value, Apple-style spec row */}
+          <dl className="mt-5 pt-4 border-t border-border grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-3">
+            <HeaderFact label={t('traderDashboard.factModel', language)}>
+              {getModelDisplayName(
+                selectedTrader.ai_model.split('_').pop() ||
+                  selectedTrader.ai_model
+              )}
+            </HeaderFact>
+            <HeaderFact label={t('traderDashboard.factExchange', language)}>
+              {getExchangeDisplayNameFromList(
+                selectedTrader.exchange_id,
+                exchanges
+              )}
+            </HeaderFact>
+            <HeaderFact label={t('traderDashboard.factStrategy', language)}>
+              <span className="text-primary">
+                {selectedTrader.strategy_name ||
+                  t('traderDashboard.noStrategy', language)}
+              </span>
+            </HeaderFact>
+            {status && (
+              <>
+                <HeaderFact label={t('traderDashboard.factCycles', language)}>
+                  <span className="t-num">{status.call_count}</span>
+                </HeaderFact>
+                <HeaderFact label={t('traderDashboard.factRuntime', language)}>
+                  <span className="t-num">
+                    {t('traderDashboard.minutes', language, {
+                      n: status.runtime_minutes,
+                    })}
+                  </span>
+                </HeaderFact>
+              </>
+            )}
+          </dl>
+        </section>
+
+        {/* Live status strip */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 t-micro text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-profit">
+            <span className="w-1.5 h-1.5 rounded-full bg-profit" />
+            {t('traderDashboard.liveOnline', language)}
+          </span>
           {account ? (
-            <div className="flex gap-4">
-              <span>LAST_UPDATE::{lastUpdate}</span>
-              <span>EQ::{account.total_equity?.toFixed(2)}</span>
-              <span>PNL::{account.total_pnl?.toFixed(2)}</span>
+            <div className="flex flex-wrap gap-x-4 t-num">
+              <span>
+                {t('traderDashboard.lastUpdate', language)} {lastUpdate}
+              </span>
+              <span>
+                {t('totalEquity', language)} {account.total_equity?.toFixed(2)}
+              </span>
+              <span>
+                {t('totalPnL', language)} {account.total_pnl?.toFixed(2)}
+              </span>
             </div>
           ) : accountFailed ? (
             <span className="text-loss">
@@ -598,15 +604,14 @@ export function TraderDashboardPage({
             </span>
           ) : (
             <div className="flex gap-4">
-              <span className="inline-block w-32 h-3 rounded bg-white/5 animate-pulse" />
-              <span className="inline-block w-16 h-3 rounded bg-white/5 animate-pulse" />
-              <span className="inline-block w-16 h-3 rounded bg-white/5 animate-pulse" />
+              <span className="inline-block w-32 h-3 rounded skeleton" />
+              <span className="inline-block w-16 h-3 rounded skeleton" />
             </div>
           )}
         </div>
 
         {/* Account Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <StatCard
             title={t('totalEquity', language)}
             value={
@@ -659,7 +664,7 @@ export function TraderDashboardPage({
                 ? '--'
                 : `${account?.position_count ?? '--'}`
             }
-            unit="ACTIVE"
+            unit={t('traderDashboard.unitActive', language)}
             subtitle={
               accountFailed && !account
                 ? `${t('margin', language)}: --`
@@ -714,27 +719,24 @@ export function TraderDashboardPage({
 
             {/* Current Positions */}
             <div
-              className="ait-glass p-6 animate-slide-in relative overflow-hidden group"
+              className="ait-card p-4 sm:p-6 animate-slide-in relative overflow-hidden group"
               style={{ animationDelay: '0.15s' }}
             >
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                 <div className="w-24 h-24 rounded-full bg-info blur-3xl" />
               </div>
               <div className="flex items-center justify-between mb-5 relative z-10">
-                <h2 className="text-lg font-bold flex items-center gap-2 text-foreground uppercase tracking-wide">
-                  <span className="text-info">◈</span>{' '}
-                  {t('currentPositions', language)}
-                </h2>
+                <h2 className="t-title">{t('currentPositions', language)}</h2>
                 {positions && positions.length > 0 && (
-                  <div className="text-xs px-2 py-1 rounded bg-primary-dim text-primary border border-primary/20 font-mono">
+                  <div className="ait-pill bg-primary-dim text-primary">
                     {positions.length} {t('active', language)}
                   </div>
                 )}
               </div>
               {positions && positions.length > 0 ? (
                 <div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                  <div className="ait-table-scroll -mx-4 sm:mx-0 px-4 sm:px-0">
+                    <table className="w-full min-w-[720px] text-xs">
                       <thead className="text-left border-b border-white/5">
                         <tr>
                           <th className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-left">
@@ -747,13 +749,13 @@ export function TraderDashboardPage({
                             {t('traderDashboard.action', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('entryPrice', language)}
                           >
                             {t('traderDashboard.entry', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('markPrice', language)}
                           >
                             {t('traderDashboard.mark', language)}
@@ -765,19 +767,19 @@ export function TraderDashboardPage({
                             {t('traderDashboard.qty', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('positionValue', language)}
                           >
                             {t('traderDashboard.value', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('margin', language)}
                           >
                             {t('traderDashboard.margin', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-center hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-center"
                             title={t('leverage', language)}
                           >
                             {t('traderDashboard.lev', language)}
@@ -789,7 +791,7 @@ export function TraderDashboardPage({
                             {t('traderDashboard.uPnL', language)}
                           </th>
                           <th
-                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right hidden md:table-cell"
+                            className="px-1 pb-3 text-[10px] font-semibold text-muted-foreground whitespace-nowrap text-right"
                             title={t('liqPrice', language)}
                           >
                             {t('traderDashboard.liq', language)}
@@ -851,19 +853,19 @@ export function TraderDashboardPage({
                                 {t('traderDashboard.close', language)}
                               </Button>
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground">
                               {formatPrice(pos.entry_price)}
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground">
                               {formatPrice(pos.mark_price)}
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground">
                               {formatQuantity(pos.quantity)}
                             </td>
-                            <td className="px-1 py-3 font-mono font-bold whitespace-nowrap text-right text-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono font-bold whitespace-nowrap text-right text-foreground">
                               {(pos.quantity * pos.mark_price).toFixed(2)}
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-foreground">
                               {pos.margin_used > 0
                                 ? pos.margin_used.toFixed(2)
                                 : pos.leverage > 0
@@ -873,13 +875,13 @@ export function TraderDashboardPage({
                                     ).toFixed(2)
                                   : '--'}
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-center text-muted-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-center text-muted-foreground">
                               {pos.leverage}x
                             </td>
                             <td className="px-1 py-3 font-mono whitespace-nowrap text-right">
                               <PnLCell value={pos.unrealized_pnl} />
                             </td>
-                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-muted-foreground hidden md:table-cell">
+                            <td className="px-1 py-3 font-mono whitespace-nowrap text-right text-muted-foreground">
                               {formatPrice(pos.liquidation_price)}
                             </td>
                           </tr>
@@ -1013,24 +1015,16 @@ export function TraderDashboardPage({
 
           {/* Right Column: Recent Decisions */}
           <div
-            className="ait-glass p-6 animate-slide-in h-fit lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] flex flex-col"
+            className="ait-card p-4 sm:p-6 animate-slide-in h-fit lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] flex flex-col"
             style={{ animationDelay: '0.2s' }}
           >
             {/* Header */}
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/5 shrink-0">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                style={{
-                  background:
-                    'linear-gradient(135deg, var(--color-info) 0%, var(--color-purple) 100%)',
-                }}
-              >
-                <Brain className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 rounded-control flex items-center justify-center bg-surface-alt text-muted-foreground">
+                <Brain className="w-[18px] h-[18px]" />
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-foreground">
-                  {t('recentDecisions', language)}
-                </h2>
+                <h2 className="t-title">{t('recentDecisions', language)}</h2>
                 {decisions && decisions.length > 0 && (
                   <div className="text-xs text-muted-foreground">
                     {t('lastCycles', language, { count: decisions.length })}
@@ -1053,10 +1047,7 @@ export function TraderDashboardPage({
             </div>
 
             {/* Decisions List - Scrollable */}
-            <div
-              className="space-y-4 overflow-y-auto pr-2 custom-scrollbar"
-              style={{ maxHeight: 'calc(100vh - 280px)' }}
-            >
+            <div className="space-y-4 lg:overflow-y-auto lg:pr-2 custom-scrollbar lg:max-h-[calc(100vh-280px)]">
               {decisions && decisions.length > 0 ? (
                 decisions.map((decision, i) => (
                   <DecisionCard
@@ -1175,17 +1166,11 @@ export function StatCard({
   staleLabel?: string
 }) {
   return (
-    <div
-      className={`ait-glass p-5 rounded-lg border ${
-        stale ? 'border-warning/40' : 'border-border'
-      }`}
-    >
+    <div className={`ait-card p-4 sm:p-5 ${stale ? 'border-warning/40' : ''}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-          {title}
-        </div>
+        <div className="t-caption text-muted-foreground truncate">{title}</div>
         {stale && (
-          <span className="text-[10px] font-mono uppercase tracking-wider text-warning">
+          <span className="ait-pill bg-warning/10 text-warning">
             {staleLabel || 'STALE'}
           </span>
         )}
@@ -1199,21 +1184,19 @@ export function StatCard({
         <>
           <div className="flex items-baseline gap-1 mb-1">
             <div
-              className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${
+              className={`text-[22px] sm:text-[28px] leading-tight font-semibold t-num tracking-tight ${
                 stale ? 'text-muted-foreground' : 'text-foreground'
               }`}
             >
               {value}
             </div>
             {unit && (
-              <span className="text-xs font-mono text-muted-foreground">
-                {unit}
-              </span>
+              <span className="t-micro text-muted-foreground">{unit}</span>
             )}
           </div>
           {change !== undefined && (
             <div
-              className={`text-sm mono font-bold inline-flex items-center gap-1 ${
+              className={`t-caption t-num font-semibold inline-flex items-center gap-1 ${
                 stale
                   ? 'text-muted-foreground'
                   : positive
@@ -1229,12 +1212,27 @@ export function StatCard({
             </div>
           )}
           {subtitle && (
-            <div className="text-xs mt-2 mono text-muted-foreground">
+            <div className="t-micro mt-1.5 t-num text-muted-foreground truncate">
               {subtitle}
             </div>
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function HeaderFact({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="t-micro text-muted-foreground">{label}</dt>
+      <dd className="t-label truncate mt-0.5">{children}</dd>
     </div>
   )
 }

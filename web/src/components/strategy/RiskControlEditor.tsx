@@ -83,7 +83,7 @@ export function RiskControlEditor({
             {ts(riskControl.tradingLeverage, language)}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div
             className="p-4 rounded-lg"
             style={{
@@ -165,7 +165,7 @@ export function RiskControlEditor({
             {ts(riskControl.positionValueRatioDesc, language)}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
             style={{
@@ -256,7 +256,7 @@ export function RiskControlEditor({
           </h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
             style={{
@@ -387,7 +387,7 @@ export function RiskControlEditor({
           </h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             className="p-4 rounded-lg"
             style={{

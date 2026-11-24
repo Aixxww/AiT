@@ -160,8 +160,8 @@ body {
 .header-bar {
   background: var(--color-header);
   border-bottom: 1px solid var(--color-header-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 /* Sonner (toast) overrides */
@@ -598,15 +598,15 @@ tr:hover {
 :root,
 [data-theme='dark'][data-style='pro'],
 .pro.dark {
-  --color-background: #0a0d10;
-  --color-surface: #0f1318;
-  --color-surface-alt: #141920;
-  --color-panel: #171c24;
-  --color-panel-hover: #1c222c;
+  --color-background: #0b0e11;
+  --color-surface: #14171c;
+  --color-surface-alt: #1b1f25;
+  --color-panel: #181c22;
+  --color-panel-hover: #1f242b;
 
-  --color-foreground: #e8eaed;
-  --color-muted-fg: #8b95a5;
-  --color-muted: #2a3040;
+  --color-foreground: #eaecef;
+  --color-muted-fg: #929aa5;
+  --color-muted: #2b3139;
   --color-disabled-fg: #4a5568;
 
   --color-primary: #f0b90b;
@@ -616,9 +616,9 @@ tr:hover {
   --color-accent: #00d4e8;
   --color-purple: #a78bfa;
 
-  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border: rgba(255, 255, 255, 0.075);
   --color-border-hover: rgba(240, 185, 11, 0.3);
-  --color-input: #1a1f28;
+  --color-input: #1b1f25;
   --color-ring: rgba(240, 185, 11, 0.35);
 
   --color-profit: #0ecb81;
@@ -633,24 +633,24 @@ tr:hover {
   --color-info: #3b82f6;
   --color-info-bg: rgba(59, 130, 246, 0.1);
 
-  --color-header: rgba(10, 13, 16, 0.88);
-  --color-header-border: rgba(255, 255, 255, 0.04);
+  --color-header: rgba(11, 14, 17, 0.78);
+  --color-header-border: rgba(255, 255, 255, 0.06);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
   --shadow-primary-glow: rgba(240, 185, 11, 0.12);
   --shadow-accent-glow: rgba(0, 212, 232, 0.12);
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --blur-glass: 12px;
   --blur-glass-heavy: 24px;
 
-  --chart-bg: #0a0d10;
+  --chart-bg: #0b0e11;
   --chart-grid: rgba(43, 49, 57, 0.2);
   --chart-text: #8b95a5;
   --chart-crosshair: rgba(240, 185, 11, 0.5);
@@ -660,25 +660,25 @@ tr:hover {
 /* ── PROFESSIONAL LIGHT ── */
 [data-theme='light'][data-style='pro'],
 .pro.light {
-  --color-background: #f8f9fa;
+  --color-background: #f5f5f7;
   --color-surface: #ffffff;
-  --color-surface-alt: #f1f3f5;
+  --color-surface-alt: #f5f5f7;
   --color-panel: #ffffff;
-  --color-panel-hover: #f8f9fa;
+  --color-panel-hover: #fafafa;
 
-  --color-foreground: #1a1d23;
-  --color-muted-fg: #6b7280;
-  --color-muted: #e5e7eb;
+  --color-foreground: #1d1d1f;
+  --color-muted-fg: #6e6e73;
+  --color-muted: #e8e8ed;
   --color-disabled-fg: #9ca3af;
 
-  --color-primary: #d4a00a;
-  --color-primary-fg: #ffffff;
-  --color-primary-dim: rgba(212, 160, 10, 0.08);
+  --color-primary: #c99400;
+  --color-primary-fg: #1d1d1f;
+  --color-primary-dim: rgba(201, 148, 0, 0.1);
   --color-primary-glow: rgba(212, 160, 10, 0.12);
   --color-accent: #0891b2;
   --color-purple: #7c3aed;
 
-  --color-border: #e5e7eb;
+  --color-border: rgba(0, 0, 0, 0.08);
   --color-border-hover: rgba(212, 160, 10, 0.4);
   --color-input: #ffffff;
   --color-ring: rgba(212, 160, 10, 0.3);
@@ -695,19 +695,19 @@ tr:hover {
   --color-info: #2563eb;
   --color-info-bg: rgba(37, 99, 235, 0.08);
 
-  --color-header: rgba(255, 255, 255, 0.92);
+  --color-header: rgba(255, 255, 255, 0.8);
   --color-header-border: rgba(0, 0, 0, 0.06);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
   --shadow-primary-glow: rgba(212, 160, 10, 0.1);
   --shadow-accent-glow: rgba(8, 145, 178, 0.1);
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --blur-glass: 12px;
   --blur-glass-heavy: 24px;
@@ -943,6 +943,302 @@ tr:hover {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+/* ================================================================
+   DESIGN SYSTEM LAYER (issue #81, docs/frontend-redesign-20261124.md)
+   Semantic tokens derived from the theme palettes above, so all four
+   themes (pro/glass × dark/light) resolve without a second system.
+   ================================================================ */
+:root {
+  /* Type scale: display / title / headline / body / caption / micro */
+  --text-display: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem);
+  --text-title: clamp(1.25rem, 1.05rem + 0.7vw, 1.625rem);
+  --text-headline: 0.9375rem;
+  --text-body: 0.875rem;
+  --text-caption: 0.8125rem;
+  --text-micro: 0.6875rem;
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-body: 1.55;
+
+  /* Spacing rhythm (4px base): 4 8 12 16 24 32 48 64 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --page-gutter: clamp(16px, 2.5vw, 32px);
+  --page-max: 1600px;
+
+  /* Elevation: 0 flat, 1 card, 2 popover / dropdown, 3 dialog */
+  --elevation-0: none;
+  --elevation-1: var(--shadow-sm);
+  --elevation-2: var(--shadow-md);
+  --elevation-3: var(--shadow-lg);
+  --color-hairline: var(--color-border);
+
+  /* Radius roles */
+  --radius-control: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --radius-sheet: var(--radius-xl);
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* Touch target */
+  --tap-min: 40px;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --tap-min: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+@layer components {
+  /* Typography roles */
+  .t-display {
+    font-size: var(--text-display);
+    line-height: var(--leading-tight);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .t-title {
+    font-size: var(--text-title);
+    line-height: var(--leading-tight);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: var(--color-foreground);
+  }
+  .t-headline {
+    font-size: var(--text-headline);
+    line-height: var(--leading-snug);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--color-foreground);
+  }
+  .t-label {
+    font-size: var(--text-body);
+    line-height: var(--leading-snug);
+    font-weight: 550;
+    color: var(--color-foreground);
+  }
+  .t-body {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+  }
+  .t-caption {
+    font-size: var(--text-caption);
+    line-height: var(--leading-snug);
+  }
+  .t-micro {
+    font-size: var(--text-micro);
+    line-height: var(--leading-snug);
+    letter-spacing: 0.02em;
+  }
+  .t-num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Page frame: one gutter and max width for every page */
+  .ait-page {
+    width: 100%;
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+  }
+
+  /* Card: surface + hairline + card radius + elevation 1 */
+  .ait-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-card);
+    box-shadow: var(--elevation-1);
+  }
+  .ait-card-inset {
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-control);
+  }
+
+  /* Chips: selectable labels (setup families, filters) */
+  .ait-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-hairline);
+    background: var(--color-surface);
+    color: var(--color-muted-fg);
+    font-size: var(--text-caption);
+    font-weight: 550;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard),
+      color var(--dur-fast) var(--ease-standard);
+  }
+  .ait-chip:hover:not(:disabled) {
+    color: var(--color-foreground);
+    border-color: var(--color-border-hover);
+  }
+  .ait-chip[aria-pressed='true'],
+  .ait-chip[data-selected='true'] {
+    background: var(--color-primary-dim);
+    border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+    color: var(--color-foreground);
+  }
+  @media (pointer: coarse) {
+    .ait-chip {
+      min-height: var(--tap-min);
+    }
+  }
+
+  /* Status pill (tiers, sides, statuses) */
+  .ait-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  /* Segmented control */
+  .ait-segmented {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    border-radius: var(--radius-control);
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-hairline);
+  }
+  .ait-segmented > button {
+    min-height: calc(var(--tap-min) - 8px);
+    padding: 0 12px;
+    border-radius: calc(var(--radius-control) - 2px);
+    font-size: var(--text-caption);
+    color: var(--color-muted-fg);
+  }
+  .ait-segmented > button[aria-pressed='true'],
+  .ait-segmented > button[aria-selected='true'] {
+    background: var(--color-panel);
+    color: var(--color-foreground);
+    box-shadow: var(--elevation-1);
+  }
+
+  /* Info affordance */
+  .ait-infotip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin: -3px 0;
+    border-radius: var(--radius-pill);
+    color: var(--color-muted-fg);
+    background: transparent;
+    flex-shrink: 0;
+    cursor: help;
+  }
+  .ait-infotip-trigger:hover,
+  .ait-infotip-trigger[data-state-open] {
+    color: var(--color-foreground);
+    background: var(--color-surface-alt);
+  }
+  .ait-infotip-trigger:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 1px;
+  }
+  @media (pointer: coarse) {
+    /* 22px glyph, 44px hit area */
+    .ait-infotip-trigger {
+      position: relative;
+    }
+    .ait-infotip-trigger::after {
+      content: '';
+      position: absolute;
+      inset: -11px;
+    }
+  }
+  .ait-infotip-panel {
+    z-index: 70;
+    max-width: min(340px, calc(100vw - 24px));
+    padding: 12px 14px;
+    border-radius: var(--radius-card);
+    background: var(--color-panel);
+    border: 1px solid var(--color-hairline);
+    box-shadow: var(--elevation-2);
+    color: var(--color-foreground);
+    animation: ait-pop-in var(--dur-base) var(--ease-standard);
+    transform-origin: var(--radix-popover-content-transform-origin);
+  }
+  .ait-infotip-arrow {
+    fill: var(--color-panel);
+  }
+
+  /* Controls revealed on hover. Pointer devices without hover (touch) always
+     show them, so nothing is hover-only. */
+  @media (hover: hover) and (pointer: fine) {
+    .ait-hover-reveal {
+      opacity: 0;
+      transition: opacity var(--dur-fast) var(--ease-standard);
+    }
+    .group:hover .ait-hover-reveal,
+    .group:focus-within .ait-hover-reveal,
+    .ait-hover-reveal:focus-within {
+      opacity: 1;
+    }
+  }
+
+  /* Horizontal scroll container for dense tables (sticky first column) */
+  .ait-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .ait-table-scroll table th:first-child,
+  .ait-table-scroll table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--color-panel);
+  }
+}
+
+@keyframes ait-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Mobile adaptation layer */

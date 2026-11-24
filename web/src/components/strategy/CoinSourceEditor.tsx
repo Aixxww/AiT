@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Plus,
   X,
@@ -13,11 +13,20 @@ import {
   Crosshair,
   Radar,
   Activity,
+  Check,
 } from 'lucide-react'
 import type { CoinSourceConfig } from '../../types'
 import { coinSource, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
 import { Button } from '../ui/Button'
+import { SectionHeader } from '../ui/SectionHeader'
+import { SwitchRow } from '../ui/SwitchRow'
+import {
+  displayName,
+  setupBaseLabel,
+  setupLabel,
+} from '../../i18n/displayNames'
+import type { Language } from '../../i18n/translations'
 
 // Canonical setup_type list for the Task-2 transplant module checklist.
 // Source of truth: V7T2SetupTypes in provider/local/hunter_v7_t2_setups.go
@@ -41,6 +50,23 @@ const V7_T2_SETUP_TYPES = [
   'compression_oi_watch_short',
 ]
 
+// Families (Long/Short twins) in dispatcher order, derived from the list above.
+const V7_T2_FAMILIES = Array.from(
+  new Set(V7_T2_SETUP_TYPES.map((s) => s.replace(/_(long|short)$/, '')))
+)
+
+const FIELD_SELECT =
+  'h-9 min-w-[96px] px-3 rounded-control bg-background border border-border text-foreground'
+
+function FieldRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 min-h-[40px]">
+      <span className="t-caption text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 interface CoinSourceEditorProps {
   config: CoinSourceConfig
   onChange: (config: CoinSourceConfig) => void
@@ -56,6 +82,8 @@ export function CoinSourceEditor({
 }: CoinSourceEditorProps) {
   const [newCoin, setNewCoin] = useState('')
   const [newExcludedCoin, setNewExcludedCoin] = useState('')
+  const selectedT2 = config.hunter_config?.v7_t2_setups || []
+  const lang: Language = language === 'zh' ? 'zh' : 'en'
 
   // Toggle one setup family in the Task-2 module checklist ([]string round-trip;
   // empty list means all families enabled on the backend)
@@ -193,9 +221,10 @@ export function CoinSourceEditor({
     const currentCoins = config.static_coins || []
     if (currentCoins.length >= MAX_STATIC_COINS) {
       showToast(
-        language === 'zh'
-          ? `最多添加 ${MAX_STATIC_COINS} 个币种`
-          : `Maximum ${MAX_STATIC_COINS} coins allowed`
+        ts(coinSource.maxCoinsToast, language).replace(
+          '{n}',
+          String(MAX_STATIC_COINS)
+        )
       )
       return
     }
@@ -273,10 +302,10 @@ export function CoinSourceEditor({
     <div className="space-y-6">
       {/* Source Type Selector */}
       <div>
-        <label className="block text-sm font-medium mb-3 text-foreground">
+        <label className="block t-label mb-3">
           {ts(coinSource.sourceType, language)}
         </label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-2">
           {sourceTypes.map(({ value, icon: Icon, color }) => (
             <Button
               variant="unstyled"
@@ -310,17 +339,18 @@ export function CoinSourceEditor({
                 onChange({ ...config, source_type: sourceType })
               }}
               disabled={disabled}
-              className={`p-4 rounded-lg border transition-all ${
+              aria-pressed={config.source_type === value}
+              className={`flex flex-col items-start p-3 rounded-control border text-left transition-colors ${
                 config.source_type === value
-                  ? 'ring-2 ring-primary bg-primary-dim'
-                  : 'hover:bg-white/5 bg-background'
-              } border-primary/20`}
+                  ? 'border-primary/60 bg-primary-dim'
+                  : 'border-border bg-panel hover:border-border-hover'
+              }`}
             >
-              <Icon className="w-6 h-6 mx-auto mb-2" style={{ color }} />
-              <div className="text-sm font-medium text-foreground">
+              <Icon className="w-5 h-5 mb-2" style={{ color }} />
+              <div className="t-label">
                 {ts(coinSource[value as keyof typeof coinSource], language)}
               </div>
-              <div className="text-xs mt-1 text-muted-foreground">
+              <div className="t-micro font-normal mt-0.5 text-muted-foreground line-clamp-2">
                 {ts(
                   coinSource[`${value}Desc` as keyof typeof coinSource],
                   language
@@ -364,12 +394,12 @@ export function CoinSourceEditor({
                 onChange={(e) => setNewCoin(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCoin()}
                 placeholder="BTC, ETH, SOL..."
-                className="flex-1 px-4 py-2 rounded-lg bg-background border border-primary/20 text-foreground"
+                className="flex-1 min-w-0 h-10 px-3 rounded-control bg-background border border-border text-foreground"
               />
               <Button
                 variant="unstyled"
                 onClick={handleAddCoin}
-                className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors bg-primary text-primary-foreground hover:bg-primary"
+                className="shrink-0 whitespace-nowrap px-4 py-2 rounded-control flex items-center gap-2 transition-colors bg-primary text-primary-foreground hover:opacity-90"
               >
                 <Plus className="w-4 h-4" />
                 {ts(coinSource.addCoin, language)}
@@ -422,12 +452,12 @@ export function CoinSourceEditor({
               onChange={(e) => setNewExcludedCoin(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddExcludedCoin()}
               placeholder="BTC, ETH, DOGE..."
-              className="flex-1 px-4 py-2 rounded-lg text-sm bg-background border border-primary/20 text-foreground"
+              className="flex-1 min-w-0 h-10 px-3 rounded-control text-sm bg-background border border-border text-foreground"
             />
             <Button
               variant="unstyled"
               onClick={handleAddExcludedCoin}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm bg-loss text-foreground hover:bg-loss"
+              className="shrink-0 whitespace-nowrap px-4 py-2 rounded-control flex items-center gap-2 transition-colors text-sm bg-loss text-white hover:opacity-90"
             >
               <Ban className="w-4 h-4" />
               {ts(coinSource.addExcludedCoin, language)}
@@ -730,13 +760,13 @@ export function CoinSourceEditor({
             {config.use_hunter && (
               <details className="pl-8 mt-2">
                 <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground select-none">
-                  {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
+                  {ts(coinSource.advAdvancedFilters, language)} ▸
                 </summary>
                 <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-background border border-ait-border">
                   {/* Strategy Mode Toggle */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '策略模式' : 'Strategy Mode'}:
+                      {ts(coinSource.advStrategyMode, language)}:
                     </span>
                     <div className="flex gap-1.5">
                       <Button
@@ -759,7 +789,7 @@ export function CoinSourceEditor({
                             : 'bg-background text-muted-foreground border border-ait-border hover:border-info/30'
                         }`}
                       >
-                        {language === 'zh' ? '默认模式' : 'Default'}
+                        {ts(coinSource.advDefault, language)}
                       </Button>
                       <Button
                         variant="unstyled"
@@ -780,7 +810,7 @@ export function CoinSourceEditor({
                             : 'bg-background text-muted-foreground border border-ait-border hover:border-warning/30'
                         }`}
                       >
-                        {language === 'zh' ? '妖币猎杀' : 'Breakout'}
+                        {ts(coinSource.advBreakout, language)}
                       </Button>
                     </div>
                   </div>
@@ -788,36 +818,18 @@ export function CoinSourceEditor({
                   {/* Breakout mode info box */}
                   {config.hunter_config?.strategy_mode === 'breakout' && (
                     <div className="p-2 rounded bg-warning/5 border border-warning/20 text-xs text-warning/80 space-y-0.5">
-                      {language === 'zh' ? (
-                        <>
-                          <div>
-                            ▸ BB Width 漏斗预筛（仅最低 25% 分位进入评分）
-                          </div>
-                          <div>▸ 阻力位/支撑位惩罚被 squeeze 信号豁免</div>
-                          <div>▸ Squeeze 爆发支柱上限提升至 70 分</div>
-                          <div>▸ OI &gt;15% + squeeze = 单骑破阵放行</div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            ▸ BB Width funnel: only bottom 25th percentile
-                            enters scoring
-                          </div>
-                          <div>
-                            ▸ Resistance/support penalties exempted by squeeze
-                            signals
-                          </div>
-                          <div>▸ Squeeze explosion pillar cap raised to 70</div>
-                          <div>▸ OI &gt;15% + squeeze = lone breaker pass</div>
-                        </>
-                      )}
+                      {ts(coinSource.breakoutModeInfo, language)
+                        .split('\n')
+                        .map((line, i) => (
+                          <div key={i}>{line}</div>
+                        ))}
                     </div>
                   )}
 
                   {/* Min OI Value */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '最低OI' : 'Min OI'}
+                      {ts(coinSource.advMinOI, language)}
                     </span>
                     <AiTSelect
                       value={String(
@@ -847,7 +859,7 @@ export function CoinSourceEditor({
                   {/* RSI Oversold */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
+                      {ts(coinSource.advRSIOversold, language)}
                     </span>
                     <AiTSelect
                       value={String(
@@ -875,7 +887,7 @@ export function CoinSourceEditor({
                   {/* RSI Overbought */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
+                      {ts(coinSource.advRSIOverbought, language)}
                     </span>
                     <AiTSelect
                       value={String(
@@ -922,16 +934,14 @@ export function CoinSourceEditor({
                       className="w-4 h-4 rounded accent-accent-purple"
                     />
                     <span className="text-xs text-foreground">
-                      {language === 'zh'
-                        ? '资金费率信号'
-                        : 'Funding Rate Signal'}
+                      {ts(coinSource.advFundingRateSignal, language)}
                     </span>
                   </label>
 
                   {/* Max 24h Change */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '最大24h波动' : 'Max 24h Change'}
+                      {ts(coinSource.advMax24hChange, language)}
                     </span>
                     <AiTSelect
                       value={String(config.hunter_config?.max_24h_change || 50)}
@@ -949,7 +959,7 @@ export function CoinSourceEditor({
                       options={[
                         {
                           value: '0',
-                          label: language === 'zh' ? '不限' : 'None',
+                          label: ts(coinSource.advNone, language),
                         },
                         { value: '20', label: '20%' },
                         { value: '30', label: '30%' },
@@ -963,7 +973,7 @@ export function CoinSourceEditor({
                   {/* Wash Trade Sensitivity */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
+                      {ts(coinSource.advWashDetection, language)}
                     </span>
                     <AiTSelect
                       value={
@@ -986,15 +996,15 @@ export function CoinSourceEditor({
                       options={[
                         {
                           value: 'low',
-                          label: language === 'zh' ? '低' : 'Low',
+                          label: ts(coinSource.advLow, language),
                         },
                         {
                           value: 'medium',
-                          label: language === 'zh' ? '中' : 'Medium',
+                          label: ts(coinSource.advMedium, language),
                         },
                         {
                           value: 'high',
-                          label: language === 'zh' ? '高' : 'High',
+                          label: ts(coinSource.advHigh, language),
                         },
                       ]}
                       className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
@@ -1020,14 +1030,14 @@ export function CoinSourceEditor({
                       className="w-4 h-4 rounded accent-accent-purple"
                     />
                     <span className="text-xs text-foreground">
-                      {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
+                      {ts(coinSource.advSmartCooldown, language)}
                     </span>
                   </label>
 
                   {/* Min Trade Count */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '最低笔数' : 'Min Trades'}
+                      {ts(coinSource.advMinTrades, language)}
                     </span>
                     <AiTSelect
                       value={String(
@@ -1066,75 +1076,67 @@ export function CoinSourceEditor({
 
       {/* Hunter v7 Options - only for hunter_v7 mode */}
       {config.source_type === 'hunter_v7' && (
-        <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium text-foreground">
-                {ts(coinSource.hunter_v7, language)}{' '}
-                {ts(coinSource.dataSourceConfig, language)}
-              </span>
-              <BinanceBadge />
-            </div>
-          </div>
+        <div className="sm:ait-card-inset sm:p-4 space-y-5">
+          <SectionHeader
+            icon={<Zap className="w-4 h-4" />}
+            title={`${ts(coinSource.hunter_v7, language)} ${ts(coinSource.dataSourceConfig, language)}`}
+            summary={ts(coinSource.dataFromBinance, language)}
+            info={ts(coinSource.hunter_v7Desc, language)}
+          />
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {ts(coinSource.hunterLimit, language)}:
-              </span>
-              <AiTSelect
-                value={config.hunter_limit || 10}
-                onChange={(val) =>
-                  !disabled &&
-                  onChange({ ...config, hunter_limit: parseInt(val) || 10 })
-                }
-                disabled={disabled}
-                options={[3, 5, 8, 10, 15, 20].map((n) => ({
-                  value: n,
-                  label: String(n),
-                }))}
-                className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {ts(coinSource.hunterDirection, language)}:
-              </span>
-              <AiTSelect
-                value={config.hunter_direction || 'BOTH'}
-                onChange={(val) =>
-                  !disabled &&
-                  onChange({
-                    ...config,
-                    hunter_direction: val as 'LONG' | 'SHORT' | 'BOTH',
-                  })
-                }
-                disabled={disabled}
-                options={[
-                  {
-                    value: 'BOTH',
-                    label: ts(coinSource.hunterDirectionBoth, language),
-                  },
-                  {
-                    value: 'LONG',
-                    label: ts(coinSource.hunterDirectionLong, language),
-                  },
-                  {
-                    value: 'SHORT',
-                    label: ts(coinSource.hunterDirectionShort, language),
-                  },
-                ]}
-                className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {ts(coinSource.v7MaxOutput, language)}:
-                </span>
+          {/* Candidate output */}
+          <div>
+            <SectionHeader
+              level="group"
+              title={ts(coinSource.v7OutputGroup, language)}
+              summary={ts(coinSource.v7OutputGroupDesc, language)}
+              className="mb-3"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+              <FieldRow label={ts(coinSource.hunterLimit, language)}>
+                <AiTSelect
+                  value={config.hunter_limit || 10}
+                  onChange={(val) =>
+                    !disabled &&
+                    onChange({ ...config, hunter_limit: parseInt(val) || 10 })
+                  }
+                  disabled={disabled}
+                  options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                    value: n,
+                    label: String(n),
+                  }))}
+                  className={FIELD_SELECT}
+                />
+              </FieldRow>
+              <FieldRow label={ts(coinSource.hunterDirection, language)}>
+                <AiTSelect
+                  value={config.hunter_direction || 'BOTH'}
+                  onChange={(val) =>
+                    !disabled &&
+                    onChange({
+                      ...config,
+                      hunter_direction: val as 'LONG' | 'SHORT' | 'BOTH',
+                    })
+                  }
+                  disabled={disabled}
+                  options={[
+                    {
+                      value: 'BOTH',
+                      label: ts(coinSource.hunterDirectionBoth, language),
+                    },
+                    {
+                      value: 'LONG',
+                      label: ts(coinSource.hunterDirectionLong, language),
+                    },
+                    {
+                      value: 'SHORT',
+                      label: ts(coinSource.hunterDirectionShort, language),
+                    },
+                  ]}
+                  className={FIELD_SELECT}
+                />
+              </FieldRow>
+              <FieldRow label={ts(coinSource.v7MaxOutput, language)}>
                 <AiTSelect
                   value={config.hunter_config?.v7_max_output ?? 30}
                   onChange={(val) =>
@@ -1152,14 +1154,10 @@ export function CoinSourceEditor({
                     value: n,
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
+                  className={FIELD_SELECT}
                 />
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {ts(coinSource.v7WatchOutput, language)}:
-                </span>
+              </FieldRow>
+              <FieldRow label={ts(coinSource.v7WatchOutput, language)}>
                 <AiTSelect
                   value={String(config.hunter_config?.v7_watch_output ?? 5)}
                   onChange={(val) => {
@@ -1178,14 +1176,10 @@ export function CoinSourceEditor({
                     value: String(n),
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
+                  className={FIELD_SELECT}
                 />
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {ts(coinSource.v7MinAIPriority, language)}:
-                </span>
+              </FieldRow>
+              <FieldRow label={ts(coinSource.v7MinAIPriority, language)}>
                 <AiTSelect
                   value={String(config.hunter_config?.v7_min_ai_priority ?? 55)}
                   onChange={(val) =>
@@ -1203,159 +1197,148 @@ export function CoinSourceEditor({
                     value: String(n),
                     label: String(n),
                   }))}
-                  className="px-3 py-1.5 rounded bg-background border border-primary/20 text-foreground"
+                  className={FIELD_SELECT}
                 />
-              </div>
+              </FieldRow>
             </div>
+          </div>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
+          {/* Screening preferences */}
+          <div>
+            <SectionHeader
+              level="group"
+              title={ts(coinSource.v7FiltersGroup, language)}
+              className="mb-1"
+            />
+            <div className="divide-y divide-border">
+              <SwitchRow
+                title={ts(coinSource.v7Aggressive, language)}
+                summary={ts(coinSource.v7AggressiveDesc, language)}
                 checked={config.hunter_config?.v7_aggressive ?? true}
-                onChange={(e) =>
-                  !disabled &&
+                disabled={disabled}
+                onChange={(checked) =>
                   onChange({
                     ...config,
                     hunter_config: {
                       ...(config.hunter_config || {}),
-                      v7_aggressive: e.target.checked,
+                      v7_aggressive: checked,
                     },
                   })
                 }
-                disabled={disabled}
-                className="w-5 h-5 rounded accent-accent"
               />
-              <span className="text-sm text-foreground">
-                {ts(coinSource.v7Aggressive, language)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {ts(coinSource.v7AggressiveDesc, language)}
-              </span>
-            </label>
-
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
+              <SwitchRow
+                title={ts(coinSource.v7ExcludeNonCryptoFutures, language)}
+                info={ts(coinSource.v7ExcludeNonCryptoFuturesDesc, language)}
                 checked={
                   !(config.hunter_config?.include_non_crypto_futures ?? false)
                 }
-                onChange={(e) =>
-                  !disabled &&
+                disabled={disabled}
+                onChange={(checked) =>
                   onChange({
                     ...config,
                     hunter_config: {
                       ...(config.hunter_config || {}),
-                      include_non_crypto_futures: !e.target.checked,
+                      include_non_crypto_futures: !checked,
                     },
                   })
                 }
-                disabled={disabled}
-                className="w-5 h-5 rounded accent-accent"
               />
-              <span className="text-sm text-foreground">
-                {ts(coinSource.v7ExcludeNonCryptoFutures, language)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {ts(coinSource.v7ExcludeNonCryptoFuturesDesc, language)}
-              </span>
-            </label>
+            </div>
+          </div>
 
-            {/* Task-2 transplant module (hunter_v7_t2_setups) */}
-            <div className="pt-3 border-t border-accent/20 space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={config.hunter_config?.v7_t2_enabled ?? false}
-                  onChange={(e) =>
-                    !disabled &&
+          {/* Task-2 transplant module (hunter_v7_t2_setups) */}
+          <div className="ait-card p-3 sm:p-4" data-shot="t2-modules">
+            <SwitchRow
+              className="py-0"
+              title={ts(coinSource.v7T2Enabled, language)}
+              summary={ts(coinSource.v7T2EnabledDesc, language)}
+              info={ts(coinSource.v7T2Info, language)}
+              checked={config.hunter_config?.v7_t2_enabled ?? false}
+              disabled={disabled}
+              onChange={(checked) =>
+                onChange({
+                  ...config,
+                  hunter_config: {
+                    ...(config.hunter_config || {}),
+                    v7_t2_enabled: checked,
+                  },
+                })
+              }
+            />
+
+            {(config.hunter_config?.v7_t2_enabled ?? false) && (
+              <div className="mt-4 pt-4 border-t border-border space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <SectionHeader
+                    level="group"
+                    title={ts(coinSource.v7T2Setups, language)}
+                    summary={ts(coinSource.v7T2SetupsDesc, language)}
+                  />
+                  <span className="ait-pill bg-surface-alt text-muted-foreground shrink-0">
+                    {selectedT2.length === 0
+                      ? ts(coinSource.v7T2AllEnabled, language)
+                      : ts(coinSource.v7T2Selected, language).replace(
+                          '{n}',
+                          String(selectedT2.length)
+                        )}
+                  </span>
+                </div>
+                <ul className="divide-y divide-border rounded-control border border-border">
+                  {V7_T2_FAMILIES.map((family) => (
+                    <li
+                      key={family}
+                      className="flex items-center justify-between gap-2 px-3 py-2"
+                    >
+                      <span className="t-label">
+                        {setupBaseLabel(family, lang)}
+                      </span>
+                      <div className="flex gap-2">
+                        {(['long', 'short'] as const).map((dir) => {
+                          const setup = `${family}_${dir}`
+                          const isSelected = selectedT2.includes(setup)
+                          return (
+                            <button
+                              key={setup}
+                              type="button"
+                              onClick={() => toggleT2Setup(setup)}
+                              disabled={disabled}
+                              aria-pressed={isSelected}
+                              aria-label={setupLabel(setup, lang)}
+                              title={setupLabel(setup, lang)}
+                              className="ait-chip justify-center min-w-[64px]"
+                            >
+                              {isSelected && (
+                                <Check className="w-3.5 h-3.5 text-primary" />
+                              )}
+                              {displayName('direction', dir, lang)}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <SwitchRow
+                  className="py-0"
+                  title={ts(coinSource.v7T2SymbolValidityGate, language)}
+                  summary={ts(coinSource.v7T2SymbolValidityGateDesc, language)}
+                  checked={
+                    config.hunter_config?.v7_t2_symbol_validity_gate ?? false
+                  }
+                  disabled={disabled}
+                  onChange={(checked) =>
                     onChange({
                       ...config,
                       hunter_config: {
                         ...(config.hunter_config || {}),
-                        v7_t2_enabled: e.target.checked,
+                        v7_t2_symbol_validity_gate: checked,
                       },
                     })
                   }
-                  disabled={disabled}
-                  className="w-5 h-5 rounded accent-accent"
                 />
-                <span className="text-sm text-foreground">
-                  {ts(coinSource.v7T2Enabled, language)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {ts(coinSource.v7T2EnabledDesc, language)}
-                </span>
-              </label>
-
-              {(config.hunter_config?.v7_t2_enabled ?? false) && (
-                <>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        {ts(coinSource.v7T2Setups, language)}:
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {ts(coinSource.v7T2SetupsDesc, language)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {V7_T2_SETUP_TYPES.map((setup) => {
-                        const isSelected = (
-                          config.hunter_config?.v7_t2_setups || []
-                        ).includes(setup)
-                        return (
-                          <Button
-                            variant="unstyled"
-                            key={setup}
-                            onClick={() => toggleT2Setup(setup)}
-                            disabled={disabled}
-                            className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
-                              isSelected
-                                ? 'ring-1 ring-accent bg-accent/10 text-foreground'
-                                : 'opacity-50 hover:opacity-80 text-muted-foreground'
-                            } border border-primary/20`}
-                          >
-                            {setup}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={
-                        config.hunter_config?.v7_t2_symbol_validity_gate ??
-                        false
-                      }
-                      onChange={(e) =>
-                        !disabled &&
-                        onChange({
-                          ...config,
-                          hunter_config: {
-                            ...(config.hunter_config || {}),
-                            v7_t2_symbol_validity_gate: e.target.checked,
-                          },
-                        })
-                      }
-                      disabled={disabled}
-                      className="w-5 h-5 rounded accent-accent"
-                    />
-                    <span className="text-sm text-foreground">
-                      {ts(coinSource.v7T2SymbolValidityGate, language)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {ts(coinSource.v7T2SymbolValidityGateDesc, language)}
-                    </span>
-                  </label>
-                </>
-              )}
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              {ts(coinSource.hunter_v7Desc, language)}
-            </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1397,44 +1380,17 @@ export function CoinSourceEditor({
 
             {/* Sniff mode info box */}
             <div className="p-3 rounded bg-accent-purple/5 border border-accent-purple/20 text-xs text-accent-purple/80 space-y-0.5">
-              {language === 'zh' ? (
-                <>
-                  <div className="font-medium mb-1">3条件共振过滤器：</div>
-                  <div>▸ 低波动率挤压 (bb_squeeze_15m) — 必须</div>
-                  <div>▸ 庄家足迹信号 (OI累积/主力买入/LSR反转) — 任一</div>
-                  <div>▸ 反墙过滤 (无对立支撑/阻力) — 必须通过</div>
-                  <div>▸ 反洗盘过滤 (无 wash_micro_trades) — 必须通过</div>
-                  <div className="mt-1.5 text-accent-purple/60">
-                    输出: LONG_AMBUSH (做多埋伏) + SHORT_DISTRIBUTION (做空派发)
+              {ts(coinSource.sniffFilterInfo, language)
+                .split('\n')
+                .map((line, i) => (
+                  <div key={i} className={i === 0 ? 'font-medium mb-1' : ''}>
+                    {line}
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="font-medium mb-1">
-                    3-Condition Resonance Filter:
-                  </div>
-                  <div>▸ Volatility squeeze (bb_squeeze_15m) — required</div>
-                  <div>
-                    ▸ Smart money footprint (OI accumulation / sustained buying
-                    / LSR reversal) — any one
-                  </div>
-                  <div>
-                    ▸ Anti-wall filter (no opposing S/R nearby) — must pass
-                  </div>
-                  <div>
-                    ▸ Anti-wash filter (no wash_micro_trades) — must pass
-                  </div>
-                  <div className="mt-1.5 text-accent-purple/60">
-                    Output: LONG_AMBUSH + SHORT_DISTRIBUTION
-                  </div>
-                </>
-              )}
+                ))}
             </div>
 
             <p className="text-xs text-muted-foreground">
-              {language === 'zh'
-                ? '从猎手评分池中筛选机构埋伏模式，3条件共振，信号密度极高'
-                : 'Filters Hunter pool for institutional ambush patterns via 3-condition resonance, extremely high signal density'}
+              {ts(coinSource.sniffSummary, language)}
             </p>
           </div>
         </div>
@@ -1484,7 +1440,9 @@ export function CoinSourceEditor({
               </div>
               {config.use_ai500 && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">Limit:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.ai500Limit, language)}:
+                  </span>
                   <AiTSelect
                     value={config.ai500_limit || 3}
                     onChange={(val) =>
@@ -1536,7 +1494,9 @@ export function CoinSourceEditor({
               </p>
               {config.use_oi_top && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">Limit:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.ai500Limit, language)}:
+                  </span>
                   <AiTSelect
                     value={config.oi_top_limit || 3}
                     onChange={(val) =>
@@ -1588,7 +1548,9 @@ export function CoinSourceEditor({
               </p>
               {config.use_oi_low && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">Limit:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.ai500Limit, language)}:
+                  </span>
                   <AiTSelect
                     value={config.oi_low_limit || 3}
                     onChange={(val) =>
@@ -1643,7 +1605,9 @@ export function CoinSourceEditor({
               </p>
               {config.use_square_heat && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">Limit:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.ai500Limit, language)}:
+                  </span>
                   <AiTSelect
                     value={config.square_heat_limit || 10}
                     onChange={(val) =>
@@ -1661,7 +1625,7 @@ export function CoinSourceEditor({
                     className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
                   />
                   <span className="text-xs text-muted-foreground">
-                    Min Score:
+                    {ts(coinSource.advMinScore, language)}:
                   </span>
                   <AiTSelect
                     value={String(config.square_min_score || 25)}
@@ -1717,7 +1681,9 @@ export function CoinSourceEditor({
               </p>
               {config.use_hunter && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
-                  <span className="text-xs text-muted-foreground">Limit:</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ts(coinSource.ai500Limit, language)}:
+                  </span>
                   <AiTSelect
                     value={config.hunter_limit || 10}
                     onChange={(val) =>
@@ -1797,13 +1763,13 @@ export function CoinSourceEditor({
               {config.use_hunter && (
                 <details className="pl-8 mt-2">
                   <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground select-none">
-                    {language === 'zh' ? '高级筛选参数' : 'Advanced Filters'} ▸
+                    {ts(coinSource.advAdvancedFilters, language)} ▸
                   </summary>
                   <div className="mt-3 space-y-2.5 p-3 rounded-lg bg-background border border-ait-border">
                     {/* Min OI Value */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? '最低OI' : 'Min OI'}
+                        {ts(coinSource.advMinOI, language)}
                       </span>
                       <AiTSelect
                         value={String(
@@ -1833,7 +1799,7 @@ export function CoinSourceEditor({
                     {/* RSI Oversold */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? 'RSI超卖' : 'RSI Oversold'}
+                        {ts(coinSource.advRSIOversold, language)}
                       </span>
                       <AiTSelect
                         value={String(
@@ -1861,7 +1827,7 @@ export function CoinSourceEditor({
                     {/* RSI Overbought */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? 'RSI超买' : 'RSI Overbought'}
+                        {ts(coinSource.advRSIOverbought, language)}
                       </span>
                       <AiTSelect
                         value={String(
@@ -1908,16 +1874,14 @@ export function CoinSourceEditor({
                         className="w-4 h-4 rounded accent-accent-purple"
                       />
                       <span className="text-xs text-foreground">
-                        {language === 'zh'
-                          ? '资金费率信号'
-                          : 'Funding Rate Signal'}
+                        {ts(coinSource.advFundingRateSignal, language)}
                       </span>
                     </label>
 
                     {/* Max 24h Change */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? '最大24h波动' : 'Max 24h Change'}
+                        {ts(coinSource.advMax24hChange, language)}
                       </span>
                       <AiTSelect
                         value={String(
@@ -1937,7 +1901,7 @@ export function CoinSourceEditor({
                         options={[
                           {
                             value: '0',
-                            label: language === 'zh' ? '不限' : 'None',
+                            label: ts(coinSource.advNone, language),
                           },
                           { value: '20', label: '20%' },
                           { value: '30', label: '30%' },
@@ -1951,7 +1915,7 @@ export function CoinSourceEditor({
                     {/* Wash Trade Sensitivity */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? '刷量灵敏度' : 'Wash Detection'}
+                        {ts(coinSource.advWashDetection, language)}
                       </span>
                       <AiTSelect
                         value={
@@ -1975,15 +1939,15 @@ export function CoinSourceEditor({
                         options={[
                           {
                             value: 'low',
-                            label: language === 'zh' ? '低' : 'Low',
+                            label: ts(coinSource.advLow, language),
                           },
                           {
                             value: 'medium',
-                            label: language === 'zh' ? '中' : 'Medium',
+                            label: ts(coinSource.advMedium, language),
                           },
                           {
                             value: 'high',
-                            label: language === 'zh' ? '高' : 'High',
+                            label: ts(coinSource.advHigh, language),
                           },
                         ]}
                         className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
@@ -2011,14 +1975,14 @@ export function CoinSourceEditor({
                         className="w-4 h-4 rounded accent-accent-purple"
                       />
                       <span className="text-xs text-foreground">
-                        {language === 'zh' ? '智能冷却' : 'Smart Cooldown'}
+                        {ts(coinSource.advSmartCooldown, language)}
                       </span>
                     </label>
 
                     {/* Min Trade Count */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {language === 'zh' ? '最低笔数' : 'Min Trades'}
+                        {ts(coinSource.advMinTrades, language)}
                       </span>
                       <AiTSelect
                         value={String(

@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, ChevronDown, Settings, Sun, Moon } from 'lucide-react'
+import {
+  Menu,
+  X,
+  ChevronDown,
+  Settings,
+  Sun,
+  Moon,
+  Repeat,
+  LogOut,
+} from 'lucide-react'
 import { useTheme, type ThemeMode } from '../../contexts/ThemeContext'
 import { t, type Language } from '../../i18n/translations'
 import {
@@ -26,6 +35,104 @@ interface HeaderBarProps {
   onLoginRequired?: (featureName: string) => void
 }
 
+interface NavTab {
+  page: Page
+  path: string
+  label: string
+  requiresAuth: boolean
+}
+
+/** Shipped languages, in switcher order. Add ko/ja here when they ship. */
+const LANGUAGES: { code: Language; short: string; labelKey: string }[] = [
+  { code: 'zh', short: '中', labelKey: 'nav.languageZh' },
+  { code: 'en', short: 'EN', labelKey: 'nav.languageEn' },
+]
+
+function useNavTabs(language: Language): NavTab[] {
+  // Single nav definition shared by the desktop bar and the mobile sheet.
+  return [
+    {
+      page: 'data',
+      path: ROUTES.data,
+      label: t('nav.data', language),
+      requiresAuth: false,
+    },
+    {
+      page: 'strategy-market',
+      path: ROUTES.strategyMarket,
+      label: t('nav.market', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'traders',
+      path: ROUTES.traders,
+      label: t('configNav', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'trader',
+      path: ROUTES.dashboard,
+      label: t('dashboardNav', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'strategy',
+      path: ROUTES.strategy,
+      label: t('strategyNav', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'backtest',
+      path: ROUTES.backtest,
+      label: t('nav.backtest', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'competition',
+      path: ROUTES.competition,
+      label: t('realtimeNav', language),
+      requiresAuth: true,
+    },
+    {
+      page: 'faq',
+      path: ROUTES.faq,
+      label: t('faqNav', language),
+      requiresAuth: false,
+    },
+  ]
+}
+
+function LanguageSegmented({
+  language,
+  onChange,
+  full = false,
+}: {
+  language: Language
+  onChange?: (lang: Language) => void
+  full?: boolean
+}) {
+  return (
+    <div
+      className={`ait-segmented ${full ? 'w-full' : ''}`}
+      role="group"
+      aria-label={t('language', language)}
+    >
+      {LANGUAGES.map((lang) => (
+        <button
+          key={lang.code}
+          type="button"
+          aria-pressed={language === lang.code}
+          title={t(lang.labelKey, language)}
+          onClick={() => onChange?.(lang.code)}
+          className={full ? 'flex-1' : ''}
+        >
+          {full ? t(lang.labelKey, language) : lang.short}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function HeaderBar({
   isLoggedIn = false,
   isHomePage = false,
@@ -40,41 +147,40 @@ export default function HeaderBar({
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const [userMode, setUserModeState] = useState<UserMode>(
     () => getUserMode() ?? 'advanced'
   )
   const { scheme, style, setMode } = useTheme()
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const resolvedCurrentPage =
     currentPage ?? getCurrentPageForPath(location.pathname)
-
-  const navigateInApp = (path: string) => {
-    navigate(path)
-  }
+  const navTabs = useNavTabs(language)
 
   const handleSwitchMode = (nextMode: UserMode) => {
     setUserMode(nextMode)
     setUserModeState(nextMode)
     setUserDropdownOpen(false)
-    navigateInApp(getPostAuthPath(nextMode))
+    navigate(getPostAuthPath(nextMode))
   }
 
   const toggleColorScheme = () => {
     const nextScheme = scheme === 'dark' ? 'light' : 'dark'
     setMode(`${style}-${nextScheme}` as ThemeMode)
   }
-  // Close dropdown when clicking outside
+
+  const handleNavClick = (tab: NavTab) => {
+    setMobileMenuOpen(false)
+    if (tab.requiresAuth && !isLoggedIn) {
+      onLoginRequired?.(tab.label)
+      return
+    }
+    onPageChange?.(tab.page)
+    navigate(tab.path)
+  }
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setLanguageDropdownOpen(false)
-      }
       if (
         userDropdownRef.current &&
         !userDropdownRef.current.contains(event.target as Node)
@@ -82,550 +188,279 @@ export default function HeaderBar({
         setUserDropdownOpen(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Lock page scroll while the mobile sheet is open.
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [mobileMenuOpen])
+
+  const themeLabel =
+    scheme === 'dark'
+      ? t('nav.switchToLightTheme', language)
+      : t('nav.switchToDarkTheme', language)
+  const modeLabel =
+    userMode === 'beginner'
+      ? t('nav.switchToAdvanced', language)
+      : t('nav.switchToBeginner', language)
 
   return (
     <nav className="fixed left-0 top-0 w-full z-50 header-bar">
-      <div className="flex items-center justify-between h-16 px-3 sm:px-5 lg:px-6 max-w-[1920px] mx-auto">
-        {/* Logo - Always go to home page */}
-        <div
-          onClick={() => {
-            navigateInApp(ROUTES.home)
-          }}
-          className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+      <div className="flex items-center justify-between h-16 px-[var(--page-gutter)] max-w-[1920px] mx-auto gap-4">
+        {/* Logo */}
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.home)}
+          className="flex shrink-0 items-center gap-2 rounded-control hover:opacity-80"
+          aria-label="AiT"
         >
-          <img src="/icons/ait.svg" alt="AiT Logo" className="w-7 h-7" />
-          <span className="text-lg font-bold text-primary">AiT</span>
-        </div>
+          <img src="/icons/ait.svg" alt="" className="w-7 h-7" />
+          <span className="text-[17px] font-bold tracking-tight text-foreground">
+            AiT
+          </span>
+        </button>
 
-        {/* Desktop Menu */}
-        <div className="hidden xl:flex items-center justify-between flex-1 min-w-0 ml-6">
-          {/* Left Side - Navigation Tabs - Always show all tabs */}
-          <div className="flex items-center gap-1 min-w-0 overflow-x-auto pr-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* Navigation tabs configuration */}
-            {(() => {
-              // Define all navigation tabs
-              const navTabs: {
-                page: Page
-                path: string
-                label: string
-                requiresAuth: boolean
-                badge?: string
-                hidden?: boolean
-              }[] = [
-                {
-                  page: 'agent',
-                  path: ROUTES.agent,
-                  label: 'Agent',
-                  requiresAuth: false,
-                  badge: 'Beta',
-                  hidden: true,
-                },
-                {
-                  page: 'data',
-                  path: ROUTES.data,
-                  label:
-                    language === 'zh'
-                      ? '数据'
-                      : language === 'id'
-                        ? 'Data'
-                        : 'Data',
-                  requiresAuth: false,
-                },
-                {
-                  page: 'strategy-market',
-                  path: ROUTES.strategyMarket,
-                  label:
-                    language === 'zh'
-                      ? '策略市场'
-                      : language === 'id'
-                        ? 'Pasar'
-                        : 'Market',
-                  requiresAuth: true,
-                },
-                {
-                  page: 'traders',
-                  path: ROUTES.traders,
-                  label: t('configNav', language),
-                  requiresAuth: true,
-                },
-                {
-                  page: 'trader',
-                  path: ROUTES.dashboard,
-                  label: t('dashboardNav', language),
-                  requiresAuth: true,
-                },
-                {
-                  page: 'strategy',
-                  path: ROUTES.strategy,
-                  label: t('strategyNav', language),
-                  requiresAuth: true,
-                },
-                {
-                  page: 'backtest',
-                  path: ROUTES.backtest,
-                  label:
-                    language === 'zh'
-                      ? '回测'
-                      : language === 'id'
-                        ? 'Backtest'
-                        : 'Backtest',
-                  requiresAuth: true,
-                },
-                {
-                  page: 'competition',
-                  path: ROUTES.competition,
-                  label: t('realtimeNav', language),
-                  requiresAuth: true,
-                },
-                {
-                  page: 'faq',
-                  path: ROUTES.faq,
-                  label: t('faqNav', language),
-                  requiresAuth: false,
-                },
-              ]
-
-              const handleNavClick = (tab: (typeof navTabs)[0]) => {
-                // If requires auth and not logged in, show login prompt
-                if (tab.requiresAuth && !isLoggedIn) {
-                  onLoginRequired?.(tab.label)
-                  return
-                }
-                // Navigate normally
-                if (onPageChange) {
-                  onPageChange(tab.page)
-                }
-                navigateInApp(tab.path)
-              }
-
-              return navTabs
-                .filter((tab) => !tab.hidden)
-                .map((tab) => (
-                  <Button
-                    variant="unstyled"
-                    key={tab.page}
-                    onClick={() => handleNavClick(tab)}
-                    className={`whitespace-nowrap text-sm font-bold transition-all duration-300 relative focus:outline-2 focus:outline-primary px-3 py-2 rounded-lg
-                    ${resolvedCurrentPage === tab.page ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
-                  >
-                    {resolvedCurrentPage === tab.page && (
-                      <span className="absolute inset-0 rounded-lg bg-primary/15 -z-10" />
-                    )}
-                    {tab.label}
-                    {tab.badge && (
-                      <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-top relative -top-1">
-                        {tab.badge}
-                      </span>
-                    )}
-                  </Button>
-                ))
-            })()}
+        {/* Desktop navigation */}
+        <div className="hidden xl:flex items-center justify-between flex-1 min-w-0">
+          <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {navTabs.map((tab) => {
+              const active = resolvedCurrentPage === tab.page
+              return (
+                <button
+                  key={tab.page}
+                  type="button"
+                  onClick={() => handleNavClick(tab)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative whitespace-nowrap px-3 h-9 rounded-control text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-primary ${
+                    active
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="ait-nav-active"
+                      className="absolute inset-0 -z-10 rounded-control bg-surface-alt"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 500,
+                        damping: 40,
+                      }}
+                    />
+                  )}
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Right Side - User Actions */}
-          <div className="flex shrink-0 items-center gap-3">
-            {/* User Info and Actions */}
-            {isLoggedIn && user ? (
-              <div className="flex items-center gap-3">
-                {/* User Info with Dropdown */}
-                <div className="relative" ref={userDropdownRef}>
-                  <Button
-                    variant="unstyled"
-                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex max-w-[260px] items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-surface border border-primary/20 hover:bg-primary/5"
-                  >
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground">
-                      {user.email[0].toUpperCase()}
-                    </div>
-                    <span className="truncate text-sm text-muted-foreground">
-                      {user.email}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  </Button>
-
-                  {userDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
-                      <div className="px-3 py-2 border-b border-primary/20">
-                        <div className="text-xs text-muted-foreground">
-                          {t('loggedInAs', language)}
-                        </div>
-                        <div className="text-sm font-medium text-muted-foreground">
-                          {user.email}
-                        </div>
-                      </div>
-                      <Button
-                        variant="unstyled"
-                        onClick={() => {
-                          navigateInApp(ROUTES.settings)
-                          setUserDropdownOpen(false)
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-primary/5 text-muted-foreground hover:text-foreground"
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                        Settings
-                      </Button>
-                      <Button
-                        variant="unstyled"
-                        onClick={() =>
-                          handleSwitchMode(
-                            userMode === 'beginner' ? 'advanced' : 'beginner'
-                          )
-                        }
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-primary/5 text-muted-foreground hover:text-foreground"
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                        {userMode === 'beginner'
-                          ? language === 'zh'
-                            ? '切到老手模式'
-                            : 'Switch to Advanced'
-                          : language === 'zh'
-                            ? '切到新手模式'
-                            : 'Switch to Beginner'}
-                      </Button>
-                      {onLogout && (
-                        <Button
-                          variant="unstyled"
-                          onClick={() => {
-                            onLogout()
-                            setUserDropdownOpen(false)
-                          }}
-                          className="w-full px-3 py-2 text-sm font-semibold transition-colors hover:opacity-80 text-center bg-loss/20 text-loss"
-                        >
-                          {t('exitLogin', language)}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Show login/register buttons when not logged in and not on login/register pages */
-              resolvedCurrentPage !== 'login' &&
-              resolvedCurrentPage !== 'register' && (
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="unstyled"
-                    type="button"
-                    onClick={() => navigateInApp(ROUTES.login)}
-                    className="px-3 py-2 text-sm font-medium transition-colors rounded text-muted-foreground hover:text-foreground"
-                  >
-                    {t('signIn', language)}
-                  </Button>
-                </div>
-              )
-            )}
-
-            {/* Theme Toggle */}
-            <Button
-              variant="unstyled"
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSegmented
+              language={language}
+              onChange={onLanguageChange}
+            />
+            <button
               type="button"
               onClick={toggleColorScheme}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground hover:border-border-hover hover:text-foreground"
-              aria-label={
-                scheme === 'dark'
-                  ? 'Switch to light theme'
-                  : 'Switch to dark theme'
-              }
-              title={scheme === 'dark' ? 'Light theme' : 'Dark theme'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-control text-muted-foreground hover:bg-surface-alt hover:text-foreground"
+              aria-label={themeLabel}
+              title={themeLabel}
             >
               {scheme === 'dark' ? (
                 <Sun className="h-4 w-4" />
               ) : (
                 <Moon className="h-4 w-4" />
               )}
-            </Button>
+            </button>
 
-            {/* Language Toggle - Always at the rightmost */}
-            <div className="relative" ref={dropdownRef}>
-              <Button
-                variant="unstyled"
-                onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-muted-foreground hover:bg-primary/5"
-              >
-                <span className="text-lg">
-                  {language === 'zh' ? '🇨🇳' : language === 'id' ? '🇮🇩' : '🇺🇸'}
-                </span>
-                <ChevronDown className="w-4 h-4" />
-              </Button>
+            {isLoggedIn && user ? (
+              <div className="relative" ref={userDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  aria-expanded={userDropdownOpen}
+                  aria-label={t('nav.account', language)}
+                  className="flex max-w-[240px] items-center gap-2 h-9 pl-1 pr-2 rounded-pill border border-border hover:bg-surface-alt"
+                >
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground">
+                    {user.email[0].toUpperCase()}
+                  </span>
+                  <span className="truncate text-[13px] text-muted-foreground">
+                    {user.email}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
 
-              {languageDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-32 rounded-lg shadow-lg overflow-hidden z-50 bg-surface border border-primary/20">
-                  <Button
-                    variant="unstyled"
-                    onClick={() => {
-                      onLanguageChange?.('zh')
-                      setLanguageDropdownOpen(false)
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'zh' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
-                  >
-                    <span className="text-base">🇨🇳</span>
-                    <span className="text-sm">中文</span>
-                  </Button>
-                  <Button
-                    variant="unstyled"
-                    onClick={() => {
-                      onLanguageChange?.('en')
-                      setLanguageDropdownOpen(false)
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'en' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
-                  >
-                    <span className="text-base">🇺🇸</span>
-                    <span className="text-sm">English</span>
-                  </Button>
-                  <Button
-                    variant="unstyled"
-                    onClick={() => {
-                      onLanguageChange?.('id')
-                      setLanguageDropdownOpen(false)
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 transition-colors text-muted-foreground hover:text-foreground
-                      ${language === 'id' ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
-                  >
-                    <span className="text-base">🇮🇩</span>
-                    <span className="text-sm">Bahasa</span>
-                  </Button>
-                </div>
-              )}
-            </div>
+                <AnimatePresence>
+                  {userDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.16 }}
+                      className="absolute right-0 top-full mt-2 w-56 overflow-hidden z-50 ait-card shadow-e2 p-1"
+                    >
+                      <div className="px-3 py-2">
+                        <div className="t-micro text-muted-foreground">
+                          {t('loggedInAs', language)}
+                        </div>
+                        <div className="t-caption truncate text-foreground">
+                          {user.email}
+                        </div>
+                      </div>
+                      <div className="h-px bg-border my-1" />
+                      <MenuItem
+                        icon={<Settings className="w-4 h-4" />}
+                        label={t('nav.settings', language)}
+                        onClick={() => {
+                          navigate(ROUTES.settings)
+                          setUserDropdownOpen(false)
+                        }}
+                      />
+                      <MenuItem
+                        icon={<Repeat className="w-4 h-4" />}
+                        label={modeLabel}
+                        onClick={() =>
+                          handleSwitchMode(
+                            userMode === 'beginner' ? 'advanced' : 'beginner'
+                          )
+                        }
+                      />
+                      {onLogout && (
+                        <MenuItem
+                          danger
+                          icon={<LogOut className="w-4 h-4" />}
+                          label={t('exitLogin', language)}
+                          onClick={() => {
+                            onLogout()
+                            setUserDropdownOpen(false)
+                          }}
+                        />
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              resolvedCurrentPage !== 'login' &&
+              resolvedCurrentPage !== 'register' && (
+                <Button
+                  variant="unstyled"
+                  type="button"
+                  onClick={() => navigate(ROUTES.login)}
+                  className="h-9 px-4 rounded-pill text-[13px] font-semibold bg-primary text-primary-foreground hover:opacity-90"
+                >
+                  {t('signIn', language)}
+                </Button>
+              )
+            )}
           </div>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile menu button */}
         <motion.button
+          type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="xl:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground hover:text-foreground"
-          whileTap={{ scale: 0.9 }}
+          aria-expanded={mobileMenuOpen}
+          aria-label={
+            mobileMenuOpen
+              ? t('nav.closeMenu', language)
+              : t('nav.openMenu', language)
+          }
+          className="xl:hidden inline-flex h-10 w-10 items-center justify-center rounded-control text-foreground hover:bg-surface-alt"
+          whileTap={{ scale: 0.92 }}
         >
           {mobileMenuOpen ? (
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           ) : (
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5" />
           )}
         </motion.button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile sheet */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="ait-mobile-menu-overlay fixed inset-0 z-40 xl:hidden backdrop-blur-xl"
-            style={{ top: '64px' }} // Below header
+            transition={{ duration: 0.18 }}
+            className="ait-mobile-menu-overlay fixed inset-x-0 bottom-0 z-40 xl:hidden"
+            style={{ top: '64px' }}
           >
             <motion.div
-              initial={{ y: -20, opacity: 0 }}
+              initial={{ y: -12, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
-              className="flex h-[calc(100vh-64px)] flex-col overflow-y-auto px-4 py-6 sm:px-6"
+              transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
+              className="flex h-full flex-col overflow-y-auto px-[var(--page-gutter)] py-5"
             >
-              {/* Navigation Links */}
-              <div className="flex flex-col gap-3 mb-10">
-                {(() => {
-                  const navTabs: {
-                    page: Page
-                    path: string
-                    label: string
-                    requiresAuth: boolean
-                    badge?: string
-                    hidden?: boolean
-                  }[] = [
-                    {
-                      page: 'agent',
-                      path: ROUTES.agent,
-                      label: 'Agent',
-                      requiresAuth: false,
-                      badge: 'Beta',
-                      hidden: true,
-                    },
-                    {
-                      page: 'data',
-                      path: ROUTES.data,
-                      label:
-                        language === 'zh'
-                          ? '数据'
-                          : language === 'id'
-                            ? 'Data'
-                            : 'Data',
-                      requiresAuth: false,
-                    },
-                    {
-                      page: 'strategy-market',
-                      path: ROUTES.strategyMarket,
-                      label:
-                        language === 'zh'
-                          ? '策略市场'
-                          : language === 'id'
-                            ? 'Pasar'
-                            : 'Market',
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'traders',
-                      path: ROUTES.traders,
-                      label: t('configNav', language),
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'trader',
-                      path: ROUTES.dashboard,
-                      label: t('dashboardNav', language),
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'strategy',
-                      path: ROUTES.strategy,
-                      label: t('strategyNav', language),
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'backtest',
-                      path: ROUTES.backtest,
-                      label:
-                        language === 'zh'
-                          ? '回测'
-                          : language === 'id'
-                            ? 'Backtest'
-                            : 'Backtest',
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'competition',
-                      path: ROUTES.competition,
-                      label: t('realtimeNav', language),
-                      requiresAuth: true,
-                    },
-                    {
-                      page: 'faq',
-                      path: ROUTES.faq,
-                      label: t('faqNav', language),
-                      requiresAuth: false,
-                    },
-                  ]
+              <div className="flex flex-col">
+                {navTabs.map((tab) => {
+                  const active = resolvedCurrentPage === tab.page
+                  return (
+                    <button
+                      key={tab.page}
+                      type="button"
+                      onClick={() => handleNavClick(tab)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex min-h-[52px] items-center justify-between border-b border-border text-left text-[22px] font-semibold tracking-tight ${
+                        active ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.requiresAuth && !isLoggedIn && (
+                        <span className="ait-pill border border-border text-muted-foreground">
+                          {t('nav.loginRequired', language)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
 
-                  const handleMobileNavClick = (tab: (typeof navTabs)[0]) => {
-                    if (tab.requiresAuth && !isLoggedIn) {
-                      onLoginRequired?.(tab.label)
-                      setMobileMenuOpen(false)
-                      return
-                    }
-                    if (onPageChange) {
-                      onPageChange(tab.page)
-                    }
-                    navigateInApp(tab.path)
-                    setMobileMenuOpen(false)
-                  }
-
-                  return navTabs
-                    .filter((tab) => !tab.hidden)
-                    .map((tab, i) => {
-                      const isActive = resolvedCurrentPage === tab.page
-
-                      return (
-                        <motion.button
-                          key={tab.page}
-                          initial={{ x: -20, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          transition={{ delay: 0.1 + i * 0.05 }}
-                          onClick={() => handleMobileNavClick(tab)}
-                          className="min-h-12 rounded-xl border px-4 text-left text-xl font-black tracking-normal flex items-center gap-3"
-                          style={{
-                            background: isActive
-                              ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-panel))'
-                              : 'var(--color-panel)',
-                            borderColor: isActive
-                              ? 'var(--color-border-hover)'
-                              : 'var(--color-border)',
-                            color: isActive
-                              ? 'var(--color-primary)'
-                              : 'var(--color-foreground)',
-                          }}
-                        >
-                          {isActive && (
-                            <motion.div
-                              layoutId="active-indicator"
-                              className="w-1.5 h-1.5 rounded-full bg-primary"
-                            />
-                          )}
-                          {tab.label}
-                          {tab.badge && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold uppercase align-middle relative -top-1">
-                              {tab.badge}
-                            </span>
-                          )}
-                          {tab.requiresAuth && !isLoggedIn && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-normal tracking-wide uppercase align-middle relative -top-1">
-                              LOGIN_REQ
-                            </span>
-                          )}
-                        </motion.button>
-                      )
-                    })
-                })()}
-
-                {/* Original Page Links */}
                 {isHomePage && (
-                  <div className="pt-6 border-t border-border space-y-4">
+                  <div className="pt-4 flex flex-col">
                     {[
-                      { key: 'features', label: t('features', language) },
-                      { key: 'howItWorks', label: t('howItWorks', language) },
-                    ].map((item, i) => (
-                      <motion.a
-                        key={item.key}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5 + i * 0.1 }}
-                        href={`#${item.key === 'features' ? 'features' : 'how-it-works'}`}
-                        className="block text-lg font-mono text-muted-foreground hover:text-foreground"
+                      { href: '#features', label: t('features', language) },
+                      {
+                        href: '#how-it-works',
+                        label: t('howItWorks', language),
+                      },
+                    ].map((item) => (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className="min-h-[44px] flex items-center t-body text-muted-foreground hover:text-foreground"
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        {'>'} {item.label}
-                      </motion.a>
+                        {item.label}
+                      </a>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Bottom Actions */}
-              <div className="mt-auto space-y-8">
-                {/* Account / Lang */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* Lang Switcher */}
-                  <div className="flex bg-surface rounded-lg p-1 border border-border">
-                    {['zh', 'en', 'id'].map((lang) => (
-                      <Button
-                        variant="unstyled"
-                        key={lang}
-                        onClick={() => {
-                          onLanguageChange?.(lang as Language)
-                          setMobileMenuOpen(false)
-                        }}
-                        className={`flex-1 py-3 text-sm font-bold rounded-md transition-colors ${
-                          language === lang
-                            ? 'bg-surface-alt text-foreground shadow-sm'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {lang === 'zh' ? 'CN' : lang === 'id' ? 'ID' : 'EN'}
-                      </Button>
-                    ))}
-                  </div>
-
-                  <Button
-                    variant="unstyled"
+              <div className="mt-auto pt-8 space-y-3">
+                <LanguageSegmented
+                  full
+                  language={language}
+                  onChange={(lang) => {
+                    onLanguageChange?.(lang)
+                    setMobileMenuOpen(false)
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <button
                     type="button"
                     onClick={toggleColorScheme}
-                    className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-surface text-sm font-bold text-muted-foreground"
+                    className="flex min-h-[48px] items-center justify-center gap-2 rounded-control border border-border bg-surface t-label"
                   >
                     {scheme === 'dark' ? (
                       <Sun className="h-4 w-4" />
@@ -633,48 +468,97 @@ export default function HeaderBar({
                       <Moon className="h-4 w-4" />
                     )}
                     {scheme === 'dark'
-                      ? language === 'zh'
-                        ? '日间'
-                        : 'Light'
-                      : language === 'zh'
-                        ? '夜间'
-                        : 'Dark'}
-                  </Button>
-
-                  {/* Auth Actions */}
+                      ? t('nav.themeLight', language)
+                      : t('nav.themeDark', language)}
+                  </button>
                   {isLoggedIn && user ? (
-                    <Button
-                      variant="unstyled"
+                    <button
+                      type="button"
                       onClick={() => {
                         onLogout?.()
                         setMobileMenuOpen(false)
                       }}
-                      className="bg-loss/10 border border-loss/20 text-loss rounded-lg font-bold text-sm hover:bg-loss/20 transition-colors"
+                      className="flex min-h-[48px] items-center justify-center gap-2 rounded-control border border-loss/30 bg-loss/10 text-loss t-label"
                     >
+                      <LogOut className="h-4 w-4" />
                       {t('exitLogin', language)}
-                    </Button>
+                    </button>
                   ) : (
                     resolvedCurrentPage !== 'login' &&
                     resolvedCurrentPage !== 'register' && (
-                      <Button
-                        variant="unstyled"
+                      <button
                         type="button"
                         onClick={() => {
-                          navigateInApp(ROUTES.login)
+                          navigate(ROUTES.login)
                           setMobileMenuOpen(false)
                         }}
-                        className="flex items-center justify-center bg-primary text-primary-foreground rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
+                        className="flex min-h-[48px] items-center justify-center rounded-control bg-primary text-primary-foreground t-label"
                       >
                         {t('signIn', language)}
-                      </Button>
+                      </button>
                     )
                   )}
                 </div>
+                {isLoggedIn && user && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate(ROUTES.settings)
+                        setMobileMenuOpen(false)
+                      }}
+                      className="flex min-h-[48px] items-center justify-center gap-2 rounded-control border border-border bg-surface t-label"
+                    >
+                      <Settings className="h-4 w-4" />
+                      {t('nav.settings', language)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        handleSwitchMode(
+                          userMode === 'beginner' ? 'advanced' : 'beginner'
+                        )
+                      }}
+                      className="flex min-h-[48px] items-center justify-center gap-2 rounded-control border border-border bg-surface t-label"
+                    >
+                      <Repeat className="h-4 w-4" />
+                      {modeLabel}
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </nav>
+  )
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  danger = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 h-9 rounded-control text-[13px] text-left ${
+        danger
+          ? 'text-loss hover:bg-loss/10'
+          : 'text-muted-foreground hover:bg-surface-alt hover:text-foreground'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

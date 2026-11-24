@@ -1,4 +1,9 @@
-import { useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  type ClipboardEvent,
+  type KeyboardEvent,
+} from 'react'
 
 const DIGITS_ONLY = /^[0-9]$/
 const LENGTH = 6

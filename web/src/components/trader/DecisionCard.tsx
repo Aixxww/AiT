@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import type { DecisionRecord, DecisionAction } from '../../types'
 import { t, type Language } from '../../i18n/translations'
+import { displayName } from '../../i18n/displayNames'
 import { notify } from '../../lib/notify'
 import { formatPrice as formatPriceRaw } from '../../utils/format'
 import { Button } from '../ui/Button'
@@ -31,39 +32,30 @@ interface DecisionCardProps {
 }
 
 // Action type configuration (semantic colors: profit/loss = direction only)
-const ACTION_CONFIG: Record<
-  string,
-  { color: string; icon: LucideIcon; label: string }
-> = {
+const ACTION_CONFIG: Record<string, { color: string; icon: LucideIcon }> = {
   open_long: {
     color: 'var(--color-profit)',
     icon: TrendingUp,
-    label: 'LONG',
   },
   open_short: {
     color: 'var(--color-loss)',
     icon: TrendingDown,
-    label: 'SHORT',
   },
   close_long: {
     color: 'var(--color-primary)',
     icon: Wallet,
-    label: 'CLOSE',
   },
   close_short: {
     color: 'var(--color-primary)',
     icon: Wallet,
-    label: 'CLOSE',
   },
   hold: {
     color: 'var(--color-muted-fg)',
     icon: Pause,
-    label: 'HOLD',
   },
   wait: {
     color: 'var(--color-muted-fg)',
     icon: Hourglass,
-    label: 'WAIT',
   },
 }
 
@@ -122,7 +114,7 @@ function ActionCard({
           <span
             className="font-mono font-bold text-lg cursor-pointer transition-colors duration-200 text-foreground hover:text-primary"
             onClick={() => onSymbolClick?.(action.symbol)}
-            title="Click to view chart"
+            title={t('decisionCard.viewChart', language)}
           >
             {action.symbol.replace('USDT', '')}
           </span>
@@ -134,7 +126,7 @@ function ActionCard({
               border: `1px solid color-mix(in srgb, ${config.color} 33%, transparent)`,
             }}
           >
-            {config.label}
+            {displayName('action', action.action, language)}
           </span>
         </div>
 
@@ -253,7 +245,7 @@ function ActionCard({
         <div className="mt-3 pt-3 border-t border-border">
           <div className="text-xs line-clamp-2 text-muted-foreground flex items-start gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-px" />
-            <span>{action.reasoning}</span>
+            <span data-raw>{action.reasoning}</span>
           </div>
         </div>
       )}
@@ -280,6 +272,8 @@ function CollapsibleSection({
   onCopy,
   onDownload,
   toggleLabel,
+  copyLabel,
+  downloadLabel,
 }: {
   icon: LucideIcon
   title: string
@@ -290,17 +284,19 @@ function CollapsibleSection({
   onCopy: () => void
   onDownload: () => void
   toggleLabel: string
+  copyLabel: string
+  downloadLabel: string
 }) {
   return (
     <div>
-      <div className="flex items-center gap-2 text-sm w-full justify-between p-2 rounded hover:bg-white/5">
+      <div className="flex flex-wrap items-center gap-2 text-sm w-full justify-between p-2 rounded hover:bg-white/5">
         <Button
           variant="unstyled"
           onClick={onToggle}
           className="flex flex-1 items-center gap-2 text-left"
         >
           <Icon className="w-4 h-4" style={{ color }} />
-          <span className="font-semibold" style={{ color }}>
+          <span className="font-semibold whitespace-nowrap" style={{ color }}>
             {title}
           </span>
         </Button>
@@ -314,7 +310,8 @@ function CollapsibleSection({
               color,
               border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
             }}
-            title="Copy to clipboard"
+            title={copyLabel}
+            aria-label={copyLabel}
           >
             <Clipboard className="w-3.5 h-3.5" />
           </Button>
@@ -327,7 +324,8 @@ function CollapsibleSection({
               color,
               border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
             }}
-            title="Download as file"
+            title={downloadLabel}
+            aria-label={downloadLabel}
           >
             <Download className="w-3.5 h-3.5" />
           </Button>
@@ -364,27 +362,14 @@ export function DecisionCard({
 
   // Copy text to clipboard
   const copyToClipboard = async (text: string, label: string) => {
-    const localizedLabel =
-      language === 'zh'
-        ? {
-            'System Prompt': '系统提示词',
-            'User Prompt': '用户提示词',
-            'AI Thinking': 'AI思维链分析',
-          }[label] || label
-        : label
     try {
       await navigator.clipboard.writeText(text)
-      notify.success(
-        language === 'zh'
-          ? `${localizedLabel}已复制`
-          : `${localizedLabel} copied`,
-        {
-          duration: 500,
-        }
-      )
+      notify.success(t('decisionCard.copied', language, { label }), {
+        duration: 500,
+      })
     } catch (err) {
       console.error('Failed to copy:', err)
-      notify.error(language === 'zh' ? '复制失败' : 'Copy failed', {
+      notify.error(t('decisionCard.copyFailed', language), {
         duration: 1200,
       })
     }
@@ -407,7 +392,7 @@ export function DecisionCard({
     open ? t('collapse', language) : t('expand', language)
 
   return (
-    <div className="rounded-xl p-5 border border-border bg-panel shadow-sm">
+    <div className="rounded-card p-4 sm:p-5 border border-border bg-panel shadow-e1">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -460,13 +445,16 @@ export function DecisionCard({
         {decision.system_prompt && (
           <CollapsibleSection
             icon={Settings}
-            title="System Prompt"
+            title={t('decisionCard.systemPrompt', language)}
             color="var(--color-purple)"
             content={decision.system_prompt}
             isOpen={showSystemPrompt}
             onToggle={() => setShowSystemPrompt(!showSystemPrompt)}
             onCopy={() =>
-              copyToClipboard(decision.system_prompt, 'System Prompt')
+              copyToClipboard(
+                decision.system_prompt,
+                t('decisionCard.systemPrompt', language)
+              )
             }
             onDownload={() =>
               downloadAsFile(
@@ -475,18 +463,25 @@ export function DecisionCard({
               )
             }
             toggleLabel={toggleLabel(showSystemPrompt)}
+            copyLabel={t('decisionCard.copy', language)}
+            downloadLabel={t('decisionCard.download', language)}
           />
         )}
 
         {decision.input_prompt && (
           <CollapsibleSection
             icon={Inbox}
-            title="User Prompt"
+            title={t('decisionCard.userPrompt', language)}
             color="var(--color-info)"
             content={decision.input_prompt}
             isOpen={showInputPrompt}
             onToggle={() => setShowInputPrompt(!showInputPrompt)}
-            onCopy={() => copyToClipboard(decision.input_prompt, 'User Prompt')}
+            onCopy={() =>
+              copyToClipboard(
+                decision.input_prompt,
+                t('decisionCard.userPrompt', language)
+              )
+            }
             onDownload={() =>
               downloadAsFile(
                 decision.input_prompt,
@@ -494,6 +489,8 @@ export function DecisionCard({
               )
             }
             toggleLabel={toggleLabel(showInputPrompt)}
+            copyLabel={t('decisionCard.copy', language)}
+            downloadLabel={t('decisionCard.download', language)}
           />
         )}
 
@@ -505,7 +502,9 @@ export function DecisionCard({
             content={decision.cot_trace}
             isOpen={showCoT}
             onToggle={() => setShowCoT(!showCoT)}
-            onCopy={() => copyToClipboard(decision.cot_trace, 'AI Thinking')}
+            onCopy={() =>
+              copyToClipboard(decision.cot_trace, t('aiThinking', language))
+            }
             onDownload={() =>
               downloadAsFile(
                 decision.cot_trace,
@@ -513,13 +512,18 @@ export function DecisionCard({
               )
             }
             toggleLabel={toggleLabel(showCoT)}
+            copyLabel={t('decisionCard.copy', language)}
+            downloadLabel={t('decisionCard.download', language)}
           />
         )}
       </div>
 
       {/* Execution Log */}
       {decision.execution_log && decision.execution_log.length > 0 && (
-        <div className="rounded-lg p-3 mt-4 text-xs font-mono space-y-1 bg-background border border-border">
+        <div
+          data-raw
+          className="rounded-control p-3 mt-4 text-xs font-mono space-y-1 bg-background border border-border"
+        >
           {decision.execution_log.map((log, index) => (
             <div key={`${log}-${index}`} className="text-foreground">
               {log}
@@ -540,17 +544,23 @@ export function DecisionCard({
             ) : null}
             {decision.prompt_tokens ? (
               <span>
-                Prompt: {decision.prompt_tokens.toLocaleString()} tokens
+                {t('decisionCard.promptTokens', language, {
+                  n: decision.prompt_tokens.toLocaleString(),
+                })}
               </span>
             ) : null}
             {decision.completion_tokens ? (
               <span>
-                Output: {decision.completion_tokens.toLocaleString()} tokens
+                {t('decisionCard.outputTokens', language, {
+                  n: decision.completion_tokens.toLocaleString(),
+                })}
               </span>
             ) : null}
             {decision.total_tokens ? (
               <span className="text-foreground">
-                Σ Total: {decision.total_tokens.toLocaleString()}
+                {t('decisionCard.totalTokens', language, {
+                  n: decision.total_tokens.toLocaleString(),
+                })}
               </span>
             ) : null}
           </div>
