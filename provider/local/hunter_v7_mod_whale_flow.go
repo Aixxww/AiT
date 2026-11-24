@@ -89,7 +89,7 @@ func (m *whaleFlowReversalModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 
 	// 5. Regime fitness: rotation/range/compression are best
 	switch regime {
-	case V7RegimeRotation, V7RegimeRange, V7RegimeCompression:
+	case V7RegimeRotation, V7RegimeRange, V7RegimeCompression, V7RegimeTrendContinuation:
 		base += 6
 	case V7RegimePanicDump, V7RegimeTrendDown:
 		base -= 8

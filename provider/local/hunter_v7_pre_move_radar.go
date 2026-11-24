@@ -455,7 +455,7 @@ func preMoveRegimeFit(setup V7SetupType, direction V7Direction, proxy float64) f
 
 func regimeModuleProxy(ctx *V7SymbolContext, regime V7MarketRegime) float64 {
 	switch regime {
-	case V7RegimeCompression:
+	case V7RegimeCompression, V7RegimeTrendContinuation:
 		return 10
 	case V7RegimeRotation, V7RegimeRange:
 		return 6

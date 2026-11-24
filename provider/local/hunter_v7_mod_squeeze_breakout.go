@@ -93,7 +93,7 @@ func (m *volatilitySqueezeBreakoutModule) Score(ctx *V7SymbolContext, regime V7M
 	}
 
 	// 6. Regime fitness
-	if regime == V7RegimeCompression || regime == V7RegimeRange {
+	if v7RegimeActsAsCompression(regime) || regime == V7RegimeRange {
 		base += 8
 	} else if regime == V7RegimePanicDump {
 		base -= 12

@@ -64,7 +64,7 @@ Duplicates removed:
 | # | Contradiction (strategy-06 + 2026-07-27 doctrine) | Resolution |
 |---|---|---|
 | C1 | §2 says REVIEWABLE "is not a market-entry permission" and must output a blocker. §4 lists "open-after-live-recheck (REVIEWABLE gaps settled)" as a release grade. The payload's `execution_policy` is `reviewable_open_allowed_only_if_live_confirmed`. | S2: REVIEWABLE opens only when every `must_confirm` / `required_confirmations` item is visibly satisfied in this cycle's data; otherwise it waits. S5 says what a REVIEWABLE wait must state. |
-| C2 | `entry_standards` names `short_squeeze_long`, which is outside the brief's canonical list. | Not named. S3 adds a generic rule: a setup_type outside the families has no playbook, so use `execution_contract` + `tag_semantics` only, at conservative size at most. See open question Q1. |
+| C2 | `entry_standards` names `short_squeeze_long`, which is outside the brief's canonical list. | Not named. S3 adds a generic rule: a setup_type outside the families has no playbook, so use `execution_contract` + `tag_semantics` only, at conservative size at most. See open question Q1. Superseded by #74: it is now in the momentum family. |
 | C3 | Per-family rules appear in both `entry_standards` and doctrine §3. Displacement review (capped effective_rr ≥ 1.5, VWAP, taker > 0.52, OI/volume) existed only in the sections. | Merged into S3. The displacement floor comes from `local.V7MinExecutableRR`, and the confirmations are the `required_confirmations` that `repairV7DisplacementRRTagForExecution` attaches, so no taker literal is repeated. |
 | C4 | Stop rule: Hard Constraints prefer ≥ min + drift (2.50%); §4 repairs the stop to "minimum + 0.10%" (2.10%), which is inside the drift band the first rule warns about. | S4: aim for the drift buffer and widen the stop toward it when repairing; min + 0.10% is the absolute floor. Both numbers are unchanged. |
 | C5 | Two sizing schemes: confidence bands (Position Sizing Guidance) and release grades (§4), with "conservative size" undefined. | S4: the release grade picks a point within the confidence band. Normal uses the band; conservative and open-after-live-recheck use the low end of the band. No new numbers. |
@@ -92,8 +92,8 @@ Duplicates removed:
 | RR floor | Hard Constraints and S4 use `risk_control.min_risk_reward_ratio` (1.2). The displacement review floor is `local.V7MinExecutableRR` (1.5). The Task-2 per-candidate `min_rr` note is unchanged. No template RR is used. |
 | Max positions | Hard Constraints (`max_positions` = 1). `trading_frequency` refers to that limit without restating the number. |
 | Cadence | Cycle-based rules only (`trading_frequency`). `TestRedesignedSystemPromptVocabulary` forbids minute/day cadence phrases. |
-| Regime names | No regime enumeration. The prompt uses `regime_against_direction` (a risk tag) and one pre-existing rule on `market_regime=compression` (see Q2). TREND/CHAOTIC/TRANSITION/`trend_continuation` are forbidden by the test. |
-| Setup names | Only the brief's 25 S3 values. The test checks that all 25 are present and that `short_squeeze_long` / `module_no_match` and the template playbook names are absent. |
+| Regime names | Updated in #74: S2 lists the code's `V7MarketRegime` values (including the canonical four), and the funding rule names `compression` and `trend_continuation`. TREND/CHAOTIC/TRANSITION are forbidden by the test. |
+| Setup names | The 25 S3 values plus `short_squeeze_long` (momentum family, #74). The test checks that all 26 are present and that `module_no_match` and the template playbook names are absent. |
 | Output format | The Output Format block + S5. The template enums (OPEN_LONG, …) are forbidden by the test. |
 | Grid mechanics | Not imported. |
 
@@ -119,7 +119,7 @@ These are prompt-level rule changes. No backend gate changed.
 1. Trap warning (02/04): a breakout or breakdown on shrinking volume or falling OI → wait, `confirmation_missing`.
 2. No averaging down (01).
 3. Candidate tie-break inside a tier: higher `effective_rr_after_cap`, then lower `signal_age_ms`.
-4. A setup_type outside S3 (today only `short_squeeze_long`) → conservative size at most (Q1).
+4. A setup_type outside S3 → conservative size at most. (`short_squeeze_long` moved into the momentum family in #74, Q1.)
 5. Conservative / live-recheck opens → the low end of the confidence band (C5).
 6. Holding outside the protector levels: close only on the planned stop, hard invalidation or a 5m+15m structural reversal, using the "if flat now" test. Before, this exit rule applied only to micro-profit noise.
 7. `decision_process` maps each failed check to a `blocked_reason_code`.
@@ -127,8 +127,8 @@ These are prompt-level rule changes. No backend gate changed.
 
 ## 8. Open questions for the owner
 
-- **Q1, `short_squeeze_long`.** The brief's canonical list omits it, but it is a live router module (`provider/local/hunter_v7_mod_squeeze_long.go`, registered in `hunter_v7_router.go`, with its own tier spec). The prompt follows the brief and does not name it, so these candidates now get the generic "no playbook, conservative size at most" rule. Before, the strategy-06 sections gave them the leader-momentum rule. Should it join the momentum family?
-- **Q2, regime vocabulary.** The brief lists `trend_up` / `trend_down` / `range` / `trend_continuation`. The code's `V7MarketRegime` has nine values (`trend_up`, `trend_down`, `range`, `panic_dump`, `market_pullback`, `mania_pump`, `compression`, `rotation`, `mixed`) and no `trend_continuation`; that string exists only as the tag `mms_trend_continuation`. The prompt enumerates no regimes. It keeps the one pre-existing rule keyed on `market_regime=compression`, because dropping it would loosen `funding_reversal`. Please confirm or correct the canonical list.
+- **Q1, `short_squeeze_long`: resolved (issue #74).** Owner decision: it belongs to the momentum family. Doctrine S3 now lists it there with its own playbook: forced short covering, open only while the covering is live; `squeeze_chase_risk` / `already_pumped_24h` / `lsr_extreme_long` / `funding_expensive` mean wait; invalidation is the 1h low; take the nearest target. strategy-07 `entry_standards` names it as a momentum-family member, and the vocabulary test expects it. The generic "no playbook" rule for other out-of-family setups is unchanged.
+- **Q2, regime vocabulary: resolved (issue #74).** Owner decision: change the code, not the canonical list. `trend_continuation` is now a `V7MarketRegime` value. It is detected when both majors keep the same 4h EMA20/EMA60 structure, the compression condition holds, and trend_up/trend_down did not confirm. That is a strict subset of what was labelled compression, so module gating, weights and TP multipliers stay those of compression. Doctrine S2 lists every code value (`local.V7MarketRegimes()`), and the funding_reversal compression rule also covers trend_continuation. `TestHunterV7DoctrineRegimeListMatchesCode` checks the agreement.
 - **Q3, prose thresholds in §6.** Keep, move to config, or drop?
 - **Q4, budget baseline.** 18,336 bytes in the brief vs 22,173 measured here (§1).
 - **Q5, hybrid_v2 doctrine.** `hunter_v7_prompt_doctrine_v2.go` is out of scope and unchanged apart from the shared `%%` fix.
@@ -145,3 +145,13 @@ These are prompt-level rule changes. No backend gate changed.
 | `TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry` (updated) | geometry numbers, doctrine phrases, no duplicate TP-cap/stop-buffer line, no literal `%%` |
 | `TestU11LegacyPromptGolden` (re-recorded) | full legacy prompt, zh and en |
 | `TestHunterV7GoldenPrompt` (unchanged) | the user prompt is byte-identical |
+
+## 10. Follow-up #74: TP0 / trailing alignment (AUD-D7)
+
+S4 used to tell the model "reduce 30–50% at TP0, then trail at breakeven or 5m EMA20/VWAP", which the protector does not do. Issue #74 chose option A: the doctrine now describes the protector. The values are rendered from `store.EffectiveProtector`:
+- the TP0 partial ratio (35% by default);
+- breakeven + 0.1%;
+- the dynamic trail (activates at 0.5R MFE and trails 0.4R, with R = the protector's base risk, 35% ROE);
+- the profit locks.
+
+The candidate's `take_profit_plan` reduce range and `trailing_basis` are labelled planning hints. The reasoning is in the #74 PR.
