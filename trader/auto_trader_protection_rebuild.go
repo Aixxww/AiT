@@ -107,7 +107,8 @@ func (at *AutoTrader) replaceProtectiveStop(symbol, side string, quantity, stopP
 	protectionErr := fmt.Errorf("protective stop replacement failed for %s %s: %w", symbol, side, setErr)
 	logger.Errorf("  🚨 %v; emergency-closing unprotected remainder", protectionErr)
 	if closeErr := at.emergencyClosePositionAndVerify(symbol, side, quantity); closeErr != nil {
-		return false, fmt.Errorf("%w; emergency close FAILED, position may be unprotected: %v", protectionErr, closeErr)
+		at.raiseNakedPositionAlert(symbol, side, fmt.Sprintf("%v; emergency close failed: %v", protectionErr, closeErr)) // AUD-C5
+		return false, fmt.Errorf("%w; %w, position may be unprotected: %v", protectionErr, errNakedEmergencyCloseFailed, closeErr)
 	}
 	return true, fmt.Errorf("%w (%v)", errProtectionEmergencyClosed, protectionErr)
 }

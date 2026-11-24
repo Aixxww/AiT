@@ -313,6 +313,10 @@ func (at *AutoTrader) runCycle() error {
 	// Execute decisions and record results. U9: serialized with conditional
 	// entry executions (opens and the decision record's cycle number).
 	at.conditional.entryMu.Lock()
+	// AUD-C3: cap this response's opens at the free position slots, and count
+	// the opens submitted while it executes.
+	sortedDecisions = at.capResponseOpens(ctx, sortedDecisions, record)
+	at.beginCycleOpenGate(len(ctx.Positions))
 	for _, d := range sortedDecisions {
 		// Check if trader is stopped before each decision (allow immediate stop during execution)
 		at.isRunningMutex.RLock()
@@ -370,6 +374,7 @@ func (at *AutoTrader) runCycle() error {
 	}
 
 	// 9. Save decision record
+	at.endCycleOpenGate()
 	if err := at.saveDecision(record); err != nil {
 		at.logWarnf("⚠ Failed to save decision record: %v", err)
 	}

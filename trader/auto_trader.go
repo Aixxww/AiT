@@ -201,6 +201,8 @@ type AutoTrader struct {
 	v7OutcomeCancel        context.CancelFunc
 	conditional            hunterV7ConditionalState // U9 pending trigger entries
 	dailyLoss              dailyLossBreaker         // F08 daily-loss breaker state
+	openGate               *cycleOpenGate           // AUD-C3 opens of the response being executed (main loop only)
+	naked                  nakedPositionAlerts      // AUD-C5 unresolved positions without an exchange stop
 }
 
 // NewAutoTrader creates an automatic trader

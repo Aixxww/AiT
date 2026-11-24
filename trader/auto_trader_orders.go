@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
@@ -165,7 +166,8 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	}
 
 	// [CODE ENFORCED] Check max positions limit
-	if err := at.enforceMaxPositions(len(positions)); err != nil {
+	// AUD-C3: never below what this response has already opened.
+	if err := at.enforceMaxPositions(at.effectivePositionCount(len(positions))); err != nil {
 		return err
 	}
 
@@ -281,6 +283,10 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	// Open position
 	order, err := at.openMarketPosition(decision, "long", quantity)
 	if err != nil {
+		if errors.Is(err, errOpenOrderStateUnknown) {
+			// AUD-C5: the order may have filled; protect it or close it.
+			return at.handleOpenOrderStateUnknown(decision, "long", actionRecord, err)
+		}
 		return err
 	}
 
@@ -336,7 +342,8 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	}
 
 	// [CODE ENFORCED] Check max positions limit
-	if err := at.enforceMaxPositions(len(positions)); err != nil {
+	// AUD-C3: never below what this response has already opened.
+	if err := at.enforceMaxPositions(at.effectivePositionCount(len(positions))); err != nil {
 		return err
 	}
 
@@ -452,6 +459,10 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	// Open position
 	order, err := at.openMarketPosition(decision, "short", quantity)
 	if err != nil {
+		if errors.Is(err, errOpenOrderStateUnknown) {
+			// AUD-C5: the order may have filled; protect it or close it.
+			return at.handleOpenOrderStateUnknown(decision, "short", actionRecord, err)
+		}
 		return err
 	}
 
