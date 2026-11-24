@@ -1,0 +1,113 @@
+{
+  "name": "猎手v7 (导入)",
+  "description": "",
+  "config": {
+    "language": "zh",
+    "prompt_compact_mode": "hunter_v7_only",
+    "coin_source": {
+      "source_type": "hunter_v7",
+      "excluded_coins": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "DOGEUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "TRXUSDT"
+      ],
+      "use_ai500": true,
+      "ai500_limit": 3,
+      "use_oi_top": false,
+      "oi_top_limit": 3,
+      "use_oi_low": false,
+      "oi_low_limit": 3,
+      "use_hyper_all": false,
+      "use_hyper_main": false,
+      "use_square_heat": false,
+      "use_hunter": true,
+      "hunter_limit": 10,
+      "hunter_direction": "BOTH",
+      "hunter_config": {
+        "enable_funding_rate_signal": false,
+        "enable_cooldown": false,
+        "v7_max_output": 18,
+        "v7_min_ai_priority": 50,
+        "v7_aggressive": true,
+        "v7_t2_enabled": true
+      }
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "15m",
+          "1h",
+          "4h"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": true,
+      "enable_macd": true,
+      "enable_rsi": true,
+      "enable_atr": true,
+      "enable_boll": true,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "enable_quant_data": true,
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10,
+      "enable_netflow_ranking": false,
+      "netflow_ranking_duration": "1h",
+      "netflow_ranking_limit": 10,
+      "enable_price_ranking": false,
+      "price_ranking_duration": "1h,4h,24h",
+      "price_ranking_limit": 10
+    },
+    "custom_prompt": "Hunter v7 补充纪律：\n- 量价陷阱：突破或破位时成交量萎缩或 OI 下降，视为诱多/诱空，wait（confirmation_missing）。\n- 不摊平：亏损持仓不加仓、不摊平；止损触发即离场，不改论题。\n- 无 open 时，用 trigger 对象给出下一轮最明确的触发条件，便于后续周期捕捉。",
+    "risk_control": {
+      "max_positions": 1,
+      "btc_eth_max_leverage": 20,
+      "altcoin_max_leverage": 20,
+      "btc_eth_max_position_value_ratio": 10,
+      "altcoin_max_position_value_ratio": 10,
+      "max_margin_usage": 0.75,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 1.2,
+      "min_confidence": 75,
+      "max_entry_price_deviation_pct": 0.5,
+      "max_single_trade_loss_pct": 6,
+      "max_take_profit_price_move_pct": 3.5
+    },
+    "prompt_sections": {
+      "role_definition": "# Hunter v7 执行审验员\n\n你是 Hunter v7 实盘执行审验员，只依据本轮输入决策。之前周期的信息只会以字段出现（trigger_memory_*、冷却、持仓），不得凭记忆推断或补全缺失数据。\n\n目标是胜率，而不是交易次数。每笔开仓必须同时具备：明确的形态论题（setup_type + 触发证据）、明确的失效位（stop_loss）、通过后端 cap 的 RR；缺一即 wait。wait 是正常且常见的结果。\n\n执行细则以文末「Hunter v7 策略执行框架」为准。",
+      "trading_frequency": "# 决策周期规则\n\n1. 每个决策周期独立判断，本轮输入就是全部事实；不按固定时间节奏交易。\n2. 有持仓先管理持仓；持仓数已达 Hard Constraints 上限时，本轮只管理持仓，不开新仓。\n3. 每轮最多选择一个最优候选开仓。\n4. 连续 wait 不得降低标准；上一轮的 wait 也不得否定本轮出现的新确认。\n5. 平仓后再开同一标的，需要本轮出现新的触发确认，并通过后端冷却；同一结构上论题已失败的，不重复进场。",
+      "entry_standards": "# 开仓硬边界与候选优先级\n\n硬边界（任一命中即 wait 或拒绝）：liquidity_score<50、risk_score>=65、execution_quality=invalid_rr、status=filtered、risk_level=EXTREME。标签级阻断（llm_action）见文末框架 §2。\n\n候选优先级（同一 tier 内）：trigger_memory_confirmed / confirmed breakout > clean momentum pullback > displacement RR 修复复核 > panic reclaim reversal > funding crowded reversal > 其他。并列时取 effective_rr_after_cap 更高者，再取 signal_age_ms 更小者。\n\n各形态族的进场条件只在文末框架 §3 定义，此处不重复。",
+      "decision_process": "# 单个候选的审验顺序\n\n按顺序检查，第一项不通过即停止，并以括号内的 code 作为 blocked_reason_code：\n1. 硬边界与 execution_contract.hard_blocks（backend_guard_risk）。\n2. setup_type 对应 §3 剧本，market_shape / entry_signal 与剧本一致（confirmation_missing）。\n3. 现价在 entry zone / 触发容差 / 回踩确认区内（entry_not_in_zone）。\n4. must_confirm 与 required_confirmations 在本轮数据中逐条可见（confirmation_missing）。\n5. taker、OI、成交量至少两项同向（OI 不足用 oi_too_low，拥挤用 funding_crowded，其余 confirmation_missing）。\n6. 按 §4 计算 capped TP、effective_rr 与止损缓冲（rr_insufficient / backend_guard_risk）。\n7. 冷却与账户约束（account_risk）。\n\n按 §3 漏斗审完后，输出唯一最佳 open；若没有，输出最佳被阻断候选的 wait。输出保持简短，不写长篇解释。"
+    }
+  },
+  "exported_at": "2026-11-24T07:27:11.962Z",
+  "version": "1.0"
+}

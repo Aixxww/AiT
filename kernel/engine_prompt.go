@@ -92,9 +92,15 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 		minRewardPct := minSLMovePct * riskControl.MinRiskRewardRatio
 		sb.WriteString(fmt.Sprintf("- Feasible open geometry: reward distance must be ≥%.2f%% for the minimum %.2f%% stop; if capped TP or price drift makes backend RR < %.2f, output wait\n",
 			minRewardPct, minSLMovePct, riskControl.MinRiskRewardRatio))
-		sb.WriteString(fmt.Sprintf("- Before any open, calculate effective_take_profit using the backend cap %.2f%% from executable/current price, then calculate effective_rr from that capped TP and your stop_loss. Do not justify an open with an uncapped far TP1. If effective_rr < %.2f, output wait with `blocked_reason_code=rr_insufficient`.\n",
-			maxTPMovePct, riskControl.MinRiskRewardRatio))
-		if strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") && maxDriftPct > 0 {
+		// The legacy Hunter v7 doctrine states the TP-cap / effective_rr
+		// procedure and the stop buffer once, in its S4 (issue #67).
+		isHunterV7 := strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7")
+		legacyV7Doctrine := isHunterV7 && !e.hunterV7PromptHybridV2()
+		if !legacyV7Doctrine {
+			sb.WriteString(fmt.Sprintf("- Before any open, calculate effective_take_profit using the backend cap %.2f%% from executable/current price, then calculate effective_rr from that capped TP and your stop_loss. Do not justify an open with an uncapped far TP1. If effective_rr < %.2f, output wait with `blocked_reason_code=rr_insufficient`.\n",
+				maxTPMovePct, riskControl.MinRiskRewardRatio))
+		}
+		if isHunterV7 && !legacyV7Doctrine && maxDriftPct > 0 {
 			sb.WriteString(fmt.Sprintf("- Hunter v7 stop buffer: prefer stop distance ≥%.2f%% from current/executable price when TP cap still preserves RR; avoid stops only barely above %.2f%% because allowed %.2f%% entry drift can make them fail backend validation\n",
 				minSLMovePct+maxDriftPct, minSLMovePct, maxDriftPct))
 		}
@@ -111,14 +117,14 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("Calculate `position_size_usd` based on your confidence and the Position Value Limits above:\n")
 	sb.WriteString("- `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.\n")
 	sb.WriteString("- Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.\n")
-	sb.WriteString("- High confidence (≥85): Use 80-100%% of max position value limit\n")
+	sb.WriteString("- High confidence (≥85): Use 80-100% of max position value limit\n")
 	if minOpenConfidence <= 70 {
-		sb.WriteString("- Medium confidence (70-84): Use 50-80%% of max position value limit\n")
+		sb.WriteString("- Medium confidence (70-84): Use 50-80% of max position value limit\n")
 	} else {
 		sb.WriteString(fmt.Sprintf("- Medium confidence (%d-84): Use 50-80%% of max position value limit\n", minOpenConfidence))
 	}
 	if minOpenConfidence <= 60 {
-		sb.WriteString("- Low confidence (60-69): Use 30-50%% of max position value limit\n")
+		sb.WriteString("- Low confidence (60-69): Use 30-50% of max position value limit\n")
 	} else {
 		sb.WriteString(fmt.Sprintf("- Confidence below %d must output wait; do not open by reducing position size.\n", minOpenConfidence))
 	}
@@ -229,12 +235,7 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 		sb.WriteString(hunterV7DoctrineV2Prompt(e.GetLanguage(), e.hunterV7DoctrineV2Options()))
 		return
 	}
-	maxTPMovePct, minSLMovePct, maxDriftPct := e.effectiveExecutionGeometry()
-	minRR := e.config.RiskControl.MinRiskRewardRatio
-	if minRR <= 0 {
-		minRR = 1.5
-	}
-	sb.WriteString(hunterV7DoctrinePrompt(e.GetLanguage(), maxTPMovePct, minSLMovePct, maxDriftPct, minRR))
+	sb.WriteString(hunterV7DoctrinePrompt(e.GetLanguage(), e.hunterV7DoctrineInputs()))
 	if e.hunterV7T2Enabled() {
 		// U2/P2a: Task-2 candidates carry their own RR floor. Emitted only
 		// when the Task-2 module is on, so native prompts are unchanged.

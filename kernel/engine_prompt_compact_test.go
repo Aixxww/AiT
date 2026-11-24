@@ -231,8 +231,8 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"Min Stop-Loss Distance: ≥2.00%",
 		"Max Take-Profit Distance: ≤4.00%",
 		"Feasible open geometry: reward distance must be ≥3.00%",
-		"calculate effective_take_profit using the backend cap 4.00%",
-		"If effective_rr < 1.50",
+		"cap take_profit first (long=min(TP, price*(1+4.00%)), short=max(TP, price*(1-4.00%)))",
+		"aim for a distance >= 2.50% (the 2.00% minimum plus 0.50% entry drift)",
 		"cap take_profit first (long=min(TP, price*(1+",
 		"recompute effective_rr from the capped TP and stop_loss; below 1.50 means wait + rr_insufficient",
 		"an uncapped far TP never justifies an open",
@@ -244,20 +244,30 @@ func TestBuildSystemPromptShowsEffectiveHunterV7RiskGeometry(t *testing.T) {
 		"Hunter v7 Strategy Execution Framework (Five Segments)",
 		"choose between the best open and one precise blocked_reason",
 		"no_pullback_still_running at the upper zone",
-		"entry_zone_position <=45% and taker>=0.56",
-		"a candidate with a complete evidence chain must get either an open or one precise blocked_reason_code",
-		"open-after-live-recheck (REVIEWABLE gaps settled by fresh data)",
+		"entry_zone_position <= 45% and taker >= 0.56",
+		"Every audited candidate ends in one of two results: an open, or exactly one blocked_reason_code",
+		"open-after-live-recheck (REVIEWABLE gaps settled by this cycle's data)",
 		"evidence_only/context_only is evidence, not permission",
 		"reviewable_only_if_live_confirmed requires a live re-check",
-		"high-volatility alts must target the nearest effective TP (TP0/near TP1)",
-		"regime_against_direction and passed_review=false waits",
-		"Peak>=15% with ~45% giveback",
-		"<=-12% anytime is hard invalidation",
-		"hold and wait never change SL/TP",
+		"High-volatility alts target the nearest effective TP (TP0/near TP1)",
+		"regime_against_direction in risk_tags and passed_review=false waits",
+		"Peak >= 15% ROE with ~45% giveback",
+		"<= -12% ROE anytime is hard invalidation",
+		"`hold` and `wait` are no-op actions: they do not change stop-loss, take-profit",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt missing %q\n%s", want, prompt)
 		}
+	}
+	// Issue #67: the legacy doctrine's S4 owns the TP-cap procedure and the
+	// stop buffer; the Hard Constraints block must not state them again.
+	for _, dup := range []string{"Before any open, calculate effective_take_profit", "Hunter v7 stop buffer:"} {
+		if strings.Contains(prompt, dup) {
+			t.Fatalf("prompt states %q twice (Hard Constraints and doctrine S4)\n%s", dup, prompt)
+		}
+	}
+	if strings.Contains(prompt, "%%") {
+		t.Fatalf("prompt contains a literal %%%%\n%s", prompt)
 	}
 	if strings.Contains(prompt, "Low confidence (60-69): Use 30-50%") {
 		t.Fatalf("prompt should not imply confidence 60-69 may open under Hunter v7 min confidence\n%s", prompt)
