@@ -24,6 +24,7 @@ import type {
   V7CellsResponse,
   V7YieldTable,
 } from '../../lib/api/hunter'
+import { displayName, tagLabel } from '../../i18n/displayNames'
 import { t, type Language } from '../../i18n/translations'
 import { cn } from '../../lib/cn'
 import { IconButton } from '../ui/IconButton'
@@ -62,9 +63,15 @@ export function formatRate(v: number): string {
 }
 
 /** Row label for a table level. */
-export function cellLabel(row: V7CellRow): string {
-  return [row.signal_class, row.rr_band, row.market_regime]
-    .filter((p) => p !== undefined && p !== '')
+export function cellLabel(row: V7CellRow, language: Language = 'en'): string {
+  return [
+    row.signal_class
+      ? displayName('signalClass', row.signal_class, language)
+      : '',
+    row.rr_band ? displayName('rrBand', row.rr_band, language) : '',
+    row.market_regime ? displayName('regime', row.market_regime, language) : '',
+  ]
+    .filter((p) => p !== '')
     .join(' · ')
 }
 
@@ -152,7 +159,7 @@ function CellTable({
               {rows.map((row) => (
                 <tr key={cellLabel(row)} className="border-t border-border/40">
                   <td className="py-1 pr-3 text-foreground">
-                    {cellLabel(row)}
+                    {cellLabel(row, language)}
                   </td>
                   <td className="py-1 pr-3 text-right">{row.n}</td>
                   <td className="py-1 pr-3 text-right">
@@ -165,7 +172,13 @@ function CellTable({
                     [{formatR(row.ci_lo)}, {formatR(row.ci_hi)}]
                   </td>
                   <td className="py-1 pr-3 text-muted-foreground">
-                    {row.stamped_status.join(', ')}
+                    {row.stamped_status
+                      .map((st) => {
+                        const key = `v7Cells.status_${st}`
+                        const label = t(key, language)
+                        return label === key ? tagLabel(st, language) : label
+                      })
+                      .join(', ')}
                   </td>
                   <td className="py-1">
                     <StatusBadge
@@ -342,7 +355,8 @@ function YieldSection({
           className="text-[11px] text-muted-foreground"
         >
           {t('v7Cells.yieldUnavailable', language)}
-          {table.reason ? ` (${table.reason})` : ''}
+          {/* The backend reason is English prose; zh shows the generic message only. */}
+          {table.reason && language === 'en' ? ` (${table.reason})` : ''}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -373,7 +387,9 @@ function YieldSection({
             <tbody>
               {table.rows.map((row) => (
                 <tr key={row.rv24_tier} className="border-t border-border/40">
-                  <td className="py-1 pr-3 text-foreground">{row.rv24_tier}</td>
+                  <td className="py-1 pr-3 text-foreground">
+                    {displayName('rv24Tier', row.rv24_tier, language)}
+                  </td>
                   <td className="py-1 pr-3 text-right">{row.rounds}</td>
                   <td className="py-1 pr-3 text-right">{row.events}</td>
                   <td className="py-1 pr-3 text-right">

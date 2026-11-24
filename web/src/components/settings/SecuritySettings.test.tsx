@@ -62,9 +62,7 @@ describe('SecuritySettings', () => {
     render(<SecuritySettings />)
 
     expect(await screen.findByText('Not enabled')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Set up' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Set up' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Turn off' })).toBeNull()
   })
 
@@ -103,7 +101,9 @@ describe('SecuritySettings', () => {
     )
 
     // One-time recovery-code reveal
-    expect(await screen.findByText('Save your recovery codes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Save your recovery codes')
+    ).toBeInTheDocument()
     RECOVERY.forEach((code) => {
       expect(screen.getByText(code)).toBeInTheDocument()
     })
@@ -136,12 +136,17 @@ describe('SecuritySettings', () => {
 
   it('disables MFA after a correct code', async () => {
     api.status.mockResolvedValue({ ok: true, data: { enabled: true } })
-    api.disable.mockResolvedValue({ ok: true, data: { message: 'MFA disabled' } })
+    api.disable.mockResolvedValue({
+      ok: true,
+      data: { message: 'MFA disabled' },
+    })
 
     render(<SecuritySettings />)
     fireEvent.click(await screen.findByRole('button', { name: 'Turn off' }))
 
-    expect(await screen.findByText('Turn off two-factor authentication')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Turn off two-factor authentication')
+    ).toBeInTheDocument()
     typeCode('654321')
     fireEvent.click(screen.getByRole('button', { name: 'Turn off' }))
 

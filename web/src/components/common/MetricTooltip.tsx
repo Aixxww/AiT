@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { HelpCircle } from 'lucide-react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { t } from '../../i18n/translations'
+import { t, type Language } from '../../i18n/translations'
 import { Button } from '../ui/Button'
 
 export interface MetricDefinition {
@@ -258,10 +258,7 @@ export function MetricTooltip({
   const name = language === 'zh' ? metric.nameZh : metric.nameEn
   const description =
     language === 'zh' ? metric.descriptionZh : metric.descriptionEn
-  const formulaLabel = t(
-    'metricTooltip.formula',
-    language as 'en' | 'zh' | 'id'
-  )
+  const formulaLabel = t('metricTooltip.formula', language as Language)
 
   const tooltipContent = (
     <div

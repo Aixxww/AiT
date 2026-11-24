@@ -22,7 +22,7 @@ import type {
 } from '../../lib/api/hunter'
 import { SignalTierBadge, type SignalTier } from './SignalTierBadge'
 import { VetoChip } from './VetoChip'
-import { tagTooltip, useTagCatalog } from '../../lib/tagCatalog'
+import { displayName, setupLabel, tagLabel } from '../../i18n/displayNames'
 import { t, type Language } from '../../i18n/translations'
 import { formatPrice } from '../../utils/format'
 import { IconButton } from '../ui/IconButton'
@@ -140,21 +140,23 @@ export function buildSignalSummary(
   }
 }
 
-function copy(language: Language, en: string, zh: string) {
-  return language === 'zh' ? zh : en
-}
-
-function DirectionBadge({ direction }: { direction: 'LONG' | 'SHORT' }) {
+function DirectionBadge({
+  direction,
+  language,
+}: {
+  direction: 'LONG' | 'SHORT'
+  language: Language
+}) {
   // Direction is the one place semantic green/red is allowed in this panel.
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider ${
+      className={`ait-pill ${
         direction === 'LONG'
           ? 'bg-profit/10 text-profit'
           : 'bg-loss/10 text-loss'
       }`}
     >
-      {direction}
+      {displayName('direction', direction, language)}
     </span>
   )
 }
@@ -178,9 +180,7 @@ function SummaryCell({
           : 'text-foreground'
   return (
     <div className="min-w-0 px-3 py-2">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
       <div
         className={`mt-0.5 font-mono text-sm font-semibold tabular-nums ${toneClass}`}
       >
@@ -234,7 +234,7 @@ function SignalSummaryStrip({
       />
       {summary.ambiguous > 0 && (
         <SummaryCell
-          label={copy(language, 'AMBIGUOUS', '同K线歧义')}
+          label={t('v7Signals.uiAmbiguous', language)}
           value={String(summary.ambiguous)}
         />
       )}
@@ -260,22 +260,22 @@ function SignalFunnel({
     cycle?.tier_counts?.[tier] ?? fallback
   const steps = [
     [
-      copy(language, 'PERSISTED', '已持久化'),
+      t('v7Signals.uiPersisted', language),
       cycle?.persisted_records ?? summary.total,
       'text-foreground',
     ],
     [
-      copy(language, 'OPEN REVIEW', '开仓复核'),
+      t('v7Signals.uiOpenReview', language),
       summary.actionable,
       'text-tier-reviewable',
     ],
     [
-      copy(language, 'WATCH', '等待确认'),
+      t('v7Signals.uiWatch', language),
       tierCount('WATCH', summary.watch),
       'text-tier-watch',
     ],
     [
-      copy(language, 'VETOED', '已否决'),
+      t('v7Signals.uiVetoed', language),
       tierCount('REJECTED', summary.rejected),
       'text-tier-rejected',
     ],
@@ -283,19 +283,17 @@ function SignalFunnel({
   return (
     <div className="rounded-lg border border-border/60 bg-surface/35 px-3 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
-          {copy(language, 'LATEST-CYCLE SIGNAL FUNNEL', '最新轮次信号漏斗')}
+        <span className="t-caption font-semibold text-muted-foreground">
+          {t('v7Signals.uiLatestCycleSignalFunnel', language)}
         </span>
         <span className="text-[10px] text-muted-foreground">
-          {copy(language, 'persisted cycle only', '仅已持久化轮次')}
+          {t('v7Signals.uiPersistedCycleOnly', language)}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded border border-border/40 bg-border/40 sm:grid-cols-4">
         {steps.map(([label, value, tone]) => (
           <div key={label} className="bg-panel/75 px-2.5 py-2">
-            <div className="font-mono text-[9px] tracking-wider text-muted-foreground">
-              {label}
-            </div>
+            <div className="text-[11px] text-muted-foreground">{label}</div>
             <div
               className={`mt-0.5 font-mono text-base font-semibold tabular-nums ${tone}`}
             >
@@ -306,9 +304,13 @@ function SignalFunnel({
       </div>
       {(cycle?.top_vetoes?.length ?? 0) > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] font-mono text-muted-foreground">
-          <span>{copy(language, 'TOP VETOES', '主要否决')}:</span>
+          <span>{t('v7Signals.uiTopVetoes', language)}:</span>
           {cycle!.top_vetoes.slice(0, 3).map((veto) => (
-            <VetoChip key={veto.code} code={`${veto.code} ×${veto.count}`} />
+            <VetoChip
+              key={veto.code}
+              code={`${veto.code} ×${veto.count}`}
+              language={language}
+            />
           ))}
         </div>
       )}
@@ -334,17 +336,21 @@ function CycleQuality({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-border/70 pl-3 font-mono text-[10px] text-muted-foreground">
       {timestamp && (
         <span>
-          {copy(language, 'signal time', '信号时间')}{' '}
+          {t('v7Signals.uiSignalTime', language)}{' '}
           {timestamp.toLocaleTimeString()}
         </span>
       )}
       <span>
-        {copy(language, 'quality', '数据质量')}{' '}
-        {stale > 0 ? 'STALE' : partial > 0 ? 'PARTIAL' : 'REPORTED'}
+        {t('v7Signals.uiQuality', language)}{' '}
+        {stale > 0
+          ? displayName('dataQuality', 'stale', language)
+          : partial > 0
+            ? displayName('dataQuality', 'partial', language)
+            : t('v7Signals.uiDataReported', language)}
       </span>
       {(partial > 0 || stale > 0) && (
         <span>
-          {copy(language, 'affected', '受影响')} {partial + stale}
+          {t('v7Signals.uiAffected', language)} {partial + stale}
         </span>
       )}
     </div>
@@ -374,16 +380,15 @@ function OutcomeBadge({
         : 'border-border/60 bg-muted/20 text-muted-foreground'
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${classes}`}
-      title={`${status} ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)}%`}
+      className={`inline-flex min-w-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-semibold ${classes}`}
     >
       {isProtected && <ShieldCheck className="h-3 w-3 shrink-0" />}
       <span className="truncate">
         {isAmbiguous
-          ? copy(language, 'AMBIGUOUS 1M', '同K线歧义')
+          ? t('v7Signals.uiAmbiguous1m', language)
           : isProtected
             ? t('v7Signals.protectedStop', language)
-            : status.replace('_', ' ')}
+            : displayName('trackStatus', status, language)}
       </span>
       <span className="tabular-nums">
         {pnl >= 0 ? '+' : ''}
@@ -421,15 +426,18 @@ function EvidenceStrip({
   if (!derivative && !price && reasons.length === 0) return null
   return (
     <div className="space-y-1.5 rounded border border-border/50 bg-surface/20 px-2.5 py-2">
-      <div className="font-mono text-[9px] font-semibold tracking-[0.14em] text-muted-foreground">
-        {copy(language, 'ROUTING EVIDENCE', '路由证据')}
+      <div className="t-micro font-semibold text-muted-foreground">
+        {t('v7Signals.uiRoutingEvidence', language)}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] text-foreground/85">
         {metric('ΔP 1h', percent(price?.change_1h))}
         {metric('ΔP 4h', percent(price?.change_4h))}
         {metric('ΔOI 1h', percent(derivative?.oi_change_1h))}
         {metric('ΔOI 4h', percent(derivative?.oi_change_4h))}
-        {metric('Funding', percent(derivative?.funding_rate))}
+        {metric(
+          t('v7Signals.colFunding', language),
+          percent(derivative?.funding_rate)
+        )}
         {metric(
           'LSR',
           derivative?.lsr_newest !== undefined
@@ -437,7 +445,7 @@ function EvidenceStrip({
             : null
         )}
         {metric(
-          'Taker',
+          t('v7Signals.colTaker', language),
           derivative?.taker_buy_ratio_15m !== undefined
             ? derivative.taker_buy_ratio_15m.toFixed(2)
             : null
@@ -446,7 +454,7 @@ function EvidenceStrip({
       {reasons.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {reasons.slice(0, 7).map((code) => (
-            <VetoChip key={code} code={code} />
+            <VetoChip key={code} code={code} language={language} />
           ))}
         </div>
       )}
@@ -469,7 +477,7 @@ function TrackProgress({
   ] as const
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] text-muted-foreground">
-      <span>{copy(language, 'exit progress', '退出进度')}</span>
+      <span>{t('v7Signals.uiExitProgress', language)}</span>
       {steps.map(([label, done]) => (
         <span key={label} className={done ? 'text-tier-executable' : ''}>
           {done ? '●' : '○'} {label}
@@ -477,13 +485,13 @@ function TrackProgress({
       ))}
       {row.track_remaining_ratio !== undefined && (
         <span>
-          {copy(language, 'runner', '剩余仓位')}{' '}
+          {t('v7Signals.uiRunner', language)}{' '}
           {(row.track_remaining_ratio * 100).toFixed(0)}%
         </span>
       )}
       {row.track_realized_pnl_pct !== undefined && (
         <span>
-          {copy(language, 'realized', '已实现')}{' '}
+          {t('v7Signals.uiRealized', language)}{' '}
           {row.track_realized_pnl_pct >= 0 ? '+' : ''}
           {row.track_realized_pnl_pct.toFixed(2)}%
         </span>
@@ -521,38 +529,37 @@ function StructureMonitor({
     <div className="overflow-hidden rounded-lg border border-border/60 bg-surface/25">
       <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
         <div>
-          <div className="font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
-            {copy(language, 'DERIVATIVES STRUCTURE', '合约结构监控')}
+          <div className="t-caption font-semibold text-muted-foreground">
+            {t('v7Signals.uiDerivativesStructure', language)}
           </div>
           <div className="mt-0.5 text-[10px] text-muted-foreground">
-            {copy(
-              language,
-              'Snapshot evidence — not a standalone entry signal',
-              '快照证据，不构成独立开仓信号'
+            {t(
+              'v7Signals.uiSnapshotEvidenceNotAStandaloneEntrySigna',
+              language
             )}
           </div>
         </div>
         <span className="font-mono text-[10px] text-muted-foreground">
-          TOP {structuralRows.length}
+          {t('v7Signals.topN', language, { n: structuralRows.length })}
         </span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] font-mono text-[10px] tabular-nums">
+      <div className="ait-table-scroll">
+        <table className="w-full min-w-[720px] font-mono text-[11px] tabular-nums">
           <thead className="bg-panel/40 text-muted-foreground">
             <tr className="border-b border-border/40">
               {[
-                'SYMBOL',
-                'SETUP',
-                'ΔP 1H',
+                t('v7Signals.colSymbol', language),
+                t('v7Signals.colSetup', language),
+                'ΔP 1h',
                 'OI',
-                'ΔOI 1H',
-                'FUNDING',
+                'ΔOI 1h',
+                t('v7Signals.colFunding', language),
                 'LSR',
-                'TAKER',
+                t('v7Signals.colTaker', language),
               ].map((label) => (
                 <th
                   key={label}
-                  className="px-3 py-2 text-right font-medium tracking-wider first:text-left"
+                  className="px-3 py-2 text-right font-medium font-sans first:text-left"
                 >
                   {label}
                 </th>
@@ -571,8 +578,8 @@ function StructureMonitor({
                   <td className="px-3 py-2 text-left font-semibold text-foreground">
                     {row.signal.symbol}
                   </td>
-                  <td className="px-3 py-2 text-right text-muted-foreground">
-                    {row.signal.setup_type}
+                  <td className="px-3 py-2 text-right text-muted-foreground font-sans">
+                    {setupLabel(row.signal.setup_type, language)}
                   </td>
                   <td className="px-3 py-2 text-right">
                     {pct(price?.change_1h)}
@@ -616,12 +623,10 @@ function ScoreQuad({
     [t('v7Signals.scoreRisk', language), signal.risk_score],
   ]
   return (
-    <div className="grid grid-cols-4 divide-x divide-border/50 overflow-hidden rounded border border-border/50 bg-surface/20">
+    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border/50 overflow-hidden rounded border border-border/50 bg-surface/20">
       {cells.map(([label, value]) => (
         <div key={label} className="min-w-0 px-2 py-1.5">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            {label}
-          </div>
+          <div className="text-[11px] text-muted-foreground">{label}</div>
           <div className="text-sm font-mono font-bold tabular-nums text-foreground text-right">
             {Number.isFinite(value) ? value.toFixed(0) : '--'}
           </div>
@@ -644,9 +649,7 @@ function ZoneBar({
   return (
     <div>
       <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-1">
-        <span className="uppercase tracking-wider">
-          {t('v7Signals.entryZone', language)}
-        </span>
+        <span>{t('v7Signals.entryZone', language)}</span>
         {pos !== null && (
           <span className="tabular-nums">
             {t('v7Signals.zonePosition', language)} {pos.toFixed(0)}%
@@ -709,10 +712,10 @@ function ConfirmationState({
       {(required.length > 0 || ladder.length > 0) && (
         <div className="flex flex-wrap gap-1">
           {required.map((code) => (
-            <VetoChip key={`req-${code}`} code={code} />
+            <VetoChip key={`req-${code}`} code={code} language={language} />
           ))}
           {ladder.map((code) => (
-            <VetoChip key={`ladder-${code}`} code={code} />
+            <VetoChip key={`ladder-${code}`} code={code} language={language} />
           ))}
         </div>
       )}
@@ -730,7 +733,6 @@ function SignalCard({
 }) {
   const { signal } = row
   const isExecutable = row.execution_tier === 'EXECUTABLE'
-  const catalog = useTagCatalog()
   return (
     <div
       data-testid={`signal-card-${signal.symbol}`}
@@ -744,21 +746,24 @@ function SignalCard({
         <span className="font-mono font-bold text-sm text-foreground">
           {signal.symbol}
         </span>
-        <DirectionBadge direction={signal.direction} />
-        <SignalTierBadge tier={row.execution_tier as SignalTier} />
+        <DirectionBadge direction={signal.direction} language={language} />
+        <SignalTierBadge
+          tier={row.execution_tier as SignalTier}
+          language={language}
+        />
         <OutcomeBadge row={row} language={language} />
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {signal.setup_type}
+        <span className="t-caption text-muted-foreground">
+          {setupLabel(signal.setup_type, language)}
         </span>
         {signal.market_regime && (
-          <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {signal.market_regime}
+          <span className="ml-auto ait-pill bg-surface-alt text-muted-foreground">
+            {displayName('regime', signal.market_regime, language)}
           </span>
         )}
       </div>
       {row.tier_reason && (
-        <div className="text-[11px] text-muted-foreground">
-          {row.tier_reason}
+        <div className="t-caption text-muted-foreground">
+          {tagLabel(row.tier_reason, language)}
         </div>
       )}
       <ScoreQuad signal={signal} language={language} />
@@ -798,13 +803,12 @@ function SignalCard({
       {(signal.risk_tags?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">
           {signal.risk_tags!.map((tag) => (
-            <span
+            <VetoChip
               key={tag}
-              title={tagTooltip(catalog, tag)}
-              className="inline-flex items-center rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 font-mono text-[10px] text-warning"
-            >
-              {tag}
-            </span>
+              code={tag}
+              language={language}
+              className="border-warning/30 bg-warning/10 text-warning hover:text-warning"
+            />
           ))}
         </div>
       )}
@@ -824,11 +828,11 @@ function WatchRow({ row, language }: { row: V7SignalRow; language: Language }) {
         <span className="truncate font-mono text-[11px] font-semibold text-foreground/80">
           {row.signal.symbol}
         </span>
-        <DirectionBadge direction={row.signal.direction} />
+        <DirectionBadge direction={row.signal.direction} language={language} />
       </div>
       <OutcomeBadge row={row} language={language} />
-      <span className="truncate font-mono text-[10px]">
-        {row.signal.setup_type}
+      <span className="truncate text-[11px]">
+        {setupLabel(row.signal.setup_type, language)}
       </span>
       <span className="text-right font-mono text-[10px] tabular-nums">
         {t('v7Signals.scoreAiPriority', language)}{' '}
@@ -840,20 +844,14 @@ function WatchRow({ row, language }: { row: V7SignalRow; language: Language }) {
         )}
       </span>
       {row.tier_reason && (
-        <span
-          className="hidden truncate font-mono text-[10px] md:inline"
-          title={row.tier_reason}
-        >
-          {row.tier_reason}
+        <span className="hidden truncate text-[11px] md:inline">
+          {tagLabel(row.tier_reason, language)}
         </span>
       )}
       {(row.signal.required_confirmations?.length ?? 0) > 0 && (
-        <span
-          className="hidden truncate font-mono text-[10px] text-tier-reviewable xl:inline"
-          title={row.signal.required_confirmations!.join(', ')}
-        >
-          {copy(language, 'next:', '下一步：')}{' '}
-          {row.signal.required_confirmations![0]}
+        <span className="hidden truncate text-[11px] text-tier-reviewable xl:inline">
+          {t('v7Signals.uiNext', language)}{' '}
+          {tagLabel(row.signal.required_confirmations![0], language)}
         </span>
       )}
     </div>
@@ -881,32 +879,35 @@ function RejectedSection({
   if (rows.length === 0) return null
   return (
     <div className="rounded border border-border/50 px-3 py-2">
-      <IconButton
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="h-auto w-full justify-start gap-2 rounded-none p-0 text-left hover:bg-transparent"
-        aria-expanded={expanded}
-      >
-        {expanded ? (
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-        )}
-        <SignalTierBadge tier="REJECTED" />
-        <span className="text-[11px] font-mono text-muted-foreground">
-          {t('v7Signals.rejectedCount', language, { count: rows.length })}
-        </span>
-        <span className="flex flex-wrap gap-1 ml-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <IconButton
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="h-auto w-auto justify-start gap-2 rounded-none p-0 text-left hover:bg-transparent"
+          aria-expanded={expanded}
+        >
+          {expanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+          <SignalTierBadge tier="REJECTED" language={language} />
+          <span className="text-[11px] font-mono text-muted-foreground">
+            {t('v7Signals.rejectedCount', language, { count: rows.length })}
+          </span>
+        </IconButton>
+        <span className="flex flex-wrap gap-1">
           {reasonCounts
             .slice(0, expanded ? undefined : 4)
             .map(([reason, n]) => (
               <VetoChip
                 key={reason}
                 code={n > 1 ? `${reason} ×${n}` : reason}
+                language={language}
               />
             ))}
         </span>
-      </IconButton>
+      </div>
       {expanded && (
         <div className="mt-2 space-y-1 pl-6">
           {rows.map((row) => (
@@ -915,9 +916,12 @@ function RejectedSection({
               className="flex items-center gap-2 text-[11px] font-mono text-tier-rejected"
             >
               <span className="text-muted-foreground">{row.signal.symbol}</span>
-              <span>{row.signal.setup_type}</span>
+              <span className="font-sans">
+                {setupLabel(row.signal.setup_type, language)}
+              </span>
               <VetoChip
                 code={row.blocked_gate || row.tier_reason || 'unknown'}
+                language={language}
               />
             </div>
           ))}
@@ -971,7 +975,7 @@ export function SignalPanel({
   const latestCycle = rows && rows.length > 0 ? rows[0].cycle_number : null
 
   return (
-    <div className="ait-glass p-6">
+    <div className="ait-card p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <IconButton
@@ -988,16 +992,14 @@ export function SignalPanel({
           <span className="text-tier-executable">
             <Radar size={18} />
           </span>
-          <h2 className="text-lg font-bold text-foreground uppercase tracking-wide">
-            {t('v7Signals.title', language)}
-          </h2>
+          <h2 className="t-title">{t('v7Signals.title', language)}</h2>
         </IconButton>
         {total > 0 && (
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
             {TIER_ORDER.map((tier) =>
               grouped[tier].length > 0 ? (
                 <span key={tier} className="inline-flex items-center gap-1">
-                  <SignalTierBadge tier={tier} />
+                  <SignalTierBadge tier={tier} language={language} />
                   <span className="tabular-nums">{grouped[tier].length}</span>
                 </span>
               ) : null

@@ -72,24 +72,6 @@ export function Header({ simple = false }: HeaderProps) {
             >
               EN
             </Button>
-            <Button
-              variant="unstyled"
-              onClick={() => setLanguage('id')}
-              className="px-3 py-1.5 rounded text-xs font-semibold transition-all"
-              style={
-                language === 'id'
-                  ? {
-                      background: 'var(--color-primary)',
-                      color: 'var(--color-primary-fg)',
-                    }
-                  : {
-                      background: 'transparent',
-                      color: 'var(--color-muted-fg)',
-                    }
-              }
-            >
-              ID
-            </Button>
           </div>
         </div>
       </Container>

@@ -58,7 +58,9 @@ function buildRecoveryFile(email: string | undefined, codes: string[]): string {
     '',
   ].filter(Boolean)
 
-  const body = codes.map((code, i) => `${String(i + 1).padStart(2, ' ')}. ${code}`)
+  const body = codes.map(
+    (code, i) => `${String(i + 1).padStart(2, ' ')}. ${code}`
+  )
   return [...header, ...body, ''].join('\n')
 }
 
@@ -489,9 +491,7 @@ export function SecuritySettings() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-              {enabled
-                ? t('mfa.descOn', language)
-                : t('mfa.descOff', language)}
+              {enabled ? t('mfa.descOn', language) : t('mfa.descOff', language)}
             </p>
           </div>
         </div>

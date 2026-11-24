@@ -1,4 +1,12 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
@@ -7,7 +15,6 @@ import {
   Trash2,
   Check,
   ChevronDown,
-  ChevronRight,
   Settings,
   BarChart3,
   Target,
@@ -29,6 +36,7 @@ import {
   Download,
   Upload,
   Globe,
+  X,
 } from 'lucide-react'
 import type {
   Strategy,
@@ -42,6 +50,9 @@ import { defaultGridConfig } from '../components/strategy/gridConfigDefaults'
 import { TokenEstimateBar } from '../components/strategy/TokenEstimateBar'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { t } from '../i18n/translations'
+import { displayName } from '../i18n/displayNames'
+import { InfoTip } from '../components/ui/InfoTip'
+import { SectionHeader } from '../components/ui/SectionHeader'
 import { Button } from '../components/ui/Button'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -110,6 +121,8 @@ export function StrategyStudioPage() {
   const [activeRightTab, setActiveRightTab] = useState<'prompt' | 'test'>(
     'prompt'
   )
+  // Below xl, editor and preview share one column.
+  const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit')
   const [promptPreview, setPromptPreview] = useState<{
     system_prompt: string
     user_prompt?: string
@@ -651,6 +664,7 @@ export function StrategyStudioPage() {
       icon: Activity,
       color: 'var(--color-profit)',
       title: tr('gridConfig'),
+      summary: tr('gridConfigSummary'),
       forStrategyType: 'grid_trading' as const,
       content: editingConfig?.grid_config && (
         <GridConfigEditor
@@ -667,6 +681,7 @@ export function StrategyStudioPage() {
       icon: Target,
       color: 'var(--color-primary)',
       title: tr('coinSource'),
+      summary: tr('coinSourceSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <CoinSourceEditor
@@ -682,6 +697,7 @@ export function StrategyStudioPage() {
       icon: BarChart3,
       color: 'var(--color-profit)',
       title: tr('indicators'),
+      summary: tr('indicatorsSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <IndicatorEditor
@@ -697,6 +713,7 @@ export function StrategyStudioPage() {
       icon: Shield,
       color: 'var(--color-loss)',
       title: tr('riskControl'),
+      summary: tr('riskControlSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <RiskControlEditor
@@ -712,6 +729,7 @@ export function StrategyStudioPage() {
       icon: Zap,
       color: 'var(--color-warning)',
       title: tr('promptCompression'),
+      summary: tr('promptCompressionSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <div className="space-y-3">
@@ -755,6 +773,7 @@ export function StrategyStudioPage() {
       icon: FileText,
       color: 'var(--color-accent)',
       title: tr('promptSections'),
+      summary: tr('promptSectionsSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <PromptSectionsEditor
@@ -772,6 +791,7 @@ export function StrategyStudioPage() {
       icon: Settings,
       color: 'var(--color-accent)',
       title: tr('customPrompt'),
+      summary: tr('customPromptSummary'),
       forStrategyType: 'ai_trading' as const,
       content: editingConfig && (
         <div>
@@ -793,6 +813,7 @@ export function StrategyStudioPage() {
       icon: Globe,
       color: 'var(--color-profit)',
       title: tr('publishSettings'),
+      summary: tr('publishSettingsSummary'),
       forStrategyType: 'both' as const,
       content: selectedStrategy && (
         <PublishSettingsEditor
@@ -817,52 +838,419 @@ export function StrategyStudioPage() {
       section.forStrategyType === currentStrategyType
   )
 
-  return (
-    <DeepVoidBackground className="h-[calc(100vh-64px)] flex flex-col bg-background relative overflow-hidden">
-      {/* Header */}
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-primary/20 bg-background/60 backdrop-blur-md z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/70">
-              <Sparkles className="w-5 h-5 text-black" />
+  const configSummaryLabels: Record<string, string> = {
+    coin_source: tr('summaryCoinSource'),
+    primary_tf: tr('summaryPrimaryTf'),
+    btc_eth_leverage: tr('summaryBtcEthLeverage'),
+    altcoin_leverage: tr('summaryAltcoinLeverage'),
+    max_positions: tr('summaryMaxPositions'),
+  }
+  const formatSummaryValue = (key: string, value: unknown) =>
+    key === 'coin_source'
+      ? displayName('sourceType', String(value ?? ''), language)
+      : String(value ?? '')
+
+  const selectStrategy = (strategy: Strategy) => {
+    setSelectedStrategy(strategy)
+    setEditingConfig(strategy.config)
+    setHasChanges(false)
+    setPromptPreview(null)
+    setAiTestResult(null)
+    setMobilePane('edit')
+  }
+
+  const strategyList = (
+    <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-1 lg:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {strategies.map((strategy) => {
+        const selected = selectedStrategy?.id === strategy.id
+        return (
+          <div
+            key={strategy.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            onClick={() => selectStrategy(strategy)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                selectStrategy(strategy)
+              }
+            }}
+            className={`group shrink-0 w-[200px] lg:w-auto px-3 py-2.5 rounded-control cursor-pointer border transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+              selected
+                ? 'border-primary/50 bg-primary-dim'
+                : 'border-border bg-panel hover:border-border-hover'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="t-label line-clamp-2">{strategy.name}</span>
+              <div className="ait-hover-reveal flex items-center -mr-1 -mt-0.5">
+                <IconAction
+                  label={tr('export')}
+                  onClick={() => handleExportStrategy(strategy)}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </IconAction>
+                {!strategy.is_default && (
+                  <>
+                    <IconAction
+                      label={tr('duplicate')}
+                      onClick={() => handleDuplicateStrategy(strategy.id)}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </IconAction>
+                    <IconAction
+                      label={
+                        strategy.is_active
+                          ? tr('cannotDeleteActiveStrategy')
+                          : tr('deleteTooltip')
+                      }
+                      danger
+                      disabled={strategy.is_active}
+                      onClick={() => handleDeleteStrategy(strategy.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </IconAction>
+                  </>
+                )}
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">
-                {tr('title')}
-              </h1>
-              <p className="text-xs text-muted-foreground">{tr('subtitle')}</p>
-            </div>
+            {(strategy.is_active ||
+              strategy.is_default ||
+              strategy.is_public) && (
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                {strategy.is_active && (
+                  <span className="ait-pill bg-profit/15 text-profit">
+                    {tr('active')}
+                  </span>
+                )}
+                {strategy.is_default && (
+                  <span className="ait-pill bg-primary/15 text-primary">
+                    {tr('default')}
+                  </span>
+                )}
+                {strategy.is_public && (
+                  <span className="ait-pill bg-accent/15 text-accent">
+                    <Globe className="w-2.5 h-2.5" />
+                    {tr('public')}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          {error && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-loss/10 text-loss">
-              {error}
-              <Button
-                variant="unstyled"
-                onClick={() => setError(null)}
-                className="hover:underline"
-              >
-                ×
-              </Button>
-            </div>
-          )}
+        )
+      })}
+    </div>
+  )
+
+  const previewPane = (
+    <div className="flex flex-col min-h-0 h-full">
+      <div className="flex-shrink-0 p-3 border-b border-border">
+        <div className="ait-segmented w-full" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeRightTab === 'prompt'}
+            onClick={() => setActiveRightTab('prompt')}
+            className="flex-1 inline-flex items-center justify-center gap-1.5"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            {tr('promptPreview')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeRightTab === 'test'}
+            onClick={() => setActiveRightTab('test')}
+            className="flex-1 inline-flex items-center justify-center gap-1.5"
+          >
+            <Play className="w-3.5 h-3.5" />
+            {tr('aiTestRun')}
+          </button>
         </div>
       </div>
 
-      {/* Main Content - Three Columns */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Column - Strategy List */}
-        <div className="w-48 flex-shrink-0 border-r border-primary/20 overflow-y-auto bg-background/30 backdrop-blur-sm z-10">
-          <div className="p-2">
-            <div className="flex items-center justify-between mb-2 px-2">
-              <span className="text-xs font-medium text-muted-foreground">
+      <div className="flex-1 lg:overflow-y-auto">
+        {activeRightTab === 'prompt' ? (
+          <div className="p-3 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedVariant}
+                onChange={(e) => setSelectedVariant(e.target.value)}
+                className="premium-input h-9 py-0 text-caption"
+              >
+                <option value="balanced">{tr('balanced')}</option>
+                <option value="aggressive">{tr('aggressive')}</option>
+                <option value="conservative">{tr('conservative')}</option>
+              </select>
+              <Button
+                variant="unstyled"
+                onClick={fetchPromptPreview}
+                disabled={isLoadingPrompt || !editingConfig}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-control text-caption font-semibold bg-foreground text-background hover:opacity-90 disabled:opacity-50"
+              >
+                {isLoadingPrompt ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                {promptPreview ? tr('refreshPrompt') : tr('loadPrompt')}
+              </Button>
+            </div>
+
+            {promptPreview ? (
+              <>
+                <div className="ait-card-inset p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Code className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="t-caption font-semibold text-foreground">
+                      {tr('configSummary')}
+                    </span>
+                  </div>
+                  <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2">
+                    {Object.entries(promptPreview.config_summary || {}).map(
+                      ([key, value]) => (
+                        <div key={key} className="min-w-0">
+                          <dt className="t-micro text-muted-foreground truncate">
+                            {configSummaryLabels[key] ?? tr('configSummary')}
+                          </dt>
+                          <dd className="t-caption text-foreground t-num truncate">
+                            {formatSummaryValue(key, value)}
+                          </dd>
+                        </div>
+                      )
+                    )}
+                  </dl>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="t-caption font-semibold text-foreground">
+                        {tr('systemPrompt')}
+                      </span>
+                    </div>
+                    <span className="ait-pill bg-surface-alt text-muted-foreground t-num">
+                      {promptPreview.system_prompt.length.toLocaleString()}{' '}
+                      {t('ui.chars', language)}
+                    </span>
+                  </div>
+                  <pre className="ait-card-inset p-3 text-[11px] leading-relaxed font-mono overflow-auto text-foreground max-h-[400px] whitespace-pre-wrap break-words">
+                    {promptPreview.system_prompt}
+                  </pre>
+                </div>
+              </>
+            ) : (
+              <EmptyState
+                icon={<Eye className="w-8 h-8" />}
+                text={tr('generatePromptPreview')}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="p-3 space-y-3">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="t-caption font-semibold text-foreground">
+                  {tr('selectModel')}
+                </span>
+              </div>
+              {aiModels.length > 0 ? (
+                <select
+                  value={selectedModelId}
+                  onChange={(e) => setSelectedModelId(e.target.value)}
+                  className="premium-input w-full h-10 py-0"
+                >
+                  {aiModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} ({model.provider})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="px-3 py-2 rounded-control t-caption bg-loss/10 text-loss">
+                  {tr('noModel')}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedVariant}
+                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  className="premium-input h-10 py-0 text-caption"
+                >
+                  <option value="balanced">{tr('balanced')}</option>
+                  <option value="aggressive">{tr('aggressive')}</option>
+                  <option value="conservative">{tr('conservative')}</option>
+                </select>
+                <Button
+                  variant="unstyled"
+                  onClick={runAiTest}
+                  disabled={
+                    isRunningAiTest || !editingConfig || !selectedModelId
+                  }
+                  className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 rounded-control t-label bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {isRunningAiTest ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {tr('running')}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      {tr('runTest')}
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="t-micro text-muted-foreground">{tr('testNote')}</p>
+            </div>
+
+            {aiTestResult ? (
+              <div className="space-y-3">
+                {aiTestResult.error ? (
+                  <div className="p-3 rounded-control bg-loss/10 border border-loss/30">
+                    <p className="t-caption text-loss">{aiTestResult.error}</p>
+                  </div>
+                ) : (
+                  <>
+                    {aiTestResult.duration_ms && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="t-caption text-muted-foreground t-num">
+                          {tr('duration')}:{' '}
+                          {(aiTestResult.duration_ms / 1000).toFixed(2)}s
+                        </span>
+                      </div>
+                    )}
+                    {aiTestResult.user_prompt && (
+                      <ResultBlock
+                        icon={<Terminal className="w-3.5 h-3.5" />}
+                        title={tr('userPromptInput')}
+                        maxHeight={200}
+                        text={aiTestResult.user_prompt}
+                      />
+                    )}
+                    {aiTestResult.reasoning && (
+                      <ResultBlock
+                        icon={<Sparkles className="w-3.5 h-3.5" />}
+                        title={tr('reasoning')}
+                        maxHeight={200}
+                        text={aiTestResult.reasoning}
+                      />
+                    )}
+                    {aiTestResult.decisions &&
+                      aiTestResult.decisions.length > 0 && (
+                        <ResultBlock
+                          icon={<Activity className="w-3.5 h-3.5" />}
+                          title={tr('decisions')}
+                          maxHeight={200}
+                          text={JSON.stringify(aiTestResult.decisions, null, 2)}
+                        />
+                      )}
+                    {aiTestResult.ai_response && (
+                      <ResultBlock
+                        icon={<FileText className="w-3.5 h-3.5" />}
+                        title={tr('aiOutputRaw')}
+                        maxHeight={300}
+                        text={aiTestResult.ai_response}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Play className="w-8 h-8" />}
+                text={tr('runAiTestHint')}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <DeepVoidBackground className="lg:h-[calc(100vh-64px)] min-h-[calc(100vh-64px)] flex flex-col bg-background relative lg:overflow-hidden">
+      {/* Page header */}
+      <header className="flex-shrink-0 border-b border-border bg-background/70 backdrop-blur-md z-10">
+        <div className="px-[var(--page-gutter)] py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="hidden sm:flex p-2 rounded-control bg-primary/15 text-primary">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h1 className="t-title">{tr('title')}</h1>
+                <InfoTip
+                  content={tr('subtitleInfo')}
+                  title={tr('title')}
+                  side="bottom"
+                  align="start"
+                />
+              </div>
+              <p className="t-caption text-muted-foreground truncate">
+                {tr('subtitle')}
+              </p>
+            </div>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-control t-caption bg-loss/10 text-loss max-w-[50%]">
+              <span className="truncate">{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="hover:opacity-70"
+                aria-label={t('ui.close', language)}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Below xl the editor and the preview share one column: a segmented switch picks the pane. */}
+        <div className="xl:hidden px-[var(--page-gutter)] pb-3">
+          <div className="ait-segmented w-full sm:w-auto" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobilePane === 'edit'}
+              onClick={() => setMobilePane('edit')}
+              className="flex-1 sm:flex-none sm:px-5"
+            >
+              {tr('paneEditor')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobilePane === 'preview'}
+              onClick={() => setMobilePane('preview')}
+              className="flex-1 sm:flex-none sm:px-5"
+            >
+              {tr('panePreview')}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
+        {/* Strategy list: horizontal scroller on phones/tablets, column on desktop */}
+        <aside className="flex-shrink-0 lg:w-60 border-b lg:border-b-0 lg:border-r border-border lg:overflow-y-auto bg-background/40 z-10">
+          <div className="px-[var(--page-gutter)] lg:px-3 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="t-micro uppercase tracking-wider text-muted-foreground">
                 {tr('strategies')}
               </span>
-              <div className="flex items-center gap-1">
-                {/* Import button with hidden file input */}
+              <div className="flex items-center gap-0.5">
                 <label
-                  className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-control text-muted-foreground hover:bg-surface-alt hover:text-foreground cursor-pointer"
                   title={tr('importStrategy')}
+                  aria-label={tr('importStrategy')}
                 >
                   <Upload className="w-4 h-4" />
                   <input
@@ -872,114 +1260,29 @@ export function StrategyStudioPage() {
                     className="hidden"
                   />
                 </label>
-                <Button
-                  variant="unstyled"
+                <IconAction
+                  label={tr('newStrategyTooltip')}
                   onClick={handleCreateStrategy}
-                  className="p-1 rounded hover:bg-white/10 transition-colors text-primary"
-                  title={tr('newStrategyTooltip')}
+                  size="md"
                 >
-                  <Plus className="w-4 h-4" />
-                </Button>
+                  <Plus className="w-4 h-4 text-primary" />
+                </IconAction>
               </div>
             </div>
-            <div className="space-y-2">
-              {strategies.map((strategy) => (
-                <div
-                  key={strategy.id}
-                  onClick={() => {
-                    setSelectedStrategy(strategy)
-                    setEditingConfig(strategy.config)
-                    setHasChanges(false)
-                    setPromptPreview(null)
-                    setAiTestResult(null)
-                  }}
-                  className={`group px-2 py-2 rounded-lg cursor-pointer transition-all ${
-                    selectedStrategy?.id === strategy.id
-                      ? 'ring-1 ring-primary/50 bg-primary-dim'
-                      : 'hover:bg-surface/60 ring-1 ring-white/10 hover:ring-primary/20 bg-transparent'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <span
-                      className={`line-clamp-2 text-foreground ${language === 'zh' ? 'text-sm' : 'text-xs'}`}
-                    >
-                      {strategy.name}
-                    </span>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="unstyled"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleExportStrategy(strategy)
-                        }}
-                        className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
-                        title={tr('export')}
-                      >
-                        <Download className="w-3 h-3" />
-                      </Button>
-                      {!strategy.is_default && (
-                        <>
-                          <Button
-                            variant="unstyled"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDuplicateStrategy(strategy.id)
-                            }}
-                            className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
-                            title={tr('duplicate')}
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="unstyled"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteStrategy(strategy.id)
-                            }}
-                            disabled={strategy.is_active}
-                            className="p-1 rounded hover:bg-loss/20 text-loss disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            title={
-                              strategy.is_active
-                                ? tr('cannotDeleteActiveStrategy')
-                                : tr('deleteTooltip')
-                            }
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {strategy.is_active && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-profit/15 text-profit">
-                        {tr('active')}
-                      </span>
-                    )}
-                    {strategy.is_default && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/15 text-primary">
-                        {tr('default')}
-                      </span>
-                    )}
-                    {strategy.is_public && (
-                      <span className="px-1.5 py-0.5 text-[10px] rounded flex items-center gap-0.5 bg-accent/15 text-accent">
-                        <Globe className="w-2.5 h-2.5" />
-                        {tr('public')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {strategyList}
           </div>
-        </div>
+        </aside>
 
-        {/* Middle Column - Config Editor */}
-        <div className="flex-1 min-w-0 overflow-y-auto border-r border-primary/20">
+        {/* Editor */}
+        <main
+          className={`flex-1 min-w-0 lg:overflow-y-auto xl:border-r border-border ${
+            mobilePane === 'edit' ? 'block' : 'hidden xl:block'
+          }`}
+        >
           {selectedStrategy && editingConfig ? (
-            <div className="p-4">
-              {/* Strategy Name & Actions */}
-              <div className="flex items-center justify-between mb-4">
+            <div className="px-[var(--page-gutter)] lg:px-5 py-4 lg:py-5 max-w-[960px] mx-auto">
+              {/* Strategy name & actions */}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                 <div className="flex-1 min-w-0">
                   <input
                     type="text"
@@ -992,7 +1295,7 @@ export function StrategyStudioPage() {
                       setHasChanges(true)
                     }}
                     disabled={selectedStrategy.is_default}
-                    className="text-lg font-bold bg-transparent border-none outline-none w-full text-foreground placeholder-muted-foreground"
+                    className="t-title bg-transparent border-none outline-none w-full placeholder-muted-foreground"
                   />
                   <input
                     type="text"
@@ -1006,11 +1309,12 @@ export function StrategyStudioPage() {
                     }}
                     disabled={selectedStrategy.is_default}
                     placeholder={tr('addDescription')}
-                    className="text-xs bg-transparent border-none outline-none w-full text-muted-foreground placeholder-muted-foreground/50 mt-1"
+                    className="t-caption bg-transparent border-none outline-none w-full text-muted-foreground placeholder-muted-foreground/60 mt-1"
                   />
                   {hasChanges && (
-                    <span className="text-xs text-primary">
-                      ● {tr('unsaved')}
+                    <span className="inline-flex items-center gap-1.5 t-micro text-primary mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      {tr('unsaved')}
                     </span>
                   )}
                 </div>
@@ -1021,9 +1325,9 @@ export function StrategyStudioPage() {
                       onClick={() =>
                         handleActivateStrategy(selectedStrategy.id)
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-colors bg-profit/10 border border-profit/30 text-profit hover:bg-profit/20"
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-control t-caption font-semibold border border-profit/40 text-profit hover:bg-profit/10"
                     >
-                      <Check className="w-3 h-3" />
+                      <Check className="w-3.5 h-3.5" />
                       {tr('activate')}
                     </Button>
                   )}
@@ -1032,17 +1336,19 @@ export function StrategyStudioPage() {
                       variant="unstyled"
                       onClick={handleSaveStrategy}
                       disabled={isSaving || !hasChanges}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50
-                        ${hasChanges ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-surface text-muted-foreground cursor-not-allowed'}`}
+                      className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-control t-caption font-semibold disabled:opacity-50 ${
+                        hasChanges
+                          ? 'bg-primary text-primary-foreground hover:opacity-90'
+                          : 'bg-surface-alt text-muted-foreground cursor-not-allowed'
+                      }`}
                     >
-                      <Save className="w-3 h-3" />
+                      <Save className="w-3.5 h-3.5" />
                       {isSaving ? tr('saving') : tr('save')}
                     </Button>
                   )}
                 </div>
               </div>
 
-              {/* Token Estimate Bar */}
               {currentStrategyType === 'ai_trading' && (
                 <div className="mb-4">
                   <TokenEstimateBar
@@ -1053,416 +1359,200 @@ export function StrategyStudioPage() {
                 </div>
               )}
 
-              {/* Strategy Type Selector */}
-              {editingConfig && (
-                <div className="mb-4 p-4 rounded-lg bg-surface border border-primary/20">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Zap
-                      className="w-4 h-4"
-                      style={{ color: 'var(--color-primary)' }}
-                    />
-                    <span className="text-sm font-medium text-foreground">
-                      {tr('strategyType')}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="unstyled"
-                      onClick={() => handleStrategyTypeChange('ai_trading')}
-                      disabled={selectedStrategy?.is_default}
-                      className={`p-3 rounded-lg border transition-all ${
-                        !editingConfig.strategy_type ||
-                        editingConfig.strategy_type === 'ai_trading'
-                          ? 'border-primary bg-primary-dim'
-                          : 'border-ait-border hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Bot
-                          className="w-4 h-4"
-                          style={{ color: 'var(--color-primary)' }}
-                        />
-                        <span className="text-sm font-medium text-foreground">
-                          {tr('aiTrading')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-left">
-                        {tr('aiTradingDesc')}
-                      </p>
-                    </Button>
-                    <Button
-                      variant="unstyled"
-                      onClick={() => handleStrategyTypeChange('grid_trading')}
-                      disabled={selectedStrategy?.is_default}
-                      className={`p-3 rounded-lg border transition-all ${
-                        editingConfig.strategy_type === 'grid_trading'
-                          ? 'border-primary bg-primary-dim'
-                          : 'border-ait-border hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Activity
-                          className="w-4 h-4"
-                          style={{ color: 'var(--color-profit)' }}
-                        />
-                        <span className="text-sm font-medium text-foreground">
-                          {tr('gridTrading')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-left">
-                        {tr('gridTradingDesc')}
-                      </p>
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Config Sections */}
-              <div className="space-y-2">
-                {configSections.map(
-                  ({ key, icon: Icon, color, title, content }) => (
-                    <div
-                      key={key}
-                      className="rounded-lg overflow-hidden bg-surface border border-primary/20"
-                    >
+              {/* Strategy type */}
+              <section className="ait-card p-4 mb-3">
+                <SectionHeader
+                  title={tr('strategyType')}
+                  icon={<Zap className="w-4 h-4" />}
+                  className="mb-3"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(
+                    [
+                      {
+                        type: 'ai_trading',
+                        icon: Bot,
+                        title: tr('aiTrading'),
+                        desc: tr('aiTradingDesc'),
+                      },
+                      {
+                        type: 'grid_trading',
+                        icon: Activity,
+                        title: tr('gridTrading'),
+                        desc: tr('gridTradingDesc'),
+                      },
+                    ] as const
+                  ).map(({ type, icon: Icon, title, desc }) => {
+                    const selected =
+                      type === 'ai_trading'
+                        ? !editingConfig.strategy_type ||
+                          editingConfig.strategy_type === 'ai_trading'
+                        : editingConfig.strategy_type === 'grid_trading'
+                    return (
                       <Button
+                        key={type}
                         variant="unstyled"
-                        onClick={() => toggleSection(key)}
-                        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+                        onClick={() => handleStrategyTypeChange(type)}
+                        disabled={selectedStrategy?.is_default}
+                        aria-pressed={selected}
+                        className={`flex flex-col items-start p-3 rounded-control border text-left transition-colors ${
+                          selected
+                            ? 'border-primary/60 bg-primary-dim'
+                            : 'border-border hover:border-border-hover'
+                        }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" style={{ color }} />
-                          <span className="text-sm font-medium text-foreground">
-                            {title}
-                          </span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          <span className="t-label">{title}</span>
                         </div>
-                        {expandedSections[key] ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )}
+                        <p className="t-caption font-normal text-muted-foreground">
+                          {desc}
+                        </p>
                       </Button>
-                      {expandedSections[key] && (
-                        <div className="px-3 pb-3">
-                          <Suspense
-                            fallback={
-                              <div className="h-24 rounded bg-white/5 animate-pulse" />
-                            }
-                          >
-                            {content}
-                          </Suspense>
-                        </div>
-                      )}
-                    </div>
-                  )
+                    )
+                  })}
+                </div>
+              </section>
+
+              {/* Config sections */}
+              <div className="space-y-3">
+                {configSections.map(
+                  ({ key, icon: Icon, title, summary, content }) => {
+                    const open = expandedSections[key]
+                    return (
+                      <section key={key} className="ait-card overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(key)}
+                          aria-expanded={open}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-panel-hover"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className="mt-0.5 inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-control bg-surface-alt text-muted-foreground">
+                              <Icon className="w-4 h-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="t-headline">{title}</div>
+                              <div className="t-caption font-normal text-muted-foreground truncate">
+                                {summary}
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronDown
+                            className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+                        {open && (
+                          <div className="px-3 sm:px-4 pb-4 pt-1 border-t border-border">
+                            <Suspense
+                              fallback={
+                                <div className="h-24 mt-3 rounded-control skeleton" />
+                              }
+                            >
+                              <div className="pt-3">{content}</div>
+                            </Suspense>
+                          </div>
+                        )}
+                      </section>
+                    )
+                  }
                 )}
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Activity className="w-12 h-12 mx-auto mb-2 opacity-30 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {tr('selectOrCreate')}
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              icon={<Activity className="w-10 h-10" />}
+              text={tr('selectOrCreate')}
+            />
           )}
-        </div>
+        </main>
 
-        {/* Right Column - Prompt Preview & AI Test */}
-        <div className="w-[420px] flex-shrink-0 flex flex-col overflow-hidden">
-          {/* Tabs */}
-          <div className="flex-shrink-0 flex border-b border-primary/20">
-            <Button
-              variant="unstyled"
-              onClick={() => setActiveRightTab('prompt')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeRightTab === 'prompt'
-                  ? 'border-b-2 border-accent text-accent'
-                  : 'opacity-60 hover:opacity-100 text-muted-foreground'
-              }`}
-            >
-              <Eye className="w-4 h-4" />
-              {tr('promptPreview')}
-            </Button>
-            <Button
-              variant="unstyled"
-              onClick={() => setActiveRightTab('test')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeRightTab === 'test'
-                  ? 'border-b-2 border-profit text-profit'
-                  : 'opacity-60 hover:opacity-100 text-muted-foreground'
-              }`}
-            >
-              <Play className="w-4 h-4" />
-              {tr('aiTestRun')}
-            </Button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto">
-            {activeRightTab === 'prompt' ? (
-              /* Prompt Preview Tab */
-              <div className="p-3 space-y-3">
-                {/* Controls */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <select
-                    value={selectedVariant}
-                    onChange={(e) => setSelectedVariant(e.target.value)}
-                    className="px-2 py-1.5 rounded text-xs bg-background border border-primary/20 text-foreground outline-none focus:border-primary"
-                  >
-                    <option value="balanced">{tr('balanced')}</option>
-                    <option value="aggressive">{tr('aggressive')}</option>
-                    <option value="conservative">{tr('conservative')}</option>
-                  </select>
-                  <Button
-                    variant="unstyled"
-                    onClick={fetchPromptPreview}
-                    disabled={isLoadingPrompt || !editingConfig}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 bg-accent hover:bg-accent/80 text-foreground"
-                  >
-                    {isLoadingPrompt ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-3 h-3" />
-                    )}
-                    {promptPreview ? tr('refreshPrompt') : tr('loadPrompt')}
-                  </Button>
-                </div>
-
-                {promptPreview ? (
-                  <>
-                    {/* Config Summary */}
-                    <div className="p-2 rounded-lg bg-background border border-primary/20">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Code className="w-3 h-3 text-accent" />
-                        <span className="text-xs font-medium text-accent">
-                          Config
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        {Object.entries(promptPreview.config_summary || {}).map(
-                          ([key, value]) => (
-                            <div key={key}>
-                              <div className="text-muted-foreground">
-                                {key.replace(/_/g, ' ')}
-                              </div>
-                              <div className="text-foreground">
-                                {String(value)}
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    {/* System Prompt */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <FileText className="w-3 h-3 text-accent" />
-                          <span className="text-xs font-medium text-foreground">
-                            {tr('systemPrompt')}
-                          </span>
-                        </div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-muted-foreground">
-                          {promptPreview.system_prompt.length.toLocaleString()}{' '}
-                          chars
-                        </span>
-                      </div>
-                      <pre
-                        className="p-2 rounded-lg text-[11px] font-mono overflow-auto bg-background border border-primary/20 text-foreground"
-                        style={{ maxHeight: '400px' }}
-                      >
-                        {promptPreview.system_prompt}
-                      </pre>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Eye className="w-10 h-10 mb-2 opacity-30" />
-                    <p className="text-sm">{tr('generatePromptPreview')}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* AI Test Tab */
-              <div className="p-3 space-y-3">
-                {/* Controls */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-profit" />
-                    <span className="text-xs font-medium text-foreground">
-                      {tr('selectModel')}
-                    </span>
-                  </div>
-                  {aiModels.length > 0 ? (
-                    <select
-                      value={selectedModelId}
-                      onChange={(e) => setSelectedModelId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-primary/20 text-foreground"
-                    >
-                      {aiModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} ({model.provider})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="px-3 py-2 rounded-lg text-sm bg-loss/10 text-loss">
-                      {tr('noModel')}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedVariant}
-                      onChange={(e) => setSelectedVariant(e.target.value)}
-                      className="px-2 py-1.5 rounded text-xs bg-background border border-primary/20 text-foreground"
-                    >
-                      <option value="balanced">{tr('balanced')}</option>
-                      <option value="aggressive">{tr('aggressive')}</option>
-                      <option value="conservative">{tr('conservative')}</option>
-                    </select>
-                    <Button
-                      variant="unstyled"
-                      onClick={runAiTest}
-                      disabled={
-                        isRunningAiTest || !editingConfig || !selectedModelId
-                      }
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 text-foreground shadow-lg bg-gradient-to-br from-profit to-profit/80"
-                    >
-                      {isRunningAiTest ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          {tr('running')}
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          {tr('runTest')}
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {tr('testNote')}
-                  </p>
-                </div>
-
-                {/* Test Results */}
-                {aiTestResult ? (
-                  <div className="space-y-3">
-                    {aiTestResult.error ? (
-                      <div className="p-3 rounded-lg bg-loss/10 border border-loss/30">
-                        <p className="text-sm text-loss">
-                          {aiTestResult.error}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        {aiTestResult.duration_ms && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {tr('duration')}:{' '}
-                              {(aiTestResult.duration_ms / 1000).toFixed(2)}s
-                            </span>
-                          </div>
-                        )}
-
-                        {/* User Prompt Input */}
-                        {aiTestResult.user_prompt && (
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <Terminal className="w-3 h-3 text-accent" />
-                              <span className="text-xs font-medium text-foreground">
-                                {tr('userPrompt')} (Input)
-                              </span>
-                            </div>
-                            <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-background border border-primary/20 text-foreground"
-                              style={{ maxHeight: '200px' }}
-                            >
-                              {aiTestResult.user_prompt}
-                            </pre>
-                          </div>
-                        )}
-
-                        {/* AI Reasoning */}
-                        {aiTestResult.reasoning && (
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <Sparkles className="w-3 h-3 text-primary" />
-                              <span className="text-xs font-medium text-foreground">
-                                {tr('reasoning')}
-                              </span>
-                            </div>
-                            <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-background border border-primary/30 text-foreground"
-                              style={{ maxHeight: '200px' }}
-                            >
-                              {aiTestResult.reasoning}
-                            </pre>
-                          </div>
-                        )}
-
-                        {/* AI Decisions */}
-                        {aiTestResult.decisions &&
-                          aiTestResult.decisions.length > 0 && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Activity className="w-3 h-3 text-profit" />
-                                <span className="text-xs font-medium text-foreground">
-                                  {tr('decisions')}
-                                </span>
-                              </div>
-                              <pre
-                                className="p-2 rounded-lg text-[10px] font-mono overflow-auto bg-background border border-profit/30 text-foreground"
-                                style={{ maxHeight: '200px' }}
-                              >
-                                {JSON.stringify(
-                                  aiTestResult.decisions,
-                                  null,
-                                  2
-                                )}
-                              </pre>
-                            </div>
-                          )}
-
-                        {/* Raw AI Response */}
-                        {aiTestResult.ai_response && (
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <FileText className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-xs font-medium text-foreground">
-                                {tr('aiOutput')} (Raw)
-                              </span>
-                            </div>
-                            <pre
-                              className="p-2 rounded-lg text-[10px] font-mono overflow-auto whitespace-pre-wrap bg-background border border-primary/20 text-foreground"
-                              style={{ maxHeight: '300px' }}
-                            >
-                              {aiTestResult.ai_response}
-                            </pre>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Play className="w-10 h-10 mb-2 opacity-30" />
-                    <p className="text-sm">{tr('runAiTestHint')}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Preview & AI test */}
+        <aside
+          className={`xl:w-[420px] flex-shrink-0 flex-col lg:overflow-hidden border-t xl:border-t-0 border-border ${
+            mobilePane === 'preview'
+              ? 'flex lg:flex-1 xl:flex-none'
+              : 'hidden xl:flex'
+          }`}
+        >
+          {previewPane}
+        </aside>
       </div>
     </DeepVoidBackground>
+  )
+}
+
+function IconAction({
+  label,
+  onClick,
+  children,
+  danger = false,
+  disabled = false,
+  size = 'sm',
+}: {
+  label: string
+  onClick: () => void
+  children: ReactNode
+  danger?: boolean
+  disabled?: boolean
+  size?: 'sm' | 'md'
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className={`inline-flex items-center justify-center rounded-control ${
+        size === 'md' ? 'w-8 h-8' : 'w-7 h-7'
+      } ${
+        danger
+          ? 'text-loss hover:bg-loss/10'
+          : 'text-muted-foreground hover:bg-surface-alt hover:text-foreground'
+      } disabled:opacity-40 disabled:cursor-not-allowed`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function EmptyState({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-14 text-muted-foreground">
+      <span className="opacity-40">{icon}</span>
+      <p className="t-caption text-center max-w-[260px]">{text}</p>
+    </div>
+  )
+}
+
+function ResultBlock({
+  icon,
+  title,
+  text,
+  maxHeight,
+}: {
+  icon: ReactNode
+  title: string
+  text: string
+  maxHeight: number
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1.5 text-muted-foreground">
+        {icon}
+        <span className="t-caption font-semibold text-foreground">{title}</span>
+      </div>
+      <pre
+        className="ait-card-inset p-3 text-[11px] leading-relaxed font-mono overflow-auto whitespace-pre-wrap break-words text-foreground"
+        style={{ maxHeight }}
+      >
+        {text}
+      </pre>
+    </div>
   )
 }
 

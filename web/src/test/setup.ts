@@ -30,3 +30,12 @@ beforeAll(() => {
 afterEach(() => {
   localStorageMock.clear()
 })
+
+// jsdom has no ResizeObserver; Radix Popover (InfoTip) measures its content.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}

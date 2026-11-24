@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   SignalPanel,
   buildSignalSummary,
@@ -225,13 +225,19 @@ describe('SignalPanel', () => {
 
     render(<SignalPanel language="en" />)
 
-    const chip = await screen.findByText('fresh_oi_absent')
-    await waitFor(() => {
-      expect(chip.getAttribute('title')).toContain(
-        'No fresh OI inflow supports the move.'
-      )
-    })
-    expect(chip.getAttribute('title')).toContain('wait_only')
+    // The chip shows the user-facing name; tapping it opens the catalog
+    // explanation (no hover-only tooltip).
+    await screen.findByText('Fresh OI absent')
+    await waitFor(() =>
+      expect(
+        screen.getByText('Fresh OI absent').closest('button')
+      ).toHaveAttribute('aria-haspopup', 'dialog')
+    )
+    fireEvent.click(screen.getByText('Fresh OI absent'))
+    expect(
+      await screen.findByText('No fresh OI inflow supports the move.')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Wait only/)).toBeInTheDocument()
     // Lazy-loaded exactly once for the whole panel.
     expect(mockedGetV7TagCatalog).toHaveBeenCalledTimes(1)
   })
@@ -294,20 +300,20 @@ describe('SignalPanel', () => {
     expect(screen.getByText('40.0%')).toBeInTheDocument()
     expect(screen.getByText('2/5')).toBeInTheDocument()
     expect(screen.getByTestId('signal-card-SOLUSDT')).toBeInTheDocument()
-    expect(screen.getByText('PROTECTED')).toBeInTheDocument()
+    expect(screen.getByText('Protected')).toBeInTheDocument()
     expect(screen.getAllByText('+0.18%').length).toBeGreaterThan(0)
     // Direction badge is separate from the tier badge
-    expect(screen.getAllByText('LONG').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('SHORT').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Long').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Short').length).toBeGreaterThan(0)
     // Zone position marker rendered from execution readiness
     expect(screen.getAllByTestId('zone-marker').length).toBeGreaterThan(0)
     // Taker ladder chip
-    expect(screen.getByText('flow_taker_buy_strong')).toBeInTheDocument()
+    expect(screen.getByText('Flow taker buy strong')).toBeInTheDocument()
     // Watch row stays a dim one-liner
     expect(screen.getByTestId('watch-row-DOGEUSDT')).toBeInTheDocument()
     // Rejected rows fold into a count + aggregated veto chip
     expect(screen.getByText('2 rejected')).toBeInTheDocument()
-    expect(screen.getByText('fresh_oi_absent ×2')).toBeInTheDocument()
+    expect(screen.getByText('Fresh OI absent ×2')).toBeInTheDocument()
     // Rejected symbols are not expanded by default
     expect(screen.queryByText('XRPUSDT')).not.toBeInTheDocument()
   })

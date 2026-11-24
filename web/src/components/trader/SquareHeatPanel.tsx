@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { InfoTip } from '../ui/InfoTip'
 
 interface SquareHeatPanelProps {
   language: Language
@@ -64,7 +65,7 @@ export function SquareHeatPanel({
       setData(res)
       setError(res.error || null)
     } catch {
-      setError('Failed to fetch Square Heat')
+      setError('fetch_failed')
     } finally {
       setLoading(false)
     }
@@ -108,7 +109,7 @@ export function SquareHeatPanel({
 
   return (
     <div
-      className="ait-glass p-6 animate-slide-in relative overflow-hidden group"
+      className="ait-card p-4 sm:p-6 animate-slide-in relative overflow-hidden group"
       style={{ animationDelay: '0.18s' }}
     >
       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -117,11 +118,11 @@ export function SquareHeatPanel({
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4 relative z-10">
-        <h2 className="text-lg font-bold flex items-center gap-2 text-foreground uppercase tracking-wide">
+        <h2 className="t-title flex items-center gap-2">
           <span className="text-warning">
-            <Flame size={20} />
+            <Flame size={18} />
           </span>
-          Square Heat
+          {t('squareHeat.title', language)}
         </h2>
         <div className="flex items-center gap-1">
           <Button
@@ -133,7 +134,16 @@ export function SquareHeatPanel({
                 ? 'text-profit hover:bg-profit/20'
                 : 'text-muted-foreground hover:bg-white/10 hover:text-foreground'
             } ${workerToggling ? 'opacity-50' : ''}`}
-            title={workerRunning ? 'Stop Worker' : 'Start Worker'}
+            title={
+              workerRunning
+                ? t('squareHeat.stopWorker', language)
+                : t('squareHeat.startWorker', language)
+            }
+            aria-label={
+              workerRunning
+                ? t('squareHeat.stopWorker', language)
+                : t('squareHeat.startWorker', language)
+            }
           >
             {workerToggling ? (
               <RefreshCw size={14} className="animate-spin" />
@@ -148,7 +158,8 @@ export function SquareHeatPanel({
               fetchData()
             }}
             className="p-1.5 rounded-lg transition-all hover:bg-white/10 text-muted-foreground hover:text-foreground"
-            title="Refresh"
+            title={t('squareHeat.refresh', language)}
+            aria-label={t('squareHeat.refresh', language)}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </Button>
@@ -172,7 +183,10 @@ export function SquareHeatPanel({
       {error && !loading && (
         <div className="text-center py-8 text-muted-foreground opacity-60 relative z-10">
           <RadioTower className="w-6 h-6 mx-auto mb-2 opacity-60" />
-          <div className="text-xs">{error}</div>
+          <div className="t-caption inline-flex items-center gap-1.5">
+            {t('squareHeat.unavailable', language)}
+            {error !== 'fetch_failed' && <InfoTip content={error} />}
+          </div>
         </div>
       )}
 

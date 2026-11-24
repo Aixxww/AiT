@@ -230,7 +230,7 @@ export function IndicatorEditor({
             <div className="text-[10px] font-medium mb-2 text-muted-foreground">
               {ts(indicator.binanceDataSources, language)}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {/* Quant Data */}
               <div
                 className="p-2.5 rounded-lg transition-all cursor-pointer"
@@ -922,7 +922,7 @@ export function IndicatorEditor({
           </div>
 
           {/* Indicator Grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               {
                 key: 'enable_ema',
@@ -1064,7 +1064,7 @@ export function IndicatorEditor({
         </div>
 
         <div className="p-3">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[
               {
                 key: 'enable_volume',

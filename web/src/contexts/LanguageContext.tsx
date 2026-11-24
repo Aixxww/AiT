@@ -14,7 +14,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Initialize language from localStorage or default to English
   const [language, setLanguage] = useState<Language>(() => {
     const saved = localStorage.getItem('language')
-    return saved === 'en' || saved === 'zh' || saved === 'id' ? saved : 'en'
+    return saved === 'en' || saved === 'zh' ? saved : 'en'
   })
 
   // Save language to localStorage whenever it changes
@@ -38,4 +38,9 @@ export function useLanguage() {
     throw new Error('useLanguage must be used within LanguageProvider')
   }
   return context
+}
+
+/** Like useLanguage, but falls back to English outside a provider (tests, isolated widgets). */
+export function useOptionalLanguage(): Language {
+  return useContext(LanguageContext)?.language ?? 'en'
 }

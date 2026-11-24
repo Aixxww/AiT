@@ -35,19 +35,6 @@ const labels = {
     setupFailed: 'Setup failed, please try again',
     singleUser: 'Single-user system — this is the only account',
   },
-  id: {
-    welcome: 'Selamat Datang di AiT',
-    subtitle: 'Buat akun untuk memulai',
-    email: 'Email',
-    emailPlaceholder: 'you@example.com',
-    password: 'Kata Sandi',
-    passwordPlaceholder: 'Minimal 8 karakter',
-    passwordError: 'Kata sandi minimal 8 karakter',
-    submit: 'Mulai',
-    submitting: 'Membuat akun...',
-    setupFailed: 'Gagal membuat akun, coba lagi',
-    singleUser: 'Sistem pengguna tunggal — ini satu-satunya akun',
-  },
 } as const
 
 export function SetupPage() {

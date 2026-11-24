@@ -12,7 +12,7 @@ import {
 } from 'lightweight-charts'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { httpClient } from '../../lib/httpClient'
-import { t } from '../../i18n/translations'
+import { t, type Language } from '../../i18n/translations'
 import {
   calculateSMA,
   calculateEMA,
@@ -82,14 +82,14 @@ const getBaseUnit = (
   language: string
 ): string => {
   if (['alpaca'].includes(exchange)) {
-    return t('advancedChart.shares', language as 'en' | 'zh' | 'id')
+    return t('advancedChart.shares', language as Language)
   }
   if (['forex', 'metals'].includes(exchange)) {
     return ''
   }
   // Crypto: extract base asset from symbol
   const base = symbol.replace(/USDT$|USD$|BUSD$/, '')
-  return base || t('advancedChart.units', language as 'en' | 'zh' | 'id')
+  return base || t('advancedChart.units', language as Language)
 }
 
 // Format large numbers

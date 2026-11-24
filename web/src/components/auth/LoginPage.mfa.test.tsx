@@ -5,7 +5,12 @@ import type { ReactNode } from 'react'
 import { LoginPage } from './LoginPage'
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }))
 
 const navigate = vi.fn()
@@ -132,7 +137,9 @@ describe('LoginPage — MFA second step', () => {
     expect(screen.queryByPlaceholderText('you@example.com')).toBeNull()
     expect(screen.getAllByLabelText(/^Digit \d$/)).toHaveLength(6)
     // Boxes are cleared so the next code can be typed straight away.
-    expect((screen.getByLabelText('Digit 1') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('Digit 1') as HTMLInputElement).value).toBe(
+      ''
+    )
     // And the remaining budget is surfaced.
     expect(screen.getByText('Attempts remaining: 4')).toBeInTheDocument()
   })
@@ -214,7 +221,9 @@ describe('LoginPage — MFA second step', () => {
       expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument()
     )
     expect(screen.queryByLabelText('Digit 1')).toBeNull()
-    expect(screen.getByText(/Too many attempts from this network/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Too many attempts from this network/)
+    ).toBeInTheDocument()
   })
 
   it('returns to the password step when the challenge has expired', async () => {
@@ -255,7 +264,9 @@ describe('LoginPage — MFA second step', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /recovery code/i }))
 
-    const recovery = screen.getByPlaceholderText('Enter one of your recovery codes')
+    const recovery = screen.getByPlaceholderText(
+      'Enter one of your recovery codes'
+    )
     fireEvent.change(recovery, { target: { value: 'code1aaaaaaa' } })
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
 

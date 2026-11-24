@@ -6,7 +6,6 @@ import { Button } from '../ui/Button'
 const languages: { code: Language; label: string }[] = [
   { code: 'zh', label: '中文' },
   { code: 'en', label: 'EN' },
-  { code: 'id', label: 'ID' },
 ]
 
 export function LanguageSwitcher() {

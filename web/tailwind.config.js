@@ -113,10 +113,26 @@ export default {
         },
       },
       boxShadow: {
+        e1: 'var(--elevation-1)',
+        e2: 'var(--elevation-2)',
+        e3: 'var(--elevation-3)',
         glass: 'var(--shadow-glass)',
         'glass-heavy': 'var(--shadow-glass-heavy)',
       },
+      // Design system roles (issue #81): see src/index.css "DESIGN SYSTEM LAYER"
+      fontSize: {
+        display: ['var(--text-display)', { lineHeight: 'var(--leading-tight)' }],
+        title: ['var(--text-title)', { lineHeight: 'var(--leading-tight)' }],
+        headline: ['var(--text-headline)', { lineHeight: 'var(--leading-snug)' }],
+        body: ['var(--text-body)', { lineHeight: 'var(--leading-body)' }],
+        caption: ['var(--text-caption)', { lineHeight: 'var(--leading-snug)' }],
+        micro: ['var(--text-micro)', { lineHeight: 'var(--leading-snug)' }],
+      },
       borderRadius: {
+        control: 'var(--radius-control)',
+        card: 'var(--radius-card)',
+        sheet: 'var(--radius-sheet)',
+        pill: 'var(--radius-pill)',
         'glass-sm': 'var(--radius-sm)',
         'glass-md': 'var(--radius-md)',
         'glass-lg': 'var(--radius-lg)',

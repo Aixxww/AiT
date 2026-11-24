@@ -264,7 +264,9 @@ export function LoginPage() {
                 {/* Countdown */}
                 <p className="text-center text-xs text-muted-foreground">
                   {challengeExpired ? (
-                    <span className="text-loss">{t('mfa.expired', language)}</span>
+                    <span className="text-loss">
+                      {t('mfa.expired', language)}
+                    </span>
                   ) : (
                     t('mfa.expiresIn', language, {
                       time: formatCountdown(remaining),

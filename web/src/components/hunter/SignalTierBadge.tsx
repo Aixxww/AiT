@@ -3,15 +3,19 @@
  *
  * Tier expresses signal QUALITY (attention priority), never direction or
  * PnL: profit/loss green/red are forbidden here. Direction is rendered as
- * a separate LONG/SHORT badge next to this one.
+ * a separate Long/Short badge next to this one.
  *
  * Presentation rules (design proposal §5.3):
  * - EXECUTABLE  gold filled badge — the only "act now" color on screen
  * - REVIEWABLE  cyan outlined badge, no background wash
  * - WATCH       gray badge, row content stays at normal brightness
  * - REJECTED    dimmed outline + strikethrough; veto chips stay readable
+ *
+ * The label comes from the shared display-name map (issue #81).
  */
 import { cn } from '../../lib/cn'
+import { displayName } from '../../i18n/displayNames'
+import type { Language } from '../../i18n/translations'
 
 export type SignalTier = 'EXECUTABLE' | 'REVIEWABLE' | 'WATCH' | 'REJECTED'
 
@@ -28,21 +32,24 @@ const TIER_STYLES: Record<SignalTier, string> = {
 interface SignalTierBadgeProps {
   tier: SignalTier
   className?: string
+  language?: Language
 }
 
 export function SignalTierBadge({
   tier,
   className = '',
+  language = 'en',
 }: SignalTierBadgeProps) {
   return (
     <span
+      data-tier={tier}
       className={cn(
-        'inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+        'inline-flex items-center rounded-pill border px-2 py-0.5 text-[11px] tracking-wide',
         TIER_STYLES[tier],
         className
       )}
     >
-      {tier}
+      {displayName('tier', tier, language)}
     </span>
   )
 }

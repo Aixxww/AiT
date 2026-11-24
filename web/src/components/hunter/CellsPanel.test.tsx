@@ -88,9 +88,9 @@ describe('format helpers', () => {
     expect(formatR(Number.NaN)).toBe('—')
   })
   it('labels rows by their level', () => {
-    expect(cellLabel(row())).toBe('TRIGGER')
+    expect(cellLabel(row())).toBe('Trigger')
     expect(cellLabel(row({ rr_band: '1.2_1.5', market_regime: 'chop' }))).toBe(
-      'TRIGGER · 1.2_1.5 · chop'
+      'Trigger · RR 1.2–1.5 · Chop'
     )
   })
 })
@@ -105,7 +105,7 @@ describe('CellsPanel', () => {
     render(<CellsPanel language="en" />)
     expect(await screen.findByText('By class')).toBeInTheDocument()
     expect(mockedGetV7Cells).toHaveBeenCalledWith(7, 'prompt_open_review')
-    expect(screen.getByText('TRIGGER · 1.2_1.5')).toBeInTheDocument()
+    expect(screen.getByText('Trigger · RR 1.2–1.5')).toBeInTheDocument()
     expect(screen.getByTestId('status-earned')).toHaveTextContent('Earned')
     expect(screen.getByTestId('status-blocked')).toHaveTextContent('Blocked')
     expect(screen.getByText(/no hysteresis/)).toBeInTheDocument()
@@ -117,10 +117,12 @@ describe('CellsPanel', () => {
     ).toBeInTheDocument()
     // Cell × regime table starts collapsed.
     expect(
-      screen.queryByText('TRIGGER · 1.2_1.5 · unknown')
+      screen.queryByText('Trigger · RR 1.2–1.5 · Unknown')
     ).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('By cell × regime'))
-    expect(screen.getByText('TRIGGER · 1.2_1.5 · unknown')).toBeInTheDocument()
+    expect(
+      screen.getByText('Trigger · RR 1.2–1.5 · Unknown')
+    ).toBeInTheDocument()
     expect(
       screen.getByText(/shadow E\[R\] estimator is off/)
     ).toBeInTheDocument()
@@ -203,9 +205,9 @@ describe('CellsPanel', () => {
     ).toBeInTheDocument()
     unmount()
     mockedGetV7Cells.mockRejectedValueOnce(new Error('down'))
-    render(<CellsPanel language="id" />)
+    render(<CellsPanel language="en" />)
     expect(
-      await screen.findByText('Gagal memuat tabel sel')
+      await screen.findByText('Failed to load cell tables')
     ).toBeInTheDocument()
   })
 

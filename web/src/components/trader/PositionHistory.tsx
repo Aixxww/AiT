@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { displayName } from '../../i18n/displayNames'
 import { t, type Language } from '../../i18n/translations'
 import { MetricTooltip } from '../common/MetricTooltip'
 import { formatPrice, formatQuantity } from '../../utils/format'
@@ -258,7 +259,13 @@ function DirectionStatsCard({
 }
 
 // Position Row Component
-function PositionRow({ position }: { position: HistoricalPosition }) {
+function PositionRow({
+  position,
+  language,
+}: {
+  position: HistoricalPosition
+  language: Language
+}) {
   const side = position.side || ''
   const isLong = side.toUpperCase() === 'LONG'
   const realizedPnl = position.realized_pnl || 0
@@ -312,7 +319,7 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
               border: `1px solid ${sideColor}44`,
             }}
           >
-            {side}
+            {displayName('direction', side, language)}
           </span>
         </div>
       </td>
@@ -800,7 +807,9 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                         : 'var(--color-muted-fg)',
                   }}
                 >
-                  {side === 'all' ? t('positionHistory.all', language) : side}
+                  {side === 'all'
+                    ? t('positionHistory.all', language)
+                    : displayName('direction', side, language as Language)}
                 </Button>
               ))}
             </div>
@@ -884,7 +893,11 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             </thead>
             <tbody>
               {filteredPositions.map((position) => (
-                <PositionRow key={position.id} position={position} />
+                <PositionRow
+                  key={position.id}
+                  position={position}
+                  language={language as Language}
+                />
               ))}
             </tbody>
           </table>

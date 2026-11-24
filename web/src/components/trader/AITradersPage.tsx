@@ -643,64 +643,54 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
 
   return (
     <DeepVoidBackground className="py-8">
-      <div className="w-full px-4 md:px-8 space-y-8 animate-fade-in">
-        {/* Header - Terminal Style */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+      <div className="ait-page space-y-8 animate-fade-in">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-border pb-6">
           <div className="flex items-center gap-4">
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-primary/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-black border border-primary/30 text-primary relative z-10">
-                <Bot className="w-6 h-6 md:w-7 md:h-7" />
-              </div>
+            <div className="w-12 h-12 rounded-card flex items-center justify-center bg-surface-alt text-primary">
+              <Bot className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-mono tracking-tight text-foreground flex items-center gap-3 uppercase">
+              <h1 className="t-title flex items-center gap-2.5">
                 {t('aiTraders', language)}
-                <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-primary-dim text-primary border border-primary/20 tracking-wider">
-                  {traders?.length || 0} ACTIVE_NODES
+                <span className="ait-pill bg-primary-dim text-primary">
+                  {t('tradersPage.count', language, {
+                    n: traders?.length || 0,
+                  })}
                 </span>
               </h1>
-              <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mt-1 ml-1 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-profit animate-pulse"></span>
-                SYSTEM_READY
+              <p className="t-caption text-muted-foreground mt-1 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-profit"></span>
+                {t('tradersPage.ready', language)}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Button
               variant="unstyled"
               onClick={handleAddModel}
-              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-border bg-black/20 text-muted-foreground hover:text-foreground hover:border-border-hover whitespace-nowrap backdrop-blur-sm"
+              className="h-9 px-3.5 rounded-control t-caption font-semibold border border-border bg-panel text-foreground hover:border-border-hover whitespace-nowrap inline-flex items-center gap-1.5"
             >
-              <div className="flex items-center gap-2">
-                <Plus className="w-3 h-3" />
-                <span>MODELS_CONFIG</span>
-              </div>
+              <Plus className="w-3.5 h-3.5" />
+              {t('aiModels', language)}
             </Button>
-
             <Button
               variant="unstyled"
               onClick={handleAddExchange}
-              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-border bg-black/20 text-muted-foreground hover:text-foreground hover:border-border-hover whitespace-nowrap backdrop-blur-sm"
+              className="h-9 px-3.5 rounded-control t-caption font-semibold border border-border bg-panel text-foreground hover:border-border-hover whitespace-nowrap inline-flex items-center gap-1.5"
             >
-              <div className="flex items-center gap-2">
-                <Plus className="w-3 h-3" />
-                <span>EXCHANGE_KEYS</span>
-              </div>
+              <Plus className="w-3.5 h-3.5" />
+              {t('exchanges', language)}
             </Button>
-
             <Button
               variant="unstyled"
               onClick={() => setShowTelegramModal(true)}
-              className="px-4 py-2 rounded text-xs font-mono uppercase tracking-wider transition-all border border-info/50 bg-black/20 text-info hover:text-info hover:border-info whitespace-nowrap backdrop-blur-sm"
+              className="h-9 px-3.5 rounded-control t-caption font-semibold border border-border bg-panel text-foreground hover:border-border-hover whitespace-nowrap inline-flex items-center gap-1.5"
             >
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-3 h-3" />
-                <span>TELEGRAM_BOT</span>
-              </div>
+              <MessageCircle className="w-3.5 h-3.5" />
+              {t('tradersPage.telegram', language)}
             </Button>
-
             <Button
               variant="unstyled"
               onClick={() => setShowCreateModal(true)}
@@ -708,13 +698,10 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
                 configuredModels.length === 0 ||
                 configuredExchanges.length === 0
               }
-              className="group relative px-6 py-2 rounded text-xs font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap overflow-hidden bg-primary text-primary-foreground hover:bg-primary/90"
+              className="h-9 px-4 rounded-control t-caption font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap inline-flex items-center gap-1.5"
             >
-              <span className="relative z-10 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                {t('createTrader', language)}
-              </span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              <Plus className="w-4 h-4" />
+              {t('createTrader', language)}
             </Button>
           </div>
         </div>
