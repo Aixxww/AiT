@@ -85,10 +85,13 @@ func TestLeverageFallback(t *testing.T) {
 		},
 	}
 
+	// #106: the RR check needs a real entry price (the fabricated fallback
+	// is gone); each price gives RR 4.0 against the legacy 3.0 floor.
+	prices := map[string]float64{"SOLUSDT": 80, "BTCUSDT": 94000, "ETHUSDT": 3800}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use default position value ratios for testing (10x for BTC/ETH, 1.5x for altcoins)
-			err := validateDecision(&tt.decision, tt.accountEquity, tt.btcEthLeverage, tt.altcoinLeverage, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(0), 0)
+			err := validateDecision(&tt.decision, tt.accountEquity, tt.btcEthLeverage, tt.altcoinLeverage, 10.0, 1.5, nil, prices, FixedDecisionRRFloor(0), 0)
 
 			// Check error status
 			if (err != nil) != tt.wantError {

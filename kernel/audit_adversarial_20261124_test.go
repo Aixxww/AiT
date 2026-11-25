@@ -146,14 +146,14 @@ func TestAudit_B2_NoReviewableCandidateNotCheckedAgainstTiers(t *testing.T) {
 	}
 	// End to end through the existing demotion path.
 	resp := `<decision>[{"symbol":"ALL","action":"wait","blocked_reason_code":"no_reviewable_candidate"}]</decision>`
-	fd, err := parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, withR)
+	fd, err := parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, withR, nil)
 	if err != nil || len(fd.Decisions) != 1 {
 		t.Fatalf("parse: %v %+v", err, fd)
 	}
 	if got := fd.Decisions[0]; got.BlockedReasonCode != "backend_guard_risk" || got.ValidatorRejection == "" {
 		t.Fatalf("contradicting wait must be demoted to backend_guard_risk, got %+v", got)
 	}
-	fd, _ = parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, none)
+	fd, _ = parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, none, nil)
 	if got := fd.Decisions[0]; got.BlockedReasonCode != "no_reviewable_candidate" || got.ValidatorRejection != "" {
 		t.Fatalf("a true no_reviewable_candidate must pass, got %+v", got)
 	}
@@ -233,10 +233,12 @@ func TestAudit_B4_KernelConfidenceFloorIs60(t *testing.T) {
 	}
 }
 
-// AUD-B5: the kernel RR check uses the model's own trigger.trigger_price as
-// the entry when present. A trigger placed next to the stop inflates RR.
-// (Market opens are re-checked by the trader at the live price; conditional
-// entries are validated at the trigger and filled at market after the 1m close.)
+// AUD-B5 (fixed in #106): the kernel RR check never measures from the
+// model's own trigger.trigger_price. A conditional entry is measured from
+// the backend trigger (HunterV7TriggerPrice), every other open from the
+// market price; with neither the check fails. (Market opens are re-checked
+// by the trader at the live price; conditional entries are validated at the
+// backend trigger and re-validated at the live price when they fire.)
 func TestAudit_B5_TriggerPriceInflatesKernelRR(t *testing.T) {
 	mk := func(trigger float64) *Decision {
 		d := &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 99, TakeProfit: 101, Confidence: 80}
@@ -249,8 +251,95 @@ func TestAudit_B5_TriggerPriceInflatesKernelRR(t *testing.T) {
 	if err := validateDecision(mk(0), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err == nil {
 		t.Fatal("RR 0.33 at the market price must fail a 2.0 floor")
 	}
-	if err := validateDecision(mk(99.4), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err != nil {
-		t.Fatalf("FLAW no longer present: trigger-based RR is no longer trusted (%v); update AUD-B5", err)
+	// A model trigger next to the stop (RR 4.0 at 99.4) no longer inflates RR.
+	if err := validateDecision(mk(99.4), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err == nil {
+		t.Fatal("the model trigger 99.4 must not be the RR entry; RR at the market price 100.5 is 0.33")
+	}
+	// The backend trigger of a conditional entry is the RR entry.
+	d := mk(0)
+	d.HunterV7ConditionalEntry, d.HunterV7TriggerPrice = true, 99.4
+	if err := validateDecision(d, 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err != nil {
+		t.Fatalf("RR 4.0 at the backend trigger 99.4 must pass: %v", err)
+	}
+	// A backend trigger on a non-conditional open is not the entry: the
+	// trader opens it at market.
+	d = mk(0)
+	d.HunterV7TriggerPrice = 99.4
+	if err := validateDecision(d, 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(2), 0); err == nil {
+		t.Fatal("a market open is measured from the market price, not the signal trigger")
+	}
+}
+
+// #106 / AUD-B5: a decision whose model trigger would pass RR but whose
+// backend trigger (conditional) or market price fails is rejected, and a
+// decision with no real entry price fails instead of passing on the old
+// SL+0.2*(TP-SL) fallback (always RR 4.0).
+func TestB5_BackendEntryPriceDecidesRR(t *testing.T) {
+	// SL 99 / TP 101: from 99.4 RR = 1.6/0.4 = 4.0; from 100.5 RR = 0.5/1.5 = 0.33.
+	base := func() *Decision {
+		return &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 99, TakeProfit: 101,
+			Confidence: 80, Trigger: &DecisionTrigger{TriggerPrice: 99.4}}
+	}
+	floor := FixedDecisionRRFloor(1.2)
+
+	conditional := base()
+	conditional.HunterV7ConditionalEntry, conditional.HunterV7TriggerPrice = true, 100.5
+	if err := validateDecision(conditional, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 99.4}, floor, 0); err == nil {
+		t.Fatal("conditional: RR 0.33 at the backend trigger must be rejected (model trigger and market price would pass)")
+	}
+	if err := validateDecision(base(), 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100.5}, floor, 0); err == nil {
+		t.Fatal("market open: RR 0.33 at the market price must be rejected (model trigger would pass)")
+	}
+	for _, prices := range []map[string]float64{nil, {}, {"XUSDT": 0}} {
+		err := validateDecision(base(), 1000, 20, 20, 10, 10, nil, prices, floor, 0)
+		if err == nil || !strings.Contains(err.Error(), "no real entry price") {
+			t.Fatalf("no entry price (%v) must fail the RR check, got %v", prices, err)
+		}
+	}
+	// The fallback also covers a short.
+	short := &Decision{Symbol: "XUSDT", Action: "open_short", Leverage: 5, PositionSizeUSD: 100, StopLoss: 101, TakeProfit: 99, Confidence: 80}
+	if err := validateDecision(short, 1000, 20, 20, 10, 10, nil, nil, floor, 0); err == nil {
+		t.Fatal("a short with no entry price must fail the RR check")
+	}
+}
+
+// #106 / AUD-B5 ordering: the backend trigger is hydrated BEFORE
+// validation inside the parse, so the RR check sees it. A demoted open
+// carries no backend plan afterwards.
+func TestB5_HydrationRunsBeforeValidation(t *testing.T) {
+	resp := `<decision>[{"symbol":"XUSDT","action":"open_long","leverage":5,"position_size_usd":100,"stop_loss":99,"take_profit":101,"confidence":80,` +
+		`"selected_hunter_v7_signal_id":"sig-x","trigger":{"trigger_price":99.4}}]</decision>`
+	cands := func(trigger float64) []CandidateCoin {
+		return []CandidateCoin{{Symbol: "XUSDT", V7SignalID: "sig-x", V7TriggerPrice: trigger, V7ConditionalEntry: true, V7TP1Price: 101}}
+	}
+	parse := func(prices map[string]float64, c []CandidateCoin) Decision {
+		t.Helper()
+		fd, err := parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, prices, FixedDecisionRRFloor(1.2), 0, unknownHunterV7TierCounts, c)
+		if err != nil || len(fd.Decisions) != 1 {
+			t.Fatalf("parse: %v %+v", err, fd)
+		}
+		return fd.Decisions[0]
+	}
+	// Backend trigger 100.5 (RR 0.33) fails although the market (99.4) and
+	// the model trigger (99.4) would pass.
+	got := parse(map[string]float64{"XUSDT": 99.4}, cands(100.5))
+	if got.Action != "wait" || got.RejectedAction != "open_long" || !strings.Contains(got.ValidatorRejection, "risk/reward") {
+		t.Fatalf("RR at the hydrated backend trigger must reject, got %+v", got)
+	}
+	if got.HunterV7TriggerPrice != 0 || got.HunterV7ConditionalEntry || got.HunterV7TP1Price != 0 {
+		t.Fatalf("a demoted open must carry no backend plan, got %+v", got)
+	}
+	// Backend trigger 99.4 (RR 4.0) passes with no market price at all,
+	// which is only possible if hydration ran first.
+	got = parse(nil, cands(99.4))
+	if got.Action != "open_long" || got.HunterV7TriggerPrice != 99.4 || !got.HunterV7ConditionalEntry || got.HunterV7TP1Price != 101 {
+		t.Fatalf("conditional open at the backend trigger must pass and keep its plan, got %+v", got)
+	}
+	// Without the candidates (unknown signal) there is no backend plan and
+	// no market price: the RR check fails.
+	got = parse(nil, nil)
+	if got.Action != "wait" || !strings.Contains(got.ValidatorRejection, "no real entry price") {
+		t.Fatalf("no backend trigger and no market price must reject, got %+v", got)
 	}
 }
 

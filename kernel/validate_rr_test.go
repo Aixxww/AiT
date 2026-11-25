@@ -33,17 +33,19 @@ func TestValidateDecisionRRUsesRealPrice(t *testing.T) {
 		t.Errorf("expected pass for real RR=4.0, got %v", err)
 	}
 
-	// Trigger price takes precedence over market price.
-	d = mk(98, 104)
-	d.Trigger = &DecisionTrigger{TriggerPrice: 90} // entry 90: risk 8.9%, reward 15.6% -> RR 1.75
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0), 0); err == nil {
-		t.Errorf("expected rejection using trigger price as entry (RR~1.75), got pass")
+	// #106 / AUD-B5: the model's trigger is never the RR entry. Measured
+	// from the model trigger 97.5 (below the stop) RR would be 0 and fail;
+	// the check measures from the market price 100 instead (RR 4.0).
+	d = mk(98, 108)
+	d.Trigger = &DecisionTrigger{TriggerPrice: 97.5}
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0), 0); err != nil {
+		t.Errorf("model trigger must be ignored; RR at the market price is 4.0, got %v", err)
 	}
 
-	// No price map: legacy fallback keeps old behavior (pass, RR fabricated 4.0).
+	// No price at all: the RR check fails (the fabricated 4.0 fallback is gone).
 	d = mk(98, 104)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(0), 0); err != nil {
-		t.Errorf("legacy fallback without priceMap should pass as before, got %v", err)
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(0), 0); err == nil {
+		t.Errorf("a decision with no real entry price must fail the RR check")
 	}
 }
 

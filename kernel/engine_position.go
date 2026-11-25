@@ -109,22 +109,12 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			}
 		}
 
-		// P0-2: the RR check below must use a REAL entry price. The legacy
-		// formula (SL + 0.2*(TP-SL)) always yields exactly 4.0, which made the
-		// RR>=3.0 gate dead code. Priority: trigger price (limit/trigger
-		// orders) > current market price > legacy fallback.
-		var entryPrice float64
-		switch {
-		case d.Trigger != nil && d.Trigger.TriggerPrice > 0:
-			entryPrice = d.Trigger.TriggerPrice
-		case priceMap != nil && priceMap[d.Symbol] > 0:
-			entryPrice = priceMap[d.Symbol]
-		case priceMap != nil && priceMap[market.Normalize(d.Symbol)] > 0:
-			entryPrice = priceMap[market.Normalize(d.Symbol)]
-		case d.Action == "open_long":
-			entryPrice = d.StopLoss + (d.TakeProfit-d.StopLoss)*0.2
-		default:
-			entryPrice = d.StopLoss - (d.StopLoss-d.TakeProfit)*0.2
+		// P0-2 / #106 (AUD-B5): the RR check below uses a REAL entry price,
+		// never the model's own trigger.trigger_price and never a fabricated
+		// fallback. See decisionRREntryPrice.
+		entryPrice, ok := decisionRREntryPrice(d, priceMap)
+		if !ok {
+			return fmt.Errorf("risk/reward check has no real entry price for %s (no backend conditional trigger, no market price)", d.Symbol)
 		}
 
 		var riskPercent, rewardPercent, riskRewardRatio float64
@@ -210,4 +200,32 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 	}
 
 	return nil
+}
+
+// decisionRREntryPrice is the entry price the kernel RR check measures from
+// (#106 / AUD-B5):
+//   - a Hunter v7 conditional entry: the backend trigger
+//     (Decision.HunterV7TriggerPrice, hydrated from the selected signal
+//     before validation); the trader registers it at that trigger;
+//   - every other open: the live market price from priceMap; the trader
+//     opens these at market.
+//
+// The model's trigger.trigger_price is never used: a trigger placed next to
+// the stop inflated RR. With neither price available the check has no real
+// entry and ok is false; the former SL+0.2*(TP-SL) fallback always gave RR
+// 4.0 and so passed every floor.
+func decisionRREntryPrice(d *Decision, priceMap map[string]float64) (float64, bool) {
+	if d == nil {
+		return 0, false
+	}
+	if d.HunterV7ConditionalEntry && d.HunterV7TriggerPrice > 0 {
+		return d.HunterV7TriggerPrice, true
+	}
+	if p := priceMap[d.Symbol]; p > 0 {
+		return p, true
+	}
+	if p := priceMap[market.Normalize(d.Symbol)]; p > 0 {
+		return p, true
+	}
+	return 0, false
 }
