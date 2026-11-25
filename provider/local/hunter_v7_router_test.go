@@ -155,7 +155,9 @@ func TestRouterUsesGlobalMinPriorityForCandidateVisibility(t *testing.T) {
 	}
 }
 
-func TestRouterBackfillsContextCandidatesWhenPrimaryPoolIsThin(t *testing.T) {
+// #87 / AUD-A6: a thin primary pool is no longer padded with WATCH-grade
+// context rows to reach MinOutput; only the signals that pass are sent.
+func TestRouterDoesNotPadThinPrimaryPool(t *testing.T) {
 	signals := []V7SignalOutput{
 		{Symbol: "AUSDT", Direction: V7DirLong, SetupType: V7SetupPanicReversalLong, Status: V7StatusCandidate, AIPriority: 57},
 		{Symbol: "BUSDT", Direction: V7DirShort, SetupType: V7SetupDistributionShort, Status: V7StatusCandidate, AIPriority: 49},
@@ -171,45 +173,25 @@ func TestRouterBackfillsContextCandidatesWhenPrimaryPoolIsThin(t *testing.T) {
 		FallbackMinAIPriority: 45,
 	})
 
-	if len(got) != 3 {
-		t.Fatalf("signals = %d, want 3", len(got))
-	}
-	wantSymbols := []string{"AUSDT", "BUSDT", "CUSDT"}
-	for i, want := range wantSymbols {
-		if got[i].Symbol != want {
-			t.Fatalf("signal[%d] = %s, want %s", i, got[i].Symbol, want)
-		}
+	if len(got) != 1 || got[0].Symbol != "AUSDT" {
+		t.Fatalf("signals = %+v, want only AUSDT", got)
 	}
 	for _, sig := range got {
-		if sig.Symbol == "EUSDT" {
-			t.Fatal("hard-filtered signal was backfilled")
-		}
-		if sig.AIPriority < 50 && !containsString(sig.RiskTags, "context_only_low_priority") {
-			t.Fatalf("backfill signal %s missing context risk tag: %+v", sig.Symbol, sig.RiskTags)
+		if containsString(sig.RiskTags, "context_only_low_priority") || containsString(sig.ReasonCodes, "candidate_floor_context") {
+			t.Fatalf("padding tags present: %+v", sig)
 		}
 	}
 }
 
-func TestRouterBackfillFallbackTracksLoweredMinPriority(t *testing.T) {
+func TestRouterSendsNothingWhenNothingPasses(t *testing.T) {
 	signals := []V7SignalOutput{
-		{Symbol: "AUSDT", Direction: V7DirLong, SetupType: V7SetupTrendBreakoutLong, Status: V7StatusCandidate, AIPriority: 46},
+		{Symbol: "AUSDT", Direction: V7DirLong, SetupType: V7SetupTrendBreakoutLong, Status: V7StatusCandidate, AIPriority: 44},
 		{Symbol: "BUSDT", Direction: V7DirLong, SetupType: V7SetupTrendBreakoutLong, Status: V7StatusCandidate, AIPriority: 41},
-		{Symbol: "CUSDT", Direction: V7DirShort, SetupType: V7SetupFundingReversal, Status: V7StatusCandidate, AIPriority: 38},
 	}
-
-	got := filterV7SignalsForLLM(signals, V7Config{
-		MaxOutput:             10,
-		MinOutput:             3,
-		MinAIPriority:         45,
-		FallbackMinAIPriority: 45,
-	})
-
-	if len(got) != 3 {
-		t.Fatalf("signals = %d, want 3", len(got))
-	}
+	got := filterV7SignalsForLLM(signals, V7Config{MaxOutput: 10, MinOutput: 3, MinAIPriority: 45, FallbackMinAIPriority: 45})
 	for _, sig := range got {
-		if sig.AIPriority < 45 && !containsString(sig.RiskTags, "context_only_low_priority") {
-			t.Fatalf("fallback signal %s missing context tag: %+v", sig.Symbol, sig.RiskTags)
+		if containsString(sig.ReasonCodes, "candidate_floor_context") {
+			t.Fatalf("padded row sent: %+v", sig)
 		}
 	}
 }
@@ -375,14 +357,15 @@ func TestFilterV7SignalsDoesNotPromotePreMoveWatchToReviewableFloor(t *testing.T
 		Aggressive:            true,
 	})
 
-	if len(got) != 1 {
-		t.Fatalf("signals = %d, want 1 fallback context watch", len(got))
+	// #87 / AUD-A6: below MinAIPriority it is no longer padded in as a
+	// context watch either; it must not be rescued to the reviewable floor.
+	for _, sig := range got {
+		if containsString(sig.ReasonCodes, "reviewable_floor_rescue") {
+			t.Fatalf("pre-move watch should not be rescued: %+v", sig.ReasonCodes)
+		}
 	}
-	if got[0].ExecutionQuality != V7ExecWatchOnly {
-		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecWatchOnly)
-	}
-	if containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
-		t.Fatalf("pre-move watch should not be rescued: %+v", got[0].ReasonCodes)
+	if len(got) != 0 {
+		t.Fatalf("signals = %d, want 0 (no padding)", len(got))
 	}
 }
 

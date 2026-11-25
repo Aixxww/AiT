@@ -288,6 +288,7 @@ func (wm *WSManager) handleMarkPrice(snap *Snapshot, data json.RawMessage) {
 			ss.Spread = (ss.MarkPrice - ss.IndexPrice) / ss.IndexPrice * 100
 		}
 		ss.Price = ss.MarkPrice
+		ss.PriceAt = time.Now() // #87 L5: live price age
 	}
 }
 
@@ -343,6 +344,7 @@ func (wm *WSManager) handleKline(snap *Snapshot, data json.RawMessage) {
 
 	ss.Price = k.Close
 	ss.Timestamp = time.Now()
+	ss.PriceAt = ss.Timestamp
 }
 
 // handleAggTrade updates real-time taker buy ratio from rolling taker volume.

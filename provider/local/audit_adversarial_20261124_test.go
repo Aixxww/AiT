@@ -42,7 +42,7 @@ func TestAudit_A2_CompressionShadowsRangeAndIgnoresBandWidth(t *testing.T) {
 // ties are broken by map iteration order plus an unstable sort. With 420
 // valid symbols that differ only in volume, the universe is ~200 symbols
 // (not "all" and not the 350 cap), and its membership changes on every call.
-func TestAudit_A1_UniverseSelectionIsNondeterministic(t *testing.T) {
+func TestAudit_A1_UniverseSelectionIsDeterministic(t *testing.T) {
 	snap := &datafetch.Snapshot{Symbols: map[string]*datafetch.SymbolSnapshot{}}
 	for i := 0; i < 420; i++ {
 		sym := fmt.Sprintf("A%03dUSDT", i)
@@ -71,8 +71,9 @@ func TestAudit_A1_UniverseSelectionIsNondeterministic(t *testing.T) {
 		sizes[len(u)] = true
 	}
 	t.Logf("30 calls on one snapshot -> %d distinct universes (sizes %v)", len(seen), sizes)
-	if len(seen) < 2 {
-		t.Fatal("FLAW no longer present: universe selection is deterministic; update AUD-A1")
+	// Fixed by #87: the same snapshot always yields the same universe.
+	if len(seen) != 1 {
+		t.Fatalf("universe selection is nondeterministic: %d distinct universes in 30 calls", len(seen))
 	}
 	for n := range sizes {
 		if n >= 350 {

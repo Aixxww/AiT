@@ -80,6 +80,10 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	if len(raw) == 0 {
 		return nil
 	}
+	// #87 / AUD-A1: deterministic selection. Map iteration order and an
+	// unstable sort made the same snapshot yield a different universe on
+	// every call; ties now break by symbol.
+	sort.Slice(raw, func(i, j int) bool { return raw[i].sym < raw[j].sym })
 
 	// Step 2: Rank by multiple dimensions
 	type ranked struct {
@@ -116,8 +120,12 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	addFromRanking := func(data []ranked, field func(r ranked) float64, topN int, dimName string) {
 		sorted := make([]ranked, len(data))
 		copy(sorted, data)
-		sort.Slice(sorted, func(i, j int) bool {
-			return field(sorted[i]) > field(sorted[j])
+		sort.SliceStable(sorted, func(i, j int) bool {
+			fi, fj := field(sorted[i]), field(sorted[j])
+			if fi != fj {
+				return fi > fj
+			}
+			return sorted[i].sym < sorted[j].sym
 		})
 		for i, r := range sorted {
 			if i >= topN {
@@ -137,8 +145,11 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	// Losers: sort by most negative change
 	losers := make([]ranked, len(entries))
 	copy(losers, entries)
-	sort.Slice(losers, func(i, j int) bool {
-		return losers[i].gain < losers[j].gain
+	sort.SliceStable(losers, func(i, j int) bool {
+		if losers[i].gain != losers[j].gain {
+			return losers[i].gain < losers[j].gain
+		}
+		return losers[i].sym < losers[j].sym
 	})
 	for i, r := range losers {
 		if i >= 50 {
@@ -226,7 +237,12 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 	}
 
 	// Always include core liquidity symbols
+	coreSyms := make([]string, 0, len(coreLiquiditySymbols))
 	for sym := range coreLiquiditySymbols {
+		coreSyms = append(coreSyms, sym)
+	}
+	sort.Strings(coreSyms)
+	for _, sym := range coreSyms {
 		if ss, ok := snap.Symbols[sym]; ok && ss.QuoteVolume24h > 0 {
 			if _, exists := selected[sym]; !exists {
 				selected[sym] = ss
@@ -247,7 +263,10 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 			sorted = append(sorted, prioEntry{sym: sym, prio: prio})
 		}
 		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].prio < sorted[j].prio
+			if sorted[i].prio != sorted[j].prio {
+				return sorted[i].prio < sorted[j].prio
+			}
+			return sorted[i].sym < sorted[j].sym
 		})
 		selected = make(map[string]*datafetch.SymbolSnapshot)
 		for i, pe := range sorted {
@@ -260,7 +279,13 @@ func BuildV7Universe(snap *datafetch.Snapshot) []V7SymbolContext {
 
 	// Step 3: Build SymbolContext for each selected symbol
 	var universe []V7SymbolContext
-	for sym, ss := range selected {
+	selectedSyms := make([]string, 0, len(selected))
+	for sym := range selected {
+		selectedSyms = append(selectedSyms, sym)
+	}
+	sort.Strings(selectedSyms)
+	for _, sym := range selectedSyms {
+		ss := selected[sym]
 		ctx := buildSymbolContext(sym, ss, snap)
 		if ctx != nil {
 			universe = append(universe, *ctx)
@@ -457,8 +482,20 @@ func buildV7DataFreshness(ss *datafetch.SymbolSnapshot, snap *datafetch.Snapshot
 	if snap != nil && !snap.CreatedAt.IsZero() {
 		fresh.SnapshotAgeMs = now.Sub(snap.CreatedAt).Milliseconds()
 	}
-	if ss != nil && !ss.Timestamp.IsZero() {
-		fresh.PriceAgeMs = now.Sub(ss.Timestamp).Milliseconds()
+	if ss != nil {
+		// #87 L5: the price write time (WS mark price / 1m kline, REST 1m
+		// close); the snapshot timestamp for data without one.
+		at := ss.PriceAt
+		if at.IsZero() {
+			at = ss.Timestamp
+		}
+		if !at.IsZero() {
+			fresh.PriceAgeMs = now.Sub(at).Milliseconds()
+		}
+		// #87 L3 / AUD-A5: age of the oldest slow field this symbol carries.
+		if oldest := ss.SlowFetchedAt.Oldest(); !oldest.IsZero() {
+			fresh.SlowAgeMs = now.Sub(oldest).Milliseconds()
+		}
 	}
 	if ss != nil && ss.Klines != nil {
 		fresh.Kline1mAgeMs = latestKlineAgeMs(now, ss.Klines["1m"])

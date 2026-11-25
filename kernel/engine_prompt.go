@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"github.com/Aixxww/AiT/logger"
 	"math"
 	"sort"
 	"strings"
@@ -709,6 +710,7 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 	// #86: render the tiers finalized once for this round (computed here if
 	// the caller has not finalized yet); never re-tier at render time.
 	items := e.finalizeHunterV7Tiers(ctx, positionSymbols)
+	logHunterV7Funnel(items)
 	if e.hunterV7PromptHybridV2() {
 		e.writeHunterV7HybridV2CandidatePrompt(sb, ctx, items)
 		return
@@ -902,6 +904,13 @@ func (e *StrategyEngine) hunterV7PromptItems(ctx *Context, positionSymbols map[s
 		return items[i].Coin.V7AIPriority > items[j].Coin.V7AIPriority
 	})
 	return items
+}
+
+// logHunterV7Funnel logs the round's funnel target (#87 / AUD-A6, E4):
+// the EXECUTABLE + REVIEWABLE count the LLM is asked to adjudicate.
+func logHunterV7Funnel(items []hunterV7PromptCandidate) {
+	e, r, w, x := hunterV7PromptTierCounts(items)
+	logger.Infof("hunter_v7 funnel: E+R=%d (EXECUTABLE=%d REVIEWABLE=%d WATCH=%d REJECTED=%d, shown=%d)", e+r, e, r, w, x, len(items))
 }
 
 // hunterV7PromptTierCounts counts the prompt items per tier.

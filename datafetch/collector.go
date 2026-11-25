@@ -3,6 +3,7 @@ package datafetch
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -20,7 +21,18 @@ type CollectorConfig struct {
 	FastKlines              []KlineInterval
 	IncludeNonCryptoFutures bool // include Binance futures stock/commodity/ETF/RWA perps; default false
 	IncludeT2Inputs         bool // fetch depth + 5m OI history for detail symbols (task-2 module); default false
+
+	// #87 layered fetch. Zero values take the defaults below.
+	SlowEvery         int           // L3: each detail symbol's slow fields are refreshed once every SlowEvery rounds (10)
+	SlowFieldMaxAge   time.Duration // L3/A5: carried slow fields older than this are cleared (3 x SlowEvery x RestInterval)
+	WeightLimitPerMin float64       // rate discipline: operating weight per minute (DefaultOperatingWeightPerMin)
+	FetchBudget       time.Duration // per-round deadline (RestInterval - 5s); weakest detail symbols are skipped first
 }
+
+// SlowRollingKlineIntervals are the structural klines refreshed with a
+// symbol's slow fields (#87 L3): 4h every slow slot, plus 1d, which was
+// previously fetched once at start and carried forever.
+var SlowRollingKlineIntervals = []KlineInterval{{"4h", 100}, {"1d", 30}}
 
 // DataCollector is the main orchestrator that manages REST fetching,
 // WebSocket updates, and social data collection.
@@ -58,6 +70,21 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 	if len(cfg.FastKlines) == 0 {
 		cfg.FastKlines = FastKlineIntervals
 	}
+	if cfg.SlowEvery <= 0 {
+		cfg.SlowEvery = 10
+	}
+	if cfg.SlowFieldMaxAge <= 0 {
+		cfg.SlowFieldMaxAge = 3 * time.Duration(cfg.SlowEvery) * cfg.RestInterval
+	}
+	if cfg.WeightLimitPerMin <= 0 {
+		cfg.WeightLimitPerMin = DefaultOperatingWeightPerMin
+	}
+	if cfg.FetchBudget <= 0 {
+		cfg.FetchBudget = cfg.RestInterval - 5*time.Second
+		if cfg.FetchBudget < 10*time.Second {
+			cfg.FetchBudget = cfg.RestInterval
+		}
+	}
 
 	fetcher := NewDataFetcher(FetcherConfig{
 		BinanceURL:              cfg.BinanceURL,
@@ -66,6 +93,13 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 		KlineIntervals:          DefaultKlineIntervals,
 		IncludeNonCryptoFutures: cfg.IncludeNonCryptoFutures,
 		IncludeT2Inputs:         cfg.IncludeT2Inputs,
+		// #87 rate discipline: weight-based limiting at the operating
+		// weight (cap 2400), per-endpoint sub-budgets, the /futures/data
+		// per-IP limit, and a per-round deadline.
+		WeightLimitPerMin:       cfg.WeightLimitPerMin,
+		EndpointSubBudgets:      true,
+		FuturesDataLimitPer5Min: DefaultFuturesDataLimitPer5Min,
+		FetchBudget:             cfg.FetchBudget,
 	})
 
 	ws := NewWSManager(cfg.BinanceWSURL, store, cfg.TopNForWS)
@@ -92,7 +126,14 @@ func NewDataCollector(cfg CollectorConfig, store *Store) *DataCollector {
 func (dc *DataCollector) Start(ctx context.Context) {
 	// 1. Initial REST fetch — blocking
 	log.Println("datafetch: performing initial REST fetch...")
-	snap, err := dc.fetcher.Fetch(ctx)
+	// Full start-up fetch (all kline intervals, every slow field). It is
+	// larger than one round, so it is not cut by the round budget; the weight
+	// limiter still paces it.
+	snap, err := dc.fetcher.FetchWithOptions(ctx, FetchOptions{
+		KlineIntervals:         DefaultKlineIntervals,
+		RefreshSlowDerivatives: true,
+		NoBudget:               true,
+	})
 	if err != nil {
 		log.Printf("datafetch: initial fetch error: %v", err)
 		// Still try to continue with whatever we got
@@ -133,12 +174,8 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			cycle++
-			klineIntervals := refreshKlineIntervals(dc.cfg.FastKlines, cycle)
-			refreshSlowDerivatives := refreshSlowDerivativeData(cycle)
-			snap, err := dc.fetcher.FetchWithOptions(ctx, FetchOptions{
-				KlineIntervals:         klineIntervals,
-				RefreshSlowDerivatives: refreshSlowDerivatives,
-			})
+			current := dc.store.Current()
+			snap, err := dc.fetcher.FetchWithOptions(ctx, dc.roundOptions(current, cycle))
 			if err != nil {
 				log.Printf("datafetch: REST refresh error: %v", err)
 				if snap == nil {
@@ -146,21 +183,97 @@ func (dc *DataCollector) restLoop(ctx context.Context) {
 				}
 			}
 
-			// Copy over WS/social data from current snapshot
-			current := dc.store.Current()
+			// Copy over WS data and carried slow fields from the current snapshot.
 			if current != nil {
 				mergeWSData(current, snap)
-				mergeCarriedKlines(current, snap, klineIntervals)
-				if !refreshSlowDerivatives {
-					mergeCarriedSlowDerivatives(current, snap)
-				}
+				mergeCarriedKlines(current, snap, dc.cfg.FastKlines)
 			}
+			mergeCarriedSlowDerivatives(current, snap, dc.cfg.SlowFieldMaxAge)
 
 			dc.store.Swap(snap)
-			log.Printf("datafetch: REST refresh: %d symbols, %v, %d errors",
-				snap.Meta.SymbolCount, snap.Meta.FetchDuration, snap.Meta.RestErrors)
+			m := snap.Meta
+			log.Printf("datafetch: REST refresh: %d symbols, %v, %d errors, detail %d/%d (skipped %d), slow due %d, requests %d, weight %d, 429/418 %d, server weight %d",
+				m.SymbolCount, m.FetchDuration, m.RestErrors, m.DetailCompleted, m.DetailRequested, m.DetailSkippedDeadline,
+				m.SlowDue, m.Requests, m.Weight, m.RateLimited, m.MaxServerWeight)
 		}
 	}
+}
+
+// roundOptions is one REST round's fetch plan (#87): fast klines for every
+// detail symbol, and slow derivatives + structural klines for the detail
+// symbols whose rolling slot is due (or that have no slow data yet).
+func (dc *DataCollector) roundOptions(current *Snapshot, cycle int) FetchOptions {
+	every := dc.cfg.SlowEvery
+	return FetchOptions{
+		KlineIntervals:     dc.cfg.FastKlines,
+		SlowKlineIntervals: SlowRollingKlineIntervals,
+		SlowDue: func(symbol string) bool {
+			if tierSlot(symbol, every) == cycle%every {
+				return true
+			}
+			if current == nil {
+				return true
+			}
+			ss := current.Symbols[symbol]
+			// Warm-up / retry: a detail symbol without slow data fetches it now.
+			return ss == nil || (ss.SlowFetchedAt.OIHistory1h.IsZero() && len(ss.OISpikeData) == 0)
+		},
+	}
+}
+
+// RefreshResult is one symbol's outcome in RefreshSymbols (#87 L4).
+type RefreshResult struct {
+	Symbol string
+	Snap   *SymbolSnapshot // nil when nothing could be fetched
+	Err    error
+	At     time.Time // when the refreshed data landed (zero on failure)
+}
+
+// RefreshSymbols refreshes several symbols in parallel under one deadline
+// (ctx) and patches the current snapshot once, so concurrent single-symbol
+// patches cannot overwrite each other (#87 L4 finalist refresh). Symbols
+// whose refresh fails or misses the deadline keep their snapshot values.
+func (dc *DataCollector) RefreshSymbols(ctx context.Context, symbols []string, klineIntervals []KlineInterval) []RefreshResult {
+	if dc == nil || dc.fetcher == nil || len(symbols) == 0 {
+		return nil
+	}
+	current := dc.store.Current()
+	out := make([]RefreshResult, len(symbols))
+	var wg sync.WaitGroup
+	for i, sym := range symbols {
+		var base *SymbolSnapshot
+		if current != nil && current.Symbols != nil {
+			base = current.Symbols[sym]
+		}
+		wg.Add(1)
+		go func(i int, sym string, base *SymbolSnapshot) {
+			defer wg.Done()
+			ss, err := dc.fetcher.RefreshSymbol(ctx, sym, base, klineIntervals, false)
+			r := RefreshResult{Symbol: sym, Err: err}
+			if err == nil && ss != nil {
+				r.Snap, r.At = ss, now()
+			}
+			out[i] = r
+		}(i, sym, base)
+	}
+	wg.Wait()
+
+	latest := dc.store.Current()
+	if latest == nil {
+		return out
+	}
+	next := copySnapshot(latest)
+	patched := 0
+	for _, r := range out {
+		if r.Snap != nil {
+			next.Symbols[r.Symbol] = r.Snap
+			patched++
+		}
+	}
+	if patched > 0 {
+		dc.store.Swap(next)
+	}
+	return out
 }
 
 // RefreshSymbol refreshes one symbol through REST and patches the current
@@ -204,22 +317,6 @@ func (dc *DataCollector) RefreshSymbol(ctx context.Context, symbol string, kline
 	return refreshed, err
 }
 
-func refreshSlowDerivativeData(cycle int) bool {
-	return cycle > 0 && cycle%10 == 0
-}
-
-func refreshKlineIntervals(fast []KlineInterval, cycle int) []KlineInterval {
-	if len(fast) == 0 {
-		fast = FastKlineIntervals
-	}
-	intervals := make([]KlineInterval, 0, len(fast)+len(StructuralKlineIntervals))
-	intervals = append(intervals, fast...)
-	if cycle > 0 && cycle%10 == 0 {
-		intervals = appendMissingKlineIntervals(intervals, StructuralKlineIntervals...)
-	}
-	return intervals
-}
-
 func appendMissingKlineIntervals(base []KlineInterval, extra ...KlineInterval) []KlineInterval {
 	seen := make(map[string]bool, len(base)+len(extra))
 	for _, ki := range base {
@@ -235,34 +332,82 @@ func appendMissingKlineIntervals(base []KlineInterval, extra ...KlineInterval) [
 	return base
 }
 
-func mergeCarriedSlowDerivatives(current, fresh *Snapshot) {
-	if current == nil || fresh == nil {
+// mergeCarriedSlowDerivatives carries each slow field group a symbol did
+// not fetch this round from the current snapshot, with its original fetch
+// time (#87 L3). A group older than maxAge is cleared instead (AUD-A5):
+// consumers read an empty field as unavailable, never as fresh. maxAge <= 0
+// keeps everything.
+func mergeCarriedSlowDerivatives(current, fresh *Snapshot, maxAge time.Duration) {
+	if fresh == nil {
 		return
 	}
+	t := now()
 	for sym, newSS := range fresh.Symbols {
-		curSS, ok := current.Symbols[sym]
-		if !ok || curSS == nil || newSS == nil {
+		if newSS == nil {
 			continue
 		}
-		newSS.OISpikeData = append([]float64{}, curSS.OISpikeData...)
-		newSS.OIDelta1h = curSS.OIDelta1h
-		newSS.OIDelta4h = curSS.OIDelta4h
-		newSS.LongShortRatio = curSS.LongShortRatio
-		newSS.LSRPrev = curSS.LSRPrev
-		newSS.LSROldest = curSS.LSROldest
-		newSS.DepthBids = append([]DepthLevel{}, curSS.DepthBids...)
-		newSS.DepthAsks = append([]DepthLevel{}, curSS.DepthAsks...)
-		newSS.OI5mHistory = append([]OIHistoryPoint{}, curSS.OI5mHistory...)
+		var curSS *SymbolSnapshot
+		if current != nil {
+			curSS = current.Symbols[sym]
+		}
+		if curSS != nil {
+			if newSS.SlowFetchedAt.OIHistory1h.IsZero() && len(newSS.OISpikeData) == 0 {
+				newSS.OISpikeData = append([]float64{}, curSS.OISpikeData...)
+				newSS.OIDelta1h = curSS.OIDelta1h
+				newSS.OIDelta4h = curSS.OIDelta4h
+				newSS.SlowFetchedAt.OIHistory1h = curSS.SlowFetchedAt.OIHistory1h
+			}
+			if newSS.SlowFetchedAt.LSR.IsZero() && newSS.LongShortRatio == 0 {
+				newSS.LongShortRatio = curSS.LongShortRatio
+				newSS.LSRPrev = curSS.LSRPrev
+				newSS.LSROldest = curSS.LSROldest
+				newSS.SlowFetchedAt.LSR = curSS.SlowFetchedAt.LSR
+			}
+			if newSS.SlowFetchedAt.Depth.IsZero() && len(newSS.DepthBids) == 0 && len(newSS.DepthAsks) == 0 {
+				newSS.DepthBids = append([]DepthLevel{}, curSS.DepthBids...)
+				newSS.DepthAsks = append([]DepthLevel{}, curSS.DepthAsks...)
+				newSS.SlowFetchedAt.Depth = curSS.SlowFetchedAt.Depth
+			}
+			if newSS.SlowFetchedAt.OI5mHistory.IsZero() && len(newSS.OI5mHistory) == 0 {
+				newSS.OI5mHistory = append([]OIHistoryPoint{}, curSS.OI5mHistory...)
+				newSS.SlowFetchedAt.OI5mHistory = curSS.SlowFetchedAt.OI5mHistory
+			}
+		}
+		if maxAge > 0 {
+			degradeStaleSlowFields(newSS, t, maxAge)
+		}
 	}
 }
 
-func mergeCarriedKlines(current, fresh *Snapshot, refreshed []KlineInterval) {
+// degradeStaleSlowFields clears slow field groups older than maxAge. The
+// fetch time is kept, so the age stays visible.
+func degradeStaleSlowFields(ss *SymbolSnapshot, t time.Time, maxAge time.Duration) {
+	stale := func(at time.Time) bool { return !at.IsZero() && t.Sub(at) > maxAge }
+	if stale(ss.SlowFetchedAt.OIHistory1h) {
+		ss.OISpikeData, ss.OIDelta1h, ss.OIDelta4h = nil, 0, 0
+	}
+	if stale(ss.SlowFetchedAt.LSR) {
+		ss.LongShortRatio, ss.LSRPrev, ss.LSROldest = 0, 0, 0
+	}
+	if stale(ss.SlowFetchedAt.Depth) {
+		ss.DepthBids, ss.DepthAsks = nil, nil
+	}
+	if stale(ss.SlowFetchedAt.OI5mHistory) {
+		ss.OI5mHistory = nil
+	}
+}
+
+// mergeCarriedKlines carries the klines a symbol did not fetch this round
+// (structural 4h / 1d between its slow slots), with their fetch times. Fast
+// intervals are never carried: a symbol that left the detail set must not
+// show old 1m bars as current.
+func mergeCarriedKlines(current, fresh *Snapshot, fast []KlineInterval) {
 	if current == nil || fresh == nil {
 		return
 	}
-	refreshedSet := make(map[string]bool, len(refreshed))
-	for _, ki := range refreshed {
-		refreshedSet[ki.Interval] = true
+	fastSet := make(map[string]bool, len(fast))
+	for _, ki := range fast {
+		fastSet[ki.Interval] = true
 	}
 	for sym, newSS := range fresh.Symbols {
 		curSS, ok := current.Symbols[sym]
@@ -273,12 +418,18 @@ func mergeCarriedKlines(current, fresh *Snapshot, refreshed []KlineInterval) {
 			newSS.Klines = make(map[string][]Kline)
 		}
 		for interval, klines := range curSS.Klines {
-			if refreshedSet[interval] || len(klines) == 0 {
+			if fastSet[interval] || len(klines) == 0 || len(newSS.Klines[interval]) > 0 {
 				continue
 			}
 			carried := make([]Kline, len(klines))
 			copy(carried, klines)
 			newSS.Klines[interval] = carried
+			if at, ok := curSS.KlineFetchedAt[interval]; ok {
+				if newSS.KlineFetchedAt == nil {
+					newSS.KlineFetchedAt = make(map[string]time.Time)
+				}
+				newSS.KlineFetchedAt[interval] = at
+			}
 		}
 	}
 }
@@ -359,9 +510,12 @@ func mergeWSData(current, fresh *Snapshot) {
 		if !ok {
 			continue
 		}
-		// If WS has newer price data, prefer it
-		if curSS.Timestamp.After(newSS.Timestamp) {
+		// If WS has newer price data, prefer it. #87 L5: compare the price
+		// write time (WS mark price updates it every second for every
+		// symbol); fall back to the snapshot timestamp for old data.
+		if curSS.PriceAt.After(newSS.PriceAt) || (curSS.PriceAt.IsZero() && newSS.PriceAt.IsZero() && curSS.Timestamp.After(newSS.Timestamp)) {
 			newSS.Price = curSS.Price
+			newSS.PriceAt = curSS.PriceAt
 			newSS.MarkPrice = curSS.MarkPrice
 			newSS.IndexPrice = curSS.IndexPrice
 			newSS.Spread = curSS.Spread
@@ -411,6 +565,7 @@ func copySnapshot(src *Snapshot) *Snapshot {
 			cp.OI5mHistory = make([]OIHistoryPoint, len(v.OI5mHistory))
 			copy(cp.OI5mHistory, v.OI5mHistory)
 		}
+		cp.KlineFetchedAt = copyTimeMap(v.KlineFetchedAt)
 		dst.Symbols[k] = &cp
 	}
 	return dst

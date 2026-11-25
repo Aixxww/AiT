@@ -47,6 +47,17 @@ type SymbolSnapshot struct {
 	// Klines by timeframe: "1m","5m","15m","1h","4h","1d"
 	Klines map[string][]Kline
 
+	// #87 L3 / AUD-A5: per-field fetch times. A zero time means the field
+	// was never fetched for this symbol. Fields carried from an earlier
+	// cycle keep their original time, so consumers can see their real age;
+	// the collector clears a slow field once it is older than SlowFieldMaxAge.
+	SlowFetchedAt  SlowFieldTimes
+	KlineFetchedAt map[string]time.Time // per kline interval
+
+	// PriceAt is when Price was last written (REST 1m close, WS kline or WS
+	// mark price, #87 L5). Zero = only the bulk ticker price.
+	PriceAt time.Time
+
 	// ClosedBarsOnly marks a closed-bar view (U10, provider/local
 	// V7ClosedBarSnapshot): Klines hold closed bars only, and consumers take
 	// the current price from Price, not from the last bar.
@@ -118,6 +129,16 @@ type SnapshotMeta struct {
 	SlowCarried   int           // slow fields carried from an earlier fetch
 	SlowMissing   int           // no slow data yet (warm-up after the fetcher was created, or every slow fetch failed)
 	SlowMaxAge    time.Duration // oldest slow data in this snapshot
+
+	// #87 request budget for this fetch (all phases). Requests counts HTTP
+	// attempts including retries; Weight is their Binance request weight.
+	Requests        int
+	Weight          int
+	RateLimited     int // 429 / 418 responses
+	MaxServerWeight int // highest X-MBX-USED-WEIGHT-1M reported during the fetch
+	// SlowDue is the number of detail symbols whose slow fields were due
+	// this fetch (rolling refresh, FetchOptions.SlowDue).
+	SlowDue int
 }
 
 // ---------------------------------------------------------------------------
@@ -240,4 +261,23 @@ var FastKlineIntervals = []KlineInterval{
 // every 30-second REST cycle.
 var StructuralKlineIntervals = []KlineInterval{
 	{Interval: "4h", Limit: 100},
+}
+
+// SlowFieldTimes are the fetch times of the slow per-symbol fields (#87 L3).
+type SlowFieldTimes struct {
+	OIHistory1h time.Time // OISpikeData, OIDelta1h, OIDelta4h
+	LSR         time.Time // LongShortRatio, LSRPrev, LSROldest
+	Depth       time.Time // DepthBids, DepthAsks
+	OI5mHistory time.Time // OI5mHistory
+}
+
+// Oldest returns the oldest non-zero time (zero when none is set).
+func (t SlowFieldTimes) Oldest() time.Time {
+	var out time.Time
+	for _, v := range []time.Time{t.OIHistory1h, t.LSR, t.Depth, t.OI5mHistory} {
+		if !v.IsZero() && (out.IsZero() || v.Before(out)) {
+			out = v
+		}
+	}
+	return out
 }

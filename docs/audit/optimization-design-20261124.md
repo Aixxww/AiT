@@ -142,6 +142,8 @@ Conclusion: the split brain is real (it is shown on a constructed fixture by `Te
 | AUD-A2 regime enum | **Partly fixed** | PR #78 added `trend_continuation`. The threshold and hysteresis work remains (cluster 3). |
 | AUD-B4 | **Fixed in open PR #82** | One confidence floor from `min_confidence`. |
 | AUD-B7 | **Implemented in #86** | `FinalizeHunterV7Tiers` / `PrepareHunterV7Tiers` (`kernel/hunter_v7_final_tier.go`): the prompt-final tier is written back to `ctx.CandidateCoins` before the AI-skip check; prompt goldens unchanged. |
+| Cluster 3 (#87) | **Implemented in #87** | Layered fetch (rate discipline, rolling slow refresh with per-field fetch times and stale degrade, finalist refresh, WS price age), A1 deterministic universe, A5, A6 (no MinOutput padding, max 10, E+R funnel log), E1 backend ages only. A2 regime thresholds and the all-tier age gate are not changed (see the #87 PR). |
+| X1 fee-net | **Received 2026-11-25 (owner run)** | WATCH not loosened (pooled WATCH n=368, mean fee-net R -0.146, 90% CI [-0.230, -0.058] → blocked); ignition_early_short stays shadow-only (dedup n=62, -0.140, CI [-0.415, +0.149]). DOWN-MARKET-ONLY; prompt_final_tier empty in that DB. |
 
 ## 5. Task 4: config-surface audit
 

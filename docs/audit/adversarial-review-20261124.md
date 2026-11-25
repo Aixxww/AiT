@@ -187,11 +187,11 @@ Repro column:
 | `trader.TestAudit_C1_RepairModeDriftStacksAcrossPasses` | C1 |
 | `trader.TestAudit_C1b_DriftThroughStopIsStillRejected` | locks correct behaviour |
 | `trader.TestAudit_C2_TakeProfitCapIgnoresRejectMode` | C2 |
-| `trader.TestAudit_E1_FreshnessGuardTrustsModelSignalAge` | E1 |
+| `trader.TestAudit_E1_FreshnessGuardUsesBackendAge` (backend-age part inverted by #87) | E1 |
 | `trader.TestAudit_D1_GivebackRebuildsStopOnTheWrongSideOfMark` | D1 |
 | `trader.TestAudit_D2_ZeroLeverageSwitchesOffROERules` | D2 |
 | `trader.TestAudit_D3_TP0At20xFiresOnFourTenthsPercentMove` | D3 |
-| `local.TestAudit_A1_UniverseSelectionIsNondeterministic` | A1 |
+| `local.TestAudit_A1_UniverseSelectionIsDeterministic` (inverted by #87) | A1 |
 | `local.TestAudit_A2_CompressionShadowsRangeAndIgnoresBandWidth` | A2 |
 
 Findings without a test (C3, C4, C5, C6, C7, D4–D7, A5, A6, E3, E4) need a fake exchange with failure injection or stored run data. They are marked "code" in the table.

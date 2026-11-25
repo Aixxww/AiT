@@ -71,15 +71,17 @@ func TestAudit_C2_TakeProfitCapIgnoresRejectMode(t *testing.T) {
 // AUD-E1: the pre-order freshness guard prefers the model-supplied
 // signal_age_ms over the backend's own price age, so the model can declare a
 // stale high-volatility signal fresh. Ordinary candidates have no age gate.
-func TestAudit_E1_FreshnessGuardTrustsModelSignalAge(t *testing.T) {
+func TestAudit_E1_FreshnessGuardUsesBackendAge(t *testing.T) {
 	cand := &kernel.CandidateCoin{Symbol: "XUSDT", V7SetupType: "range_expansion_event", V7RiskTags: []string{"high_volatility"}}
 	cand.V7DataFreshness.PriceAgeMs = 120_000
 	if err := validateHunterV7SignalFreshness(cand, &kernel.Decision{Symbol: "XUSDT"}); err == nil {
 		t.Fatal("a 120s-old high-volatility signal must be blocked on backend age")
 	}
-	if err := validateHunterV7SignalFreshness(cand, &kernel.Decision{Symbol: "XUSDT", SignalAgeMs: 1}); err != nil {
-		t.Fatalf("FLAW no longer present: model signal_age_ms no longer overrides backend age (%v); update AUD-E1", err)
+	// Fixed by #87: the model's signal_age_ms no longer overrides the backend age.
+	if err := validateHunterV7SignalFreshness(cand, &kernel.Decision{Symbol: "XUSDT", SignalAgeMs: 1}); err == nil {
+		t.Fatal("model signal_age_ms=1 must not override a 120s backend age")
 	}
+	// Still open (needs an owner-set per-class limit, not a code default):
 	ordinary := &kernel.CandidateCoin{Symbol: "YUSDT", V7SetupType: "trend_breakout_long"}
 	ordinary.V7DataFreshness.PriceAgeMs = 10 * 60 * 1000
 	if err := validateHunterV7SignalFreshness(ordinary, &kernel.Decision{Symbol: "YUSDT"}); err != nil {

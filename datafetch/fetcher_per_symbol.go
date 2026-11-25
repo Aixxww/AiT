@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"sync/atomic"
+	"time"
 )
 
 // perSymbolResult holds the result of fetching data for a single symbol.
@@ -23,8 +24,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 	detailSymbols []string,
 	tickers map[string]*ticker24hrRaw,
 	premiums map[string]*premiumIndexRaw,
-	klineIntervals []KlineInterval,
-	refreshSlowDerivatives bool,
+	plan perSymbolPlan,
 ) (map[string]*SymbolSnapshot, detailCounts) {
 
 	// Build partial snapshots from bulk data for ALL symbols first
@@ -37,7 +37,7 @@ func (f *DataFetcher) fetchPerSymbolData(
 	}
 	sem := make(chan struct{}, workers)
 	results := make(chan perSymbolResult, len(detailSymbols))
-	var errCount, completed, skipped int64
+	var errCount, completed, skipped, slowDue int64
 
 	for _, sym := range detailSymbols {
 		sym := sym
@@ -50,7 +50,11 @@ func (f *DataFetcher) fetchPerSymbolData(
 				return
 			}
 			atomic.AddInt64(&completed, 1)
-			ss, err := f.fetchOneSymbol(ctx, sym, base, klineIntervals, refreshSlowDerivatives)
+			klines, slow := plan.forSymbol(sym)
+			if slow {
+				atomic.AddInt64(&slowDue, 1)
+			}
+			ss, err := f.fetchOneSymbol(ctx, sym, base, klines, slow)
 			if err != nil {
 				atomic.AddInt64(&errCount, 1)
 				if ss == nil {
@@ -78,7 +82,37 @@ func (f *DataFetcher) fetchPerSymbolData(
 		requested:    len(detailSymbols),
 		completed:    int(atomic.LoadInt64(&completed)),
 		skipped:      int(atomic.LoadInt64(&skipped)),
+		slowDue:      int(atomic.LoadInt64(&slowDue)),
 	}
+}
+
+// perSymbolPlan is what one detail fetch pass requests per symbol (#87).
+type perSymbolPlan struct {
+	klines     []KlineInterval
+	slowKlines []KlineInterval
+	slowDue    func(symbol string) bool
+}
+
+func (p perSymbolPlan) forSymbol(sym string) ([]KlineInterval, bool) {
+	if p.slowDue == nil || !p.slowDue(sym) {
+		return p.klines, false
+	}
+	if len(p.slowKlines) == 0 {
+		return p.klines, true
+	}
+	out := make([]KlineInterval, 0, len(p.klines)+len(p.slowKlines))
+	out = append(out, p.klines...)
+	return appendMissingKlineIntervals(out, p.slowKlines...), true
+}
+
+// slowDueFunc maps FetchOptions to a per-symbol slow decision: SlowDue
+// when set, else the legacy all-or-nothing RefreshSlowDerivatives.
+func slowDueFunc(opts FetchOptions) func(string) bool {
+	if opts.SlowDue != nil {
+		return opts.SlowDue
+	}
+	all := opts.RefreshSlowDerivatives
+	return func(string) bool { return all }
 }
 
 // bulkBaseSnapshots builds the partial snapshot of every symbol from the
@@ -110,6 +144,9 @@ func bulkBaseSnapshots(symbols []string, tickers map[string]*ticker24hrRaw, prem
 			}
 		}
 		ss.Timestamp = now()
+		if ss.Price > 0 {
+			ss.PriceAt = ss.Timestamp
+		}
 		all[sym] = ss
 	}
 	return all
@@ -121,6 +158,7 @@ type detailCounts struct {
 	requested    int
 	completed    int
 	skipped      int // ctx expired before the symbol's worker started
+	slowDue      int // symbols whose slow fields were due (#87 L3)
 }
 
 // fetchOneSymbol fetches per-symbol data for a single symbol. OI history and
@@ -151,6 +189,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		if err != nil {
 			errs++
 		} else {
+			ss.SlowFetchedAt.OIHistory1h = now()
 			ss.OISpikeData = oiHist
 			if len(oiHist) >= 2 {
 				ss.OIDelta1h = oiHist[len(oiHist)-1]
@@ -170,6 +209,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 		if err != nil {
 			errs++
 		} else {
+			ss.SlowFetchedAt.LSR = now()
 			if len(lsrData) >= 1 {
 				ss.LongShortRatio = lsrData[len(lsrData)-1] // newest
 				ss.LSROldest = lsrData[0]                   // oldest (for Hunter reversal)
@@ -192,6 +232,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 			if err != nil {
 				errs++
 			} else {
+				ss.SlowFetchedAt.Depth = now()
 				ss.DepthBids = bids
 				ss.DepthAsks = asks
 			}
@@ -199,6 +240,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 			if err != nil {
 				errs++
 			} else {
+				ss.SlowFetchedAt.OI5mHistory = now()
 				ss.OI5mHistory = oi5m
 			}
 		}
@@ -212,6 +254,10 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 			continue
 		}
 		ss.Klines[ki.Interval] = klines
+		if ss.KlineFetchedAt == nil {
+			ss.KlineFetchedAt = make(map[string]time.Time)
+		}
+		ss.KlineFetchedAt[ki.Interval] = now()
 
 		// Compute taker buy ratio from 1m klines if available
 		if ki.Interval == "1m" && len(klines) > 0 {
@@ -234,6 +280,7 @@ func (f *DataFetcher) fetchOneSymbol(ctx context.Context, symbol string, base *S
 	if k1m := ss.Klines["1m"]; len(k1m) > 0 {
 		if last := k1m[len(k1m)-1]; last.Close > 0 {
 			ss.Price = last.Close
+			ss.PriceAt = now()
 		}
 	}
 	ss.Timestamp = now()
@@ -356,7 +403,19 @@ func cloneSymbolSnapshot(src *SymbolSnapshot) *SymbolSnapshot {
 		cp.OI5mHistory = make([]OIHistoryPoint, len(src.OI5mHistory))
 		copy(cp.OI5mHistory, src.OI5mHistory)
 	}
+	cp.KlineFetchedAt = copyTimeMap(src.KlineFetchedAt)
 	return &cp
+}
+
+func copyTimeMap(src map[string]time.Time) map[string]time.Time {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]time.Time, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }
 
 // fetchOI fetches current open interest for a symbol (USDT value).

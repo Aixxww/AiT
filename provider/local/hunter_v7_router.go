@@ -457,23 +457,11 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 		}
 	}
 
-	if len(filtered) < minOutput {
-		for i, sig := range eligible {
-			if len(filtered) >= minOutput {
-				break
-			}
-			if used[i] || sig.AIPriority < fallbackMinPriority {
-				continue
-			}
-			if sig.Status == V7StatusCandidate {
-				sig.Status = V7StatusWaitConfirm
-			}
-			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "candidate_floor_context")
-			sig.RiskTags = appendIfMissing(sig.RiskTags, "context_only_low_priority")
-			filtered = append(filtered, sig)
-			used[i] = true
-		}
-	}
+	// #87 / AUD-A6 (owner decision 2026-11-25): no padding with WATCH-grade
+	// context rows to reach MinOutput. The LLM gets the actual results only,
+	// capped by MaxOutput (hunter_limit / v7_max_output, at most 10). The
+	// funnel target is the E+R count per round, logged by the kernel.
+	// minOutput still sizes the reviewable-floor rescue below (unchanged).
 
 	if !hasV7OpenReviewSignal(filtered) {
 		filtered = appendV7ReviewableFloorSignals(filtered, eligible, used, cfg, minOutput)
