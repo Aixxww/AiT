@@ -153,7 +153,13 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
 		rrFloor = hunterV7DecisionRRFloor(resolvedMinRR, ctx.CandidateCoins)
 	}
-	decision, err := parseFullDecisionResponse(
+	// #104 / AUD-B2: the prompt-final (B7) tier counts gate
+	// no_reviewable_candidate in the validator.
+	tierCounts := unknownHunterV7TierCounts
+	if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
+		tierCounts = hunterV7PromptFinalTierCounts(ctx.HunterV7PromptFinal)
+	}
+	decision, err := parseFullDecisionResponseWithTiers(
 		aiResponse,
 		ctx.Account.TotalEquity,
 		riskConfig.BTCETHMaxLeverage,
@@ -165,6 +171,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		priceMap,
 		rrFloor,
 		riskConfig.MinConfidence, // #77: the configured min-open confidence
+		tierCounts,
 	)
 
 	if decision != nil {
@@ -503,7 +510,38 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 // AI Response Parsing
 // ============================================================================
 
+// hunterV7TierCounts are the prompt-final EXECUTABLE / REVIEWABLE counts of
+// a round (#104 / AUD-B2). Known=false means the counts are not available
+// (non-hunter_v7 callers, tests); the tier check is then skipped.
+type hunterV7TierCounts struct {
+	Known      bool
+	Executable int
+	Reviewable int
+}
+
+var unknownHunterV7TierCounts = hunterV7TierCounts{}
+
+// hunterV7PromptFinalTierCounts counts the B7 prompt-final tiers.
+func hunterV7PromptFinalTierCounts(final []HunterV7PromptFinalTier) hunterV7TierCounts {
+	c := hunterV7TierCounts{Known: true}
+	for _, t := range final {
+		switch strings.ToUpper(t.Tier) {
+		case "EXECUTABLE":
+			c.Executable++
+		case "REVIEWABLE":
+			c.Reviewable++
+		}
+	}
+	return c
+}
+
 func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int) (*FullDecision, error) {
+	return parseFullDecisionResponseWithTiers(aiResponse, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, hunterV7Mode, priceMap, rrFloor, minOpenConfidence, unknownHunterV7TierCounts)
+}
+
+// parseFullDecisionResponseWithTiers is parseFullDecisionResponse with the
+// round's prompt-final tier counts for the wait-code check (#104).
+func parseFullDecisionResponseWithTiers(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int, tiers hunterV7TierCounts) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -522,7 +560,7 @@ func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthL
 	// executes; validation failures are no longer returned as an error, so
 	// they no longer count as AI failures or feed safe mode. Only an
 	// unparseable response (above) is an AI failure.
-	demoteInvalidDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, hunterV7Mode, minOpenConfidence)
+	demoteInvalidDecisions(decisions, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, hunterV7Mode, minOpenConfidence, tiers)
 	fillMissingDecisionReasoning(decisions, cotTrace)
 
 	return &FullDecision{
@@ -557,12 +595,12 @@ func normalizeHunterV7WaitReasons(decisions []Decision) {
 // demoteInvalidDecisions replaces every decision that fails validation with
 // a wait carrying blocked_reason_code=backend_guard_risk, recording the
 // original action and the validator message. It returns the number demoted.
-func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, hunterV7Mode bool, minOpenConfidence int) int {
+func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, priceMap map[string]float64, rrFloor DecisionRRFloor, hunterV7Mode bool, minOpenConfidence int, tiers hunterV7TierCounts) int {
 	demoted := 0
 	for i := range decisions {
 		err := validateDecision(&decisions[i], accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, priceMap, rrFloor, minOpenConfidence)
 		if err == nil && hunterV7Mode {
-			err = validateHunterV7WaitReason(decisions[i])
+			err = validateHunterV7WaitReason(decisions[i], tiers)
 		}
 		if err == nil {
 			continue
@@ -581,7 +619,7 @@ func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthL
 	return demoted
 }
 
-func validateHunterV7WaitReason(d Decision) error {
+func validateHunterV7WaitReason(d Decision, tiers hunterV7TierCounts) error {
 	if d.Action != "wait" {
 		return nil
 	}
@@ -591,21 +629,10 @@ func validateHunterV7WaitReason(d Decision) error {
 	if !hunterV7BlockedReasonCodes[d.BlockedReasonCode] {
 		return fmt.Errorf("invalid blocked_reason_code: %s", d.BlockedReasonCode)
 	}
-	return nil
-}
-
-func validateHunterV7WaitReasons(decisions []Decision) error {
-	for i := range decisions {
-		d := decisions[i]
-		if d.Action != "wait" {
-			continue
-		}
-		if d.BlockedReasonCode == "" {
-			return fmt.Errorf("decision #%d wait missing blocked_reason_code", i+1)
-		}
-		if !hunterV7BlockedReasonCodes[d.BlockedReasonCode] {
-			return fmt.Errorf("decision #%d invalid blocked_reason_code: %s", i+1, d.BlockedReasonCode)
-		}
+	// #104 / AUD-B2: no_reviewable_candidate is true only when the prompt
+	// showed no EXECUTABLE and no REVIEWABLE candidate.
+	if d.BlockedReasonCode == "no_reviewable_candidate" && tiers.Known && tiers.Executable+tiers.Reviewable > 0 {
+		return fmt.Errorf("blocked_reason_code no_reviewable_candidate contradicts the prompt tiers (EXECUTABLE=%d REVIEWABLE=%d)", tiers.Executable, tiers.Reviewable)
 	}
 	return nil
 }
