@@ -19,7 +19,8 @@ func TestDecisionRecordCarriesChosenRankAndERCount(t *testing.T) {
 
 	ai := &kernel.FullDecision{HunterV7ERCount: 4, HunterV7ChosenRank: 2,
 		Decisions: []kernel.Decision{{Symbol: "BBBUSDT", Action: "open_long", HunterV7ChosenRank: 2}}}
-	rec := &store.DecisionRecord{TraderID: "t1", CycleNumber: 1}
+	rec := &store.DecisionRecord{TraderID: "t1", CycleNumber: 1,
+		EffectiveConfig: []store.ResolvedValue{{Key: "max_positions", Group: "decision", Value: 1.0, Source: store.SourceConfig}}} // #95
 	applyAIDecisionToRecord(rec, ai)
 	rec.Decisions = []store.DecisionAction{{Action: "open_long", Symbol: "BBBUSDT", ChosenRank: ai.Decisions[0].HunterV7ChosenRank}}
 	if err := st.Decision().LogDecision(rec); err != nil {
@@ -40,6 +41,9 @@ func TestDecisionRecordCarriesChosenRankAndERCount(t *testing.T) {
 	byCycle := map[int]*store.DecisionRecord{}
 	for _, r := range got {
 		byCycle[r.CycleNumber] = r
+	}
+	if r := byCycle[1]; len(r.EffectiveConfig) != 1 || r.EffectiveConfig[0].Key != "max_positions" || r.EffectiveConfig[0].Source != store.SourceConfig {
+		t.Fatalf("#95 effective_config must round-trip next to the #94 columns: %+v", r.EffectiveConfig)
 	}
 	if r := byCycle[1]; r.ChosenRank != 2 || r.ERCount != 4 || len(r.Decisions) != 1 || r.Decisions[0].ChosenRank != 2 {
 		t.Fatalf("open record: rank %d er %d actions %+v", r.ChosenRank, r.ERCount, r.Decisions)

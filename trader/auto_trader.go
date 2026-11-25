@@ -179,6 +179,7 @@ type AutoTrader struct {
 	readBackSleep          func(time.Duration) // F04 read-back delay hook (nil = time.Sleep; tests override)
 	positionFirstSeenTime  map[string]int64    // Position first seen time (symbol_side -> timestamp in milliseconds)
 	positionLocks          sync.Map            // #92 / AUD-D6 per-position lock (positionLockKey -> *positionLock)
+	resolvedCfg            resolvedConfigCache // #95: this cycle's store.ResolveHunterV7
 	stopMonitorCh          chan struct{}       // Used to stop monitoring goroutine
 	monitorWg              sync.WaitGroup      // Used to wait for monitoring goroutine to finish
 	peakPnLCache           map[string]float64  // Peak profit cache (symbol -> peak P&L percentage)

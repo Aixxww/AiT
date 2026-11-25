@@ -16,7 +16,7 @@ import {
   Check,
 } from 'lucide-react'
 import type { CoinSourceConfig } from '../../types'
-import { coinSource, ts } from '../../i18n/strategy-translations'
+import { coinSource, riskControl, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
 import { Button } from '../ui/Button'
 import { SectionHeader } from '../ui/SectionHeader'
@@ -57,6 +57,60 @@ const V7_T2_FAMILIES = Array.from(
 
 const FIELD_SELECT =
   'h-9 min-w-[96px] px-3 rounded-control bg-background border border-border text-foreground'
+
+// #95: the token-budget cap (store.MaxCandidateCoins); hunter_limit options
+// stop at it, and the effective-config panel shows the resolved count.
+const MAX_LLM_CANDIDATES = 10
+const HUNTER_LIMIT_OPTIONS = [3, 5, 8, 10]
+
+function RouterNumber({
+  name,
+  label,
+  value,
+  placeholder,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  name: string
+  label: string
+  value: number | undefined
+  placeholder: number
+  min?: number
+  max?: number
+  disabled?: boolean
+  onChange: (v: number | undefined) => void
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 min-h-[40px]">
+      <span className="t-caption text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        name={name}
+        autoComplete="off"
+        inputMode="numeric"
+        value={value ?? ''}
+        placeholder={String(placeholder)}
+        min={min}
+        max={max}
+        step={1}
+        disabled={disabled}
+        onChange={(e) => {
+          const raw = e.target.value.trim()
+          const n = Number(raw)
+          onChange(raw === '' || !Number.isFinite(n) ? undefined : n)
+        }}
+        className="w-28 px-3 py-1.5 rounded-control text-sm"
+        style={{
+          background: 'var(--color-input)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-foreground)',
+        }}
+      />
+    </label>
+  )
+}
 
 function FieldRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -685,7 +739,7 @@ export function CoinSourceEditor({
                     onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                   }
                   disabled={disabled}
-                  options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                  options={HUNTER_LIMIT_OPTIONS.map((n) => ({
                     value: n,
                     label: String(n),
                   }))}
@@ -1101,7 +1155,7 @@ export function CoinSourceEditor({
                     onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                   }
                   disabled={disabled}
-                  options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                  options={HUNTER_LIMIT_OPTIONS.map((n) => ({
                     value: n,
                     label: String(n),
                   }))}
@@ -1200,7 +1254,68 @@ export function CoinSourceEditor({
                   className={FIELD_SELECT}
                 />
               </FieldRow>
+              <RouterNumber
+                name="v7-min-output"
+                label={ts(riskControl.v7MinOutput, language)}
+                value={config.hunter_config?.v7_min_output}
+                placeholder={3}
+                min={1}
+                disabled={disabled}
+                onChange={(v) =>
+                  onChange({
+                    ...config,
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      v7_min_output: v,
+                    },
+                  })
+                }
+              />
+              <RouterNumber
+                name="v7-fallback-min-ai-priority"
+                label={ts(riskControl.v7FallbackMinAIPriority, language)}
+                value={config.hunter_config?.v7_fallback_min_ai_priority}
+                placeholder={45}
+                min={0}
+                max={100}
+                disabled={disabled}
+                onChange={(v) =>
+                  onChange({
+                    ...config,
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      v7_fallback_min_ai_priority: v,
+                    },
+                  })
+                }
+              />
+              <RouterNumber
+                name="v7-correlation-max-per-theme"
+                label={ts(riskControl.v7CorrelationMaxPerTheme, language)}
+                value={config.hunter_config?.v7_correlation_max_per_theme}
+                placeholder={3}
+                min={0}
+                disabled={disabled}
+                onChange={(v) =>
+                  onChange({
+                    ...config,
+                    hunter_config: {
+                      ...(config.hunter_config || {}),
+                      v7_correlation_max_per_theme: v,
+                    },
+                  })
+                }
+              />
             </div>
+            <p
+              className="t-caption text-muted-foreground mt-2"
+              data-testid="candidate-cap-note"
+            >
+              {ts(riskControl.candidateCap, language).replace(
+                '{n}',
+                String(MAX_LLM_CANDIDATES)
+              )}
+            </p>
           </div>
 
           {/* Screening preferences */}
@@ -1214,7 +1329,7 @@ export function CoinSourceEditor({
               <SwitchRow
                 title={ts(coinSource.v7Aggressive, language)}
                 summary={ts(coinSource.v7AggressiveDesc, language)}
-                checked={config.hunter_config?.v7_aggressive ?? true}
+                checked={config.hunter_config?.v7_aggressive ?? false}
                 disabled={disabled}
                 onChange={(checked) =>
                   onChange({
@@ -1370,7 +1485,7 @@ export function CoinSourceEditor({
                   onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                 }
                 disabled={disabled}
-                options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                options={HUNTER_LIMIT_OPTIONS.map((n) => ({
                   value: n,
                   label: String(n),
                 }))}
@@ -1691,7 +1806,7 @@ export function CoinSourceEditor({
                       onChange({ ...config, hunter_limit: parseInt(val) || 10 })
                     }
                     disabled={disabled}
-                    options={[3, 5, 8, 10, 15, 20].map((n) => ({
+                    options={HUNTER_LIMIT_OPTIONS.map((n) => ({
                       value: n,
                       label: String(n),
                     }))}

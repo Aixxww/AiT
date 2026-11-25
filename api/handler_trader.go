@@ -412,9 +412,16 @@ func (s *Server) handleCreateTrader(c *gin.Context) {
 	}
 
 	// Set scan interval default value
+	// #95 §5.4.5: unset (0) uses the default 3; out-of-range values fail
+	// the request instead of being raised silently.
 	scanIntervalMinutes := req.ScanIntervalMinutes
-	if scanIntervalMinutes < 3 {
-		scanIntervalMinutes = 3 // Default 3 minutes, not allowed to be less than 3
+	if scanIntervalMinutes == 0 {
+		scanIntervalMinutes = store.SafetyMinScanIntervalMinutes
+	}
+	if scanIntervalMinutes < store.SafetyMinScanIntervalMinutes || scanIntervalMinutes > store.SafetyMaxScanIntervalMinutes {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("scan_interval_minutes %d must be %d..%d",
+			req.ScanIntervalMinutes, store.SafetyMinScanIntervalMinutes, store.SafetyMaxScanIntervalMinutes)})
+		return
 	}
 
 	// Query exchange actual balance, override user input
@@ -600,8 +607,11 @@ func (s *Server) handleUpdateTrader(c *gin.Context) {
 	logger.Infof("📊 Update trader scan_interval: req=%d, existing=%d", req.ScanIntervalMinutes, existingTrader.ScanIntervalMinutes)
 	if scanIntervalMinutes <= 0 {
 		scanIntervalMinutes = existingTrader.ScanIntervalMinutes // Keep original value
-	} else if scanIntervalMinutes < 3 {
-		scanIntervalMinutes = 3
+	} else if scanIntervalMinutes < store.SafetyMinScanIntervalMinutes || scanIntervalMinutes > store.SafetyMaxScanIntervalMinutes {
+		// #95 §5.4.5: validate instead of raising silently; API max = UI max.
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("scan_interval_minutes %d must be %d..%d",
+			scanIntervalMinutes, store.SafetyMinScanIntervalMinutes, store.SafetyMaxScanIntervalMinutes)})
+		return
 	}
 	logger.Infof("📊 Final scan_interval_minutes: %d", scanIntervalMinutes)
 

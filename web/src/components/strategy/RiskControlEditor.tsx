@@ -1,6 +1,12 @@
 import { Shield, AlertTriangle } from 'lucide-react'
 import type { RiskControlConfig } from '../../types'
 import { riskControl, ts } from '../../i18n/strategy-translations'
+import { InfoTip } from '../ui/InfoTip'
+import {
+  RiskControlAdvanced,
+  DEFAULT_MIN_RR,
+  MAX_POSITIONS_SAFETY_CEILING,
+} from './RiskControlAdvanced'
 
 interface RiskControlEditorProps {
   config: RiskControlConfig
@@ -57,13 +63,13 @@ export function RiskControlEditor({
               name="risk-max-positions"
               autoComplete="off"
               inputMode="numeric"
-              value={config.max_positions ?? 3}
+              value={config.max_positions ?? ''}
               onChange={(e) =>
-                updateField('max_positions', parseInt(e.target.value) || 3)
+                updateField('max_positions', parseInt(e.target.value) || 0)
               }
               disabled={disabled}
               min={1}
-              max={3}
+              max={MAX_POSITIONS_SAFETY_CEILING}
               className="w-32 px-3 py-2 rounded"
               style={{
                 background: 'var(--color-input)',
@@ -71,6 +77,12 @@ export function RiskControlEditor({
                 color: 'var(--color-foreground)',
               }}
             />
+            <p className="t-caption text-muted-foreground mt-2">
+              {ts(riskControl.maxPositionsCeiling, language).replace(
+                '{n}',
+                String(MAX_POSITIONS_SAFETY_CEILING)
+              )}
+            </p>
           </div>
         </div>
 
@@ -277,17 +289,20 @@ export function RiskControlEditor({
                 name="risk-min-risk-reward-ratio"
                 autoComplete="off"
                 inputMode="decimal"
-                value={config.min_risk_reward_ratio ?? 3}
+                value={config.min_risk_reward_ratio || ''}
+                placeholder={String(DEFAULT_MIN_RR)}
                 onChange={(e) =>
+                  // #95: no hardcoded fallback; empty = unset, which the
+                  // backend resolver reads as the documented 1.2.
                   updateField(
                     'min_risk_reward_ratio',
-                    parseFloat(e.target.value) || 3
+                    parseFloat(e.target.value) || 0
                   )
                 }
                 disabled={disabled}
                 min={1}
                 max={10}
-                step={0.5}
+                step={0.1}
                 className="w-20 px-3 py-2 rounded ml-2"
                 style={{
                   background: 'var(--color-input)',
@@ -340,11 +355,15 @@ export function RiskControlEditor({
             className="p-4 rounded-lg"
             style={{
               background: 'var(--color-background)',
-              border: '1px solid var(--color-profit)',
+              border: '1px solid var(--color-border)',
             }}
           >
-            <label className="block text-sm mb-1 text-foreground">
+            <label className="flex items-center gap-1.5 text-sm mb-1 text-foreground">
               {ts(riskControl.maxMarginUsage, language)}
+              <InfoTip
+                title={ts(riskControl.maxMarginUsage, language)}
+                content={ts(riskControl.maxMarginUsageNotEnforced, language)}
+              />
             </label>
             <p className="text-xs mb-2 text-muted-foreground">
               {ts(riskControl.maxMarginUsageDesc, language)}
@@ -463,6 +482,13 @@ export function RiskControlEditor({
           </div>
         </div>
       </div>
+
+      <RiskControlAdvanced
+        config={config}
+        onChange={onChange}
+        disabled={disabled}
+        language={language}
+      />
     </div>
   )
 }

@@ -146,9 +146,12 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		}
 	}
 
-	rrFloor := FixedDecisionRRFloor(riskConfig.MinRiskRewardRatio)
+	// #95: the RR floor comes from the resolver; an unset field resolves to
+	// store.DefaultMinRiskRewardRatio (1.2), never to the legacy 3.0.
+	resolvedMinRR := store.ResolveHunterV7(engine.GetConfig()).MinRR
+	rrFloor := FixedDecisionRRFloor(resolvedMinRR)
 	if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
-		rrFloor = hunterV7DecisionRRFloor(riskConfig.MinRiskRewardRatio, ctx.CandidateCoins)
+		rrFloor = hunterV7DecisionRRFloor(resolvedMinRR, ctx.CandidateCoins)
 	}
 	decision, err := parseFullDecisionResponse(
 		aiResponse,

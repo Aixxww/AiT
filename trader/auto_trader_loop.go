@@ -16,6 +16,7 @@ const maxDegradedContextCacheAge = 30 * time.Minute
 
 // runCycle runs one trading cycle (using AI full decision-making)
 func (at *AutoTrader) runCycle() error {
+	resolvedCfg := at.refreshResolved() // #95: resolve the trading config once per cycle
 	at.callCount++
 	cycleNumber := at.callCount
 	startedAt := time.Now()
@@ -45,6 +46,8 @@ func (at *AutoTrader) runCycle() error {
 	record := &store.DecisionRecord{
 		ExecutionLog: []string{},
 		Success:      true,
+		// #95 §5.4.6: the effective config (value and source) of this cycle.
+		EffectiveConfig: resolvedCfg.Values,
 	}
 
 	// 1. Check if trading needs to be stopped
@@ -787,7 +790,11 @@ func (at *AutoTrader) buildTradingContext() (*kernel.Context, error) {
 			// Failed-open cooldown: if an open order was rejected recently, do not
 			// immediately retry the same symbol while the signal may still be stale.
 			if at.store != nil && len(candidateCoins) > 0 {
-				failedOpens := at.store.Decision().GetRecentFailedOpenSymbols(at.id, 3)
+				// #95: cycles from the resolver (default 3, 0 = off).
+				failedOpens := map[string]string{}
+				if cycles := at.resolved().FailedOpenCooldownCycles; cycles > 0 {
+					failedOpens = at.store.Decision().GetRecentFailedOpenSymbols(at.id, cycles)
+				}
 				if len(failedOpens) > 0 {
 					filtered := make([]kernel.CandidateCoin, 0, len(candidateCoins))
 					for _, coin := range candidateCoins {
@@ -1115,9 +1122,15 @@ func (at *AutoTrader) filterHunterV7RecentLossCooldown(candidates []kernel.Candi
 	if len(candidates) == 0 || len(recentTrades) == 0 {
 		return candidates, 0
 	}
+	// #95: parameters from the resolver (defaults 60 min / 2 losses / 5%;
+	// window 0 = off).
+	rl := at.resolved().RecentLossCooldown
+	if !rl.Enabled {
+		return candidates, 0
+	}
 	lossesByKey := make(map[string]int)
 	now := time.Now().Unix()
-	const cooldownWindowSec int64 = 60 * 60
+	cooldownWindowSec := int64(rl.WindowMinutes) * 60
 	for _, trade := range recentTrades {
 		if trade.Symbol == "" || trade.Side == "" || trade.ExitTime <= 0 {
 			continue
@@ -1125,7 +1138,7 @@ func (at *AutoTrader) filterHunterV7RecentLossCooldown(candidates []kernel.Candi
 		if now-trade.ExitTime > cooldownWindowSec {
 			continue
 		}
-		if trade.PnLPct > -5 {
+		if trade.PnLPct > -rl.LossPct {
 			continue
 		}
 		key := market.Normalize(trade.Symbol) + "|" + strings.ToUpper(trade.Side)
@@ -1138,7 +1151,7 @@ func (at *AutoTrader) filterHunterV7RecentLossCooldown(candidates []kernel.Candi
 	blocked := 0
 	for _, coin := range candidates {
 		key := market.Normalize(coin.Symbol) + "|" + strings.ToUpper(coin.Direction)
-		if lossesByKey[key] >= 2 {
+		if lossesByKey[key] >= rl.MinLosses {
 			blocked++
 			logger.Infof("🧊 [%s] Hunter v7 same-symbol loss cooldown: skipping %s %s after %d recent losses",
 				at.name, coin.Symbol, coin.Direction, lossesByKey[key])

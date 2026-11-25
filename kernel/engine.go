@@ -585,46 +585,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		}
 
 	case "hunter_v7":
-		v7cfg := local.DefaultV7Config()
-		v7cfg.MinRiskRewardRatio = e.config.RiskControl.MinRiskRewardRatio // #77
-		if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
-			v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
-		}
-		if coinSource.Hunter != nil && coinSource.Hunter.V7WatchOutput > 0 {
-			v7cfg.WatchOutput = coinSource.Hunter.V7WatchOutput
-		}
-		if coinSource.Hunter != nil && coinSource.Hunter.V7MinAIPriority > 0 {
-			v7cfg.MinAIPriority = coinSource.Hunter.V7MinAIPriority
-		}
-		if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
-			v7cfg.Aggressive = true
-		}
-		if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
-			v7cfg.T2 = hunterV7T2ModuleConfig(coinSource.Hunter)
-			if e.v7T2Store == nil {
-				e.v7T2Store = local.NewV7T2EventStore()
-			}
-			v7cfg.T2Store = e.v7T2Store
-			v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
-		}
-		// U10: closed-bar features for both stacks (opt-in; default forming).
-		if coinSource.Hunter != nil {
-			v7cfg.ClosedBarFeatures = hunterV7ClosedBarFeatures(coinSource.Hunter)
-		}
-		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
-			v7cfg.MaxOutput = coinSource.HunterLimit
-		}
-		// #87 / AUD-A6: the LLM never gets more than MaxCandidateCoins (10).
-		if v7cfg.MaxOutput <= 0 || v7cfg.MaxOutput > store.MaxCandidateCoins {
-			v7cfg.MaxOutput = store.MaxCandidateCoins
-		}
-		e.v7CycleCounter++
-		v7cfg.CycleNumber = e.v7CycleCounter
-		// Initialize watch state manager on first call
-		if e.v7WatchState == nil {
-			e.v7WatchState = local.NewV7SignalStateManager()
-		}
-		v7cfg.WatchStateManager = e.v7WatchState
+		v7cfg := e.hunterV7RouterConfig() // #95: one resolver-backed build
 		v7Result := local.ScoreHunterV7Detailed(snap, v7cfg)
 		signals := v7Result.Signals
 		candidates = e.hunterV7SignalsToCandidateCoins(signals, coinSource.HunterDirection)
@@ -2871,46 +2832,8 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	// klines/OI instead of sequential GetWithTimeframes (+ CoinAnk fallback).
 	e.SetSnapshotEngine(NewOneShotSnapshotEngine(snap))
 
-	v7cfg := local.DefaultV7Config()
-	v7cfg.MinRiskRewardRatio = e.config.RiskControl.MinRiskRewardRatio // #77
 	coinSource := e.config.CoinSource
-	if coinSource.Hunter != nil && coinSource.Hunter.V7MaxOutput > 0 {
-		v7cfg.MaxOutput = coinSource.Hunter.V7MaxOutput
-	}
-	if coinSource.Hunter != nil && coinSource.Hunter.V7WatchOutput > 0 {
-		v7cfg.WatchOutput = coinSource.Hunter.V7WatchOutput
-	}
-	if coinSource.Hunter != nil && coinSource.Hunter.V7MinAIPriority > 0 {
-		v7cfg.MinAIPriority = coinSource.Hunter.V7MinAIPriority
-	}
-	if coinSource.Hunter != nil && coinSource.Hunter.V7Aggressive {
-		v7cfg.Aggressive = true
-	}
-	if coinSource.Hunter != nil && coinSource.Hunter.V7T2Enabled {
-		v7cfg.T2 = hunterV7T2ModuleConfig(coinSource.Hunter)
-		if e.v7T2Store == nil {
-			e.v7T2Store = local.NewV7T2EventStore()
-		}
-		v7cfg.T2Store = e.v7T2Store
-		v7cfg.FinalConflict = hunterV7FinalConflictConfig(coinSource.Hunter)
-	}
-	// U10: closed-bar features for both stacks (opt-in; default forming).
-	if coinSource.Hunter != nil {
-		v7cfg.ClosedBarFeatures = hunterV7ClosedBarFeatures(coinSource.Hunter)
-	}
-	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
-		v7cfg.MaxOutput = coinSource.HunterLimit
-	}
-	// #87 / AUD-A6: the LLM never gets more than MaxCandidateCoins (10).
-	if v7cfg.MaxOutput <= 0 || v7cfg.MaxOutput > store.MaxCandidateCoins {
-		v7cfg.MaxOutput = store.MaxCandidateCoins
-	}
-	e.v7CycleCounter++
-	v7cfg.CycleNumber = e.v7CycleCounter
-	if e.v7WatchState == nil {
-		e.v7WatchState = local.NewV7SignalStateManager()
-	}
-	v7cfg.WatchStateManager = e.v7WatchState
+	v7cfg := e.hunterV7RouterConfig() // #95: one resolver-backed build
 
 	v7Result := local.ScoreHunterV7Detailed(snap, v7cfg)
 	candidates := e.hunterV7SignalsToCandidateCoins(v7Result.Signals, coinSource.HunterDirection)

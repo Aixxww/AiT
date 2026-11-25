@@ -693,20 +693,11 @@ func (at *AutoTrader) enforcePositionValueRatio(positionSizeUSD float64, equity 
 		return positionSizeUSD, false
 	}
 
-	riskControl := at.config.StrategyConfig.RiskControl
-
-	// Get the appropriate position value ratio limit
-	var maxPositionValueRatio float64
+	// #95: effective ratio from the resolver (defaults 5x BTC/ETH, 1x alts).
+	resolved := at.resolved()
+	maxPositionValueRatio := resolved.AltcoinPositionValueRatio
 	if isBTCETH(symbol) {
-		maxPositionValueRatio = riskControl.BTCETHMaxPositionValueRatio
-		if maxPositionValueRatio <= 0 {
-			maxPositionValueRatio = 5.0 // Default: 5x for BTC/ETH
-		}
-	} else {
-		maxPositionValueRatio = riskControl.AltcoinMaxPositionValueRatio
-		if maxPositionValueRatio <= 0 {
-			maxPositionValueRatio = 1.0 // Default: 1x for altcoins
-		}
+		maxPositionValueRatio = resolved.BTCETHPositionValueRatio
 	}
 
 	// Calculate max allowed position value = equity × ratio
@@ -728,10 +719,7 @@ func (at *AutoTrader) enforceMinPositionSize(positionSizeUSD float64) error {
 		return nil
 	}
 
-	minSize := at.config.StrategyConfig.RiskControl.MinPositionSize
-	if minSize <= 0 {
-		minSize = 12 // Default: 12 USDT
-	}
+	minSize := at.resolved().MinPositionSizeUSD // #95 (default 12 USDT)
 
 	if positionSizeUSD < minSize {
 		return fmt.Errorf("❌ [RISK CONTROL] Position %.2f USDT below minimum (%.2f USDT)", positionSizeUSD, minSize)
@@ -747,7 +735,8 @@ func (at *AutoTrader) enforceMaxPositions(currentPositionCount int) error {
 		return nil
 	}
 
-	maxPositions, err := at.config.StrategyConfig.RiskControl.ValidateMaxPositions()
+	resolved := at.resolved() // #95
+	maxPositions, err := resolved.MaxPositions, resolved.MaxPositionsErr
 	if err != nil {
 		return fmt.Errorf("❌ [RISK CONTROL] open blocked: %w", err)
 	}
@@ -769,13 +758,7 @@ func (at *AutoTrader) maxEntryPriceDeviationPct() float64 {
 	if at == nil || at.config.StrategyConfig == nil {
 		return 0
 	}
-	if pct := at.config.StrategyConfig.RiskControl.MaxEntryPriceDeviationPct; pct > 0 {
-		return pct
-	}
-	if at.isHunterV7Strategy() {
-		return 0.5
-	}
-	return 0
+	return at.resolved().MaxEntryDriftPct // #95 (hunter_v7 default 0.5)
 }
 
 // decisionMaxEntryPriceDeviationPct is the U9 per-class drift limit for one
@@ -812,13 +795,7 @@ func (at *AutoTrader) maxSingleTradeLossPct() float64 {
 	if at == nil || at.config.StrategyConfig == nil {
 		return 0
 	}
-	if pct := at.config.StrategyConfig.RiskControl.MaxSingleTradeLossPct; pct > 0 {
-		return pct
-	}
-	if at.isHunterV7Strategy() {
-		return 8.0
-	}
-	return 0
+	return at.resolved().MaxSingleTradeLossPct // #95 (hunter_v7 default 8.0)
 }
 
 func (at *AutoTrader) maxTakeProfitPriceMovePct() float64 {
@@ -833,7 +810,7 @@ func (at *AutoTrader) maxTakeProfitPriceMovePct() float64 {
 		return pct
 	}
 	if at.isHunterV7Strategy() {
-		pct := 3.0
+		pct := at.resolved().MaxTakeProfitMovePct // #95 (default 3.0)
 		if riskControl.MinRiskRewardRatio > 0 || riskControl.MinStopLossPriceMovePct > 0 || riskControl.MaxEntryPriceDeviationPct > 0 {
 			pct = at.ensureHunterV7FeasibleTakeProfitCap(pct)
 		}
@@ -1167,7 +1144,8 @@ func (at *AutoTrader) decisionMinRiskRewardRatio(decision *kernel.Decision) floa
 	if at == nil || at.config.StrategyConfig == nil {
 		return 0
 	}
-	return at.config.StrategyConfig.RiskControl.MinRiskRewardRatio
+	// #95: unset resolves to store.DefaultMinRiskRewardRatio (1.2).
+	return at.resolved().MinRR
 }
 
 func (at *AutoTrader) repairHunterV7RiskReward(decision *kernel.Decision, currentPrice float64, side string) bool {
@@ -2152,55 +2130,22 @@ func hunterV7LiquidityPositionCapUSD(quoteVolume24h float64) float64 {
 // setupGuardForSetup returns the guard config for a given setup type.
 // Returns nil if no guard is configured (setup is unconstrained).
 func (at *AutoTrader) setupGuardForSetup(setupType string) *setupGuardDefaults {
-	// First check strategy config overrides
-	if at.config.StrategyConfig != nil && at.config.StrategyConfig.RiskControl.SetupGuard != nil {
-		if sg, ok := store.LookupV7Setup(at.config.StrategyConfig.RiskControl.SetupGuard, setupType); ok {
-			return &setupGuardDefaults{
-				MinZonePosShort: sg.MinZonePosShort,
-				MaxZonePosLong:  sg.MaxZonePosLong,
-				RequireOIFlush:  sg.RequireOIFlush,
-			}
-		}
+	// #95: strategy entries over the built-in defaults, from the resolver.
+	sg, ok := at.resolved().SetupGuardFor(setupType)
+	if !ok {
+		return nil
 	}
-	// Built-in defaults for well-known setups
-	return builtinSetupGuardDefaults(setupType)
+	return &setupGuardDefaults{
+		MinZonePosShort: sg.MinZonePosShort,
+		MaxZonePosLong:  sg.MaxZonePosLong,
+		RequireOIFlush:  sg.RequireOIFlush,
+	}
 }
 
 type setupGuardDefaults struct {
 	MinZonePosShort int
 	MaxZonePosLong  int
 	RequireOIFlush  bool
-}
-
-// builtinSetupGuardDefaults returns hardcoded guard defaults for known setup types.
-// Setups not listed here return nil (no guard).
-func builtinSetupGuardDefaults(setupType string) *setupGuardDefaults {
-	switch setupType {
-	case "funding_reversal":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 35, RequireOIFlush: true}
-	case "distribution_short":
-		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
-	case "long_squeeze_short":
-		return &setupGuardDefaults{MinZonePosShort: 60, MaxZonePosLong: 100, RequireOIFlush: false}
-	case "breakdown_momentum_short":
-		return &setupGuardDefaults{MinZonePosShort: 45, MaxZonePosLong: 100, RequireOIFlush: false}
-	case "alt_ladder_breakdown_short":
-		return &setupGuardDefaults{MinZonePosShort: 40, MaxZonePosLong: 100, RequireOIFlush: false}
-	case "range_reversion":
-		return &setupGuardDefaults{MinZonePosShort: 55, MaxZonePosLong: 45, RequireOIFlush: false}
-	case "pullback_reversal_long":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 50, RequireOIFlush: false}
-	case "alt_ladder_momentum_long":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 72, RequireOIFlush: false}
-	case "mms_bottom_wake_long":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 65, RequireOIFlush: false}
-	case "mms_trend_ride_long":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 70, RequireOIFlush: false}
-	case "mms_squeeze_engine_long":
-		return &setupGuardDefaults{MinZonePosShort: 0, MaxZonePosLong: 75, RequireOIFlush: false}
-	default:
-		return nil
-	}
 }
 
 func hunterV7CandidateForDecision(ctx *kernel.Context, decision *kernel.Decision) *kernel.CandidateCoin {
@@ -2397,7 +2342,11 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 // effectiveMinOpenConfidence is the strategy's min_confidence as configured
 // (#77: the former hunter_v7 cap at 70 overrode the owner's value).
 func (at *AutoTrader) effectiveMinOpenConfidence(configured int) int {
-	return configured
+	// #95: unset resolves to the documented floor (60), as in the kernel.
+	if configured > 0 {
+		return configured
+	}
+	return at.resolved().MinConfidence
 }
 
 // getSideFromAction converts order action to side (BUY/SELL)

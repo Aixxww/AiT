@@ -50,6 +50,8 @@ func (s *Server) handleTraderList(c *gin.Context) {
 			"initial_balance":     trader.InitialBalance,
 			"strategy_id":         trader.StrategyID,
 			"strategy_name":       strategyName,
+			// #95 §5.4.5: shown on the strategy page for shared strategies.
+			"scan_interval_minutes": trader.ScanIntervalMinutes,
 		})
 	}
 

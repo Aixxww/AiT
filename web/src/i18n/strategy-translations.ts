@@ -434,6 +434,234 @@ export const gridRisk = {
 // RISK CONTROL TRANSLATIONS (25+ keys)
 // ============================================================================
 export const riskControl = {
+  maxPositionsCeiling: {
+    zh: '安全上限 {n}（代码内硬限制，负责人待确认）',
+    en: 'Safety ceiling {n} (hard limit in code, pending owner confirmation)',
+  },
+  unsetUsesDefault: {
+    zh: '留空使用默认值 {v}',
+    en: 'Leave empty to use the default {v}',
+  },
+  advancedRisk: {
+    zh: '执行与保护（高级）',
+    en: 'Execution and protection (advanced)',
+  },
+  advancedRiskDesc: {
+    zh: '以前只能通过 JSON 设置的后端参数。留空即使用默认值。',
+    en: 'Backend settings that used to be JSON-only. Leave a field empty to use its default.',
+  },
+  geometryRepair: {
+    zh: '价格/止损/止盈处理方式',
+    en: 'Price, stop and TP handling',
+  },
+  geometryRepairDesc: {
+    zh: '修正：后端调整 AI 给出的价格、止损和止盈以满足规则。拒绝：不满足就不开仓，不改动 AI 的数值。',
+    en: 'Repair: the backend adjusts the AI price, stop and take-profit to meet the rules. Reject: the open is refused instead, and the AI values are never changed.',
+  },
+  geometryRepairRepair: {
+    zh: '修正（默认）',
+    en: 'Repair (default)',
+  },
+  geometryRepairReject: {
+    zh: '拒绝',
+    en: 'Reject',
+  },
+  maxSingleTradeLoss: {
+    zh: '单笔最大止损亏损（% 权益）',
+    en: 'Max loss per trade at stop (% of equity)',
+  },
+  maxTakeProfitMove: {
+    zh: '止盈最大距离（% 价格）',
+    en: 'Max take-profit distance (% of price)',
+  },
+  minStopLossMove: {
+    zh: '止损最小距离（% 价格）',
+    en: 'Min stop-loss distance (% of price)',
+  },
+  dailyLossBreaker: {
+    zh: '日亏损熔断',
+    en: 'Daily-loss breaker',
+  },
+  dailyLossBreakerDesc: {
+    zh: '当日亏损达到上限后停止新开仓。观察模式只记录，不拦截。',
+    en: 'Stops new opens once the day loss reaches the limit. Shadow mode only logs and blocks nothing.',
+  },
+  breakerMode: {
+    zh: '模式',
+    en: 'Mode',
+  },
+  breakerOff: {
+    zh: '关闭',
+    en: 'Off',
+  },
+  breakerShadow: {
+    zh: '观察（默认）',
+    en: 'Shadow (default)',
+  },
+  breakerArmed: {
+    zh: '启用',
+    en: 'Armed',
+  },
+  breakerMaxLoss: {
+    zh: '日亏损上限（% 当日起始权益）',
+    en: 'Daily loss limit (% of day-start equity)',
+  },
+  breakerNearFraction: {
+    zh: '预警比例（0–1）',
+    en: 'Near-trip fraction (0–1)',
+  },
+  cooldowns: {
+    zh: '冷却',
+    en: 'Cooldowns',
+  },
+  cooldownsDesc: {
+    zh: '留空使用默认值，填 0 表示关闭。',
+    en: 'Leave empty for the default; 0 turns it off.',
+  },
+  failedOpenCycles: {
+    zh: '开仓失败后跳过的决策轮数',
+    en: 'Rounds to skip a symbol after a failed open',
+  },
+  recentLossWindow: {
+    zh: '连续亏损冷却窗口（分钟）',
+    en: 'Recent-loss cooldown window (minutes)',
+  },
+  recentLossMinLosses: {
+    zh: '触发所需亏损笔数',
+    en: 'Losses needed to trigger',
+  },
+  recentLossPct: {
+    zh: '单笔亏损阈值（%）',
+    en: 'Loss threshold per trade (%)',
+  },
+  protectorCore: {
+    zh: '持仓保护（核心）',
+    en: 'Position protector (core)',
+  },
+  protectorCoreDesc: {
+    zh: '止盈阶段和减仓比例。-12% ROE 的强制平仓是代码内安全上限，这里不能修改。',
+    en: 'Take-profit stages and close ratios. The -12% ROE market close is a safety limit in code and cannot be changed here.',
+  },
+  tp0Level: {
+    zh: 'TP0 触发（ROE %）',
+    en: 'TP0 trigger (ROE %)',
+  },
+  tp1Level: {
+    zh: 'TP1 触发（ROE %）',
+    en: 'TP1 trigger (ROE %)',
+  },
+  tp0CloseRatio: {
+    zh: 'TP0 减仓比例（0–1）',
+    en: 'TP0 close ratio (0–1)',
+  },
+  tp1CloseRatio: {
+    zh: 'TP1 减仓比例（0–1）',
+    en: 'TP1 close ratio (0–1)',
+  },
+  givebackCloseRatio: {
+    zh: '回撤减仓比例（0–1）',
+    en: 'Giveback close ratio (0–1)',
+  },
+  breakevenBuffer: {
+    zh: '保本止损缓冲（比例）',
+    en: 'Breakeven stop buffer (fraction)',
+  },
+  setupGuard: {
+    zh: '形态执行保护',
+    en: 'Setup execution guards',
+  },
+  setupGuardDesc: {
+    zh: '按形态限制入场区间位置。空白项使用内置默认值。',
+    en: 'Entry-zone limits per setup. Empty cells use the built-in default.',
+  },
+  setupGuardSetup: {
+    zh: '形态',
+    en: 'Setup',
+  },
+  setupGuardMinZoneShort: {
+    zh: '做空最低区间位置 %',
+    en: 'Short: min zone position %',
+  },
+  setupGuardMaxZoneLong: {
+    zh: '做多最高区间位置 %',
+    en: 'Long: max zone position %',
+  },
+  setupGuardOIFlush: {
+    zh: '需要 OI 出清',
+    en: 'Require OI flush',
+  },
+  effectiveConfig: {
+    zh: '生效配置（只读）',
+    en: 'Effective config (read-only)',
+  },
+  effectiveConfigDesc: {
+    zh: '后端实际使用的每个交易参数及其来源。前端设置与代码不一致时会在这里显示。',
+    en: 'Every trading value the backend actually uses, with its source. A disagreement between this page and the code shows up here.',
+  },
+  effectiveSourceConfig: {
+    zh: '配置',
+    en: 'config',
+  },
+  effectiveSourceDefault: {
+    zh: '默认',
+    en: 'default',
+  },
+  effectiveSourceSafety: {
+    zh: '安全上限',
+    en: 'safety limit',
+  },
+  effectiveNotEnforced: {
+    zh: '未强制',
+    en: 'not enforced',
+  },
+  effectiveLoading: {
+    zh: '正在计算…',
+    en: 'Resolving…',
+  },
+  effectiveError: {
+    zh: '无法获取生效配置',
+    en: 'Could not load the effective config',
+  },
+  effectiveValidation: {
+    zh: '保存会失败：',
+    en: 'Saving will fail: ',
+  },
+  attachedTraders: {
+    zh: '使用此策略的交易员',
+    en: 'Traders using this strategy',
+  },
+  attachedTradersDesc: {
+    zh: '扫描间隔保存在每个交易员上，所以共用一个策略的交易员可能以不同频率运行。',
+    en: 'The scan interval is stored on each trader, so traders sharing a strategy can run at different cadences.',
+  },
+  attachedTradersNone: {
+    zh: '暂无交易员使用此策略',
+    en: 'No trader uses this strategy yet',
+  },
+  scanEvery: {
+    zh: '每 {n} 分钟',
+    en: 'every {n} min',
+  },
+  routerAdvanced: {
+    zh: '路由器（高级）',
+    en: 'Router (advanced)',
+  },
+  v7MinOutput: {
+    zh: '相关性过滤最少保留数',
+    en: 'Correlation filter: min kept',
+  },
+  v7FallbackMinAIPriority: {
+    zh: '备用最低 AI 优先级',
+    en: 'Fallback min AI priority',
+  },
+  v7CorrelationMaxPerTheme: {
+    zh: '每个主题最多候选数（0=关闭）',
+    en: 'Max candidates per theme (0 = off)',
+  },
+  candidateCap: {
+    zh: '最多 {n} 个候选会发给 AI（代码内 token 上限）',
+    en: 'At most {n} candidates reach the AI (token-budget cap in code)',
+  },
   positionLimits: {
     zh: '仓位限制',
     en: 'Position Limits',
@@ -511,8 +739,12 @@ export const riskControl = {
     en: 'Maximum allowed drift between AI decision price and pre-order executable price',
   },
   maxMarginUsage: {
-    zh: '最大保证金使用率（代码强制）',
-    en: 'Max Margin Usage (CODE ENFORCED)',
+    zh: '最大保证金使用率（仅提示 AI）',
+    en: 'Max margin usage (AI guidance only)',
+  },
+  maxMarginUsageNotEnforced: {
+    zh: '该值只写入 AI 提示词，下单时不做检查。是否在执行层强制由负责人决定。',
+    en: 'This value is only written into the AI prompt; orders are not checked against it. Whether execution should enforce it is an owner decision.',
   },
   maxMarginUsageDesc: {
     zh: '保证金使用率上限，由代码强制执行',

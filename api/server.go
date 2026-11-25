@@ -231,12 +231,12 @@ NOTE: The id field is "trader_id" (NOT "id"). Always read trader_id from this en
 				`:id = trader_id from GET /api/my-traders`,
 				s.handleGetTraderConfig)
 			s.routeWithSchema(protected, "POST", "/traders", "Create a new AI trader",
-				`Body: {"name":"<string, required>","ai_model_id":"<EXACT id field from GET /api/models — e.g. 'abc123_deepseek', NOT the provider name 'deepseek'>","exchange_id":"<EXACT id field from GET /api/exchanges — e.g. '05785d3b-841e-...', NOT the type name>","strategy_id":"<EXACT id field from GET /api/strategies>","scan_interval_minutes":<int, default 3, minimum 3>}
+				`Body: {"name":"<string, required>","ai_model_id":"<EXACT id field from GET /api/models — e.g. 'abc123_deepseek', NOT the provider name 'deepseek'>","exchange_id":"<EXACT id field from GET /api/exchanges — e.g. '05785d3b-841e-...', NOT the type name>","strategy_id":"<EXACT id field from GET /api/strategies>","scan_interval_minutes":<int, default 3, 3..60>}
 IMPORTANT: ai_model_id and exchange_id must be the full "id" value from the Account State, not the provider/type name.`,
 				s.handleCreateTrader)
 			s.routeWithSchema(protected, "PUT", "/traders/:id", "Update trader configuration",
 				`:id = trader_id from GET /api/my-traders
-Body: {"name":"<string>","ai_model_id":"<EXACT id from GET /api/models>","exchange_id":"<EXACT id from GET /api/exchanges>","strategy_id":"<EXACT id from GET /api/strategies>","scan_interval_minutes":<int, min 3>,"is_cross_margin":<bool>}
+Body: {"name":"<string>","ai_model_id":"<EXACT id from GET /api/models>","exchange_id":"<EXACT id from GET /api/exchanges>","strategy_id":"<EXACT id from GET /api/strategies>","scan_interval_minutes":<int, 3..60>,"is_cross_margin":<bool>}
 Only include fields you want to change.`,
 				s.handleUpdateTrader)
 			s.routeWithSchema(protected, "DELETE", "/traders/:id", "Delete trader",
@@ -337,6 +337,7 @@ CRITICAL: Always use the "id" field for strategy_id.`,
 				`No parameters needed. Returns a complete StrategyConfig object with all fields populated with recommended defaults. Read this before building a custom config.`,
 				s.handleGetDefaultStrategyConfig)
 			s.route(protected, "POST", "/strategies/preview-prompt", "Preview the AI prompt that will be generated from a config", s.handlePreviewPrompt)
+			s.route(protected, "POST", "/strategies/effective-config", "Resolve a strategy config: every effective trading value with its source (config/default/safety_limit)", s.handleEffectiveConfig)
 			s.route(protected, "POST", "/strategies/test-run", "Test-run strategy AI analysis", s.handleStrategyTestRun)
 			s.route(protected, "GET", "/strategies/:id", "Get strategy by ID", s.handleGetStrategy)
 			s.routeWithSchema(protected, "POST", "/strategies", "Create a new trading strategy",
