@@ -458,12 +458,6 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 		},
 		Reviewable: []hunterV7TierRule{
 			{
-				MinAIPriority: 45, MinSetupScore: 65, MinTimingScore: 35, RiskBelow: 45, MinLiquidity: 50,
-				Taker:      hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
-				RequireAll: []string{"reviewable_floor_rescue"},
-				Reason:     "panic_reversal_reviewable_floor_live_confirm",
-			},
-			{
 				MinAIPriority: 50, MinSetupScore: 55, MinTimingScore: 30, RiskBelow: 55, MinLiquidity: 50,
 				Taker:  hunterV7TakerGate{Kind: "confirmed_at_least", Threshold: 0.52},
 				Guards: []func(CandidateCoin) bool{hunterV7PanicReversalHasHighWinReclaim},

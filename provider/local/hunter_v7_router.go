@@ -421,21 +421,7 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 	if minPriority <= 0 {
 		minPriority = 55
 	}
-	fallbackMinPriority := cfg.FallbackMinAIPriority
-	if fallbackMinPriority <= 0 || fallbackMinPriority >= minPriority {
-		fallbackMinPriority = minPriority - 10
-	}
-	if fallbackMinPriority < 0 {
-		fallbackMinPriority = 0
-	}
-	minOutput := cfg.MinOutput
-	if minOutput <= 0 {
-		minOutput = 3
-	}
 	maxOutput := cfg.MaxOutput
-	if maxOutput > 0 && minOutput > maxOutput {
-		minOutput = maxOutput
-	}
 
 	eligible := make([]V7SignalOutput, 0, len(signals))
 	for _, sig := range signals {
@@ -449,23 +435,20 @@ func filterV7SignalsForLLM(signals []V7SignalOutput, cfg V7Config) []V7SignalOut
 	})
 
 	filtered := make([]V7SignalOutput, 0, len(eligible))
-	used := make([]bool, len(eligible))
-	for i, sig := range eligible {
+	for _, sig := range eligible {
 		if sig.AIPriority >= minPriority || sig.Status == V7StatusConflictWatch {
 			filtered = append(filtered, sig)
-			used[i] = true
 		}
 	}
 
-	// #87 / AUD-A6 (owner decision 2026-11-25): no padding with WATCH-grade
-	// context rows to reach MinOutput. The LLM gets the actual results only,
-	// capped by MaxOutput (hunter_limit / v7_max_output, at most 10). The
-	// funnel target is the E+R count per round, logged by the kernel.
-	// minOutput still sizes the reviewable-floor rescue below (unchanged).
-
-	if !hasV7OpenReviewSignal(filtered) {
-		filtered = appendV7ReviewableFloorSignals(filtered, eligible, used, cfg, minOutput)
-	}
+	// #87 / AUD-A6 and #96 (owner decisions 2026-11-25): the LLM gets the
+	// actual results only, capped by MaxOutput (hunter_limit / v7_max_output,
+	// at most 10). There is no padding with WATCH-grade context rows to reach
+	// MinOutput, and no reviewable-floor rescue that promotes WATCH rows to
+	// WaitConfirm/NearConfirm when no open-review signal is present. A round
+	// with no open-review signal therefore sends only what passed, possibly
+	// nothing. The funnel target is the E+R count per round, logged by the
+	// kernel.
 
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].AIPriority > filtered[j].AIPriority
@@ -525,120 +508,6 @@ func applyV7CorrelationFilter(signals []V7SignalOutput, cfg V7Config) []V7Signal
 
 func v7SignalIdentity(sig V7SignalOutput) string {
 	return sig.Symbol + "\x00" + string(sig.SetupType) + "\x00" + string(sig.Direction)
-}
-
-func hasV7OpenReviewSignal(signals []V7SignalOutput) bool {
-	for _, sig := range signals {
-		switch sig.ExecutionQuality {
-		case V7ExecReady, V7ExecNearConfirm:
-			if sig.Status != V7StatusFiltered && sig.RiskScore < 65 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func appendV7ReviewableFloorSignals(filtered, eligible []V7SignalOutput, used []bool, cfg V7Config, minOutput int) []V7SignalOutput {
-	if minOutput <= 0 {
-		minOutput = 1
-	}
-	maxRescue := 1
-	if cfg.Aggressive && minOutput >= 3 {
-		maxRescue = 2
-	}
-
-	rescued := 0
-	for i := range filtered {
-		if rescued >= maxRescue {
-			break
-		}
-		if !isV7ReviewableFloorCandidate(filtered[i]) {
-			continue
-		}
-		filtered[i] = promoteV7ReviewableFloorSignal(filtered[i], cfg)
-		rescued++
-	}
-
-	for i, sig := range eligible {
-		if rescued >= maxRescue {
-			break
-		}
-		if i < len(used) && used[i] {
-			continue
-		}
-		if !isV7ReviewableFloorCandidate(sig) {
-			continue
-		}
-
-		sig = promoteV7ReviewableFloorSignal(sig, cfg)
-		filtered = append(filtered, sig)
-		if i < len(used) {
-			used[i] = true
-		}
-		rescued++
-	}
-
-	return filtered
-}
-
-func promoteV7ReviewableFloorSignal(sig V7SignalOutput, cfg V7Config) V7SignalOutput {
-	sig.Status = V7StatusWaitConfirm
-	sig.ExecutionQuality = V7ExecNearConfirm
-	sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "reviewable_floor_rescue")
-	sig.RiskTags = appendIfMissing(sig.RiskTags, "fallback_reviewable_needs_live_confirm")
-	sig.AIPriority = CalcAIPriority(&sig, cfg)
-	return sig
-}
-
-func isV7ReviewableFloorCandidate(sig V7SignalOutput) bool {
-	if sig.Status == V7StatusFiltered {
-		return false
-	}
-	switch sig.SetupType {
-	case V7SetupPreBreakoutWatch, V7SetupPreSqueezeWatch, V7SetupPreDistribution, V7SetupAccumulationWatch:
-		return false
-	}
-	switch sig.ExecutionQuality {
-	case V7ExecInvalidRR, V7ExecChaseRisk, V7ExecReady, V7ExecNearConfirm:
-		return false
-	}
-	if sig.RiskScore >= 55 {
-		return false
-	}
-	if sig.LiquidityScore > 0 && sig.LiquidityScore < 50 {
-		return false
-	}
-	if sig.AIPriority < 40 {
-		return false
-	}
-
-	switch sig.SetupType {
-	case V7SetupFundingReversal:
-		if sig.Direction == V7DirShort {
-			return sig.TimingScore >= 60
-		}
-		return sig.TimingScore >= 65 && sig.Confidence != "C"
-	case V7SetupPanicReversalLong:
-		if sig.SetupScore >= 65 &&
-			sig.TimingScore >= 30 &&
-			containsV7String(sig.ReasonCodes, "strong_reclaim") &&
-			(containsV7String(sig.ReasonCodes, "selling_decelerating") ||
-				containsV7String(sig.ReasonCodes, "selling_exhaustion")) {
-			return true
-		}
-		return sig.SetupScore >= 65 &&
-			sig.TimingScore >= 35 &&
-			sig.RiskScore < 45 &&
-			!strings.EqualFold(sig.Confidence, "C") &&
-			(containsV7String(sig.ReasonCodes, "flow_taker_buy_strong") ||
-				containsV7String(sig.ReasonCodes, "flow_taker_buy_aggressive") ||
-				containsV7String(sig.ReasonCodes, "strong_reclaim"))
-	case V7SetupPullbackLong, V7SetupDistributionShort, V7SetupRangeReversion:
-		return sig.SetupScore >= 70 && sig.TimingScore >= 50
-	default:
-		return false
-	}
 }
 
 func logV7RouteDiagnostics(raw, confirmed, watches, out []V7SignalOutput, cfg V7Config) {
