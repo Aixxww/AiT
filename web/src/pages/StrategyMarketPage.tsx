@@ -14,9 +14,8 @@ import {
   Layers,
   Target,
   Activity,
-  Terminal,
-  Cpu,
   Database,
+  Search,
 } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -24,6 +23,7 @@ import { toast } from 'sonner'
 import { t } from '../i18n/translations'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { Button } from '../components/ui/Button'
+import { InfoTip } from '../components/ui/InfoTip'
 
 interface PublicStrategy {
   id: string
@@ -46,8 +46,6 @@ const strategyStyles: Record<
   {
     color: string
     border: string
-    glow: string
-    shadow: string
     icon: any
     bg: string
   }
@@ -55,50 +53,36 @@ const strategyStyles: Record<
   scalper: {
     color: 'text-primary',
     border: 'border-primary/30',
-    glow: 'shadow-md',
-    shadow: 'hover:shadow-md',
     bg: 'bg-primary-dim',
     icon: Zap,
   },
   swing: {
     color: 'text-accent',
     border: 'border-accent/30',
-    glow: 'shadow-md',
-    shadow: 'hover:shadow-md',
     bg: 'bg-accent/5',
     icon: TrendingUp,
   },
   arbitrage: {
     color: 'text-accent-purple',
     border: 'border-accent-purple/30',
-    glow: 'shadow-md',
-    shadow: 'hover:shadow-md',
     bg: 'bg-accent-purple/5',
     icon: Layers,
   },
   conservative: {
     color: 'text-profit',
     border: 'border-profit/30',
-    glow: 'shadow-[0_0_20px_color-mix(in_srgb,var(--color-profit)_15%,transparent)]',
-    shadow:
-      'hover:shadow-[0_0_30px_color-mix(in_srgb,var(--color-profit)_25%,transparent)]',
     bg: 'bg-profit/5',
     icon: Shield,
   },
   aggressive: {
     color: 'text-loss',
     border: 'border-loss/30',
-    glow: 'shadow-md',
-    shadow: 'hover:shadow-md',
     bg: 'bg-loss/5',
     icon: Target,
   },
   default: {
     color: 'text-muted-foreground',
     border: 'border-border',
-    glow: '',
-    shadow:
-      'hover:shadow-[0_0_20px_color-mix(in_srgb,var(--color-foreground)_5%,transparent)]',
     bg: 'bg-surface-alt/20',
     icon: Activity,
   },
@@ -167,19 +151,15 @@ export function StrategyMarketPage() {
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date
-      .toLocaleDateString('en-US', {
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString(
+      language === 'zh' ? 'zh-CN' : 'en-US',
+      {
         year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-      .replace(',', '')
-  }
+        month: 'short',
+        day: 'numeric',
+      }
+    )
 
   const getIndicatorList = (config: any) => {
     if (!config?.indicators) return []
@@ -196,368 +176,240 @@ export function StrategyMarketPage() {
   }
 
   return (
-    <DeepVoidBackground className="min-h-screen text-foreground font-mono py-12">
-      <div className="w-full px-4 md:px-8 space-y-8">
-        <div className="w-full relative z-10">
-          {/* Header Section */}
-          <div className="mb-12 border-b border-border pb-8 relative">
-            <div className="absolute top-0 right-0 p-2 border border-border rounded bg-black/50 text-xs text-muted-foreground font-mono hidden md:block">
-              SYSTEM_STATUS:{' '}
-              <span className="text-profit animate-pulse">ONLINE</span>
-              <br />
-              MARKET_UPLINK: <span className="text-profit">ESTABLISHED</span>
-            </div>
-
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-surface border border-border p-3 rounded-none relative group overflow-hidden">
-                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <Database className="w-8 h-8 text-primary relative z-10" />
-              </div>
-              <div>
-                <h1
-                  className="text-4xl font-bold tracking-tighter text-foreground uppercase glitch-text"
-                  data-text={tr('title')}
-                >
-                  {tr('title')}
-                </h1>
-                <p className="text-xs text-primary tracking-[0.3em] font-bold mt-1">
-                  {'// '}
-                  {tr('subtitle')}
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground max-w-2xl border-l-2 border-border pl-4">
+    <DeepVoidBackground className="min-h-screen text-foreground py-6 sm:py-10">
+      <div className="ait-page space-y-6">
+        {/* Header */}
+        <header className="flex items-start gap-3">
+          <div className="ait-card-inset p-2.5 shrink-0">
+            <Database className="w-6 h-6 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="t-title">{tr('title')}</h1>
+            <p className="t-body text-muted-foreground mt-1">
               {tr('description')}
             </p>
           </div>
+        </header>
 
-          {/* Search and Filter Bar */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
-            {/* Search */}
-            <div className="relative flex-1 group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-muted/20 rounded opacity-0 group-hover:opacity-100 transition duration-500 blur"></div>
-              <div className="relative bg-background flex items-center border border-border group-hover:border-border-hover transition-colors">
-                <div className="pl-4 pr-3 text-muted-foreground group-hover:text-primary transition-colors">
-                  <Terminal size={16} />
-                </div>
-                <input
-                  type="text"
-                  placeholder={tr('search')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent py-3 text-sm focus:outline-none placeholder-disabled-fg text-primary font-mono"
-                />
-                <div className="pr-4">
-                  <div className="w-2 h-4 bg-primary animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Category Filter */}
-            <div className="flex gap-2 bg-surface/50 p-1 border border-border">
-              {['all', 'popular', 'recent'].map((cat) => (
-                <Button
-                  variant="unstyled"
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 text-xs font-mono uppercase tracking-wider transition-all relative overflow-hidden ${
-                    selectedCategory === cat
-                      ? 'text-primary-foreground font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {selectedCategory === cat && (
-                    <motion.div
-                      layoutId="filter-highlight"
-                      className="absolute inset-0 bg-primary"
-                      transition={{
-                        type: 'spring',
-                        bounce: 0.2,
-                        duration: 0.6,
-                      }}
-                    />
-                  )}
-                  <span className="relative z-10">{tr(cat)}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-32 space-y-4">
-              <div className="relative w-16 h-16">
-                <div className="absolute inset-0 border-2 border-border rounded-full"></div>
-                <div className="absolute inset-0 border-2 border-primary rounded-full border-t-transparent animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Cpu size={24} className="text-primary/50" />
-                </div>
-              </div>
-              <p className="text-primary text-xs tracking-widest animate-pulse">
-                {tr('loading')}
-              </p>
-              <div className="flex gap-1">
-                <div
-                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
-                  style={{ animationDelay: '0s' }}
-                ></div>
-                <div
-                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
-                  style={{ animationDelay: '0.2s' }}
-                ></div>
-                <div
-                  className="w-1 h-1 bg-primary rounded-full animate-bounce"
-                  style={{ animationDelay: '0.4s' }}
-                ></div>
-              </div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && filteredStrategies.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-32 border border-border border-dashed bg-surface/20 rounded">
-              <div className="relative mb-6">
-                <div className="absolute -inset-4 bg-loss-bg rounded-full blur-xl animate-pulse"></div>
-                <Activity className="w-16 h-16 text-disabled-fg relative z-10" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground font-mono tracking-tight mb-2">
-                [{tr('noStrategies')}]
-              </h3>
-              <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                {tr('noStrategiesDesc')}
-              </p>
-            </div>
-          )}
-
-          {/* Strategy Grid */}
-          {!isLoading && filteredStrategies.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AnimatePresence>
-                {filteredStrategies.map((strategy, i) => {
-                  const style = getStrategyStyle(strategy.name)
-                  const Icon = style.icon
-                  const indicators =
-                    strategy.config_visible && strategy.config
-                      ? getIndicatorList(strategy.config)
-                      : []
-
-                  return (
-                    <motion.div
-                      key={strategy.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ delay: i * 0.05 }}
-                      className={`group relative bg-background border border-border hover:border-border-hover transition-all duration-300 ${style.shadow}`}
-                    >
-                      {/* Holographic Border Highlight */}
-                      <div
-                        className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-${style.color.split('-')[1]}-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
-                      ></div>
-                      <div
-                        className={`absolute bottom-0 right-0 w-full h-[1px] bg-gradient-to-r from-transparent via-${style.color.split('-')[1]}-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
-                      ></div>
-
-                      {/* Category Side Strip */}
-                      <div
-                        className={`absolute left-0 top-0 bottom-0 w-[2px] ${style.bg.replace('/5', '/50')}`}
-                      ></div>
-
-                      <div className="p-6 relative">
-                        {/* Header */}
-                        <div className="flex justify-between items-start mb-6">
-                          <div
-                            className={`p-2 rounded-none border ${style.border} ${style.bg}`}
-                          >
-                            <Icon className={`w-5 h-5 ${style.color}`} />
-                          </div>
-                          <div className="text-[10px] font-mono">
-                            {strategy.config_visible ? (
-                              <div className="flex items-center gap-1.5 text-profit border border-profit-border bg-profit-bg px-2 py-1">
-                                <Eye size={10} />
-                                PUBLIC_ACCESS
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-muted-foreground border border-border bg-surface px-2 py-1">
-                                <EyeOff size={10} />
-                                RESTRICTED
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Name and Description */}
-                        <h3
-                          className={`text-lg font-bold mb-2 tracking-tight group-hover:${style.color} transition-colors uppercase truncate relative`}
-                        >
-                          {strategy.name}
-                          <span className="absolute -bottom-1 left-0 w-8 h-[2px] bg-surface-alt group-hover:bg-primary transition-colors"></span>
-                        </h3>
-                        <p className="text-xs text-muted-foreground mb-6 line-clamp-2 h-8 leading-relaxed font-sans">
-                          {strategy.description || 'NO_DESCRIPTION_AVAILABLE'}
-                        </p>
-
-                        {/* Meta Data */}
-                        <div className="grid grid-cols-2 gap-y-2 mb-6 text-[10px] font-mono text-muted-foreground">
-                          <div className="flex flex-col">
-                            <span className="text-disabled-fg uppercase">
-                              {tr('author')}
-                            </span>
-                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                              @
-                              {strategy.author_email?.split('@')[0] ||
-                                'UNKNOWN'}
-                            </span>
-                          </div>
-                          <div className="flex flex-col text-right">
-                            <span className="text-disabled-fg uppercase">
-                              {tr('createdAt')}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {formatDate(strategy.created_at)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Config / Indicators */}
-                        <div className="bg-surface/30 border border-border/50 p-3 mb-4 backdrop-blur-sm min-h-[90px]">
-                          {strategy.config_visible && strategy.config ? (
-                            <div className="space-y-3">
-                              {/* Indicators */}
-                              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-                                {indicators.length > 0 ? (
-                                  indicators.map((ind) => (
-                                    <span
-                                      key={ind}
-                                      className="px-1.5 py-0.5 border border-border bg-surface-alt text-[9px] text-foreground font-mono whitespace-nowrap"
-                                    >
-                                      {ind}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-[9px] text-muted-foreground">
-                                    NO_INDICATORS
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Risk Control */}
-                              {strategy.config.risk_control && (
-                                <div className="flex justify-between items-center text-[10px]">
-                                  <div className="flex gap-3">
-                                    <div className="flex flex-col">
-                                      <span className="text-muted-foreground scale-90 origin-left">
-                                        LEV
-                                      </span>
-                                      <span className="text-foreground font-bold">
-                                        {strategy.config.risk_control
-                                          .btc_eth_max_leverage || '-'}
-                                        x
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-muted-foreground scale-90 origin-left">
-                                        POS
-                                      </span>
-                                      <span className="text-foreground font-bold">
-                                        {strategy.config.risk_control
-                                          .max_positions || '-'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <Activity
-                                    size={12}
-                                    className="text-disabled-fg"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                              <EyeOff size={16} className="mb-1 opacity-50" />
-                              <span className="text-[9px] uppercase tracking-widest">
-                                {tr('configHiddenDesc')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Button */}
-                        <div>
-                          {strategy.config_visible && strategy.config ? (
-                            <Button
-                              variant="unstyled"
-                              onClick={() => handleCopyConfig(strategy)}
-                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-black hover:bg-surface text-foreground hover:text-primary hover:border-primary transition-all flex items-center justify-center gap-2 group/btn"
-                            >
-                              {copiedId === strategy.id ? (
-                                <>
-                                  <Check className="w-3 h-3 text-profit" />
-                                  <span className="text-profit">
-                                    {tr('copied')}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3 group-hover/btn:scale-110 transition-transform" />
-                                  {tr('copyConfig')}
-                                </>
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="unstyled"
-                              disabled
-                              className="w-full py-2.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-border bg-background text-disabled-fg cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                              <Shield size={12} />
-                              {tr('hideConfig')}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* CTA - Share Strategy */}
-          {user && token && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-16 mb-20 flex justify-center"
-            >
-              <div
-                className="relative group cursor-pointer"
-                onClick={() => navigate('/strategy')}
+        {/* Search and filter */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <label className="relative flex-1 block">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder={tr('search')}
+              aria-label={tr('search')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-control py-2.5 pl-9 pr-3 text-sm"
+            />
+          </label>
+          <div className="ait-segmented self-start" role="group">
+            {['all', 'popular', 'recent'].map((cat) => (
+              <button
+                type="button"
+                key={cat}
+                aria-pressed={selectedCategory === cat}
+                onClick={() => setSelectedCategory(cat)}
               >
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary/60 rounded blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                <div className="relative px-8 py-4 bg-background border border-border hover:border-border-hover flex items-center gap-4 transition-all">
-                  <Hexagon
-                    className="text-primary animate-spin-slow"
-                    size={24}
-                  />
-                  <div className="text-left">
-                    <div className="text-sm font-bold text-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
-                      {tr('shareYours')}
+                {tr(cat)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
+            <div className="w-8 h-8 border-2 border-border border-t-primary rounded-full animate-spin" />
+            <p className="t-caption">{tr('loading')}</p>
+          </div>
+        )}
+
+        {/* Empty */}
+        {!isLoading && filteredStrategies.length === 0 && (
+          <div className="ait-card flex flex-col items-center justify-center py-20 px-6 text-center border-dashed">
+            <Activity className="w-10 h-10 text-muted-foreground mb-4" />
+            <h3 className="t-headline mb-1">{tr('noStrategies')}</h3>
+            <p className="t-body text-muted-foreground">
+              {tr('noStrategiesDesc')}
+            </p>
+          </div>
+        )}
+
+        {/* Strategy grid */}
+        {!isLoading && filteredStrategies.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {filteredStrategies.map((strategy, i) => {
+                const style = getStrategyStyle(strategy.name)
+                const Icon = style.icon
+                const visible = strategy.config_visible && strategy.config
+                const indicators = visible
+                  ? getIndicatorList(strategy.config)
+                  : []
+
+                return (
+                  <motion.div
+                    key={strategy.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ delay: Math.min(i, 8) * 0.04 }}
+                    className="ait-card p-5 flex flex-col gap-4 hover:border-border-hover transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`p-2 rounded-control border shrink-0 ${style.border} ${style.bg}`}
+                        >
+                          <Icon className={`w-4 h-4 ${style.color}`} />
+                        </div>
+                        <h3 className="t-headline truncate">{strategy.name}</h3>
+                      </div>
+                      {visible ? (
+                        <span className="ait-pill bg-profit-bg text-profit shrink-0">
+                          <Eye size={12} />
+                          {tr('configPublic')}
+                        </span>
+                      ) : (
+                        <InfoTip content={tr('configHiddenDesc')}>
+                          <button
+                            type="button"
+                            className="ait-pill bg-surface-alt text-muted-foreground shrink-0 cursor-help"
+                          >
+                            <EyeOff size={12} />
+                            {tr('configPrivate')}
+                          </button>
+                        </InfoTip>
+                      )}
                     </div>
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                      CONTRIBUTE TO THE GLOBAL DATABASE
+
+                    <p className="t-body text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                      {strategy.description || tr('noDescription')}
+                    </p>
+
+                    <dl className="grid grid-cols-2 gap-2 t-caption">
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {tr('author')}
+                        </dt>
+                        <dd className="text-foreground truncate">
+                          {strategy.author_email
+                            ? '@' + strategy.author_email.split('@')[0]
+                            : tr('unknownAuthor')}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-muted-foreground">
+                          {tr('createdAt')}
+                        </dt>
+                        <dd className="text-foreground t-num">
+                          {formatDate(strategy.created_at)}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {visible && (
+                      <div className="ait-card-inset p-3 space-y-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {indicators.length > 0 ? (
+                            indicators.map((ind) => (
+                              <span
+                                key={ind}
+                                className="ait-pill bg-panel border border-border text-foreground"
+                              >
+                                {ind}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="t-caption text-muted-foreground">
+                              {tr('noIndicators')}
+                            </span>
+                          )}
+                        </div>
+                        {strategy.config.risk_control && (
+                          <div className="flex gap-6 t-caption">
+                            <div>
+                              <div className="text-muted-foreground">
+                                {tr('leverageShort')}
+                              </div>
+                              <div className="t-num text-foreground font-semibold">
+                                {strategy.config.risk_control
+                                  .btc_eth_max_leverage
+                                  ? `${strategy.config.risk_control.btc_eth_max_leverage}x`
+                                  : '-'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">
+                                {tr('positionsShort')}
+                              </div>
+                              <div className="t-num text-foreground font-semibold">
+                                {strategy.config.risk_control.max_positions ||
+                                  '-'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-auto">
+                      {visible ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleCopyConfig(strategy)}
+                          className="w-full"
+                        >
+                          {copiedId === strategy.id ? (
+                            <>
+                              <Check className="w-4 h-4 text-profit" />
+                              <span className="text-profit">
+                                {tr('copied')}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              {tr('copyConfig')}
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" disabled className="w-full">
+                          <Shield className="w-4 h-4" />
+                          {tr('configHidden')}
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                  <div className="w-[1px] h-8 bg-surface-alt mx-2"></div>
-                  <div className="text-xs font-mono text-muted-foreground group-hover:translate-x-1 transition-transform">
-                    INITIALIZE_UPLOAD -&gt;
-                  </div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Share CTA */}
+        {user && token && (
+          <div className="ait-card p-5 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+            <div className="flex items-center gap-3">
+              <Hexagon className="text-primary shrink-0" size={22} />
+              <div>
+                <div className="t-label">{tr('shareYours')}</div>
+                <div className="t-caption text-muted-foreground">
+                  {tr('shareYoursDesc')}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </div>
+            </div>
+            <Button variant="primary" onClick={() => navigate('/strategy')}>
+              {tr('openStudio')}
+            </Button>
+          </div>
+        )}
       </div>
     </DeepVoidBackground>
   )

@@ -11,6 +11,8 @@ import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { RegistrationDisabled } from './RegistrationDisabled'
 import { WhitelistFullPage } from '../common/WhitelistFullPage'
 import { Button } from '../ui/Button'
+import { InfoTip } from '../ui/InfoTip'
+import { LanguageSwitcher } from '../common/LanguageSwitcher'
 
 export function RegisterPage() {
   const { language } = useLanguage()
@@ -115,150 +117,113 @@ export function RegisterPage() {
     }
   }
 
+  const inputClass =
+    'w-full bg-background/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all'
+  const pwToggle = (shown: boolean, toggle: () => void) => (
+    <Button
+      variant="unstyled"
+      type="button"
+      onClick={toggle}
+      aria-label={
+        shown
+          ? t('auth.hidePassword', language)
+          : t('auth.showPassword', language)
+      }
+      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {shown ? <EyeOff size={16} /> : <Eye size={16} />}
+    </Button>
+  )
+
   return (
-    <DeepVoidBackground className="min-h-screen flex items-center justify-center py-12 font-mono">
-      <div className="w-full max-w-lg relative z-10 px-6">
-        <div className="flex justify-between items-center mb-8">
-          <Button
-            variant="unstyled"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group px-3 py-1.5 rounded border border-transparent hover:border-border bg-black/20 backdrop-blur-sm"
-          >
-            <div className="w-2 h-2 rounded-full bg-loss group-hover:animate-pulse"></div>
-            <span className="text-xs font-mono uppercase tracking-widest">
-              &lt; ABORT_REGISTRATION
-            </span>
-          </Button>
-        </div>
-
-        <div className="mb-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute -inset-2 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
-              <img
-                src="/icons/ait.svg"
-                alt="AiT Logo"
-                className="w-16 h-16 object-contain relative z-10 opacity-90"
-              />
+    <DeepVoidBackground>
+      <LanguageSwitcher />
+      <div className="flex-1 flex items-center justify-center px-4 py-16">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-5">
+              <img src="/icons/ait.svg" alt="" className="w-14 h-14" />
             </div>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tighter text-foreground uppercase mb-2">
-            <span className="text-primary">NEW_USER</span> ONBOARDING
-          </h1>
-          <p className="text-muted-foreground text-xs tracking-[0.2em] uppercase">
-            Initializing Registration Sequence...
-          </p>
-        </div>
-
-        <div className="bg-surface/40 backdrop-blur-md border border-border rounded-lg overflow-hidden shadow-2xl relative group">
-          <div className="absolute inset-0 bg-surface/50 opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none"></div>
-
-          <div className="flex items-center justify-between px-4 py-2 bg-surface/80 border-b border-border">
-            <div className="flex gap-1.5">
-              <div
-                className="w-2.5 h-2.5 rounded-full bg-loss/50 hover:bg-loss cursor-pointer transition-colors"
-                onClick={() => navigate('/')}
-                title="Close / Return Home"
-              ></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-warning/50"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-profit/50"></div>
-            </div>
-            <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
-              <span className="text-profit">$</span> setup_account.sh
-            </div>
+            <h1 className="t-title mb-1.5">
+              {t('auth.registerTitle', language)}
+            </h1>
+            <p className="t-caption text-muted-foreground">
+              {t('auth.registerSubtitle', language)}
+            </p>
           </div>
 
-          <div className="p-6 md:p-8 relative">
-            <div className="mb-6 font-mono text-xs space-y-1 text-muted-foreground border-b border-border/50 pb-4">
-              <div className="flex gap-2">
-                <span className="text-profit">$</span>
-                <span>
-                  System Check: <span className="text-profit">READY</span>
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <span className="text-profit">$</span>
-                <span>Mode: {betaMode ? 'CLOSED_BETA CA1' : 'PUBLIC'}</span>
-              </div>
-            </div>
-
+          <div className="ait-card p-6 sm:p-8 shadow-e2">
             <form onSubmit={handleRegister} className="space-y-5">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5 ml-1 font-bold">
+                <label
+                  htmlFor="register-email"
+                  className="block t-caption text-muted-foreground mb-2"
+                >
                   {t('email', language)}
                 </label>
                 <input
+                  id="register-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-muted-foreground/40 text-foreground font-mono"
-                  placeholder="user@ait.os"
+                  className={inputClass}
+                  placeholder="you@example.com"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5 ml-1 font-bold">
+                  <label
+                    htmlFor="register-password"
+                    className="block t-caption text-muted-foreground mb-2"
+                  >
                     {t('password', language)}
                   </label>
                   <div className="relative">
                     <input
+                      id="register-password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-muted-foreground/40 text-foreground font-mono pr-10"
+                      className={inputClass + ' pr-11'}
                       placeholder="••••••••"
                       required
                     />
-                    <Button
-                      variant="unstyled"
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </Button>
+                    {pwToggle(showPassword, () =>
+                      setShowPassword(!showPassword)
+                    )}
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5 ml-1 font-bold">
+                  <label
+                    htmlFor="register-confirm"
+                    className="block t-caption text-muted-foreground mb-2"
+                  >
                     {t('confirmPassword', language)}
                   </label>
                   <div className="relative">
                     <input
+                      id="register-confirm"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-muted-foreground/40 text-foreground font-mono pr-10"
+                      className={inputClass + ' pr-11'}
                       placeholder="••••••••"
                       required
                     />
-                    <Button
-                      variant="unstyled"
-                      type="button"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff size={16} />
-                      ) : (
-                        <Eye size={16} />
-                      )}
-                    </Button>
+                    {pwToggle(showConfirmPassword, () =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-surface/50 p-3 rounded border border-border/50">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-bold flex items-center gap-2">
-                  <div className="w-1 h-1 rounded-full bg-muted"></div>
-                  Password Strength Protocol
+              <div className="ait-card-inset p-3">
+                <div className="t-micro text-muted-foreground mb-2">
+                  {t('auth.passwordRules', language)}
                 </div>
-                <div className="text-xs font-mono text-muted-foreground">
+                <div className="t-caption text-muted-foreground">
                   <PasswordChecklist
                     rules={[
                       'minLength',
@@ -279,7 +244,7 @@ export function RegisterPage() {
                       specialChar: t('passwordRuleSpecial', language),
                       match: t('passwordRuleMatch', language),
                     }}
-                    className="grid grid-cols-2 gap-x-4 gap-y-1"
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1"
                     onChange={(isValid) => setPasswordValid(isValid)}
                     iconSize={10}
                   />
@@ -288,10 +253,17 @@ export function RegisterPage() {
 
               {betaMode && (
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-primary mb-1.5 ml-1 font-bold">
-                    Priority Access Code
-                  </label>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <label
+                      htmlFor="register-beta"
+                      className="t-caption text-muted-foreground"
+                    >
+                      {t('auth.betaCode', language)}
+                    </label>
+                    <InfoTip content={t('auth.betaCodeInfo', language)} />
+                  </div>
                   <input
+                    id="register-beta"
                     type="text"
                     value={betaCode}
                     onChange={(e) =>
@@ -299,21 +271,21 @@ export function RegisterPage() {
                         e.target.value.replace(/[^a-z0-9]/gi, '').toLowerCase()
                       )
                     }
-                    className="w-full bg-black/50 border border-border rounded px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder-muted-foreground/40 text-foreground font-mono tracking-widest"
-                    placeholder="XXXXXX"
+                    className={inputClass + ' t-num tracking-widest'}
+                    placeholder="••••••"
                     maxLength={6}
                     required={betaMode}
                   />
-                  <p className="text-[10px] text-muted-foreground font-mono mt-1 ml-1">
-                    * CASE SENSITIVE ALPHANUMERIC
+                  <p className="t-micro text-muted-foreground mt-1">
+                    {t('auth.betaCodeHint', language)}
                   </p>
                 </div>
               )}
 
               {error && (
-                <div className="text-xs bg-loss/10 border border-loss/30 text-loss px-3 py-2 rounded font-mono">
-                  [REGISTRATION_ERROR]: {error}
-                </div>
+                <p className="text-xs text-loss bg-loss/10 border border-loss/20 rounded-lg px-3 py-2">
+                  {error}
+                </p>
               )}
 
               <Button
@@ -322,46 +294,34 @@ export function RegisterPage() {
                 disabled={
                   loading || (betaMode && !betaCode.trim()) || !passwordValid
                 }
-                className="w-full bg-primary text-primary-foreground font-bold py-3 px-4 rounded text-sm tracking-wide uppercase hover:bg-primary/90 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed font-mono flex items-center justify-center gap-2 group mt-4"
+                className="w-full bg-primary hover:opacity-90 active:scale-[0.98] text-primary-foreground font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? (
-                  <span className="animate-pulse">INITIALIZING...</span>
-                ) : (
-                  <>
-                    <span>CREATE_ACCOUNT</span>
-                    <span className="group-hover:translate-x-1 transition-transform">
-                      -&gt;
-                    </span>
-                  </>
-                )}
+                {loading
+                  ? t('auth.creating', language)
+                  : t('auth.createAccount', language)}
               </Button>
             </form>
           </div>
 
-          <div className="bg-surface/50 p-3 flex justify-between items-center text-[10px] font-mono text-muted-foreground border-t border-border">
-            <div>ENCRYPTION: AES-256</div>
-            <div>SECURE_REGISTRY</div>
-          </div>
-        </div>
-
-        <div className="text-center mt-8 space-y-4">
-          <p className="text-xs font-mono text-muted-foreground">
-            EXISTING_OPERATOR?{' '}
+          <div className="text-center mt-6 space-y-2 t-caption text-muted-foreground">
+            <p>
+              {t('auth.haveAccount', language)}{' '}
+              <Button
+                variant="unstyled"
+                onClick={() => navigate('/login')}
+                className="text-primary hover:underline"
+              >
+                {t('auth.goSignIn', language)}
+              </Button>
+            </p>
             <Button
               variant="unstyled"
-              onClick={() => navigate('/login')}
-              className="text-primary hover:underline hover:text-primary/80 transition-colors ml-1 uppercase"
+              onClick={() => navigate('/')}
+              className="hover:text-foreground"
             >
-              ACCESS TERMINAL
+              {t('auth.backHome', language)}
             </Button>
-          </p>
-          <Button
-            variant="unstyled"
-            onClick={() => navigate('/')}
-            className="text-[10px] text-muted-foreground hover:text-loss transition-colors uppercase tracking-widest hover:underline decoration-loss/30 font-mono"
-          >
-            [ ABORT_REGISTRATION_RETURN_HOME ]
-          </Button>
+          </div>
         </div>
       </div>
     </DeepVoidBackground>

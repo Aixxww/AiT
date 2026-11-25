@@ -121,7 +121,13 @@ function StatCard({
 }
 
 // Symbol Stats Row
-function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
+function SymbolStatsRow({
+  stat,
+  language,
+}: {
+  stat: SymbolStats
+  language: Language
+}) {
   const totalPnl = stat.total_pnl || 0
   const winRate = stat.win_rate || 0
   const pnlColor = totalPnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
@@ -142,12 +148,16 @@ function SymbolStatsRow({ stat }: { stat: SymbolStats }) {
           {(stat.symbol || '').replace('USDT', '')}
         </span>
         <span className="text-xs text-muted-foreground">
-          {stat.total_trades || 0} trades
+          {t('positionHistory.tradesCount', language, {
+            n: stat.total_trades || 0,
+          })}
         </span>
       </div>
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <div className="text-xs text-muted-foreground">Win Rate</div>
+          <div className="text-xs text-muted-foreground">
+            {t('positionHistory.winRateShort', language)}
+          </div>
           <div
             className="font-mono font-semibold"
             style={{ color: winRateColor }}
@@ -737,7 +747,11 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
           </div>
           <div className="space-y-1">
             {symbolStats.slice(0, 10).map((stat) => (
-              <SymbolStatsRow key={stat.symbol} stat={stat} />
+              <SymbolStatsRow
+                key={stat.symbol}
+                stat={stat}
+                language={language as Language}
+              />
             ))}
           </div>
         </div>
@@ -955,7 +969,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             {/* Page size selector */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
-                {language === 'zh' ? '每页' : 'Per page'}:
+                {t('positionHistory.perPage', language as Language)}:
               </span>
               <AiTSelect
                 value={pageSize}

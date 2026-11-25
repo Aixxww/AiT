@@ -54,7 +54,7 @@ export function ConfigStatusGrid({
   const getExchangeStateMeta = (state: ExchangeAccountState | undefined) => {
     if (!state) {
       return {
-        label: language === 'zh' ? '未检查' : 'NOT CHECKED',
+        label: t('configGrid.notChecked', language),
         className: 'text-muted-foreground border-border/80 bg-surface/40',
       }
     }
@@ -67,27 +67,27 @@ export function ConfigStatusGrid({
         }
       case 'disabled':
         return {
-          label: language === 'zh' ? '已禁用' : 'DISABLED',
+          label: t('configGrid.disabled', language),
           className: 'text-muted-foreground border-border/80 bg-surface/40',
         }
       case 'missing_credentials':
         return {
-          label: language === 'zh' ? '配置不完整' : 'INCOMPLETE',
+          label: t('configGrid.incomplete', language),
           className: 'text-warning border-warning/20 bg-warning/10',
         }
       case 'invalid_credentials':
         return {
-          label: language === 'zh' ? '密钥无效' : 'INVALID KEYS',
+          label: t('configGrid.invalidKeys', language),
           className: 'text-loss border-loss/20 bg-loss/10',
         }
       case 'permission_denied':
         return {
-          label: language === 'zh' ? '无余额权限' : 'NO PERMISSION',
+          label: t('configGrid.noPermission', language),
           className: 'text-warning border-warning/20 bg-warning/10',
         }
       default:
         return {
-          label: language === 'zh' ? '暂时无法获取' : 'UNAVAILABLE',
+          label: t('configGrid.unavailable', language),
           className: 'text-foreground border-border bg-surface-alt',
         }
     }
@@ -96,12 +96,10 @@ export function ConfigStatusGrid({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* AI Models Card */}
-      <div className="ait-glass rounded-lg border border-white/5 overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 bg-black/20 flex items-center gap-2 backdrop-blur-sm">
+      <div className="ait-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Brain className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-mono tracking-widest text-foreground uppercase">
-            {t('aiModels', language)}
-          </h3>
+          <h3 className="t-headline">{t('aiModels', language)}</h3>
         </div>
 
         <div className="p-4 space-y-3">
@@ -114,14 +112,14 @@ export function ConfigStatusGrid({
                 className={`group relative flex items-center justify-between p-3 rounded-md transition-all border border-transparent ${
                   inUse
                     ? 'opacity-80'
-                    : 'hover:bg-white/5 hover:border-white/10 cursor-pointer'
-                } bg-black/20`}
+                    : 'hover:bg-panel-hover hover:border-border-hover cursor-pointer'
+                } bg-surface-alt`}
                 onClick={() => onModelClick(model.id)}
               >
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-info/20 rounded-full blur-sm group-hover:bg-info/30 transition-all"></div>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-black border border-white/10 relative z-10">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-panel border border-border relative z-10">
                       {getModelIcon(model.provider || model.id, {
                         width: 20,
                         height: 20,
@@ -134,17 +132,17 @@ export function ConfigStatusGrid({
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-mono text-sm text-foreground group-hover:text-primary transition-colors">
+                    <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                       {getShortName(model.name)}
                     </div>
-                    <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
+                    <div className="t-caption text-muted-foreground flex items-center gap-2">
                       {model.customModelName ||
                         AI_PROVIDER_CONFIG[model.provider]?.defaultModel ||
                         ''}
                     </div>
                     {model.provider === 'claw402' &&
                     (model.balanceUsdc || model.walletAddress) ? (
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-mono">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 t-micro">
                         {model.balanceUsdc ? (
                           <span className="rounded border border-profit/20 bg-profit/10 px-1.5 py-0.5 text-profit">
                             {model.balanceUsdc} USDC
@@ -163,17 +161,20 @@ export function ConfigStatusGrid({
                 <div className="text-right">
                   {usageInfo.totalCount > 0 ? (
                     <span
-                      className={`text-[10px] font-mono px-2 py-1 rounded border ${
+                      className={`t-micro px-2 py-1 rounded-control border ${
                         usageInfo.runningCount > 0
                           ? 'bg-profit/10 border-profit/30 text-profit'
                           : 'bg-warning/10 border-warning/30 text-warning'
                       }`}
                     >
-                      {usageInfo.runningCount}/{usageInfo.totalCount} ACTIVE
+                      {t('configGrid.inUse', language, {
+                        running: usageInfo.runningCount,
+                        total: usageInfo.totalCount,
+                      })}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      {language === 'zh' ? '就绪' : 'STANDBY'}
+                    <span className="text-[11px] text-muted-foreground">
+                      {t('configGrid.standby', language)}
                     </span>
                   )}
                 </div>
@@ -182,9 +183,9 @@ export function ConfigStatusGrid({
           })}
 
           {configuredModels.length === 0 && (
-            <div className="text-center py-10 border border-dashed border-border rounded-lg bg-black/20">
+            <div className="text-center py-10 border border-dashed border-border rounded-card bg-surface-alt">
               <Brain className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
-              <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              <div className="t-body text-muted-foreground">
                 {t('noModelsConfigured', language)}
               </div>
             </div>
@@ -193,12 +194,10 @@ export function ConfigStatusGrid({
       </div>
 
       {/* Exchanges Card */}
-      <div className="ait-glass rounded-lg border border-white/5 overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 bg-black/20 flex items-center gap-2 backdrop-blur-sm">
+      <div className="ait-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Landmark className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-mono tracking-widest text-foreground uppercase">
-            {t('exchanges', language)}
-          </h3>
+          <h3 className="t-headline">{t('exchanges', language)}</h3>
         </div>
 
         <div className="p-4 space-y-3">
@@ -213,14 +212,14 @@ export function ConfigStatusGrid({
                 className={`group relative flex items-center justify-between p-3 rounded-md transition-all border border-transparent ${
                   inUse
                     ? 'opacity-80'
-                    : 'hover:bg-white/5 hover:border-white/10 cursor-pointer'
-                } bg-black/20`}
+                    : 'hover:bg-panel-hover hover:border-border-hover cursor-pointer'
+                } bg-surface-alt`}
                 onClick={() => onExchangeClick(exchange.id)}
               >
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="relative">
                     <div className="absolute inset-0 bg-warning/20 rounded-full blur-sm group-hover:bg-warning/30 transition-all"></div>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-black border border-white/10 relative z-10">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-panel border border-border relative z-10">
                       {getExchangeIcon(exchange.exchange_type || exchange.id, {
                         width: 20,
                         height: 20,
@@ -229,24 +228,22 @@ export function ConfigStatusGrid({
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-mono text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                    <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                       {exchange.exchange_type?.toUpperCase() ||
                         getShortName(exchange.name)}
                       <span className="text-[10px] text-muted-foreground ml-2 border border-border px-1 rounded">
                         {exchange.account_name || 'DEFAULT'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
+                    <div className="t-caption text-muted-foreground flex items-center gap-2">
                       {exchange.type?.toUpperCase() || 'CEX'}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 t-micro">
                       <span
                         className={`rounded border px-1.5 py-0.5 ${stateMeta.className}`}
                       >
                         {isExchangeAccountStatesLoading && !state
-                          ? language === 'zh'
-                            ? '检查中...'
-                            : 'CHECKING...'
+                          ? t('configGrid.checking', language)
                           : stateMeta.label}
                       </span>
                       {state?.status !== 'ok' && state?.error_message ? (
@@ -274,7 +271,7 @@ export function ConfigStatusGrid({
                         className="flex items-center gap-1"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-[10px] font-mono text-muted-foreground bg-black/40 px-1.5 py-0.5 rounded border border-border">
+                        <span className="t-micro text-muted-foreground bg-surface-alt px-1.5 py-0.5 rounded border border-border">
                           {isVisible ? walletAddr : truncateAddress(walletAddr)}
                         </span>
                         <Button
@@ -307,17 +304,20 @@ export function ConfigStatusGrid({
 
                   {usageInfo.totalCount > 0 ? (
                     <span
-                      className={`text-[10px] font-mono px-2 py-1 rounded border ${
+                      className={`t-micro px-2 py-1 rounded-control border ${
                         usageInfo.runningCount > 0
                           ? 'bg-profit/10 border-profit/30 text-profit'
                           : 'bg-warning/10 border-warning/30 text-warning'
                       }`}
                     >
-                      {usageInfo.runningCount}/{usageInfo.totalCount} ACTIVE
+                      {t('configGrid.inUse', language, {
+                        running: usageInfo.runningCount,
+                        total: usageInfo.totalCount,
+                      })}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      {language === 'zh' ? '就绪' : 'STANDBY'}
+                    <span className="text-[11px] text-muted-foreground">
+                      {t('configGrid.standby', language)}
                     </span>
                   )}
                 </div>
@@ -325,9 +325,9 @@ export function ConfigStatusGrid({
             )
           })}
           {configuredExchanges.length === 0 && (
-            <div className="text-center py-10 border border-dashed border-border rounded-lg bg-black/20">
+            <div className="text-center py-10 border border-dashed border-border rounded-card bg-surface-alt">
               <Landmark className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
-              <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              <div className="t-body text-muted-foreground">
                 {t('noExchangesConfigured', language)}
               </div>
             </div>

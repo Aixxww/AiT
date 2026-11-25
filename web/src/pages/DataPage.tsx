@@ -23,12 +23,12 @@ export function DataPage() {
               {
                 key: 'chart',
                 icon: BarChart3,
-                label: language === 'zh' ? '行情图表' : 'Chart',
+                label: t('dataPage.chart', language),
               },
               {
                 key: 'heatmap',
                 icon: TrendingUp,
-                label: language === 'zh' ? '热力图' : 'Heatmap',
+                label: t('dataPage.heatmap', language),
               },
             ] as { key: MarketWidget; icon: any; label: string }[]
           ).map((item) => {
@@ -65,7 +65,7 @@ export function DataPage() {
         {activeWidget === 'heatmap' && (
           <iframe
             src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_heatmap&symbol=CRYPTO%3AMCAP&interval=1D&hidesidetoolbar=1&theme=dark&style=1&locale=en&utm_source=localhost&utm_medium=widget&utm_campaign=heatmap&utm_term=CRYPTO%3AMCAP"
-            title="Crypto Heatmap"
+            title={t('dataPage.heatmapTitle', language)}
             className="w-full h-[calc(100vh-128px)] border-0"
             allow="fullscreen"
           />
@@ -75,9 +75,7 @@ export function DataPage() {
       {/* Footer bar */}
       <div className="px-6 py-2 border-t border-white/5 flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground/50">
-          {language === 'zh'
-            ? '数据来自 TradingView（免费嵌入）'
-            : 'Data via TradingView (free embed)'}
+          {t('dataPage.source', language)}
         </span>
         <a
           href="https://www.tradingview.com/"
