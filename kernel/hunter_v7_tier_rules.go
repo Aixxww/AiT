@@ -33,14 +33,13 @@ type hunterV7ZoneGate struct {
 }
 
 // hunterV7OIGate constrains derivatives OI change %. Zero thresholds mean
-// "no bound". RequireCtx fails when DerivativesCtx is missing.
-// AllowMissing lets a nil context pass (legacy "unknown OI does not block").
+// "no bound". RequireCtx fails when DerivativesCtx is missing; a gate with
+// any bound also fails on a missing context.
 type hunterV7OIGate struct {
-	MinChange1h  float64
-	MaxChange1h  float64
-	MinChange4h  float64
-	RequireCtx   bool
-	AllowMissing bool
+	MinChange1h float64
+	MaxChange1h float64
+	MinChange4h float64
+	RequireCtx  bool
 }
 
 // hunterV7StopGate constrains stop distance %. AllowUnknown passes when the
@@ -64,8 +63,10 @@ type hunterV7TierRule struct {
 	MinTimingScore float64
 	RiskBelow      float64
 	RiskAtMost     float64
-	// MinLiquidity encodes the recurring "(liquidity == 0 || liquidity >= X)"
-	// pattern: unknown liquidity passes, known liquidity must clear the floor.
+	// MinLiquidity is a liquidity-score floor. #103 / AUD-A3: an unknown
+	// score (0) fails closed, like a known score below the floor; the
+	// classifier then caps such a row at REVIEWABLE (see
+	// classifyHunterV7CandidateTierRules).
 	MinLiquidity float64
 
 	Taker hunterV7TakerGate
@@ -75,14 +76,6 @@ type hunterV7TierRule struct {
 
 	// RequireInsideZone demands hunterV7PriceInsideEntryZone.
 	RequireInsideZone bool
-	// RequireConfirmAll is RESERVED and NOT evaluated by hunterV7TierRuleMatches
-	// (the rules below still assign it, but nothing reads it). Product decision:
-	// alt_ladder_breakdown_short keeps its early/mid short rows at REVIEWABLE
-	// without demanding no_new_high_after_rejection. Wiring this field up would
-	// tighten those rows to WATCH and fail
-	// TestClassifyHunterV7CandidateTierAltLadderTable — update that tier table in
-	// the same change if you ever enable it.
-	RequireConfirmAll []string
 
 	// Reason-code requirements over V7ReasonCodes.
 	RequireAll []string
@@ -564,11 +557,10 @@ var hunterV7SetupTierSpecs = map[string]hunterV7SetupTierSpec{
 		Ready: []hunterV7TierRule{
 			{
 				MinAIPriority: 60, MinTimingScore: 65, RiskBelow: 35,
-				Taker:             hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
-				RequireAll:        []string{"alt_ladder_taker_sell"},
-				RequireAny:        [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
-				RequireConfirmAll: []string{"no_new_high_after_rejection"},
-				Reason:            "alt_ladder_short_ready_strong_confirmed",
+				Taker:      hunterV7TakerGate{Kind: "at_most", Threshold: 0.46},
+				RequireAll: []string{"alt_ladder_taker_sell"},
+				RequireAny: [][]string{{"alt_ladder_new_shorts", "alt_ladder_long_flush", "alt_ladder_sell_volume"}},
+				Reason:     "alt_ladder_short_ready_strong_confirmed",
 			},
 		},
 		// Reviewable rows are ordered: soft-release → classic late/close-through/early.
@@ -645,40 +637,37 @@ var altLadderShortClassicCloseThroughCodes = [][]string{
 }
 
 var altLadderShortClassicLate = hunterV7TierRule{
-	MinAIPriority:     52,
-	MinTimingScore:    58,
-	RiskAtMost:        45,
-	RequireConfirmAll: []string{"no_new_high_after_rejection"},
-	RequireAll:        []string{"alt_ladder_taker_sell", "alt_ladder_downshift_late"},
-	RequireAny:        append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
-	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
-	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
-	Reason:            "alt_ladder_short_reviewable_confirmed",
+	MinAIPriority:  52,
+	MinTimingScore: 58,
+	RiskAtMost:     45,
+	RequireAll:     []string{"alt_ladder_taker_sell", "alt_ladder_downshift_late"},
+	RequireAny:     append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
+	ForbidRiskAny:  []string{"alt_ladder_late_short_risk"},
+	Taker:          hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
+	Reason:         "alt_ladder_short_reviewable_confirmed",
 }
 
 var altLadderShortClassicCloseThrough = hunterV7TierRule{
-	MinAIPriority:     52,
-	MinTimingScore:    58,
-	RiskAtMost:        45,
-	RequireConfirmAll: []string{"no_new_high_after_rejection"},
-	RequireAny:        append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
-	ForbidAll:         []string{"alt_ladder_downshift_late"},
-	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
-	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.48},
-	Reason:            "alt_ladder_short_reviewable_confirmed",
+	MinAIPriority:  52,
+	MinTimingScore: 58,
+	RiskAtMost:     45,
+	RequireAny:     append(append([][]string{}, altLadderShortClassicFlow...), altLadderShortClassicCloseThroughCodes...),
+	ForbidAll:      []string{"alt_ladder_downshift_late"},
+	ForbidRiskAny:  []string{"alt_ladder_late_short_risk"},
+	Taker:          hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.48},
+	Reason:         "alt_ladder_short_reviewable_confirmed",
 }
 
 var altLadderShortClassicEarly = hunterV7TierRule{
-	MinAIPriority:     52,
-	MinTimingScore:    58,
-	RiskAtMost:        45,
-	RequireConfirmAll: []string{"no_new_high_after_rejection"},
-	RequireAll:        []string{"alt_ladder_taker_sell"},
-	RequireAny:        altLadderShortClassicFlow,
-	ForbidAll:         []string{"alt_ladder_downshift_late"},
-	ForbidRiskAny:     []string{"alt_ladder_late_short_risk"},
-	Taker:             hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
-	Reason:            "alt_ladder_short_reviewable_confirmed",
+	MinAIPriority:  52,
+	MinTimingScore: 58,
+	RiskAtMost:     45,
+	RequireAll:     []string{"alt_ladder_taker_sell"},
+	RequireAny:     altLadderShortClassicFlow,
+	ForbidAll:      []string{"alt_ladder_downshift_late"},
+	ForbidRiskAny:  []string{"alt_ladder_late_short_risk"},
+	Taker:          hunterV7TakerGate{Kind: "confirmed_at_most", Threshold: 0.46},
+	Reason:         "alt_ladder_short_reviewable_confirmed",
 }
 
 // alt_ladder_momentum_long Ready floors (E2.3). Residual late/OI/stop logic
@@ -825,8 +814,14 @@ func hunterV7TierRuleMatches(coin CandidateCoin, rule *hunterV7TierRule) bool {
 	if rule.RiskAtMost > 0 && coin.V7RiskScore > rule.RiskAtMost {
 		return false
 	}
-	if rule.MinLiquidity > 0 && coin.V7LiquidityScore > 0 && coin.V7LiquidityScore < rule.MinLiquidity {
-		return false
+	if rule.MinLiquidity > 0 {
+		if coin.V7LiquidityScore <= 0 {
+			if !coin.v7AssumeMissingDataPasses { // #103 / AUD-A3: unknown fails closed
+				return false
+			}
+		} else if coin.V7LiquidityScore < rule.MinLiquidity {
+			return false
+		}
 	}
 	switch rule.Taker.Kind {
 	case "at_least":

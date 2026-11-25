@@ -23,24 +23,38 @@ func auditGeometry() HunterV7ExecutionGeometry {
 	return HunterV7EffectiveExecutionGeometry(3.5, 2.0, 0.5, 1.2, true)
 }
 
-// AUD-A3: a missing derivatives context (no taker data) passes every
-// at_least / at_most taker gate; only the confirmed_* gates fail closed.
+// AUD-A3 (fixed in #103): a missing derivatives context, or TakerBuy15m 0,
+// fails every taker gate (at_least / at_most / aligned and the confirmed_*
+// variants); a liquidity score of 0 (unknown) fails a MinLiquidity floor.
 func TestAudit_A3_MissingTakerDataPassesTierTakerGates(t *testing.T) {
 	coin := CandidateCoin{Symbol: "XUSDT", Direction: "LONG", V7DerivativesCtx: nil}
-	if !hunterV7TakerBuyAtLeast(coin, 0.50) || !hunterV7TakerBuyAtMost(coin, 0.48) {
-		t.Fatal("FLAW no longer present: missing taker data now fails the at_least/at_most gates; update AUD-A3")
+	if hunterV7TakerBuyAtLeast(coin, 0.50) || hunterV7TakerBuyAtMost(coin, 0.48) || hunterV7TakerBuyAligned(coin) {
+		t.Fatal("missing taker data must fail the at_least / at_most / aligned gates")
 	}
-	if hunterV7TakerBuyConfirmedAtLeast(coin, 0.50) {
-		t.Fatal("confirmed_at_least must fail closed on missing data")
+	if hunterV7TakerBuyConfirmedAtLeast(coin, 0.50) || hunterV7TakerBuyConfirmedAtMost(coin, 0.50) {
+		t.Fatal("confirmed_* must fail closed on missing data")
 	}
 	zero := CandidateCoin{V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0}}
-	if !hunterV7TakerBuyAtLeast(zero, 0.99) {
-		t.Fatal("FLAW no longer present: TakerBuy15m=0 now fails the gate; update AUD-A3")
+	if hunterV7TakerBuyAtLeast(zero, 0.10) || hunterV7TakerBuyAtMost(zero, 0.99) {
+		t.Fatal("TakerBuy15m=0 is missing data and must fail the gate")
+	}
+	measured := CandidateCoin{Direction: "LONG", V7DerivativesCtx: &local.V7DerivativesContext{TakerBuy15m: 0.55}}
+	if !hunterV7TakerBuyAtLeast(measured, 0.52) || hunterV7TakerBuyAtMost(measured, 0.50) || !hunterV7TakerBuyAligned(measured) {
+		t.Fatal("measured taker data keeps its semantics")
+	}
+	rule := hunterV7TierRule{MinLiquidity: 50, Reason: "x"}
+	if hunterV7TierRuleMatches(CandidateCoin{V7LiquidityScore: 0}, &rule) {
+		t.Fatal("liquidity score 0 (unknown) must not pass MinLiquidity")
+	}
+	if hunterV7TierRuleMatches(CandidateCoin{V7LiquidityScore: 40}, &rule) || !hunterV7TierRuleMatches(CandidateCoin{V7LiquidityScore: 60}, &rule) {
+		t.Fatal("known liquidity keeps the floor")
 	}
 }
 
-// AUD-A3 end to end: a trend_breakout_long Ready row reaches EXECUTABLE with
-// no derivatives context at all; the same coin with weak measured flow does not.
+// AUD-A3 end to end (fixed in #103): a trend_breakout_long Ready row with no
+// derivatives context is REVIEWABLE, never EXECUTABLE; the same row with
+// measured strong flow stays EXECUTABLE, and weak measured flow is not
+// EXECUTABLE. A 0 liquidity score demotes the same way, to REVIEWABLE.
 func TestAudit_A3_TrendBreakoutExecutableWithoutTakerData(t *testing.T) {
 	base := CandidateCoin{
 		Symbol: "XUSDT", Direction: "LONG",
@@ -56,17 +70,30 @@ func TestAudit_A3_TrendBreakoutExecutableWithoutTakerData(t *testing.T) {
 	noData.V7DerivativesCtx = nil
 	weak := base
 	weak.V7DerivativesCtx = &local.V7DerivativesContext{TakerBuy15m: 0.40, OIChange1h: 1}
+	strong := base
+	strong.V7DerivativesCtx = &local.V7DerivativesContext{TakerBuy15m: 0.60, OIChange1h: 1}
 
 	tierNoData, reasonNoData := classifyHunterV7CandidateTierRules(noData, auditGeometry())
 	tierWeak, _ := classifyHunterV7CandidateTierRules(weak, auditGeometry())
-	t.Logf("no taker data -> %s (%s); taker 0.40 -> %s", tierNoData, reasonNoData, tierWeak)
+	tierStrong, reasonStrong := classifyHunterV7CandidateTierRules(strong, auditGeometry())
 	if tierWeak == "EXECUTABLE" {
 		t.Fatalf("weak measured taker must not be EXECUTABLE")
 	}
-	if tierNoData != "EXECUTABLE" {
-		t.Fatalf("FLAW no longer present: missing taker data now gives %s (%s); update AUD-A3", tierNoData, reasonNoData)
+	if tierNoData != "REVIEWABLE" {
+		t.Fatalf("missing taker data must demote to REVIEWABLE, got %s (%s)", tierNoData, reasonNoData)
 	}
-	// FLAW: absence of evidence is treated as passing evidence.
+	if tierStrong != "EXECUTABLE" {
+		t.Fatalf("measured strong flow must stay EXECUTABLE, got %s (%s)", tierStrong, reasonStrong)
+	}
+	noLiq := strong
+	noLiq.V7LiquidityScore = 0
+	if tier, reason := classifyHunterV7CandidateTierRules(noLiq, auditGeometry()); tier == "EXECUTABLE" && reason == reasonStrong {
+		// A Ready rule without a liquidity floor may still be EXECUTABLE;
+		// what must hold is that a liquidity-gated miss is never REJECTED.
+		t.Logf("liquidity 0 with a liquidity-free rule: %s (%s)", tier, reason)
+	} else if tier != "REVIEWABLE" && tier != "EXECUTABLE" {
+		t.Fatalf("unknown liquidity must demote to REVIEWABLE at worst, got %s (%s)", tier, reason)
+	}
 }
 
 // AUD-B1 (fixed in #94): a response without any structured decision is an

@@ -43,10 +43,10 @@ func TestHunterV7TierRuleMatcherSemantics(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "unknown liquidity passes the floor",
+			name: "unknown liquidity fails the floor (#103 / AUD-A3)",
 			coin: func(c CandidateCoin) CandidateCoin { c.V7LiquidityScore = 0; return c },
 			rule: hunterV7TierRule{MinLiquidity: 70},
-			want: true,
+			want: false,
 		},
 		{
 			name: "known liquidity below the floor fails",
@@ -55,10 +55,10 @@ func TestHunterV7TierRuleMatcherSemantics(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "at_least passes when taker data is missing",
+			name: "at_least fails when taker data is missing (#103 / AUD-A3)",
 			coin: func(c CandidateCoin) CandidateCoin { c.V7DerivativesCtx = nil; return c },
 			rule: hunterV7TierRule{Taker: hunterV7TakerGate{Kind: "at_least", Threshold: 0.52}},
-			want: true,
+			want: false,
 		},
 		{
 			name: "confirmed_at_least fails when taker data is missing",
