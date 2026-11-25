@@ -2378,11 +2378,10 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 // effectiveMinOpenConfidence is the strategy's min_confidence as configured
 // (#77: the former hunter_v7 cap at 70 overrode the owner's value).
 func (at *AutoTrader) effectiveMinOpenConfidence(configured int) int {
-	// #95: unset resolves to the documented floor (60), as in the kernel.
-	if configured > 0 {
-		return configured
-	}
-	return at.resolved().MinConfidence
+	// #105 / AUD-B4: the same resolver function as the kernel validator and
+	// prompt (configured value, else the documented 60).
+	floor, _ := store.ResolveMinConfidence(configured)
+	return floor
 }
 
 // getSideFromAction converts order action to side (BUY/SELL)

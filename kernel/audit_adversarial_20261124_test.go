@@ -10,6 +10,7 @@ package kernel
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Aixxww/AiT/market"
@@ -177,14 +178,58 @@ func TestAudit_B3_FirstDecisionBlockWins(t *testing.T) {
 	}
 }
 
-// AUD-B4: the kernel's hard confidence floor is 60; the prompt and the
-// hunter_v7 effective minimum say 70. Only the trader re-checks 70, and
-// only when the strategy config sets MinConfidence.
+// AUD-B4 (closed in #105): one resolved confidence floor. The kernel
+// validator and the kernel prompt read store.ResolveMinConfidence: a
+// configured floor is enforced as set, unset resolves to the documented 60.
+// The trader side is asserted in trader.TestConfidenceFloorSingleSourced.
 func TestAudit_B4_KernelConfidenceFloorIs60(t *testing.T) {
-	d := &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 103, Confidence: 65}
-	err := validateDecision(d, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100}, FixedDecisionRRFloor(1.2), 0)
-	if err != nil {
-		t.Fatalf("FLAW no longer present: kernel now rejects confidence 65 (%v); update AUD-B4", err)
+	mk := func(conf int) *Decision {
+		return &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 103, Confidence: conf}
+	}
+	prices := map[string]float64{"XUSDT": 100}
+	// Configured 75: 70 rejected, 75 passes.
+	if err := validateDecision(mk(70), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(1.2), 75); err == nil || !strings.Contains(err.Error(), "minimum 75") {
+		t.Fatalf("configured floor 75 must reject confidence 70, got %v", err)
+	}
+	if err := validateDecision(mk(75), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(1.2), 75); err != nil {
+		t.Fatalf("configured floor 75 must accept 75: %v", err)
+	}
+	// Unset: the resolver's documented 60. 59 rejected, 65 passes.
+	if floor, configured := store.ResolveMinConfidence(0); floor != 60 || configured {
+		t.Fatalf("unset must resolve to 60, got %d (configured=%v)", floor, configured)
+	}
+	if err := validateDecision(mk(59), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(1.2), 0); err == nil || !strings.Contains(err.Error(), "minimum 60") {
+		t.Fatalf("unset floor must reject 59 at 60, got %v", err)
+	}
+	if err := validateDecision(mk(65), 1000, 20, 20, 10, 10, nil, prices, FixedDecisionRRFloor(1.2), 0); err != nil {
+		t.Fatalf("unset floor 60 must accept 65: %v", err)
+	}
+	// The prompt states the same floor; no bare 70 as the implied minimum.
+	for _, tc := range []struct{ configured, want int }{{75, 75}, {0, 60}, {65, 65}} {
+		cfg := hunterV7AuditStrategyConfig()
+		cfg.RiskControl.MinConfidence = tc.configured
+		e := NewStrategyEngine(cfg)
+		if got := e.effectiveMinOpenConfidence(tc.configured); got != tc.want {
+			t.Fatalf("prompt floor for configured %d = %d, want %d", tc.configured, got, tc.want)
+		}
+		for _, variant := range []string{"balanced", "aggressive"} {
+			p := e.BuildSystemPrompt(1000, variant)
+			if !strings.Contains(p, fmt.Sprintf("Min Confidence: ≥%d to open position", tc.want)) {
+				t.Fatalf("configured %d %s: prompt does not state floor %d", tc.configured, variant, tc.want)
+			}
+			if !strings.Contains(p, fmt.Sprintf("Confidence below %d must output wait", tc.want)) {
+				t.Fatalf("configured %d %s: prompt does not state the wait rule at %d", tc.configured, variant, tc.want)
+			}
+			if variant == "aggressive" && !strings.Contains(p, fmt.Sprintf("confidence ≥ %d (the backend's open floor)", tc.want)) {
+				t.Fatalf("configured %d: aggressive mode must use the floor %d", tc.configured, tc.want)
+			}
+			if tc.want == 60 && !strings.Contains(p, "Low confidence (60-69)") {
+				t.Fatalf("unset floor: low band must start at 60")
+			}
+			if tc.want == 65 && !strings.Contains(p, "Low confidence (65-69)") {
+				t.Fatalf("floor 65: low band must start at 65")
+			}
+		}
 	}
 }
 

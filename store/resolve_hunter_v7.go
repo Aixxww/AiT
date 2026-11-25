@@ -308,10 +308,7 @@ func ResolveHunterV7(cfg *StrategyConfig) ResolvedHunterV7 {
 		mpSrc, mpNote = SourceSafetyLimit, "opens blocked: "+out.MaxPositionsErr.Error()
 	}
 	rs.add("decision", "max_positions", rc.MaxPositions, mpSrc, nil, fmt.Sprintf("1..%d (safety ceiling)", SafetyMaxPositionsCeiling), mpNote)
-	out.MinConfidence = DefaultMinConfidenceFloor
-	if rc.MinConfidence > 0 {
-		out.MinConfidence = rc.MinConfidence
-	}
+	out.MinConfidence, _ = ResolveMinConfidence(rc.MinConfidence)
 	rs.add("decision", "min_confidence", out.MinConfidence, srcOf(rc.MinConfidence > 0), nil, "0..100", "")
 
 	// ---- Execution ----
@@ -450,6 +447,17 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// ResolveMinConfidence is the single place that decides the effective
+// open-confidence floor (#105 / AUD-B4): the configured min_confidence when
+// set (> 0), else DefaultMinConfidenceFloor. configured reports which. The
+// kernel validator, the kernel prompt and the trader all read it.
+func ResolveMinConfidence(configured int) (floor int, isConfigured bool) {
+	if configured > 0 {
+		return configured, true
+	}
+	return DefaultMinConfidenceFloor, false
 }
 
 // ValidateTradingConfig fails a strategy save on out-of-range values
