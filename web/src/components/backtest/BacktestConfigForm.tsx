@@ -4,6 +4,7 @@ import { ChevronRight, ChevronLeft, RefreshCw, Zap } from 'lucide-react'
 import type { AIModel, Strategy } from '../../types'
 import { t as globalT } from '../../i18n/translations'
 import type { Language } from '../../i18n/translations'
+import { displayName } from '../../i18n/displayNames'
 import { Button } from '../ui/Button'
 
 // ============ Types ============
@@ -89,6 +90,7 @@ export function BacktestConfigForm({
     return false
   }, [selectedStrategy])
 
+  const lang = language as Language
   const coinSourceDescription = useMemo(() => {
     const cs = selectedStrategy?.config?.coin_source
     if (!cs) return null
@@ -99,27 +101,29 @@ export function BacktestConfigForm({
       else if (cs.use_oi_top) st = 'oi_top'
       else if (cs.static_coins?.length) st = 'static'
     }
+    const name = (code: string) => displayName('sourceType', code, lang)
     switch (st) {
       case 'ai500':
-        return { type: 'AI500', limit: cs.ai500_limit || 30 }
+        return { type: name('ai500'), limit: cs.ai500_limit || 30 }
       case 'oi_top':
-        return { type: 'OI Top', limit: cs.oi_top_limit || 30 }
+        return { type: name('oi_top'), limit: cs.oi_top_limit || 30 }
       case 'mixed': {
         const parts: string[] = []
-        if (cs.use_ai500) parts.push(`AI500(${cs.ai500_limit || 30})`)
-        if (cs.use_oi_top) parts.push(`OI Top(${cs.oi_top_limit || 30})`)
+        if (cs.use_ai500)
+          parts.push(`${name('ai500')} (${cs.ai500_limit || 30})`)
+        if (cs.use_oi_top)
+          parts.push(`${name('oi_top')} (${cs.oi_top_limit || 30})`)
         if (cs.static_coins?.length)
-          parts.push(`Static(${cs.static_coins.length})`)
-        return { type: 'Mixed', desc: parts.join(' + ') }
+          parts.push(`${name('static')} (${cs.static_coins.length})`)
+        return { type: name('mixed'), desc: parts.join(' + ') }
       }
       case 'static':
-        return { type: 'Static', coins: cs.static_coins || [] }
+        return { type: name('static'), coins: cs.static_coins || [] }
       default:
         return null
     }
-  }, [selectedStrategy])
+  }, [selectedStrategy, lang])
 
-  const lang = language as Language
   const quickRanges = [
     { label: globalT('backtestConfigForm.quickRange24h', lang), hours: 24 },
     { label: globalT('backtestConfigForm.quickRange3d', lang), hours: 72 },

@@ -8,6 +8,7 @@ import type {
 } from '../../types'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
+import { displayName } from '../../i18n/displayNames'
 import { toast } from 'sonner'
 import {
   Pencil,
@@ -255,7 +256,7 @@ export function TraderConfigModal({
   const selectedStrategy = strategies.find((s) => s.id === formData.strategy_id)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
       <div
         className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-xl shadow-2xl max-w-2xl w-full my-8"
         style={{ maxHeight: 'calc(100vh - 4rem)' }}
@@ -264,7 +265,7 @@ export function TraderConfigModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] bg-gradient-to-r from-panel to-panel-hover sticky top-0 z-10 rounded-t-xl">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/85 flex items-center justify-center text-black">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/85 flex items-center justify-center text-primary-foreground">
               {isEditMode ? (
                 <Pencil className="w-5 h-5" />
               ) : (
@@ -330,7 +331,7 @@ export function TraderConfigModal({
                     className="w-full px-3 py-2 bg-background border border-[var(--color-border)] rounded text-foreground"
                     options={availableModels.map((model) => ({
                       value: model.id,
-                      label: getShortName(model.name || model.id).toUpperCase(),
+                      label: getShortName(model.name || model.id),
                     }))}
                   />
                 </div>
@@ -347,7 +348,7 @@ export function TraderConfigModal({
                       label:
                         getShortName(
                           exchange.name || exchange.exchange_type || exchange.id
-                        ).toUpperCase() +
+                        ) +
                         (exchange.account_name
                           ? ` - ${exchange.account_name}`
                           : ''),
@@ -440,21 +441,16 @@ export function TraderConfigModal({
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
                     {selectedStrategy.description ||
-                      (language === 'zh' ? '无描述' : 'No description')}
+                      t('traderModal.noDescription', language)}
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                     <div>
                       {t('coinSource', language)}:{' '}
-                      {selectedStrategy.config.coin_source.source_type ===
-                      'static'
-                        ? '固定币种'
-                        : selectedStrategy.config.coin_source.source_type ===
-                            'ai500'
-                          ? 'AI500'
-                          : selectedStrategy.config.coin_source.source_type ===
-                              'oi_top'
-                            ? 'OI Top'
-                            : '混合'}
+                      {displayName(
+                        'sourceType',
+                        selectedStrategy.config.coin_source.source_type,
+                        language
+                      )}
                     </div>
                     <div>
                       {t('marginLimit', language)}:{' '}
@@ -489,7 +485,7 @@ export function TraderConfigModal({
                       onClick={() => handleInputChange('is_cross_margin', true)}
                       className={`flex-1 px-3 py-2 rounded text-sm ${
                         formData.is_cross_margin
-                          ? 'bg-primary text-black'
+                          ? 'bg-primary text-primary-foreground'
                           : 'bg-background text-muted-foreground border border-[var(--color-border)]'
                       }`}
                     >
@@ -503,7 +499,7 @@ export function TraderConfigModal({
                       }
                       className={`flex-1 px-3 py-2 rounded text-sm ${
                         !formData.is_cross_margin
-                          ? 'bg-primary text-black'
+                          ? 'bg-primary text-primary-foreground'
                           : 'bg-background text-muted-foreground border border-[var(--color-border)]'
                       }`}
                     >
@@ -557,7 +553,7 @@ export function TraderConfigModal({
                     }
                     className={`flex-1 px-3 py-2 rounded text-sm ${
                       formData.show_in_competition
-                        ? 'bg-primary text-black'
+                        ? 'bg-primary text-primary-foreground'
                         : 'bg-background text-muted-foreground border border-[var(--color-border)]'
                     }`}
                   >
@@ -571,7 +567,7 @@ export function TraderConfigModal({
                     }
                     className={`flex-1 px-3 py-2 rounded text-sm ${
                       !formData.show_in_competition
-                        ? 'bg-primary text-black'
+                        ? 'bg-primary text-primary-foreground'
                         : 'bg-background text-muted-foreground border border-[var(--color-border)]'
                     }`}
                   >
@@ -595,7 +591,7 @@ export function TraderConfigModal({
                       type="button"
                       onClick={handleFetchCurrentBalance}
                       disabled={isFetchingBalance}
-                      className="px-3 py-1 text-xs bg-primary text-black rounded hover:bg-primary/90 transition-colors disabled:bg-muted disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:bg-muted disabled:cursor-not-allowed"
                     >
                       {isFetchingBalance
                         ? t('fetching', language)
@@ -678,7 +674,7 @@ export function TraderConfigModal({
                 !formData.ai_model ||
                 !formData.exchange_id
               }
-              className="px-8 py-3 bg-gradient-to-r from-primary to-primary/85 text-black rounded-lg hover:opacity-90 transition-all duration-200 disabled:bg-muted disabled:cursor-not-allowed font-medium shadow-lg"
+              className="px-8 py-3 bg-gradient-to-r from-primary to-primary/85 text-primary-foreground rounded-lg hover:opacity-90 transition-all duration-200 disabled:bg-muted disabled:cursor-not-allowed font-medium shadow-lg"
             >
               {isSaving
                 ? t('saving', language)

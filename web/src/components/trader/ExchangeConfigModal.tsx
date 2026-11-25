@@ -4,6 +4,7 @@ import { t, type Language } from '../../i18n/translations'
 import { api } from '../../lib/api'
 import { getExchangeIcon } from '../common/ExchangeIcons'
 import { Button } from '../ui/Button'
+import { InfoTip } from '../ui/InfoTip'
 
 const HYPERLIQUID_MINT = 'var(--color-accent)'
 import {
@@ -167,7 +168,7 @@ function ExchangeCard({
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
             style={{ background: 'var(--color-profit)' }}
           >
-            <Check className="w-3 h-3 text-black" />
+            <Check className="w-3 h-3 text-primary-foreground" />
           </div>
         )}
       </div>
@@ -569,7 +570,7 @@ export function ExchangeConfigModal({
                 variant="unstyled"
                 type="button"
                 onClick={handleBack}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-panel-hover transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-muted-foreground" />
               </Button>
@@ -612,7 +613,7 @@ export function ExchangeConfigModal({
               variant="unstyled"
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
+              className="p-2 rounded-lg hover:bg-panel-hover transition-colors text-muted-foreground"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -636,7 +637,7 @@ export function ExchangeConfigModal({
             <div className="space-y-6">
               {/* WebCrypto Check */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="flex items-center gap-2 t-label text-muted-foreground">
                   <Shield className="w-4 h-4" />
                   {t('environmentSteps.checkTitle', language)}
                 </div>
@@ -656,7 +657,7 @@ export function ExchangeConfigModal({
                 {/* CEX */}
                 <div className="space-y-3">
                   <div
-                    className="text-xs font-medium uppercase tracking-wide"
+                    className="t-caption font-medium"
                     style={{ color: 'var(--color-primary)' }}
                   >
                     {t('exchangeConfig.centralizedExchanges', language)}
@@ -684,7 +685,7 @@ export function ExchangeConfigModal({
                 {/* DEX */}
                 <div className="space-y-3">
                   <div
-                    className="text-xs font-medium uppercase tracking-wide"
+                    className="t-caption font-medium"
                     style={{ color: 'var(--color-purple)' }}
                   >
                     {t('exchangeConfig.decentralizedExchanges', language)}
@@ -870,15 +871,23 @@ export function ExchangeConfigModal({
                         color: 'var(--color-profit)',
                       }}
                     >
-                      已保存的凭证状态： API Key{' '}
-                      {selectedExchange.has_api_key ? '已配置' : '未配置'}
-                      {' · '}
-                      Secret{' '}
-                      {selectedExchange.has_secret_key ? '已配置' : '未配置'}
+                      {t('exchangeModal.savedCredentials', language)}
+                      {' API Key '}
+                      {selectedExchange.has_api_key
+                        ? t('exchangeModal.configured', language)
+                        : t('exchangeModal.notConfigured', language)}
+                      {' · Secret '}
+                      {selectedExchange.has_secret_key
+                        ? t('exchangeModal.configured', language)
+                        : t('exchangeModal.notConfigured', language)}
                       {currentExchangeType === 'okx' ||
                       currentExchangeType === 'bitget' ||
                       currentExchangeType === 'kucoin'
-                        ? ` · Passphrase ${selectedExchange.has_passphrase ? '已配置' : '未配置'}`
+                        ? ` · Passphrase ${
+                            selectedExchange.has_passphrase
+                              ? t('exchangeModal.configured', language)
+                              : t('exchangeModal.notConfigured', language)
+                          }`
                         : ''}
                     </div>
                   )}
@@ -897,7 +906,7 @@ export function ExchangeConfigModal({
                       onChange={(e) => setApiKey(e.target.value)}
                       placeholder={
                         editingExchangeId && selectedExchange?.has_api_key
-                          ? '已保存，如需更换请重新输入'
+                          ? t('exchangeModal.savedReenter', language)
                           : t('enterAPIKey', language)
                       }
                       className="w-full px-4 py-3 rounded-xl"
@@ -924,7 +933,7 @@ export function ExchangeConfigModal({
                       onChange={(e) => setSecretKey(e.target.value)}
                       placeholder={
                         editingExchangeId && selectedExchange?.has_secret_key
-                          ? '已保存，如需更换请重新输入'
+                          ? t('exchangeModal.savedReenter', language)
                           : t('enterSecretKey', language)
                       }
                       className="w-full px-4 py-3 rounded-xl"
@@ -954,7 +963,7 @@ export function ExchangeConfigModal({
                         onChange={(e) => setPassphrase(e.target.value)}
                         placeholder={
                           editingExchangeId && selectedExchange?.has_passphrase
-                            ? '已保存，如需更换请重新输入'
+                            ? t('exchangeModal.savedReenter', language)
                             : t('enterPassphrase', language)
                         }
                         className="w-full px-4 py-3 rounded-xl"
@@ -1323,19 +1332,20 @@ export function ExchangeConfigModal({
               {/* Proxy URL (all exchanges) */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  {t('proxyURL', language) || '代理地址'}
+                  {t('proxyURL', language)}
                   <span className="text-xs font-normal text-muted-foreground">
-                    ({t('optional', language) || '可选'})
+                    ({t('optional', language)})
                   </span>
+                  <InfoTip
+                    title={t('proxyURL', language)}
+                    content={t('proxyURLHelp', language)}
+                  />
                 </label>
                 <input
                   type="text"
                   value={proxyURL}
                   onChange={(e) => setProxyURL(e.target.value)}
-                  placeholder={
-                    t('proxyURLPlaceholder', language) ||
-                    'http://host:port 或 socks5://host:port'
-                  }
+                  placeholder={t('proxyURLPlaceholder', language)}
                   className="w-full px-4 py-3 rounded-xl"
                   style={{
                     background: 'var(--color-background)',
@@ -1343,10 +1353,6 @@ export function ExchangeConfigModal({
                     color: 'var(--color-foreground)',
                   }}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {t('proxyURLHelp', language) ||
-                    '为该交易所设置独立的网络代理，支持 HTTP/HTTPS/SOCKS5'}
-                </p>
               </div>
 
               {/* Buttons */}
@@ -1355,7 +1361,7 @@ export function ExchangeConfigModal({
                   variant="unstyled"
                   type="button"
                   onClick={handleBack}
-                  className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
+                  className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-panel-hover"
                   style={{
                     background: 'var(--color-border)',
                     color: 'var(--color-muted-fg)',

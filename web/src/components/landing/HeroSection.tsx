@@ -172,7 +172,7 @@ export default function HeroSection({ language }: HeroSectionProps) {
           >
             <Link to="/competition" className="flex items-center gap-3">
               <Play className="w-5 h-5" />
-              {t('liveCompetition', language) || 'Live Competition'}
+              {t('liveCompetition', language)}
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </Link>
           </motion.div>

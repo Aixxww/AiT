@@ -41,7 +41,7 @@ export function ResetPasswordPage() {
 
     if (result.success) {
       setSuccess(true)
-      toast.success(t('resetPasswordSuccess', language) || '重置成功')
+      toast.success(t('resetPasswordSuccess', language))
       // 3秒后跳转到登录页面
       setTimeout(() => {
         navigate('/login')

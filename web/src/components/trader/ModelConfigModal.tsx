@@ -29,6 +29,7 @@ import {
   getShortName,
 } from './model-constants'
 import { Button } from '../ui/Button'
+import { InfoTip } from '../ui/InfoTip'
 
 interface ModelConfigModalProps {
   allModels: AIModel[]
@@ -153,7 +154,7 @@ export function ModelConfigModal({
                 variant="unstyled"
                 type="button"
                 onClick={handleBack}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-panel-hover transition-colors"
               >
                 <svg
                   className="w-5 h-5 text-muted-foreground"
@@ -192,7 +193,7 @@ export function ModelConfigModal({
               variant="unstyled"
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
+              className="p-2 rounded-lg hover:bg-panel-hover transition-colors text-muted-foreground"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -309,7 +310,7 @@ function ModelSelectionStep({
           onClick={() => {
             onSelectModel(claw402Model.id)
           }}
-          className="w-full p-5 rounded-xl text-left transition-all hover:scale-[1.01]"
+          className="w-full flex-col !items-stretch p-4 sm:p-5 rounded-xl text-left transition-all hover:scale-[1.01]"
           style={{
             background:
               'linear-gradient(135deg, color-mix(in srgb, var(--color-info) 15%, transparent) 0%, color-mix(in srgb, var(--color-purple) 15%, transparent) 100%)',
@@ -317,9 +318,9 @@ function ModelSelectionStep({
               '1.5px solid color-mix(in srgb, var(--color-info) 40%, transparent)',
           }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center overflow-hidden">
                 <img
                   src="/icons/claw402.png"
                   alt="Claw402"
@@ -353,7 +354,7 @@ function ModelSelectionStep({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {configuredIds.has(claw402Model.id) && (
                 <div
                   className="w-2 h-2 rounded-full"
@@ -361,7 +362,7 @@ function ModelSelectionStep({
                 />
               )}
               <div
-                className="px-3 py-1.5 rounded-full text-xs font-bold"
+                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap"
                 style={{
                   background:
                     'linear-gradient(135deg, var(--color-info), var(--color-purple))',
@@ -372,9 +373,9 @@ function ModelSelectionStep({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 mt-3 ml-[52px]">
+          <div className="flex items-center gap-3 mt-3 sm:ml-[52px]">
             <span
-              className="text-[11px] px-2 py-0.5 rounded-full"
+              className="text-[11px] px-2 py-0.5 rounded-control"
               style={{
                 background:
                   'color-mix(in srgb, var(--color-profit) 10%, transparent)',
@@ -387,7 +388,7 @@ function ModelSelectionStep({
             </span>
           </div>
           <div
-            className="mt-4 ml-[52px] text-[11px]"
+            className="mt-3 sm:mt-4 sm:ml-[52px] text-[11px]"
             style={{ color: 'var(--color-muted-fg)' }}
           >
             {t('modelConfig.claw402EntryDesc', language)}
@@ -396,12 +397,12 @@ function ModelSelectionStep({
       )}
 
       {otherProviders.length > 0 && (
-        <div className="rounded-xl border border-white/10 bg-black/20 overflow-hidden">
+        <div className="rounded-xl border border-border bg-surface-alt overflow-hidden">
           <Button
             variant="unstyled"
             type="button"
             onClick={() => setShowOtherProviders((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 py-4 text-left transition-all hover:bg-white/5"
+            className="w-full flex items-center justify-between gap-3 px-4 py-4 text-left transition-all hover:bg-panel-hover"
           >
             <div>
               <div className="text-sm font-semibold text-foreground">
@@ -411,12 +412,14 @@ function ModelSelectionStep({
                 {t('modelConfig.otherApiEntryDesc', language)}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <span
-                className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                className="rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold whitespace-nowrap"
                 style={{ color: 'var(--color-muted-fg)' }}
               >
-                {otherProviders.length} API
+                {t('modelModal.providerCount', language, {
+                  count: otherProviders.length,
+                })}
               </span>
               <span className="text-sm" style={{ color: 'var(--color-info)' }}>
                 {showOtherProviders ? '−' : '+'}
@@ -425,7 +428,7 @@ function ModelSelectionStep({
           </Button>
 
           {showOtherProviders && (
-            <div className="border-t border-white/5 px-4 py-4">
+            <div className="border-t border-border px-4 py-4">
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {otherProviders.map((model) => (
                   <ModelCard
@@ -450,7 +453,7 @@ function ModelSelectionStep({
           type="button"
           data-testid="add-other-model"
           onClick={() => onSelectModel(customModel.id)}
-          className="w-full flex items-center justify-between px-4 py-4 rounded-xl border border-white/10 bg-black/20 text-left transition-all hover:bg-white/5"
+          className="w-full flex items-center justify-between px-4 py-4 rounded-xl border border-border bg-surface-alt text-left transition-all hover:bg-panel-hover"
         >
           <div>
             <div className="text-sm font-semibold text-foreground">
@@ -602,10 +605,10 @@ function Claw402ConfigForm({
           setClaw402Status(data.claw402_status || 'unknown')
           setKeyError('')
         } else {
-          setKeyError(data.error || 'Invalid key')
+          setKeyError(data.error || t('modelModal.invalidKey', language))
         }
       } catch {
-        setKeyError('Validation request failed')
+        setKeyError(t('modelModal.validationFailed', language))
       } finally {
         setValidating(false)
       }
@@ -655,7 +658,10 @@ function Claw402ConfigForm({
               : t('modelConfig.claw402Unreachable', language),
         })
       } else {
-        setTestResult({ status: 'error', message: data.error || 'Invalid key' })
+        setTestResult({
+          status: 'error',
+          message: data.error || t('modelModal.invalidKey', language),
+        })
       }
     } catch {
       setTestResult({
@@ -802,7 +808,7 @@ function Claw402ConfigForm({
                     </div>
                     {m.isNew ? (
                       <span
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em]"
+                        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold"
                         style={{
                           color: 'var(--color-profit)',
                           background:
@@ -811,7 +817,7 @@ function Claw402ConfigForm({
                             '1px solid color-mix(in srgb, var(--color-profit) 22%, transparent)',
                         }}
                       >
-                        NEW
+                        {t('modelModal.newBadge', language)}
                       </span>
                     ) : null}
                   </div>
@@ -822,7 +828,8 @@ function Claw402ConfigForm({
                     className="text-[10px]"
                     style={{ color: 'var(--color-profit)' }}
                   >
-                    ~${m.price}/call
+                    ~${m.price}
+                    {t('modelModal.perCall', language)}
                   </div>
                 </div>
                 {isSelected && (
@@ -896,35 +903,25 @@ function Claw402ConfigForm({
             }}
           >
             <div
-              className="text-xs font-semibold mb-1.5"
+              className="flex items-center gap-1.5 text-xs font-semibold"
               style={{ color: 'var(--color-profit)' }}
             >
-              {language === 'zh'
-                ? '已自动提取当前钱包'
-                : 'Current wallet loaded automatically'}
-            </div>
-            <div
-              className="text-[11px] leading-5"
-              style={{ color: 'var(--color-muted-fg)' }}
-            >
-              {language === 'zh'
-                ? '你现在可以直接查看当前钱包地址、余额和充值二维码。只有在想更换钱包时，才需要重新输入新的私钥。'
-                : 'You can view the current wallet address, balance, and deposit QR code right away. Only enter a new private key if you want to replace this wallet.'}
+              {t('modelModal.walletLoaded', language)}
+              <InfoTip
+                title={t('modelModal.walletLoaded', language)}
+                content={t('modelModal.walletLoadedDesc', language)}
+              />
             </div>
             {!configuredModel?.walletAddress && localWalletAddress ? (
               <div className="mt-2 text-[10px] text-muted-foreground">
-                {language === 'zh'
-                  ? '当前地址来自本地已保存的新手钱包。'
-                  : 'This address comes from the locally saved beginner wallet.'}
+                {t('modelModal.addressFromLocal', language)}
               </div>
             ) : null}
             {!configuredModel?.walletAddress &&
             !localWalletAddress &&
             serverWalletAddress ? (
               <div className="mt-2 text-[10px] text-muted-foreground">
-                {language === 'zh'
-                  ? '当前地址来自后端保存的钱包配置。'
-                  : 'This address comes from the wallet saved on the server.'}
+                {t('modelModal.addressFromServer', language)}
               </div>
             ) : null}
           </div>
@@ -944,9 +941,7 @@ function Claw402ConfigForm({
               onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder={
                 hasExistingWallet
-                  ? language === 'zh'
-                    ? '已保存，如需更换钱包请重新输入私钥'
-                    : 'Already saved. Enter a new private key only to replace the wallet.'
+                  ? t('modelModal.keySavedHint', language)
                   : '0x...'
               }
               className="flex-1 px-4 py-3 rounded-xl font-mono text-sm"
@@ -989,7 +984,7 @@ function Claw402ConfigForm({
                   cursor: 'pointer',
                 }}
               >
-                {language === 'zh' ? '创建钱包' : 'Create Wallet'}
+                {t('modelModal.createWallet', language)}
               </Button>
             )}
           </div>
@@ -1009,17 +1004,13 @@ function Claw402ConfigForm({
                 className="text-xs font-bold mb-2"
                 style={{ color: 'var(--color-loss)' }}
               >
-                {language === 'zh'
-                  ? '重要：请立即备份私钥！'
-                  : 'Important: Backup your private key NOW!'}
+                {t('modelModal.backupWarningTitle', language)}
               </div>
               <div
                 className="text-[11px] mb-2"
                 style={{ color: 'var(--color-loss)' }}
               >
-                {language === 'zh'
-                  ? '这是你的钱包私钥，丢失后无法恢复，钱包里的资产将永久丢失。请复制并安全保存。'
-                  : 'This is your wallet private key. If lost, it cannot be recovered and all assets will be permanently lost. Copy and save it securely.'}
+                {t('modelModal.backupWarningDesc', language)}
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <code
@@ -1048,28 +1039,15 @@ function Claw402ConfigForm({
                     cursor: 'pointer',
                   }}
                 >
-                  {copiedAddr ? 'Copied' : 'Copy Key'}
+                  {copiedAddr
+                    ? t('modelModal.copied', language)
+                    : t('modelModal.copyKey', language)}
                 </Button>
               </div>
               <div className="text-[10px] space-y-1 text-muted-foreground">
-                <div>
-                  •{' '}
-                  {language === 'zh'
-                    ? '建议保存到密码管理器（1Password / Bitwarden）'
-                    : 'Save to a password manager (1Password / Bitwarden)'}
-                </div>
-                <div>
-                  •{' '}
-                  {language === 'zh'
-                    ? '或抄在纸上放安全的地方'
-                    : 'Or write it down and store it safely'}
-                </div>
-                <div>
-                  •{' '}
-                  {language === 'zh'
-                    ? '不要截图发给别人'
-                    : 'Do NOT screenshot or share with anyone'}
-                </div>
+                <div>• {t('modelModal.backupTipManager', language)}</div>
+                <div>• {t('modelModal.backupTipPaper', language)}</div>
+                <div>• {t('modelModal.backupTipNoShare', language)}</div>
               </div>
             </div>
           )}
@@ -1158,9 +1136,7 @@ function Claw402ConfigForm({
                     className="text-[10px] mt-1.5"
                     style={{ color: 'var(--color-warning)' }}
                   >
-                    {language === 'zh'
-                      ? '请确认这是你的钱包地址（可在 MetaMask 中核对）'
-                      : 'Please confirm this is your wallet address (verify in MetaMask)'}
+                    {t('modelModal.confirmAddress', language)}
                   </div>
                 </div>
                 {usdcBalance !== null && (
@@ -1191,12 +1167,8 @@ function Claw402ConfigForm({
                       }}
                     >
                       {showDeposit
-                        ? language === 'zh'
-                          ? '收起'
-                          : 'Hide'
-                        : language === 'zh'
-                          ? '充值'
-                          : 'Deposit'}
+                        ? t('modelModal.hide', language)
+                        : t('modelModal.deposit', language)}
                     </Button>
                   </div>
                 )}
@@ -1214,9 +1186,7 @@ function Claw402ConfigForm({
                       className="text-xs font-semibold mb-2"
                       style={{ color: 'var(--color-profit)' }}
                     >
-                      {language === 'zh'
-                        ? '充值 USDC (Base 链)'
-                        : 'Deposit USDC (Base Chain)'}
+                      {t('modelModal.depositTitle', language)}
                     </div>
                     <div className="flex gap-3 items-start mb-3">
                       <div
@@ -1234,9 +1204,7 @@ function Claw402ConfigForm({
                           className="text-[11px] mb-1"
                           style={{ color: 'var(--color-muted-fg)' }}
                         >
-                          {language === 'zh'
-                            ? '扫码或复制地址转账'
-                            : 'Scan QR or copy address to transfer'}
+                          {t('modelModal.depositSubtitle', language)}
                         </div>
                         <code
                           className="text-[10px] font-mono break-all select-all block mb-1.5"
@@ -1261,25 +1229,19 @@ function Claw402ConfigForm({
                             cursor: 'pointer',
                           }}
                         >
-                          {copiedAddr ? 'Copied' : 'Copy Address'}
+                          {copiedAddr
+                            ? t('modelModal.copied', language)
+                            : t('modelModal.copyAddress', language)}
                         </Button>
                       </div>
                     </div>
                     <div className="text-[10px] space-y-1 text-muted-foreground">
+                      <div>• {t('modelModal.depositStepScan', language)}</div>
                       <div>
-                        •{' '}
-                        {language === 'zh'
-                          ? '用交易所 App 扫描二维码直接转账'
-                          : 'Scan QR with exchange app to transfer'}
+                        • {t('modelModal.depositStepNetwork', language)}
                       </div>
                       <div>
-                        •{' '}
-                        {language === 'zh'
-                          ? '提币时网络选择 Base'
-                          : 'Choose Base network when withdrawing'}
-                      </div>
-                      <div>
-                        • {language === 'zh' ? '或跨链桥: ' : 'Or bridge: '}
+                        • {t('modelModal.orBridge', language)}
                         <a
                           href="https://bridge.base.org"
                           target="_blank"
@@ -1290,12 +1252,7 @@ function Claw402ConfigForm({
                           bridge.base.org
                         </a>
                       </div>
-                      <div>
-                        •{' '}
-                        {language === 'zh'
-                          ? '最低充值 $1 USDC 即可开始'
-                          : 'Min $1 USDC to start'}
-                      </div>
+                      <div>• {t('modelModal.depositMinimum', language)}</div>
                     </div>
                   </div>
                 )}
@@ -1419,7 +1376,7 @@ function Claw402ConfigForm({
           variant="unstyled"
           type="button"
           onClick={onBack}
-          className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
+          className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-panel-hover"
           style={{
             background: 'var(--color-border)',
             color: 'var(--color-muted-fg)',
@@ -1490,7 +1447,7 @@ function StandardProviderConfigForm({
           border: '1px solid var(--color-border)',
         }}
       >
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-black border border-white/10">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-surface-alt border border-border">
           {getModelIcon(selectedModel.provider || selectedModel.id, {
             width: 32,
             height: 32,
@@ -1577,8 +1534,10 @@ function StandardProviderConfigForm({
             color: 'var(--color-profit)',
           }}
         >
-          当前模型密钥状态：
-          {selectedModel.has_api_key ? '已配置 API Key' : '未配置 API Key'}
+          {t('modelModal.keyStatusLabel', language)}
+          {selectedModel.has_api_key
+            ? t('modelModal.keyConfigured', language)
+            : t('modelModal.keyNotConfigured', language)}
         </div>
       )}
 
@@ -1633,11 +1592,11 @@ function StandardProviderConfigForm({
           onChange={(e) => onApiKeyChange(e.target.value)}
           placeholder={
             editingModelId && selectedModel.has_api_key
-              ? '已保存，如需更换请重新输入'
+              ? t('modelModal.savedReenter', language)
               : selectedModel.provider === 'blockrun-base'
-                ? '0x... (EVM private key)'
+                ? t('modelModal.evmKeyPlaceholder', language)
                 : selectedModel.provider === 'blockrun-sol'
-                  ? 'bs58 encoded key (Solana)'
+                  ? t('modelModal.solKeyPlaceholder', language)
                   : t('enterAPIKey', language)
           }
           className="w-full px-4 py-3 rounded-xl"
@@ -1764,7 +1723,7 @@ function StandardProviderConfigForm({
           variant="unstyled"
           type="button"
           onClick={onBack}
-          className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
+          className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-panel-hover"
           style={{
             background: 'var(--color-border)',
             color: 'var(--color-muted-fg)',
