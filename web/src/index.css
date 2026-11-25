@@ -1278,6 +1278,8 @@ main {
 }
 
 .ait-mobile-menu-overlay {
+  /* Opaque: glass-theme surfaces are translucent, so the theme gradients
+     below sit on an opaque background colour (#85). */
   background: var(--color-background);
   color: var(--color-foreground);
   border-top: 1px solid var(--color-border);
@@ -1286,7 +1288,8 @@ main {
 }
 
 [data-theme='light'] .ait-mobile-menu-overlay {
-  background: linear-gradient(
+  background-color: var(--color-background);
+  background-image: linear-gradient(
     180deg,
     var(--color-surface) 0%,
     var(--color-background) 100%
@@ -1294,7 +1297,8 @@ main {
 }
 
 [data-theme='dark'] .ait-mobile-menu-overlay {
-  background: linear-gradient(
+  background-color: var(--color-background);
+  background-image: linear-gradient(
     180deg,
     var(--color-surface) 0%,
     var(--color-background) 100%
