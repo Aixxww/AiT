@@ -97,14 +97,14 @@ func TestFetcherLimiterConfig(t *testing.T) {
 // /futures/data request to its own limiter.
 func TestHTTPClientAcquireCharges(t *testing.T) {
 	c := newFetcherHTTPClient(FetcherConfig{WeightLimitPerMin: 1800, FuturesDataLimitPer5Min: 1000})
-	c.acquire("/fapi/v1/depth?symbol=BTCUSDT&limit=100")
+	c.acquire(context.Background(), "/fapi/v1/depth?symbol=BTCUSDT&limit=100")
 	if got := c.weightLimiter.tokens; got < 174.9 || got > 175.5 {
 		t.Fatalf("depth must cost 5 weight: tokens %v", got)
 	}
 	if c.futuresDataLimiter.tokens != 400 {
 		t.Fatalf("a /fapi request must not charge the futures-data limiter: %v", c.futuresDataLimiter.tokens)
 	}
-	c.acquire("/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=30")
+	c.acquire(context.Background(), "/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=30")
 	if got := c.futuresDataLimiter.tokens; got < 398.9 || got > 399.1 {
 		t.Fatalf("a /futures/data request costs 1: tokens %v", got)
 	}
@@ -122,7 +122,7 @@ func TestTieredOffByDefault(t *testing.T) {
 	}
 	c := newFetcherHTTPClient(FetcherConfig{})
 	before := c.limiter.tokens
-	c.acquire("/fapi/v1/depth?symbol=BTCUSDT&limit=100")
+	c.acquire(context.Background(), "/fapi/v1/depth?symbol=BTCUSDT&limit=100")
 	if got := before - c.limiter.tokens; got < 0.9 || got > 1.1 {
 		t.Fatalf("legacy limiter must charge 1 per request, charged %v", got)
 	}

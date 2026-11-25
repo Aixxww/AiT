@@ -41,6 +41,10 @@ type FetcherConfig struct {
 	// /futures/data endpoints (no IP weight). 0 (default) = none.
 	FuturesDataLimitPer5Min int
 
+	// EndpointSubBudgets (#87): with WeightLimitPerMin, also cap each
+	// endpoint family at its share of the weight (rate_discipline.go).
+	EndpointSubBudgets bool
+
 	// Tiered (fix 05), optional: two-tier fetch over every symbol. Nil
 	// (default) = the single-tier TopNForDetail fetch, unchanged.
 	Tiered *TieredFetchConfig
@@ -76,6 +80,17 @@ func (f *DataFetcher) SetErrorSink(sink func(path string, err error)) {
 type FetchOptions struct {
 	KlineIntervals         []KlineInterval
 	RefreshSlowDerivatives bool
+
+	// #87 L3 rolling slow refresh. When SlowDue is set it replaces
+	// RefreshSlowDerivatives per symbol: a detail symbol for which it
+	// returns true fetches its slow derivatives and SlowKlineIntervals this
+	// round; the others fetch only KlineIntervals and keep carried values.
+	SlowDue            func(symbol string) bool
+	SlowKlineIntervals []KlineInterval
+
+	// NoBudget skips FetcherConfig.FetchBudget for this fetch (the
+	// collector's start-up full fetch is larger than one round).
+	NoBudget bool
 }
 
 // NewDataFetcher creates a new DataFetcher.
@@ -124,7 +139,7 @@ func (f *DataFetcher) FetchWithKlineIntervals(ctx context.Context, klineInterval
 
 func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (*Snapshot, error) {
 	start := time.Now()
-	if f.cfg.FetchBudget > 0 {
+	if f.cfg.FetchBudget > 0 && !opts.NoBudget {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, f.cfg.FetchBudget)
 		defer cancel()
@@ -147,7 +162,12 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 	}
 
 	ch := make(chan bulkResult, 1)
+	// L0 bulk is the round's priority-1 data (every symbol's price, volume,
+	// funding): it is never truncated by the round deadline. The deadline
+	// only cuts the detail phase, weakest symbols first (launch order).
+	bulkCtx := context.WithoutCancel(ctx)
 	go func() {
+		ctx := bulkCtx
 		var r bulkResult
 
 		// Fetch sequentially to avoid Binance CDN connection resets on concurrent requests.
@@ -203,7 +223,11 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 		snapshots, detail, tm = f.fetchTieredData(ctx, bulk.tickers, bulk.premiums)
 	} else {
 		detailSymbols := selectDetailSymbols(f.symbols, bulk.tickers, bulk.premiums, f.cfg.TopNForDetail)
-		snapshots, detail = f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, klineIntervals, opts.RefreshSlowDerivatives)
+		snapshots, detail = f.fetchPerSymbolData(ctx, f.symbols, detailSymbols, bulk.tickers, bulk.premiums, perSymbolPlan{
+			klines:     klineIntervals,
+			slowKlines: opts.SlowKlineIntervals,
+			slowDue:    slowDueFunc(opts),
+		})
 	}
 	restErrors += detail.symbolErrors
 
@@ -231,6 +255,8 @@ func (f *DataFetcher) FetchWithOptions(ctx context.Context, opts FetchOptions) (
 			SlowMaxAge:    tm.slowMaxAge,
 		},
 	}
+	snap.Meta.Requests, snap.Meta.Weight, snap.Meta.RateLimited, snap.Meta.MaxServerWeight = stats.budget()
+	snap.Meta.SlowDue = detail.slowDue
 
 	return snap, nil
 }

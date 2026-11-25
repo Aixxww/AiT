@@ -463,6 +463,10 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 	}
 
 	logger.Infof("📊 Successfully fetched multi-timeframe market data for %d coins", len(ctx.MarketDataMap))
+
+	// #87 L4: fresh price + fast indicators for the top Hunter v7
+	// candidates right before the prompt (and its re-tier) is built.
+	refreshHunterV7Finalists(ctx, engine, timeframes, primaryTimeframe, klineCount)
 	return nil
 }
 

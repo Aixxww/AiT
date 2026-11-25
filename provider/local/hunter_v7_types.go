@@ -313,6 +313,10 @@ type V7DataFreshness struct {
 	// threshold is derived from it rather than from a fixed constant.
 	SnapshotFetchMs  int64 `json:"snapshot_fetch_ms,omitempty"`
 	StaleThresholdMs int64 `json:"stale_threshold_ms,omitempty"`
+	// SlowAgeMs (#87 L3 / AUD-A5) is the age of the oldest slow field (OI
+	// history, LSR, depth, 5m OI). Slow fields older than the collector's
+	// SlowFieldMaxAge are cleared, so a value here is never beyond it.
+	SlowAgeMs int64 `json:"slow_age_ms,omitempty"`
 }
 
 // V7PriceZone defines an entry price range.

@@ -206,7 +206,7 @@ func TestMergeCarriedSlowDerivativesCarriesT2Inputs(t *testing.T) {
 	fresh := &Snapshot{Symbols: map[string]*SymbolSnapshot{
 		"TESTUSDT": {Symbol: "TESTUSDT"},
 	}}
-	mergeCarriedSlowDerivatives(cur, fresh)
+	mergeCarriedSlowDerivatives(cur, fresh, 0)
 	got := fresh.Symbols["TESTUSDT"]
 	if len(got.DepthBids) != 1 || len(got.DepthAsks) != 1 || len(got.OI5mHistory) != 1 {
 		t.Fatalf("t2 inputs not carried: %+v", got)

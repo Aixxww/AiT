@@ -1887,13 +1887,12 @@ func validateHunterV7SignalFreshness(candidate *kernel.CandidateCoin, decision *
 	if candidate == nil || decision == nil {
 		return nil
 	}
-	ageMs := decision.SignalAgeMs
+	// #87 / AUD-E1: backend ages only. The model's signal_age_ms is an
+	// echo of prompt text and can be anything (1 used to pass a 120s-old
+	// high-volatility signal), so it is ignored here.
+	ageMs := candidate.V7DataFreshness.PriceAgeMs
 	if ageMs <= 0 {
-		if candidate.V7DataFreshness.PriceAgeMs > 0 {
-			ageMs = candidate.V7DataFreshness.PriceAgeMs
-		} else {
-			ageMs = candidate.V7DataFreshness.SnapshotAgeMs
-		}
+		ageMs = candidate.V7DataFreshness.SnapshotAgeMs
 	}
 	if ageMs <= 0 {
 		return nil

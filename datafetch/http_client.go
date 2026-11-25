@@ -171,6 +171,13 @@ type HTTPClient struct {
 	// endpoints carry no IP weight and have their own per-IP limit).
 	weightLimiter      *RateLimiter
 	futuresDataLimiter *RateLimiter
+
+	// #87 rate discipline (rate_discipline.go). subBudgets are only set
+	// with the weight limiter; pause and counters always exist.
+	subBudgets  []subBudgetLimiter
+	pause       pauseGate
+	counters    rateCounters
+	weightGuard int64 // server-reported weight that pauses the client; 0 = DefaultServerWeightGuard
 }
 
 func newFetcherHTTPClient(cfg FetcherConfig) *HTTPClient {
@@ -179,6 +186,9 @@ func newFetcherHTTPClient(cfg FetcherConfig) *HTTPClient {
 	if cfg.WeightLimitPerMin > 0 {
 		// burst 10% of the rate: at most 1.1 x the rate in any minute.
 		c.weightLimiter = NewRateLimiterBurst(cfg.WeightLimitPerMin, time.Minute, cfg.WeightLimitPerMin*0.1)
+		if cfg.EndpointSubBudgets {
+			c.subBudgets = newSubBudgetLimiters(cfg.WeightLimitPerMin)
+		}
 	}
 	if cfg.FuturesDataLimitPer5Min > 0 {
 		// burst 40% + refill 60% per 5 min: never more than the limit in
@@ -189,16 +199,31 @@ func newFetcherHTTPClient(cfg FetcherConfig) *HTTPClient {
 	return c
 }
 
-// acquire charges the limiters for one attempt of path.
-func (c *HTTPClient) acquire(path string) {
+// acquire charges the limiters for one attempt of path and waits out any
+// client-wide pause. It returns early (with ctx's error) when ctx ends.
+func (c *HTTPClient) acquire(ctx context.Context, path string) error {
+	if err := c.pause.wait(ctx); err != nil {
+		return err
+	}
 	if strings.HasPrefix(path, "/futures/data/") && c.futuresDataLimiter != nil {
-		c.futuresDataLimiter.AcquireN(1)
+		if err := c.futuresDataLimiter.AcquireNCtx(ctx, 1); err != nil {
+			return err
+		}
 	}
 	if c.weightLimiter != nil {
-		c.weightLimiter.AcquireN(binanceRequestWeight(path))
-		return
+		w := binanceRequestWeight(path)
+		key := endpointKey(path)
+		for _, sb := range c.subBudgets {
+			if key == sb.prefix {
+				if err := sb.l.AcquireNCtx(ctx, w); err != nil {
+					return err
+				}
+				break
+			}
+		}
+		return c.weightLimiter.AcquireNCtx(ctx, w)
 	}
-	c.limiter.Acquire()
+	return c.limiter.AcquireNCtx(ctx, 1)
 }
 
 // NewHTTPClient creates an HTTP client with connection pooling, rate limiting,
@@ -251,12 +276,18 @@ func binanceProxyFromEnvironment(req *http.Request) (*url.URL, error) {
 
 // doPublic performs a rate-limited, circuit-breaker-protected GET request
 // to a Binance public endpoint. Returns the response body.
-// Retries on transient network errors (connection reset, timeout, EOF).
-// Circuit breaker failure is only recorded after ALL retries are exhausted.
 //
-// ctx carries only the optional per-fetch statistics (TA-5); it does not
-// cancel the request (request behaviour is unchanged).
+// Retries transient network errors and 429 with exponential backoff and
+// full jitter (#87). A 429 or 418 with Retry-After pauses every request of
+// this client for that long; 418 (IP ban) is never retried. The
+// server-reported X-MBX-USED-WEIGHT-1M pauses the client until the next
+// minute once it reaches the guard. The request carries ctx, so a fetch
+// deadline (FetchBudget, the finalist refresh deadline) cancels in-flight
+// calls. The circuit breaker records one failure per call, after retries.
 func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	stats := fetchStatsFrom(ctx)
 	callStart := time.Now()
 	defer func() {
@@ -276,18 +307,32 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			time.Sleep(time.Duration(300*(1<<attempt)) * time.Millisecond)
+			if err := sleepCtx(ctx, backoffDelay(attempt)); err != nil {
+				return nil, fmt.Errorf("GET %s: %w", path, err)
+			}
 		}
 		waitStart := time.Now()
-		c.acquire(path)
+		if err := c.acquire(ctx, path); err != nil {
+			return nil, fmt.Errorf("GET %s: %w", path, err)
+		}
 		limiterWait := time.Since(waitStart)
+		stats.recordRequest(binanceRequestWeight(path))
 
 		url := c.baseURL + path
 		netStart := time.Now()
-		resp, err := c.inner.Get(url)
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if reqErr != nil {
+			return nil, fmt.Errorf("GET %s: %w", url, reqErr)
+		}
+		resp, err := c.inner.Do(req)
 		if err != nil {
 			stats.recordAttempt(path, limiterWait, time.Since(netStart))
 			lastErr = fmt.Errorf("GET %s: %w", url, err)
+			if ctx.Err() != nil {
+				// The caller's deadline, not the network: do not retry and
+				// do not count it against the breaker.
+				return nil, lastErr
+			}
 			if attempt < maxRetries && isRetryable(err) {
 				continue
 			}
@@ -297,33 +342,68 @@ func (c *HTTPClient) doPublic(ctx context.Context, path string) (body []byte, er
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		stats.recordAttempt(path, limiterWait, time.Since(netStart))
+		c.observeServerWeight(resp.Header, stats)
 		if err != nil {
 			lastErr = fmt.Errorf("read body %s: %w", url, err)
+			if ctx.Err() != nil {
+				return nil, lastErr
+			}
 			if attempt < maxRetries && isRetryable(err) {
 				continue
 			}
 			break
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests {
-			lastErr = fmt.Errorf("GET %s: rate limited (429)", url)
+		switch resp.StatusCode {
+		case http.StatusTooManyRequests:
+			atomic.AddInt64(&c.counters.rateLimited, 1)
+			stats.recordRateLimited()
+			wait := retryAfter(resp.Header)
+			if wait <= 0 {
+				wait = backoffDelay(attempt + 1)
+			}
+			c.pause.pauseFor(wait)
+			lastErr = fmt.Errorf("GET %s: rate limited (429, retry after %s)", url, wait.Round(time.Millisecond))
 			if attempt < maxRetries {
 				continue
 			}
-			break
-		}
-
-		if resp.StatusCode != http.StatusOK {
+		case 418:
+			// IP ban: stop this client for the advertised time; no retry.
+			atomic.AddInt64(&c.counters.banned, 1)
+			stats.recordRateLimited()
+			c.pause.pauseFor(retryAfter(resp.Header))
+			c.breaker.Failure()
+			return nil, fmt.Errorf("GET %s: HTTP 418 (IP banned, retry after %s)", url, retryAfter(resp.Header))
+		case http.StatusOK:
+			c.breaker.Success()
+			return body, nil
+		default:
 			c.breaker.Failure()
 			return nil, fmt.Errorf("GET %s: HTTP %d: %s", url, resp.StatusCode, truncateBody(body, 200))
 		}
-
-		c.breaker.Success()
-		return body, nil
+		break
 	}
 
 	c.breaker.Failure()
 	return nil, lastErr
+}
+
+// observeServerWeight records X-MBX-USED-WEIGHT-1M and pauses the client
+// until the next minute when it reaches the guard.
+func (c *HTTPClient) observeServerWeight(h http.Header, stats *fetchStats) {
+	n := usedWeight1m(h)
+	if n <= 0 {
+		return
+	}
+	c.counters.observeUsedWeight(n)
+	stats.recordServerWeight(n)
+	guard := c.weightGuard
+	if guard <= 0 {
+		guard = DefaultServerWeightGuard
+	}
+	if n >= guard {
+		c.pause.pauseFor(untilNextMinute(time.Now()))
+	}
 }
 
 // fetchJSON performs a GET request and unmarshals the JSON response into target.

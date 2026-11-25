@@ -98,8 +98,29 @@ func TestEndpointLatencyCountsRetries(t *testing.T) {
 	if e.Calls != 1 || e.Attempts != 4 || e.Failed != 1 {
 		t.Fatalf("counts %+v, want calls 1 attempts 4 failed 1", e)
 	}
-	if e.CallP50Ms < 4000 { // 0.6 + 1.2 + 2.4 s backoff
-		t.Fatalf("call time %d ms must include the retry backoff", e.CallP50Ms)
+	// #87: the backoff is exponential with full jitter, so the call time is
+	// random; TestBackoffDelayFullJitter checks the bounds.
+}
+
+func TestBackoffDelayFullJitter(t *testing.T) {
+	for attempt := 1; attempt <= 6; attempt++ {
+		ceiling := retryBaseDelay << uint(attempt)
+		if ceiling > retryMaxDelay {
+			ceiling = retryMaxDelay
+		}
+		var maxSeen time.Duration
+		for i := 0; i < 200; i++ {
+			d := backoffDelay(attempt)
+			if d < 0 || d > ceiling {
+				t.Fatalf("attempt %d: delay %v outside [0, %v]", attempt, d, ceiling)
+			}
+			if d > maxSeen {
+				maxSeen = d
+			}
+		}
+		if maxSeen < ceiling/2 {
+			t.Fatalf("attempt %d: no jitter spread (max %v of %v)", attempt, maxSeen, ceiling)
+		}
 	}
 }
 

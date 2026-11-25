@@ -235,6 +235,10 @@ type Context struct {
 	// instead of re-tiering, so the LLM, the AI-skip check, the decision
 	// validator and the execution gate all read the same verdict.
 	hunterV7Final *hunterV7FinalTiers
+
+	// HunterV7Finalists (#87 L4) is output only: the finalist refresh
+	// outcome per symbol (refreshed, or snapshot fallback with its age).
+	HunterV7Finalists []HunterV7FinalistRefresh `json:"-"`
 }
 
 // HunterV7PromptFinalTier is one candidate's prompt-final tier (fix 12).
@@ -593,6 +597,10 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		}
 		if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 			v7cfg.MaxOutput = coinSource.HunterLimit
+		}
+		// #87 / AUD-A6: the LLM never gets more than MaxCandidateCoins (10).
+		if v7cfg.MaxOutput <= 0 || v7cfg.MaxOutput > store.MaxCandidateCoins {
+			v7cfg.MaxOutput = store.MaxCandidateCoins
 		}
 		e.v7CycleCounter++
 		v7cfg.CycleNumber = e.v7CycleCounter
@@ -2884,6 +2892,10 @@ func (e *StrategyEngine) getHunterV7Coins() ([]CandidateCoin, error) {
 	}
 	if coinSource.HunterLimit > 0 && (v7cfg.MaxOutput <= 0 || coinSource.HunterLimit < v7cfg.MaxOutput) {
 		v7cfg.MaxOutput = coinSource.HunterLimit
+	}
+	// #87 / AUD-A6: the LLM never gets more than MaxCandidateCoins (10).
+	if v7cfg.MaxOutput <= 0 || v7cfg.MaxOutput > store.MaxCandidateCoins {
+		v7cfg.MaxOutput = store.MaxCandidateCoins
 	}
 	e.v7CycleCounter++
 	v7cfg.CycleNumber = e.v7CycleCounter

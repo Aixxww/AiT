@@ -31,6 +31,15 @@ type fetchStatsKey struct{}
 type fetchStats struct {
 	failedRequests int64
 
+	// #87: per-fetch request budget accounting. requests counts HTTP
+	// attempts (retries included), weight their Binance request weight
+	// (request_weight.go), rateLimited the 429/418 responses, and
+	// maxServerWeight the highest X-MBX-USED-WEIGHT-1M seen.
+	requests        int64
+	weight          int64
+	rateLimited     int64
+	maxServerWeight int64
+
 	mu        sync.Mutex
 	endpoints map[string]*endpointSamples
 }
@@ -58,6 +67,45 @@ func (st *fetchStats) recordFailure(path string, err error) {
 		return
 	}
 	atomic.AddInt64(&st.failedRequests, 1)
+}
+
+// recordRequest counts one HTTP attempt and its weight. Nil-safe.
+func (st *fetchStats) recordRequest(weight float64) {
+	if st == nil {
+		return
+	}
+	atomic.AddInt64(&st.requests, 1)
+	atomic.AddInt64(&st.weight, int64(math.Round(weight)))
+}
+
+// recordRateLimited counts one 429 / 418 response. Nil-safe.
+func (st *fetchStats) recordRateLimited() {
+	if st == nil {
+		return
+	}
+	atomic.AddInt64(&st.rateLimited, 1)
+}
+
+// recordServerWeight keeps the highest server-reported minute weight.
+func (st *fetchStats) recordServerWeight(n int64) {
+	if st == nil {
+		return
+	}
+	for {
+		cur := atomic.LoadInt64(&st.maxServerWeight)
+		if n <= cur || atomic.CompareAndSwapInt64(&st.maxServerWeight, cur, n) {
+			return
+		}
+	}
+}
+
+// budget returns the per-fetch request accounting.
+func (st *fetchStats) budget() (requests, weight, rateLimited, maxServerWeight int) {
+	if st == nil {
+		return 0, 0, 0, 0
+	}
+	return int(atomic.LoadInt64(&st.requests)), int(atomic.LoadInt64(&st.weight)),
+		int(atomic.LoadInt64(&st.rateLimited)), int(atomic.LoadInt64(&st.maxServerWeight))
 }
 
 func (st *fetchStats) failed() int {
