@@ -1329,7 +1329,7 @@ export function CoinSourceEditor({
               <SwitchRow
                 title={ts(coinSource.v7Aggressive, language)}
                 summary={ts(coinSource.v7AggressiveDesc, language)}
-                checked={config.hunter_config?.v7_aggressive ?? true}
+                checked={config.hunter_config?.v7_aggressive ?? false}
                 disabled={disabled}
                 onChange={(checked) =>
                   onChange({
