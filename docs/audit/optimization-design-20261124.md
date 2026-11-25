@@ -141,6 +141,7 @@ Conclusion: the split brain is real (it is shown on a constructed fixture by `Te
 | AUD-D7 | **Fixed** | PR #78, merged (doctrine describes the protector). |
 | AUD-A2 regime enum | **Partly fixed** | PR #78 added `trend_continuation`. The threshold and hysteresis work remains (cluster 3). |
 | AUD-B4 | **Fixed in open PR #82** | One confidence floor from `min_confidence`. |
+| AUD-B7 | **Implemented in #86** | `FinalizeHunterV7Tiers` / `PrepareHunterV7Tiers` (`kernel/hunter_v7_final_tier.go`): the prompt-final tier is written back to `ctx.CandidateCoins` before the AI-skip check; prompt goldens unchanged. |
 
 ## 5. Task 4: config-surface audit
 

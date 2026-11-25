@@ -121,13 +121,19 @@ type CandidateCoin struct {
 	V7VWAP15m          float64                      `json:"-"`
 	V7ExecutionTier    string                       `json:"-"`
 	V7TierReason       string                       `json:"-"`
-	V7Stack            string                       `json:"-"` // "" native, local.V7StackT2 for Task-2 signals
-	V7LifecycleState   string                       `json:"-"` // Task-2 event state: WATCH / ARMED / TRIGGERED (U1)
-	V7SignalClass      string                       `json:"-"` // U6a registry class ("" = unassigned)
-	V7ClassAdmission   string                       `json:"-"` // U6a registry admission ("" = tradable)
-	V7RequiredRR       float64                      `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
-	V7RequiredMinStop  float64                      `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
-	V7RequiredMaxTP    float64                      `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
+	// V7AssembledTier / V7AssembledReason keep the assembly verdict after
+	// FinalizeHunterV7Tiers has replaced V7ExecutionTier / V7TierReason with
+	// the prompt-final verdict (#86). Empty until finalization; read only
+	// for records and the assembled vs final comparison, never by gates.
+	V7AssembledTier   string  `json:"-"`
+	V7AssembledReason string  `json:"-"`
+	V7Stack           string  `json:"-"` // "" native, local.V7StackT2 for Task-2 signals
+	V7LifecycleState  string  `json:"-"` // Task-2 event state: WATCH / ARMED / TRIGGERED (U1)
+	V7SignalClass     string  `json:"-"` // U6a registry class ("" = unassigned)
+	V7ClassAdmission  string  `json:"-"` // U6a registry admission ("" = tradable)
+	V7RequiredRR      float64 `json:"-"` // RR admission floor for this candidate when it differs from the strategy floor (T2: U2/P2a)
+	V7RequiredMinStop float64 `json:"-"` // minimum stop distance (percent) for this candidate when it differs from the strategy floor (T2: U4/P2b)
+	V7RequiredMaxTP   float64 `json:"-"` // TP1 distance cap (percent) for this candidate when its class profile or setup override differs from the strategy cap (U6)
 	// V7RRReferencePrice (fix 06), when > 0, is the price the backend RR and
 	// stop-distance checks measure from, read before V7PriceContext.Last.
 	// Task-2 candidates set it at assembly to the entry-zone edge (LONG =
@@ -223,14 +229,22 @@ type Context struct {
 	// LLM (after the prompt-time reprice, live confirmation and readiness
 	// re-check). Nil until a hunter_v7 prompt is built.
 	HunterV7PromptFinal []HunterV7PromptFinalTier `json:"-"`
+
+	// hunterV7Final holds the result of FinalizeHunterV7Tiers (#86, AUD-B7):
+	// the prompt items computed once per round. BuildUserPrompt renders them
+	// instead of re-tiering, so the LLM, the AI-skip check, the decision
+	// validator and the execution gate all read the same verdict.
+	hunterV7Final *hunterV7FinalTiers
 }
 
 // HunterV7PromptFinalTier is one candidate's prompt-final tier (fix 12).
 // The three tier layers are distinct by design: the module status (the
-// signal's own status), the assembled tier (CandidateCoin.V7ExecutionTier
-// at assembly, persisted as execution_tier) and this prompt-final tier,
-// which is what the LLM sees. Recorded only: nothing reads it back for
-// scoring, tiers, guards or execution.
+// signal's own status), the assembled tier (persisted as execution_tier;
+// kept on the candidate as V7AssembledTier after finalization) and this
+// prompt-final tier, which is what the LLM sees. Since #86 the prompt-final
+// tier is authoritative: FinalizeHunterV7Tiers writes it back to
+// ctx.CandidateCoins[].V7ExecutionTier, which the AI-skip check, the
+// decision validator and the execution gate read.
 type HunterV7PromptFinalTier struct {
 	Symbol     string `json:"symbol"`
 	SetupType  string `json:"setup_type"`

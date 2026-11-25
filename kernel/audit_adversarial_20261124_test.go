@@ -173,7 +173,7 @@ func hunterV7AuditStrategyConfig() *store.StrategyConfig {
 // execution gate read the assembly tier still stored in ctx.CandidateCoins.
 // The LLM can therefore be shown EXECUTABLE for a coin the trader treats as
 // WATCH (and the reverse).
-func TestAudit_B7_PromptTierAndExecutionTierDiverge(t *testing.T) {
+func TestAudit_B7_PromptTierIsExecutionTier(t *testing.T) {
 	engine := NewStrategyEngine(hunterV7AuditStrategyConfig())
 	coin := CandidateCoin{
 		Symbol: "XUSDT", Direction: "LONG",
@@ -191,13 +191,24 @@ func TestAudit_B7_PromptTierAndExecutionTierDiverge(t *testing.T) {
 		CandidateCoins: []CandidateCoin{coin},
 		MarketDataMap:  map[string]*market.Data{"XUSDT": {Symbol: "XUSDT", CurrentPrice: 100}},
 	}
-	items := engine.hunterV7PromptItems(ctx, map[string]bool{})
-	if len(items) != 1 {
-		t.Fatalf("items = %d", len(items))
+	// #86 fixed AUD-B7: the tier is finalized once and written back, so the
+	// prompt-final verdict (what the LLM sees) is the one the AI-skip check,
+	// the validator and the execution gate read.
+	engine.FinalizeHunterV7Tiers(ctx)
+	if len(ctx.HunterV7PromptFinal) != 1 {
+		t.Fatalf("prompt-final entries = %d", len(ctx.HunterV7PromptFinal))
 	}
-	t.Logf("assembly tier %s -> prompt-final tier %s (%s); ctx.CandidateCoins still says %s",
-		coin.V7ExecutionTier, items[0].Tier, items[0].Reason, ctx.CandidateCoins[0].V7ExecutionTier)
-	if items[0].Tier == ctx.CandidateCoins[0].V7ExecutionTier {
-		t.Fatal("FLAW no longer present: prompt and execution tiers agree for this fixture; update AUD-B7")
+	f := ctx.HunterV7PromptFinal[0]
+	got := ctx.CandidateCoins[0]
+	t.Logf("assembly tier %s -> prompt-final tier %s (%s); ctx.CandidateCoins now says %s",
+		f.AssembledTier, f.Tier, f.TierReason, got.V7ExecutionTier)
+	if f.AssembledTier == f.Tier {
+		t.Fatal("fixture no longer exercises a tier change between assembly and prompt; pick another fixture")
+	}
+	if got.V7ExecutionTier != f.Tier || got.V7TierReason != f.TierReason {
+		t.Fatalf("split brain: gate reads %s/%s, LLM saw %s/%s", got.V7ExecutionTier, got.V7TierReason, f.Tier, f.TierReason)
+	}
+	if got.V7AssembledTier != "WATCH" || coin.V7ExecutionTier != "WATCH" {
+		t.Fatalf("assembly verdict not kept aside (%s) or caller slice mutated (%s)", got.V7AssembledTier, coin.V7ExecutionTier)
 	}
 }

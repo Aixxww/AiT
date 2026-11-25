@@ -83,6 +83,11 @@ func TestExperimentX4_TierSplitBrainOnGoldenRound(t *testing.T) {
 	t.Logf("X4 [N=1 round, golden universe-20260726, sparse market data] router_out=%d candidates=%d prompt_items=%d", len(result.OutputSignals), len(coins), len(ctx.HunterV7PromptFinal))
 	t.Logf("X4 assembled tiers=%v final tiers=%v", assembled, final)
 	t.Logf("X4 diverged=%d/%d gate_flips(E/R membership)=%d", diverged, len(ctx.HunterV7PromptFinal), gateFlips)
+	// #86 regression metric: the tier the gate reads (ctx.CandidateCoins)
+	// equals the prompt-final tier for every candidate the LLM was shown.
+	if n := hunterV7GateVsPromptDivergences(ctx); n != 0 {
+		t.Fatalf("X4: %d candidates where the gate tier differs from the prompt-final tier", n)
+	}
 	for _, k := range keys {
 		t.Logf("X4 transition %s: %d", k, transitions[k])
 	}
@@ -100,6 +105,9 @@ func TestExperimentX4_TierSplitBrainOnGoldenRound(t *testing.T) {
 		pctx := &Context{CurrentTime: ctx.CurrentTime, CallCount: 1, Account: ctx.Account,
 			CandidateCoins: engine.hunterV7SignalsToCandidateCoins(result.OutputSignals, "BOTH"), MarketDataMap: md}
 		_ = engine.BuildUserPrompt(pctx)
+		if n := hunterV7GateVsPromptDivergences(pctx); n != 0 {
+			t.Fatalf("X4 [%+.1f%%]: %d gate vs prompt-final divergences", pct, n)
+		}
 		div, flips := 0, 0
 		tr := map[string]int{}
 		for _, f := range pctx.HunterV7PromptFinal {

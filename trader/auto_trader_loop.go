@@ -124,6 +124,20 @@ func (at *AutoTrader) runCycle() error {
 		record.CandidateCoins = append(record.CandidateCoins, coin.Symbol)
 	}
 
+	// #86 (AUD-B7): finalize the Hunter v7 tiers once for this round before
+	// anything acts on them. The AI-skip check below, the prompt the LLM
+	// sees, the decision validator and the execution gate then all read the
+	// same prompt-final ctx.CandidateCoins[].V7ExecutionTier.
+	if at.isHunterV7Strategy() {
+		if err := kernel.PrepareHunterV7Tiers(ctx, at.strategyEngine); err != nil {
+			at.logErrorf("failed to finalize Hunter v7 tiers: %v", err)
+			record.Success = false
+			record.ErrorMessage = fmt.Sprintf("Failed to finalize Hunter v7 tiers: %v", err)
+			at.saveDecision(record)
+			return fmt.Errorf("failed to finalize Hunter v7 tiers: %w", err)
+		}
+	}
+
 	if at.shouldSkipHunterV7NoExecutable(ctx, record) {
 		at.saveDecision(record)
 		return nil

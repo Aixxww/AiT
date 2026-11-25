@@ -685,9 +685,14 @@ func hunterV7PromptFinalTiers(assembled []CandidateCoin, items []hunterV7PromptC
 	for _, it := range items {
 		key := HunterV7PromptFinalKey(it.Coin.Symbol, it.Coin.V7SetupType)
 		b := before[key]
+		assembledTier, assembledReason := b.V7ExecutionTier, b.V7TierReason
+		if b.V7AssembledTier != "" {
+			// Already finalized (#86): the assembly verdict is kept aside.
+			assembledTier, assembledReason = b.V7AssembledTier, b.V7AssembledReason
+		}
 		out = append(out, HunterV7PromptFinalTier{
 			Symbol: it.Coin.Symbol, SetupType: it.Coin.V7SetupType, SignalID: it.Coin.V7SignalID,
-			Tier: it.Tier, TierReason: it.Reason, AssembledTier: b.V7ExecutionTier, AssembledReason: b.V7TierReason,
+			Tier: it.Tier, TierReason: it.Reason, AssembledTier: assembledTier, AssembledReason: assembledReason,
 		})
 	}
 	return out
@@ -701,8 +706,9 @@ type hunterV7PromptCandidate struct {
 }
 
 func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder, ctx *Context, positionSymbols map[string]bool) {
-	items := e.hunterV7PromptItems(ctx, positionSymbols)
-	ctx.HunterV7PromptFinal = hunterV7PromptFinalTiers(ctx.CandidateCoins, items) // fix 12: recorded only
+	// #86: render the tiers finalized once for this round (computed here if
+	// the caller has not finalized yet); never re-tier at render time.
+	items := e.finalizeHunterV7Tiers(ctx, positionSymbols)
 	if e.hunterV7PromptHybridV2() {
 		e.writeHunterV7HybridV2CandidatePrompt(sb, ctx, items)
 		return
