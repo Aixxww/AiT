@@ -125,3 +125,36 @@ func TestB7_ExecutionGateReadsPromptFinalTier(t *testing.T) {
 		t.Fatalf("demoted candidate not blocked by the tier gate: %v", err)
 	}
 }
+
+// #104 / AUD-B2: the flat-skip record (AI skipped, no validator runs)
+// carries blocked_reason_code no_reviewable_candidate, in the action and in
+// the decision JSON, and survives the store round trip.
+func TestFlatSkipRecordCarriesNoReviewableCandidate(t *testing.T) {
+	at := b7Trader()
+	ctx := &kernel.Context{CandidateCoins: []kernel.CandidateCoin{
+		{Symbol: "AUSDT", V7SetupType: "trend_breakout_long", V7ExecutionTier: "WATCH"},
+		{Symbol: "BUSDT", V7SetupType: "funding_reversal", V7ExecutionTier: "REJECTED"},
+	}}
+	record := &store.DecisionRecord{TraderID: "t1", CycleNumber: 1}
+	if !at.shouldSkipHunterV7NoExecutable(ctx, record) {
+		t.Fatal("a WATCH/REJECTED-only flat round must skip the AI")
+	}
+	if len(record.Decisions) != 1 || record.Decisions[0].BlockedReasonCode != "no_reviewable_candidate" {
+		t.Fatalf("flat-skip action: %+v", record.Decisions)
+	}
+	if !strings.Contains(record.DecisionJSON, `"blocked_reason_code": "no_reviewable_candidate"`) {
+		t.Fatalf("decision JSON: %s", record.DecisionJSON)
+	}
+	st, err := store.New(t.TempDir() + "/data.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Decision().LogDecision(record); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Decision().GetLatestRecords("t1", 1)
+	if err != nil || len(got) != 1 || len(got[0].Decisions) != 1 || got[0].Decisions[0].BlockedReasonCode != "no_reviewable_candidate" {
+		t.Fatalf("stored record: %v %+v", err, got)
+	}
+}

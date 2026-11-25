@@ -457,16 +457,20 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
   {
     "symbol": "ALL",
     "action": "wait",
+    "blocked_reason_code": "no_reviewable_candidate",
     "reasoning": "%s"
   }
 ]`, reason)
+	// #104 / AUD-B2: the AI is skipped, so no validator runs; this record is
+	// the only place the round's wait code is written.
 	record.Decisions = []store.DecisionAction{
 		{
-			Action:    "wait",
-			Symbol:    "ALL",
-			Reasoning: reason,
-			Timestamp: time.Now(),
-			Success:   true,
+			Action:            "wait",
+			Symbol:            "ALL",
+			BlockedReasonCode: "no_reviewable_candidate",
+			Reasoning:         reason,
+			Timestamp:         time.Now(),
+			Success:           true,
 		},
 	}
 	record.ExecutionLog = append(record.ExecutionLog, "Hunter v7 no EXECUTABLE/REVIEWABLE candidates; AI skipped")

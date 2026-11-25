@@ -121,15 +121,41 @@ func TestAudit_B1_ProseOnlyResponseIsSilentSuccessfulWait(t *testing.T) {
 	}
 }
 
-// AUD-B2: no_reviewable_candidate is accepted without checking the Tier
-// Summary; the prompt says it is valid only when EXECUTABLE=0 and REVIEWABLE=0.
+// AUD-B2 (fixed in #104): no_reviewable_candidate is checked against the
+// round's prompt-final tier counts: rejected when EXECUTABLE+REVIEWABLE > 0
+// (demoted to backend_guard_risk by the existing path), accepted when 0.
 func TestAudit_B2_NoReviewableCandidateNotCheckedAgainstTiers(t *testing.T) {
 	d := Decision{Symbol: "OPUSDT", Action: "wait", BlockedReasonCode: "no_reviewable_candidate"}
-	if err := validateHunterV7WaitReason(d); err != nil {
-		t.Fatalf("FLAW no longer present: validator now rejects no_reviewable_candidate (%v); update AUD-B2", err)
+	withR := hunterV7PromptFinalTierCounts([]HunterV7PromptFinalTier{{Tier: "WATCH"}, {Tier: "REVIEWABLE"}})
+	if err := validateHunterV7WaitReason(d, withR); err == nil {
+		t.Fatal("no_reviewable_candidate must be rejected when a REVIEWABLE candidate was in the prompt")
 	}
-	// The validator has no tier input at all, so it cannot tell whether
-	// REVIEWABLE candidates existed in this cycle.
+	withE := hunterV7PromptFinalTierCounts([]HunterV7PromptFinalTier{{Tier: "EXECUTABLE"}})
+	if err := validateHunterV7WaitReason(d, withE); err == nil {
+		t.Fatal("no_reviewable_candidate must be rejected when an EXECUTABLE candidate was in the prompt")
+	}
+	none := hunterV7PromptFinalTierCounts([]HunterV7PromptFinalTier{{Tier: "WATCH"}, {Tier: "REJECTED"}})
+	if err := validateHunterV7WaitReason(d, none); err != nil {
+		t.Fatalf("no_reviewable_candidate is valid when E+R == 0: %v", err)
+	}
+	// Other codes are unaffected by the tiers.
+	other := Decision{Symbol: "ALL", Action: "wait", BlockedReasonCode: "confirmation_missing"}
+	if err := validateHunterV7WaitReason(other, withR); err != nil {
+		t.Fatalf("confirmation_missing must stay valid: %v", err)
+	}
+	// End to end through the existing demotion path.
+	resp := `<decision>[{"symbol":"ALL","action":"wait","blocked_reason_code":"no_reviewable_candidate"}]</decision>`
+	fd, err := parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, withR)
+	if err != nil || len(fd.Decisions) != 1 {
+		t.Fatalf("parse: %v %+v", err, fd)
+	}
+	if got := fd.Decisions[0]; got.BlockedReasonCode != "backend_guard_risk" || got.ValidatorRejection == "" {
+		t.Fatalf("contradicting wait must be demoted to backend_guard_risk, got %+v", got)
+	}
+	fd, _ = parseFullDecisionResponseWithTiers(resp, 1000, 20, 20, 10, 10, nil, true, nil, FixedDecisionRRFloor(1.2), 0, none)
+	if got := fd.Decisions[0]; got.BlockedReasonCode != "no_reviewable_candidate" || got.ValidatorRejection != "" {
+		t.Fatalf("a true no_reviewable_candidate must pass, got %+v", got)
+	}
 }
 
 // AUD-B3 (fixed in #94): a reply with more than one <decision> block (e.g.
