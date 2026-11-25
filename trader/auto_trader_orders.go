@@ -1,7 +1,6 @@
 package trader
 
 import (
-	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
@@ -155,6 +154,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	logger.Infof("  📈 Open long: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price
+	if decision.HunterV7OriginalPrice <= 0 {
+		decision.HunterV7OriginalPrice = decision.Price // #92 / AUD-C1
+	}
 	if err := at.enforceHunterV7EntryContract(decision); err != nil {
 		return err
 	}
@@ -233,7 +235,11 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 		positionWasReduced = true
 	}
 
-	tpWasCapped := at.capTakeProfitToTP1(decision, executionPrice, "long")
+	tpWasCapped, err := at.capTakeProfitToTP1(decision, executionPrice, "long")
+	if err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, false, positionWasReduced, "long")
+		return err
+	}
 	at.repairHunterV7OpenDecision(decision, executionPrice, "long")
 	if err := at.validateOpenDecision(decision, executionPrice, "long"); err != nil {
 		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
@@ -274,52 +280,9 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 	actionRecord.Price = executionPrice
 	at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, quantity, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
 
-	// Set margin mode
-	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
-		logger.Infof("  ⚠️ Failed to set margin mode: %v", err)
-		// Continue execution, doesn't affect trading
-	}
-
-	// Open position
-	order, err := at.openMarketPosition(decision, "long", quantity)
-	if err != nil {
-		if errors.Is(err, errOpenOrderStateUnknown) {
-			// AUD-C5: the order may have filled; protect it or close it.
-			return at.handleOpenOrderStateUnknown(decision, "long", actionRecord, err)
-		}
-		return err
-	}
-
-	// Record order ID
-	if orderID, ok := order["orderId"].(int64); ok {
-		actionRecord.OrderID = orderID
-	}
-
-	logger.Infof("  ✓ Position opened successfully, order ID: %v, quantity: %.4f", order["orderId"], quantity)
-
-	at.ClearPeakPnLCache(decision.Symbol, "long")
-
-	// Record order to database and poll for confirmation
-	at.recordAndConfirmOrder(order, decision.Symbol, "open_long", quantity, executionPrice, decision.Leverage, 0)
-
-	// Record position opening time
-	posKey := decision.Symbol + "_long"
-	at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
-
-	// Set stop loss and take profit
-	// F03: the stop is mandatory. If it cannot be placed the position is
-	// emergency-closed and verified flat; the take-profit is not placed.
-	if err := at.trader.SetStopLoss(decision.Symbol, "LONG", quantity, decision.StopLoss); err != nil {
-		return at.closeUnprotectedPosition(decision.Symbol, "long", quantity, fmt.Errorf("failed to set mandatory stop loss: %w", err))
-	}
-	// A missing take-profit leaves the position protected by its stop; it is
-	// reported, not fatal.
-	if err := at.trader.SetTakeProfit(decision.Symbol, "LONG", quantity, decision.TakeProfit); err != nil {
-		logger.Errorf("  ⚠ Failed to set take profit for %s LONG (stop is in place): %v", decision.Symbol, err)
-		actionRecord.Error = fmt.Sprintf("take_profit_not_placed: %v", err)
-	}
-
-	return nil
+	// #92: margin mode, C7 book re-read, intent row, order, fill read-back,
+	// fill-anchored stop/TP and the lifecycle update.
+	return at.placeOpenOrderWithLifecycle(decision, "long", quantity, executionPrice, requestedPositionSize, tpWasCapped, positionWasReduced, actionRecord)
 }
 
 // executeOpenShortWithRecord executes open short position and records detailed information
@@ -331,6 +294,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	logger.Infof("  📉 Open short: %s", decision.Symbol)
 	requestedPositionSize := decision.PositionSizeUSD
 	decisionPriceBeforeRepair := decision.Price
+	if decision.HunterV7OriginalPrice <= 0 {
+		decision.HunterV7OriginalPrice = decision.Price // #92 / AUD-C1
+	}
 	if err := at.enforceHunterV7EntryContract(decision); err != nil {
 		return err
 	}
@@ -409,7 +375,11 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 		positionWasReduced = true
 	}
 
-	tpWasCapped := at.capTakeProfitToTP1(decision, executionPrice, "short")
+	tpWasCapped, err := at.capTakeProfitToTP1(decision, executionPrice, "short")
+	if err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, false, positionWasReduced, "short")
+		return err
+	}
 	at.repairHunterV7OpenDecision(decision, executionPrice, "short")
 	if err := at.validateOpenDecision(decision, executionPrice, "short"); err != nil {
 		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
@@ -450,52 +420,9 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	actionRecord.Price = executionPrice
 	at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, quantity, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
 
-	// Set margin mode
-	if err := at.trader.SetMarginMode(decision.Symbol, at.config.IsCrossMargin); err != nil {
-		logger.Infof("  ⚠️ Failed to set margin mode: %v", err)
-		// Continue execution, doesn't affect trading
-	}
-
-	// Open position
-	order, err := at.openMarketPosition(decision, "short", quantity)
-	if err != nil {
-		if errors.Is(err, errOpenOrderStateUnknown) {
-			// AUD-C5: the order may have filled; protect it or close it.
-			return at.handleOpenOrderStateUnknown(decision, "short", actionRecord, err)
-		}
-		return err
-	}
-
-	// Record order ID
-	if orderID, ok := order["orderId"].(int64); ok {
-		actionRecord.OrderID = orderID
-	}
-
-	logger.Infof("  ✓ Position opened successfully, order ID: %v, quantity: %.4f", order["orderId"], quantity)
-
-	at.ClearPeakPnLCache(decision.Symbol, "short")
-
-	// Record order to database and poll for confirmation
-	at.recordAndConfirmOrder(order, decision.Symbol, "open_short", quantity, executionPrice, decision.Leverage, 0)
-
-	// Record position opening time
-	posKey := decision.Symbol + "_short"
-	at.positionFirstSeenTime[posKey] = time.Now().UnixMilli()
-
-	// Set stop loss and take profit
-	// F03: the stop is mandatory. If it cannot be placed the position is
-	// emergency-closed and verified flat; the take-profit is not placed.
-	if err := at.trader.SetStopLoss(decision.Symbol, "SHORT", quantity, decision.StopLoss); err != nil {
-		return at.closeUnprotectedPosition(decision.Symbol, "short", quantity, fmt.Errorf("failed to set mandatory stop loss: %w", err))
-	}
-	// A missing take-profit leaves the position protected by its stop; it is
-	// reported, not fatal.
-	if err := at.trader.SetTakeProfit(decision.Symbol, "SHORT", quantity, decision.TakeProfit); err != nil {
-		logger.Errorf("  ⚠ Failed to set take profit for %s SHORT (stop is in place): %v", decision.Symbol, err)
-		actionRecord.Error = fmt.Sprintf("take_profit_not_placed: %v", err)
-	}
-
-	return nil
+	// #92: margin mode, C7 book re-read, intent row, order, fill read-back,
+	// fill-anchored stop/TP and the lifecycle update.
+	return at.placeOpenOrderWithLifecycle(decision, "short", quantity, executionPrice, requestedPositionSize, tpWasCapped, positionWasReduced, actionRecord)
 }
 
 // executeCloseLongWithRecord executes close long position and records detailed information
@@ -544,8 +471,9 @@ func (at *AutoTrader) executeCloseLongWithRecord(decision *kernel.Decision, acti
 		logger.Infof("  📊 Using exchange position data: qty=%.8f, entry=%.2f", quantity, entryPrice)
 	}
 
-	// Close position
-	order, err := at.trader.CloseLong(decision.Symbol, 0) // 0 = close all
+	// Close position (D6: under the position lock; owned protection is
+	// cancelled after the close)
+	order, err := at.llmClosePosition(decision.Symbol, "long")
 	if err != nil {
 		return err
 	}
@@ -610,8 +538,9 @@ func (at *AutoTrader) executeCloseShortWithRecord(decision *kernel.Decision, act
 		logger.Infof("  📊 Using exchange position data: qty=%.8f, entry=%.2f", quantity, entryPrice)
 	}
 
-	// Close position
-	order, err := at.trader.CloseShort(decision.Symbol, 0) // 0 = close all
+	// Close position (D6: under the position lock; owned protection is
+	// cancelled after the close)
+	order, err := at.llmClosePosition(decision.Symbol, "short")
 	if err != nil {
 		return err
 	}

@@ -119,6 +119,7 @@ func (at *AutoTrader) startDrawdownMonitor() {
 // step per open position at the current time (U14 thin adapter).
 func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 	e := at.protectorEngine()
+	observedAt := time.Now() // D6: observations older than an LLM close are skipped
 	positions, err := at.trader.GetPositions()
 	if err != nil {
 		logger.Infof("❌ Drawdown monitoring: failed to get positions: %v", err)
@@ -160,17 +161,30 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 			Symbol: symbol, Side: side, Entry: entryPrice, Mark: markPrice, Qty: quantity, Leverage: leverage,
 			Now: protectionNow(), OpenedAt: openedAt, Plan: plannedRiskByPosition[positionRiskKey(symbol, side)],
 		}
-		// AUD-C5: the position must have an exchange stop before the
-		// protector rules run (the hard-loss close below is unchanged).
-		if at.auditProtectiveStop(e, obs) {
-			continue // emergency-closed: nothing left to protect
-		}
-		out := at.protectPosition(e, obs)
-		if out.FastPoll {
+		if at.protectObservedPosition(e, obs, observedAt) {
 			nextInterval = e.cfg.FastInterval()
 		}
 	}
 	return nextInterval
+}
+
+// protectObservedPosition runs the stop audit and the protector step for
+// one position under its lock (#92 / AUD-D6), so an LLM close and a
+// protector partial, rebuild or close never interleave. A position the LLM
+// closed after observedAt is skipped. It reports whether to fast-poll.
+func (at *AutoTrader) protectObservedPosition(e *protectorEngine, obs protectorObs, observedAt time.Time) bool {
+	l, unlock := at.lockPosition(obs.Symbol, obs.Side)
+	defer unlock()
+	if !l.closedAt.IsZero() && l.closedAt.After(observedAt) {
+		logger.Infof("  [PROTECTOR] %s %s closed by the LLM after this poll's observation; skipped", obs.Symbol, obs.Side)
+		return false
+	}
+	// AUD-C5: the position must have an exchange stop before the
+	// protector rules run (the hard-loss close below is unchanged).
+	if at.auditProtectiveStop(e, obs) {
+		return false // emergency-closed: nothing left to protect
+	}
+	return at.protectPosition(e, obs).FastPoll
 }
 
 // updateDynamicProtectionStop runs the dynamic stop update with the trader's
@@ -510,6 +524,9 @@ func (at *AutoTrader) closeProtectedPosition(symbol, side string, quantity float
 		return fmt.Errorf("unknown position direction: %s", side)
 	}
 	at.markPendingProtectedClose(symbol, side, closeReason)
+	if quantity <= 0 {
+		at.markLifecycleClosed(symbol, side, "closed by the protector: "+closeReason)
+	}
 	return nil
 }
 
@@ -875,31 +892,37 @@ func (at *AutoTrader) decisionMaxTakeProfitPriceMovePct(decision *kernel.Decisio
 	return at.maxTakeProfitPriceMovePct()
 }
 
-func (at *AutoTrader) capTakeProfitToTP1(decision *kernel.Decision, currentPrice float64, side string) bool {
+// capTakeProfitToTP1 bounds the take-profit to the configured max price move
+// from the entry. In geometry_repair=reject it never rewrites the TP: a TP
+// beyond the cap rejects the open instead (#92 / AUD-C2).
+func (at *AutoTrader) capTakeProfitToTP1(decision *kernel.Decision, currentPrice float64, side string) (bool, error) {
 	maxMovePct := at.decisionMaxTakeProfitPriceMovePct(decision)
 	if decision == nil || maxMovePct <= 0 || currentPrice <= 0 || decision.TakeProfit <= 0 {
-		return false
+		return false, nil
 	}
 	maxMove := currentPrice * maxMovePct / 100
+	capped := 0.0
 	switch side {
 	case "long":
-		maxTP := currentPrice + maxMove
-		if decision.TakeProfit > maxTP {
-			logger.Infof("  ⚠️ [RISK CONTROL] %s take_profit %.8f is too far from entry %.8f (max %.2f%%); capping TP1 to %.8f",
-				decision.Symbol, decision.TakeProfit, currentPrice, maxMovePct, maxTP)
-			decision.TakeProfit = maxTP
-			return true
+		if maxTP := currentPrice + maxMove; decision.TakeProfit > maxTP {
+			capped = maxTP
 		}
 	case "short":
-		minTP := currentPrice - maxMove
-		if decision.TakeProfit < minTP {
-			logger.Infof("  ⚠️ [RISK CONTROL] %s take_profit %.8f is too far from entry %.8f (max %.2f%%); capping TP1 to %.8f",
-				decision.Symbol, decision.TakeProfit, currentPrice, maxMovePct, minTP)
-			decision.TakeProfit = minTP
-			return true
+		if minTP := currentPrice - maxMove; decision.TakeProfit < minTP {
+			capped = minTP
 		}
 	}
-	return false
+	if capped <= 0 {
+		return false, nil
+	}
+	if at.hunterV7GeometryRejectMode() {
+		return false, fmt.Errorf("❌ [HUNTER V7 CONTRACT] %s %s rejected: take_profit %.8f is more than %.2f%% from entry %.8f (cap %.8f); geometry_repair=reject does not rewrite it (take_profit_beyond_cap)",
+			decision.Symbol, decision.Action, decision.TakeProfit, maxMovePct, currentPrice, capped)
+	}
+	logger.Infof("  ⚠ [RISK CONTROL] %s take_profit %.8f is too far from entry %.8f (max %.2f%%); capping TP1 to %.8f",
+		decision.Symbol, decision.TakeProfit, currentPrice, maxMovePct, capped)
+	decision.TakeProfit = capped
+	return true, nil
 }
 
 func (at *AutoTrader) enforceSingleTradeLossLimit(decision *kernel.Decision, currentPrice, equity float64, side string) (float64, bool, error) {
@@ -998,23 +1021,32 @@ func (at *AutoTrader) repairHunterV7DecisionPrice(decision *kernel.Decision, cur
 	}
 	if decision.Price <= 0 {
 		decision.Price = currentPrice
-		logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s missing decision price; using execution price %.8f",
+		// A missing price has no LLM reference; the first execution price
+		// becomes the anchor so later passes cannot drift from it.
+		decision.HunterV7OriginalPrice = currentPrice
+		logger.Infof("  🛠 [HUNTER V7 PREFLIGHT] %s missing decision price; using execution price %.8f",
 			decision.Symbol, currentPrice)
 		return true
 	}
+	// #92 / AUD-C1: drift is always measured from the LLM's original price,
+	// never from a price an earlier pass already re-anchored.
+	if decision.HunterV7OriginalPrice <= 0 {
+		decision.HunterV7OriginalPrice = decision.Price
+	}
+	origin := decision.HunterV7OriginalPrice
 
 	maxDriftPct := at.decisionMaxEntryPriceDeviationPct(decision)
 	if maxDriftPct <= 0 {
 		return false
 	}
-	deviationPct := math.Abs(currentPrice-decision.Price) / decision.Price * 100
+	deviationPct := math.Abs(currentPrice-origin) / origin * 100
 	if deviationPct <= maxDriftPct {
 		return false
 	}
-	favorableDrift := (side == "long" && currentPrice < decision.Price) || (side == "short" && currentPrice > decision.Price)
+	favorableDrift := (side == "long" && currentPrice < origin) || (side == "short" && currentPrice > origin)
 	if favorableDrift && deviationPct <= 4.0 {
-		logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s favorable entry drift %.3f%% > %.3f%%; refreshing decision price %.8f → %.8f and revalidating live geometry",
-			decision.Symbol, deviationPct, maxDriftPct, decision.Price, currentPrice)
+		logger.Infof("  🛠 [HUNTER V7 PREFLIGHT] %s favorable entry drift %.3f%% from LLM price %.8f > %.3f%%; refreshing decision price %.8f → %.8f and revalidating live geometry",
+			decision.Symbol, deviationPct, origin, maxDriftPct, decision.Price, currentPrice)
 		decision.Price = currentPrice
 		return true
 	}
@@ -1027,8 +1059,8 @@ func (at *AutoTrader) repairHunterV7DecisionPrice(decision *kernel.Decision, cur
 		return false
 	}
 
-	logger.Infof("  🛠️ [HUNTER V7 PREFLIGHT] %s small entry drift %.3f%% > %.3f%% but <= %.3f%% repair band; refreshing decision price %.8f → %.8f",
-		decision.Symbol, deviationPct, maxDriftPct, repairMaxPct, decision.Price, currentPrice)
+	logger.Infof("  🛠 [HUNTER V7 PREFLIGHT] %s small entry drift %.3f%% from LLM price %.8f > %.3f%% but <= %.3f%% repair band; refreshing decision price %.8f → %.8f",
+		decision.Symbol, deviationPct, origin, maxDriftPct, repairMaxPct, decision.Price, currentPrice)
 	decision.Price = currentPrice
 	return true
 }
@@ -1203,7 +1235,10 @@ func (at *AutoTrader) refreshHunterV7OpenPreflight(ctx *kernel.Context, decision
 	}
 	evidence.applyTo(hunterV7CandidateForDecision(ctx, decision))
 
-	tpWasCapped := at.capTakeProfitToTP1(decision, finalPrice, side)
+	tpWasCapped, err := at.capTakeProfitToTP1(decision, finalPrice, side)
+	if err != nil {
+		return finalPrice, false, err
+	}
 	at.repairHunterV7OpenDecision(decision, finalPrice, side)
 	if err := at.validateOpenDecision(decision, finalPrice, side); err != nil {
 		return finalPrice, tpWasCapped, err
@@ -2244,6 +2279,34 @@ func hunterV7EntryZonePositionPct(candidate *kernel.CandidateCoin, price float64
 }
 
 // validateOpenDecision enforces non-negotiable safety checks before any open order.
+// checkEntryPriceDrift is the entry drift check of validateOpenDecision,
+// also re-applied on the book re-read right before the order (#92 / C7).
+func (at *AutoTrader) checkEntryPriceDrift(decision *kernel.Decision, currentPrice float64) error {
+	maxPriceDeviationPct := at.decisionMaxEntryPriceDeviationPct(decision)
+	if maxPriceDeviationPct <= 0 {
+		return nil
+	}
+	if decision.Price <= 0 {
+		if at.isHunterV7Strategy() {
+			return fmt.Errorf("❌ [RISK CONTROL] Decision price is required for Hunter v7 open order on %s", decision.Symbol)
+		}
+		return nil
+	}
+	// U9: drift is measured from the class's reference price
+	// (decision by default, trigger when the profile selects it).
+	refPrice := decisionDriftReferencePrice(decision, decision.Price)
+	deviationPct := math.Abs(currentPrice-refPrice) / refPrice * 100
+	if deviationPct > maxPriceDeviationPct {
+		refName := "decision"
+		if refPrice != decision.Price {
+			refName = "trigger"
+		}
+		return fmt.Errorf("❌ [RISK CONTROL] Entry price drift %.3f%% exceeds max %.3f%% for %s (%s %.8f, execution %.8f)",
+			deviationPct, maxPriceDeviationPct, decision.Symbol, refName, refPrice, currentPrice)
+	}
+	return nil
+}
+
 func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPrice float64, side string) error {
 	if decision == nil {
 		return fmt.Errorf("❌ [RISK CONTROL] Decision is nil")
@@ -2258,26 +2321,8 @@ func (at *AutoTrader) validateOpenDecision(decision *kernel.Decision, currentPri
 		return fmt.Errorf("❌ [RISK CONTROL] Leverage must be positive for %s", decision.Symbol)
 	}
 
-	maxPriceDeviationPct := at.decisionMaxEntryPriceDeviationPct(decision)
-	if maxPriceDeviationPct > 0 {
-		if decision.Price <= 0 {
-			if at.isHunterV7Strategy() {
-				return fmt.Errorf("❌ [RISK CONTROL] Decision price is required for Hunter v7 open order on %s", decision.Symbol)
-			}
-		} else {
-			// U9: drift is measured from the class's reference price
-			// (decision by default, trigger when the profile selects it).
-			refPrice := decisionDriftReferencePrice(decision, decision.Price)
-			deviationPct := math.Abs(currentPrice-refPrice) / refPrice * 100
-			if deviationPct > maxPriceDeviationPct {
-				refName := "decision"
-				if refPrice != decision.Price {
-					refName = "trigger"
-				}
-				return fmt.Errorf("❌ [RISK CONTROL] Entry price drift %.3f%% exceeds max %.3f%% for %s (%s %.8f, execution %.8f)",
-					deviationPct, maxPriceDeviationPct, decision.Symbol, refName, refPrice, currentPrice)
-			}
-		}
+	if err := at.checkEntryPriceDrift(decision, currentPrice); err != nil {
+		return err
 	}
 
 	var minRiskRewardRatio float64

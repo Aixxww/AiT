@@ -89,6 +89,9 @@ func (t *FuturesTrader) openMarket(symbol string, quantity float64, leverage int
 			Type(futures.OrderTypeMarket).
 			Quantity(quantityStr).
 			NewClientOrderID(clientOrderID).
+			// #92 / AUD-C4: RESULT returns the fill (executedQty, avgPrice)
+			// for a MARKET order instead of the bare ACK.
+			NewOrderResponseType(futures.NewOrderRespTypeRESULT).
 			Do(context.Background())
 	}
 	order, err := submit()
@@ -115,7 +118,19 @@ func (t *FuturesTrader) openMarket(symbol string, quantity float64, leverage int
 	result["symbol"] = order.Symbol
 	result["status"] = order.Status
 	result["clientOrderId"] = clientOrderID
+	addFillFields(result, order.ExecutedQuantity, order.AvgPrice)
 	return result, nil
+}
+
+// addFillFields adds the fill read-back (#92 / AUD-C4) when the exchange
+// reported one: executedQty and avgPrice as float64, only when positive.
+func addFillFields(result map[string]interface{}, executedQty, avgPrice string) {
+	if q, err := strconv.ParseFloat(executedQty, 64); err == nil && q > 0 {
+		result["executedQty"] = q
+	}
+	if p, err := strconv.ParseFloat(avgPrice, 64); err == nil && p > 0 {
+		result["avgPrice"] = p
+	}
 }
 
 // LookupOrderByClientID reads one order by client order id (F04 read-back).
@@ -133,12 +148,14 @@ func (t *FuturesTrader) LookupOrderByClientID(symbol, clientOrderID string) (map
 		}
 		return nil, false, err
 	}
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"orderId":       order.OrderID,
 		"symbol":        order.Symbol,
 		"status":        string(order.Status),
 		"clientOrderId": order.ClientOrderID,
-	}, true, nil
+	}
+	addFillFields(result, order.ExecutedQuantity, order.AvgPrice)
+	return result, true, nil
 }
 
 // IsAmbiguousOrderError reports whether an order submission error leaves

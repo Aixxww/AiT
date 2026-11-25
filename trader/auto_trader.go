@@ -178,6 +178,7 @@ type AutoTrader struct {
 	callCount              int                 // AI call count
 	readBackSleep          func(time.Duration) // F04 read-back delay hook (nil = time.Sleep; tests override)
 	positionFirstSeenTime  map[string]int64    // Position first seen time (symbol_side -> timestamp in milliseconds)
+	positionLocks          sync.Map            // #92 / AUD-D6 per-position lock (positionLockKey -> *positionLock)
 	stopMonitorCh          chan struct{}       // Used to stop monitoring goroutine
 	monitorWg              sync.WaitGroup      // Used to wait for monitoring goroutine to finish
 	peakPnLCache           map[string]float64  // Peak profit cache (symbol -> peak P&L percentage)
@@ -638,6 +639,11 @@ func (at *AutoTrader) Run() (err error) {
 	at.runPreLaunchChecks()
 	at.monitorWg.Add(1)
 	defer at.monitorWg.Done()
+
+	// #92: reconcile lifecycle rows left in "intent" against the exchange,
+	// and re-arm or visibly cancel persisted conditional entries, before the
+	// protector and the conditional monitor start.
+	at.reconcileLifecycleOnStartup(time.Now())
 
 	// Start drawdown monitoring
 	at.startDrawdownMonitor()

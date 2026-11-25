@@ -331,6 +331,10 @@ type Decision struct {
 	// pending conditional entry carries the key of the cycle that approved
 	// it, so its execution has one deterministic client order id.
 	HunterV7IntentKey string `json:"-"`
+	// HunterV7OriginalPrice is the LLM's own entry price, captured before any
+	// backend repair (#92 / AUD-C1). Every repair pass measures entry drift
+	// against it, so passes cannot stack.
+	HunterV7OriginalPrice float64 `json:"-"`
 }
 
 type DecisionTrigger struct {
