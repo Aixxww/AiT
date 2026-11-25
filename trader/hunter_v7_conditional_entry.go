@@ -31,8 +31,10 @@ import (
 // once. The open goes through the normal open path (executeOpen*WithRecord:
 // all risk checks, the live preflight, F04, the mandatory stop of F03) with
 // the intent key of the approving cycle, so the F04 client order id is the
-// same for any retry of that intent. Pending entries are in memory only; a
-// restart drops them.
+// same for any retry of that intent. #92 / AUD-C6: pending entries are
+// persisted in the position lifecycle record; a restart re-arms them or
+// cancels them visibly, and the execution guard is re-run at fire time on
+// the latest snapshot.
 
 type hunterV7PendingEntry struct {
 	Decision     kernel.Decision
@@ -43,6 +45,9 @@ type hunterV7PendingEntry struct {
 	CreatedAt    time.Time
 	ExpiresAt    time.Time
 	LastBarClose int64 // close time (ms) of the last candle processed
+	// #92 / AUD-C6
+	LifecycleID uint      // persisted pending_entry row (0 = not persisted)
+	ArmedAt     time.Time // re-arm time after a restart: earlier candles can cancel, never fire
 }
 
 func pendingEntryKey(symbol, side string) string { return strings.ToUpper(symbol) + "|" + side }
@@ -55,6 +60,7 @@ type hunterV7ConditionalState struct {
 	entryMu sync.Mutex
 	// test hooks
 	bars    func(symbol string) []datafetch.Kline
+	latest  func(symbol string) *datafetch.SymbolSnapshot // fire-time snapshot (AUD-C6)
 	execute func(ctx *kernel.Context, decision *kernel.Decision, side string, record *store.DecisionAction) error
 }
 
@@ -126,6 +132,7 @@ func (at *AutoTrader) registerHunterV7ConditionalEntry(ctx *kernel.Context, deci
 	p := &hunterV7PendingEntry{Decision: *decision, Candidate: *candidate, Side: side, Trigger: trigger, Invalidation: inval,
 		CreatedAt: now, ExpiresAt: now.Add(time.Duration(at.conditionalEntryConfig().MaxPendingMinutes * float64(time.Minute)))}
 	p.Decision.HunterV7IntentKey = at.openIntentKey(decision, side) + "|conditional"
+	at.persistPendingEntry(p) // AUD-C6
 	at.conditional.pending[key] = p
 	if record != nil {
 		record.ConditionalPending = true
@@ -170,6 +177,7 @@ func (at *AutoTrader) checkHunterV7ConditionalEntries(now time.Time) {
 		if !now.Before(p.ExpiresAt) {
 			delete(at.conditional.pending, k)
 			logger.Infof("  ⌛ [HUNTER V7 CONDITIONAL] %s %s expired without a trigger close", p.Decision.Symbol, p.Side)
+			at.closePendingEntryRecord(p, store.LifecycleStatusEntryCancelled, "expired without a trigger close")
 			continue
 		}
 		bars := append([]datafetch.Kline(nil), at.conditionalBars(p.Decision.Symbol)...)
@@ -184,7 +192,11 @@ func (at *AutoTrader) checkHunterV7ConditionalEntries(now time.Time) {
 			if (long && b.Low <= p.Invalidation) || (!long && b.High >= p.Invalidation) {
 				delete(at.conditional.pending, k)
 				logger.Infof("  ✖ [HUNTER V7 CONDITIONAL] %s %s cancelled: invalidation %.8f touched before the trigger", p.Decision.Symbol, p.Side, p.Invalidation)
+				at.closePendingEntryRecord(p, store.LifecycleStatusEntryCancelled, "invalidation touched before the trigger")
 				break
+			}
+			if !p.ArmedAt.IsZero() && b.CloseTime <= p.ArmedAt.UnixMilli() {
+				continue // AUD-C6: a candle from before the re-arm can cancel, never fire
 			}
 			if (long && b.Close >= p.Trigger) || (!long && b.Close <= p.Trigger) {
 				delete(at.conditional.pending, k) // removed before sending: executes at most once
@@ -205,6 +217,7 @@ func (at *AutoTrader) executeHunterV7PendingEntry(p *hunterV7PendingEntry) {
 	at.isRunningMutex.RUnlock()
 	if !running || at.safeMode {
 		logger.Infof("  ✖ [HUNTER V7 CONDITIONAL] %s %s dropped at trigger: trader stopped or in safe mode", p.Decision.Symbol, p.Side)
+		at.closePendingEntryRecord(p, store.LifecycleStatusEntryCancelled, "dropped at trigger: trader stopped or in safe mode")
 		return
 	}
 	at.conditional.entryMu.Lock()
@@ -214,7 +227,7 @@ func (at *AutoTrader) executeHunterV7PendingEntry(p *hunterV7PendingEntry) {
 	rec := store.DecisionAction{Action: d.Action, Symbol: d.Symbol, Leverage: d.Leverage, StopLoss: d.StopLoss, TakeProfit: d.TakeProfit,
 		HunterV7TP0Price: d.HunterV7TP0Price, HunterV7TP1Price: d.HunterV7TP1Price, HunterV7TP2Price: d.HunterV7TP2Price,
 		Confidence: d.Confidence, Reasoning: d.Reasoning, Trigger: decisionTriggerForStore(d.Trigger), Timestamp: time.Now().UTC()}
-	ctx := &kernel.Context{CandidateCoins: []kernel.CandidateCoin{p.Candidate}}
+	ctx := &kernel.Context{CandidateCoins: []kernel.CandidateCoin{at.fireTimeCandidate(p, time.Now())}}
 	exec := at.conditional.execute
 	if exec == nil {
 		exec = func(ctx *kernel.Context, decision *kernel.Decision, side string, record *store.DecisionAction) error {
@@ -224,8 +237,20 @@ func (at *AutoTrader) executeHunterV7PendingEntry(p *hunterV7PendingEntry) {
 			return at.executeOpenShortWithRecord(ctx, decision, record)
 		}
 	}
-	err := exec(ctx, &d, p.Side, &rec)
+	// AUD-C6: the execution guard (tier, tags, freshness, confirmations)
+	// runs again at fire time on the latest snapshot.
+	err := at.validateHunterV7ExecutionGuard(ctx, &d)
+	if err == nil {
+		err = exec(ctx, &d, p.Side, &rec)
+	} else {
+		err = fmt.Errorf("execution guard at fire time: %w", err)
+	}
 	line := fmt.Sprintf("⚡ %s %s conditional entry fired on a 1m close through %.8f", d.Symbol, d.Action, p.Trigger)
+	if err != nil {
+		at.closePendingEntryRecord(p, store.LifecycleStatusEntryCancelled, "failed at trigger: "+err.Error())
+	} else {
+		at.closePendingEntryRecord(p, store.LifecycleStatusEntryFired, fmt.Sprintf("fired on a 1m close through %.8f", p.Trigger))
+	}
 	if err != nil {
 		rec.Error = err.Error()
 		line = fmt.Sprintf("❌ %s %s conditional entry failed at trigger %.8f: %v", d.Symbol, d.Action, p.Trigger, err)

@@ -17,10 +17,9 @@ import (
 	"github.com/Aixxww/AiT/store"
 )
 
-// AUD-C1: in the default geometry_repair mode the drift guard re-anchors the
-// decision price on every repair pass. The open path repairs twice (before
-// sizing and again in the preflight), so two in-band moves stack past the
-// configured 0.5% limit.
+// AUD-C1 (fixed in #92): in the default geometry_repair mode every repair
+// pass measures drift from the LLM's original price, so two in-band moves no
+// longer stack past the configured 0.5% limit (+0.10 repair band).
 func TestAudit_C1_RepairModeDriftStacksAcrossPasses(t *testing.T) {
 	at := rejectModeTrader("") // "" = repair (historical default)
 	d := rmDecision(100, 97.5, 104)
@@ -28,15 +27,26 @@ func TestAudit_C1_RepairModeDriftStacksAcrossPasses(t *testing.T) {
 	if !at.repairHunterV7DecisionPrice(d, 100.55, "long") {
 		t.Fatal("first in-band drift must be refreshed in repair mode")
 	}
-	if !at.repairHunterV7DecisionPrice(d, 101.1, "long") {
-		t.Fatal("FLAW no longer present: the second pass no longer re-anchors; update AUD-C1")
+	if at.repairHunterV7DecisionPrice(d, 101.1, "long") {
+		t.Fatalf("second pass re-anchored to %.4f: drift from the LLM price %.2f stacked across passes", d.Price, llmPrice)
 	}
-	total := (d.Price - llmPrice) / llmPrice * 100
-	if total <= at.decisionMaxEntryPriceDeviationPct(d) {
-		t.Fatalf("expected stacked drift beyond the limit, got %.3f%%", total)
+	limit := at.decisionMaxEntryPriceDeviationPct(d) + 0.10
+	if total := (d.Price - llmPrice) / llmPrice * 100; total > limit {
+		t.Fatalf("reference drifted %.3f%% from the LLM price, beyond the %.2f%% repair band", total, limit)
 	}
-	t.Logf("LLM price %.2f -> executed reference %.2f: %.2f%% adverse drift accepted with a %.2f%% limit",
-		llmPrice, d.Price, total, at.decisionMaxEntryPriceDeviationPct(d))
+	// The executable price is still checked against the (bounded) reference
+	// and rejected.
+	if err := at.validateOpenDecision(d, 101.1, "long"); err == nil {
+		t.Fatal("an open 1.1% above the LLM price must be rejected with a 0.5% limit")
+	}
+	// Favourable re-anchoring is kept, bounded from the original price.
+	f := rmDecision(100, 97.5, 104)
+	if !at.repairHunterV7DecisionPrice(f, 99.0, "long") || f.Price != 99.0 {
+		t.Fatalf("favourable drift must still re-anchor, got %.4f", f.Price)
+	}
+	if at.repairHunterV7DecisionPrice(f, 95.5, "long") {
+		t.Fatalf("favourable drift beyond 4%% from the LLM price must not re-anchor (price %.4f)", f.Price)
+	}
 }
 
 // AUD-C1b (locks correct behaviour): "favourable" drift up to 4% refreshes
@@ -56,16 +66,26 @@ func TestAudit_C1b_DriftThroughStopIsStillRejected(t *testing.T) {
 	}
 }
 
-// AUD-C2: capTakeProfitToTP1 rewrites the model's take-profit even under
-// geometry_repair=reject, whose contract is "never rewrite price, stop or TP".
+// AUD-C2 (fixed in #92): under geometry_repair=reject a take-profit beyond
+// the cap rejects the open instead of being rewritten.
 func TestAudit_C2_TakeProfitCapIgnoresRejectMode(t *testing.T) {
 	at := rejectModeTrader("reject")
 	at.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3
 	d := rmDecision(100, 97, 110)
-	if !at.capTakeProfitToTP1(d, 100, "long") || d.TakeProfit == 110 {
-		t.Fatalf("FLAW no longer present: TP is not rewritten in reject mode (tp=%.4f); update AUD-C2", d.TakeProfit)
+	capped, err := at.capTakeProfitToTP1(d, 100, "long")
+	if err == nil || capped {
+		t.Fatalf("reject mode must reject a TP beyond the cap (capped=%v err=%v)", capped, err)
 	}
-	t.Logf("reject mode: take_profit 110 rewritten to %.4f", d.TakeProfit)
+	if d.TakeProfit != 110 {
+		t.Fatalf("reject mode rewrote take_profit 110 to %.4f", d.TakeProfit)
+	}
+	// Repair mode keeps capping.
+	r := rejectModeTrader("")
+	r.config.StrategyConfig.RiskControl.MaxTakeProfitPriceMovePct = 3
+	rd := rmDecision(100, 97, 110)
+	if capped, err := r.capTakeProfitToTP1(rd, 100, "long"); err != nil || !capped || rd.TakeProfit >= 110 {
+		t.Fatalf("repair mode must keep capping (capped=%v err=%v tp=%.4f)", capped, err, rd.TakeProfit)
+	}
 }
 
 // AUD-E1: the pre-order freshness guard prefers the model-supplied

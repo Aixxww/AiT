@@ -140,6 +140,11 @@ func NewDecisionStore(db *gorm.DB) *DecisionStore {
 
 // initTables initializes AI decision log tables
 func (s *DecisionStore) initTables() error {
+	// #92: the position lifecycle table is migrated on every dialect, also
+	// when decision_records already exists on PostgreSQL.
+	if err := s.initLifecycleTable(); err != nil {
+		return fmt.Errorf("failed to migrate position_lifecycles: %w", err)
+	}
 	// For PostgreSQL with existing table, skip AutoMigrate
 	if s.db.Dialector.Name() == "postgres" {
 		var tableExists int64

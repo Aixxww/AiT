@@ -237,7 +237,7 @@ func TestCapTakeProfitToTP1LongAndShort(t *testing.T) {
 		StopLoss:   97,
 		TakeProfit: 115,
 	}
-	if !at.capTakeProfitToTP1(longDecision, 100, "long") {
+	if !capTP(at, longDecision, 100, "long") {
 		t.Fatalf("expected long take profit to be capped")
 	}
 	if longDecision.TakeProfit != 103 {
@@ -249,7 +249,7 @@ func TestCapTakeProfitToTP1LongAndShort(t *testing.T) {
 		StopLoss:   103,
 		TakeProfit: 85,
 	}
-	if !at.capTakeProfitToTP1(shortDecision, 100, "short") {
+	if !capTP(at, shortDecision, 100, "short") {
 		t.Fatalf("expected short take profit to be capped")
 	}
 	if shortDecision.TakeProfit != 97 {
@@ -1795,4 +1795,11 @@ func TestHunterV7ExecutionGuardReducesBorderlineTakerSize(t *testing.T) {
 	if decision.Leverage != 20 {
 		t.Fatalf("leverage = %d, want 20 (borderline sets no leverage cap)", decision.Leverage)
 	}
+}
+
+// capTP is capTakeProfitToTP1's capped flag for repair-mode tests (an error,
+// reject mode only, reads as not capped).
+func capTP(at *AutoTrader, d *kernel.Decision, price float64, side string) bool {
+	capped, err := at.capTakeProfitToTP1(d, price, side)
+	return err == nil && capped
 }
