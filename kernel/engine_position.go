@@ -5,6 +5,7 @@ import (
 
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/store"
 )
 
 // ============================================================================
@@ -16,13 +17,11 @@ import (
 // RiskControl.MinRiskRewardRatio is unset (<= 0).
 const legacyMinRiskRewardRatio = 3.0
 
-// legacyMinConfidenceFloor / legacyContradictionConfidenceCap apply only when
+// legacyContradictionConfidenceCap is the direction-contradiction cap when
 // the strategy leaves min_confidence unset (#77); a configured value replaces
-// both.
-const (
-	legacyMinConfidenceFloor         = 60
-	legacyContradictionConfidenceCap = 70
-)
+// it. The unset confidence FLOOR is not decided here: it comes from
+// store.ResolveMinConfidence (#105 / AUD-B4).
+const legacyContradictionConfidenceCap = 70
 
 type HunterScoreInfo struct {
 	LongScore  float64
@@ -162,12 +161,10 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		}
 
 		// Confidence cross-validation with Hunter scores
-		// #77: the strategy's min_confidence is the floor; the 60 sanity floor
-		// applies only when the strategy leaves it unset.
-		minConfidenceHard := legacyMinConfidenceFloor
-		if minOpenConfidence > 0 {
-			minConfidenceHard = minOpenConfidence
-		}
+		// #105 / AUD-B4: minOpenConfidence is the strategy's configured
+		// min_confidence (0 = unset); the effective floor comes from the
+		// resolver (configured value, else its documented 60).
+		minConfidenceHard, confidenceConfigured := store.ResolveMinConfidence(minOpenConfidence)
 		if d.Confidence < minConfidenceHard {
 			return fmt.Errorf("confidence %d below absolute minimum %d", d.Confidence, minConfidenceHard)
 		}
@@ -175,8 +172,8 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		// threshold (the lowest size band), as it did when the threshold was
 		// the old hard-coded 70; it no longer hard-codes 70 (#77).
 		contradictionCap := legacyContradictionConfidenceCap
-		if minOpenConfidence > 0 {
-			contradictionCap = minOpenConfidence
+		if confidenceConfigured {
+			contradictionCap = minConfidenceHard
 		}
 
 		if hunterScoreMap != nil {

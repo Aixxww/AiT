@@ -51,7 +51,7 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	// 2. Trading mode variant
 	switch strings.ToLower(strings.TrimSpace(variant)) {
 	case "aggressive":
-		sb.WriteString("## Mode: Aggressive\n- Prioritize capturing trend breakouts, can build positions in batches when confidence ≥ 70\n- Allow higher positions, but must strictly set stop-loss and explain risk-reward ratio\n\n")
+		sb.WriteString(fmt.Sprintf("## Mode: Aggressive\n- Prioritize capturing trend breakouts, can build positions in batches when confidence ≥ %d (the backend's open floor)\n- Allow higher positions, but must strictly set stop-loss and explain risk-reward ratio\n\n", minOpenConfidence))
 	case "conservative":
 		sb.WriteString("## Mode: Conservative\n- Only open positions when multiple signals resonate\n- Prioritize cash preservation, must pause for multiple periods after consecutive losses\n\n")
 	case "scalping":
@@ -120,16 +120,15 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 	sb.WriteString("- `position_size_usd` is the order notional / position value in USDT, not margin. Margin used is approximately `position_size_usd / leverage`.\n")
 	sb.WriteString("- Do not multiply `position_size_usd` by leverage again when checking position value, loss at stop, or take-profit distance.\n")
 	sb.WriteString("- High confidence (≥85): Use 80-100% of max position value limit\n")
-	if minOpenConfidence <= 70 {
+	// #105 / AUD-B4: the bands start at the enforced floor; no bare 70.
+	switch {
+	case minOpenConfidence < 70:
 		sb.WriteString("- Medium confidence (70-84): Use 50-80% of max position value limit\n")
-	} else {
+		sb.WriteString(fmt.Sprintf("- Low confidence (%d-69): Use 30-50%% of max position value limit\n", minOpenConfidence))
+	case minOpenConfidence < 85:
 		sb.WriteString(fmt.Sprintf("- Medium confidence (%d-84): Use 50-80%% of max position value limit\n", minOpenConfidence))
 	}
-	if minOpenConfidence <= 60 {
-		sb.WriteString("- Low confidence (60-69): Use 30-50% of max position value limit\n")
-	} else {
-		sb.WriteString(fmt.Sprintf("- Confidence below %d must output wait; do not open by reducing position size.\n", minOpenConfidence))
-	}
+	sb.WriteString(fmt.Sprintf("- Confidence below %d must output wait; do not open by reducing position size.\n", minOpenConfidence))
 	sb.WriteString(fmt.Sprintf("- Example: With equity %.0f and BTC/ETH ratio %.1fx, max is %.0f USDT\n",
 		accountEquity, btcEthPosValueRatio, accountEquity*btcEthPosValueRatio))
 	sb.WriteString("- **DO NOT** just use available_balance as position_size_usd. Use the Position Value Limits!\n\n")
@@ -255,10 +254,13 @@ func (e *StrategyEngine) writeHunterV7ExecutionPreflightPrompt(sb *strings.Build
 	}
 }
 
-// effectiveMinOpenConfidence is the strategy's min_confidence as configured
-// (#77: the former hunter_v7 cap at 70 overrode the owner's value).
+// effectiveMinOpenConfidence is the open-confidence floor the backend
+// enforces (#105 / AUD-B4): the configured min_confidence, else the
+// resolver's documented fallback. The prompt renders it, so the text and the
+// enforcement cannot disagree (#77 removed the former hunter_v7 cap at 70).
 func (e *StrategyEngine) effectiveMinOpenConfidence(configured int) int {
-	return configured
+	floor, _ := store.ResolveMinConfidence(configured)
+	return floor
 }
 
 func (e *StrategyEngine) effectiveExecutionGeometry() (maxTPMovePct, minSLMovePct, maxDriftPct float64) {
