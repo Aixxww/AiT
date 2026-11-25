@@ -1779,14 +1779,6 @@ func hunterV7PanicReversalLowTimingWaitReason(coin CandidateCoin) string {
 	if !lowTiming {
 		return ""
 	}
-	if containsStringValue(coin.V7ReasonCodes, "reviewable_floor_rescue") &&
-		coin.V7ExecutionQuality == "near_confirm" &&
-		coin.V7SetupScore >= 65 &&
-		coin.V7TimingScore >= 35 &&
-		coin.V7RiskScore < 45 &&
-		hunterV7TakerBuyConfirmedAtLeast(coin, 0.52) {
-		return ""
-	}
 	if hunterV7PanicReversalLowTimingImpulseOK(coin) {
 		return ""
 	}

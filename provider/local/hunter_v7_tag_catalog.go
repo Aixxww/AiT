@@ -29,16 +29,14 @@ const (
 
 var hunterV7TagCatalog = map[string]HunterV7TagDefinition{
 	// Tier/state tags.
-	"watch_only_no_direct_open":              tagDef("watch_only_no_direct_open", "reason_code", "state", "neutral", V7TagActionWaitOnly, "Signal is watch-only context and cannot be opened directly in this cycle."),
-	"do_not_open_until_confirmed":            tagDef("do_not_open_until_confirmed", "risk_tag", "state", "neutral", V7TagActionWaitOnly, "Direct opening is blocked until the listed required confirmations are met in a later cycle."),
-	"context_only_low_priority":              tagDef("context_only_low_priority", "risk_tag", "tier", "neutral", V7TagActionContextOnly, "Low-priority fallback context; do not use this tag alone as an opening reason."),
-	"fallback_reviewable_needs_live_confirm": tagDef("fallback_reviewable_needs_live_confirm", "risk_tag", "tier", "neutral", V7TagActionReviewableOnly, "Router rescued this signal into the review pool; live price/flow/RR confirmation is mandatory."),
-	"reviewable_floor_rescue":                tagDef("reviewable_floor_rescue", "reason_code", "tier", "neutral", V7TagActionReviewableOnly, "Signal was promoted to avoid an empty review pool; it is not automatically executable."),
-	"candidate_floor_context":                tagDef("candidate_floor_context", "reason_code", "tier", "neutral", V7TagActionContextOnly, "Candidate was included as minimum context despite lower priority."),
-	"module_no_match":                        tagDef("module_no_match", "risk_tag", "state", "neutral", V7TagActionRejectOnly, "Symbol entered universe but no Hunter v7 setup matched."),
-	"t2_observe_only":                        tagDef("t2_observe_only", "risk_tag", "state", "neutral", V7TagActionWaitOnly, "Task-2 transplanted setup is on the scanner's observe-only list (long-side families plus confirmed breakouts): upstream forces the event to WATCH with no armed_at, so treat it as watch-only context and do not open from it directly."),
-	"t2_triggered":                           tagDef("t2_triggered", "reason_code", "state", "neutral", V7TagActionEvidence, "Task-2 event whose price reached the signal entry (scanner spec section 5.3 trigger): the setup is live now, not pending. Evidence only; the entry still needs the backend checks."),
-	"t2_regime_demoted":                      tagDef("t2_regime_demoted", "risk_tag", "state", "neutral", V7TagActionReduceOrWait, "BTC realized-volatility regime modulation demoted this Task-2 ignition-short signal (regime size factor below 1); reduce size or wait for a cleaner regime."),
+	"watch_only_no_direct_open":   tagDef("watch_only_no_direct_open", "reason_code", "state", "neutral", V7TagActionWaitOnly, "Signal is watch-only context and cannot be opened directly in this cycle."),
+	"do_not_open_until_confirmed": tagDef("do_not_open_until_confirmed", "risk_tag", "state", "neutral", V7TagActionWaitOnly, "Direct opening is blocked until the listed required confirmations are met in a later cycle."),
+	"context_only_low_priority":   tagDef("context_only_low_priority", "risk_tag", "tier", "neutral", V7TagActionContextOnly, "Low-priority fallback context; do not use this tag alone as an opening reason."),
+	"candidate_floor_context":     tagDef("candidate_floor_context", "reason_code", "tier", "neutral", V7TagActionContextOnly, "Candidate was included as minimum context despite lower priority."),
+	"module_no_match":             tagDef("module_no_match", "risk_tag", "state", "neutral", V7TagActionRejectOnly, "Symbol entered universe but no Hunter v7 setup matched."),
+	"t2_observe_only":             tagDef("t2_observe_only", "risk_tag", "state", "neutral", V7TagActionWaitOnly, "Task-2 transplanted setup is on the scanner's observe-only list (long-side families plus confirmed breakouts): upstream forces the event to WATCH with no armed_at, so treat it as watch-only context and do not open from it directly."),
+	"t2_triggered":                tagDef("t2_triggered", "reason_code", "state", "neutral", V7TagActionEvidence, "Task-2 event whose price reached the signal entry (scanner spec section 5.3 trigger): the setup is live now, not pending. Evidence only; the entry still needs the backend checks."),
+	"t2_regime_demoted":           tagDef("t2_regime_demoted", "risk_tag", "state", "neutral", V7TagActionReduceOrWait, "BTC realized-volatility regime modulation demoted this Task-2 ignition-short signal (regime size factor below 1); reduce size or wait for a cleaner regime."),
 
 	// Hard/wait risk tags.
 	"risk_filtered":                            tagDef("risk_filtered", "risk_tag", "risk", "neutral", V7TagActionRejectOnly, "Risk score exceeded the router filter; do not open."),

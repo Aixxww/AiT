@@ -289,7 +289,9 @@ func TestV7ExecutionQualityKeepsIntradayScalpWatchOnlyUnderGlobalGeometry(t *tes
 	}
 }
 
-func TestFilterV7SignalsAddsReviewableFloorWhenOnlyWatchSignalsRemain(t *testing.T) {
+// #96: a WATCH row below MinAIPriority is no longer rescued into the
+// review pool when the round has no open-review signal.
+func TestFilterV7SignalsDoesNotRescueWatchOnlyRoundBelowMinPriority(t *testing.T) {
 	signals := []V7SignalOutput{
 		{
 			Symbol:           "BANKUSDT",
@@ -315,20 +317,8 @@ func TestFilterV7SignalsAddsReviewableFloorWhenOnlyWatchSignalsRemain(t *testing
 		Aggressive:            true,
 	})
 
-	if len(got) != 1 {
-		t.Fatalf("signals = %d, want 1", len(got))
-	}
-	if got[0].ExecutionQuality != V7ExecNearConfirm {
-		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
-	}
-	if got[0].AIPriority <= 50 {
-		t.Fatalf("priority = %.1f, want rescued priority above min", got[0].AIPriority)
-	}
-	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
-		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
-	}
-	if !containsString(got[0].RiskTags, "fallback_reviewable_needs_live_confirm") {
-		t.Fatalf("missing rescue risk tag: %+v", got[0].RiskTags)
+	if len(got) != 0 {
+		t.Fatalf("signals = %+v, want none (no reviewable-floor rescue)", got)
 	}
 }
 
@@ -369,7 +359,9 @@ func TestFilterV7SignalsDoesNotPromotePreMoveWatchToReviewableFloor(t *testing.T
 	}
 }
 
-func TestFilterV7SignalsPromotesAlreadyFilteredWatchToReviewableFloor(t *testing.T) {
+// #96: a WATCH row that passes MinAIPriority is sent as-is: it keeps its
+// WATCH grade and priority and gets no rescue tags.
+func TestFilterV7SignalsSendsPassingWatchWithoutPromotion(t *testing.T) {
 	signals := []V7SignalOutput{
 		{
 			Symbol:           "PHAROSUSDT",
@@ -398,18 +390,19 @@ func TestFilterV7SignalsPromotesAlreadyFilteredWatchToReviewableFloor(t *testing
 	if len(got) != 1 {
 		t.Fatalf("signals = %d, want 1", len(got))
 	}
-	if got[0].ExecutionQuality != V7ExecNearConfirm {
-		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
+	if got[0].ExecutionQuality != V7ExecWatchOnly || got[0].Status != V7StatusWaitConfirm {
+		t.Fatalf("quality/status = %s/%s, want unchanged %s/%s", got[0].ExecutionQuality, got[0].Status, V7ExecWatchOnly, V7StatusWaitConfirm)
 	}
-	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
-		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
+	if got[0].AIPriority != 56.5 {
+		t.Fatalf("priority = %.1f, want unchanged 56.5", got[0].AIPriority)
 	}
-	if !containsString(got[0].RiskTags, "fallback_reviewable_needs_live_confirm") {
-		t.Fatalf("missing rescue risk tag: %+v", got[0].RiskTags)
+	if containsString(got[0].ReasonCodes, "reviewable_floor_rescue") || containsString(got[0].RiskTags, "fallback_reviewable_needs_live_confirm") {
+		t.Fatalf("rescue tags present: %+v / %+v", got[0].ReasonCodes, got[0].RiskTags)
 	}
 }
 
-func TestFilterV7SignalsPromotesLowRiskPanicWatchToReviewableFloor(t *testing.T) {
+// #96: the low-risk panic-reversal WATCH case that used to be rescued.
+func TestFilterV7SignalsDoesNotRescueLowRiskPanicWatch(t *testing.T) {
 	signals := []V7SignalOutput{
 		{
 			Symbol:           "BLESSUSDT",
@@ -436,14 +429,44 @@ func TestFilterV7SignalsPromotesLowRiskPanicWatchToReviewableFloor(t *testing.T)
 		Aggressive:            true,
 	})
 
-	if len(got) != 1 {
-		t.Fatalf("signals = %d, want 1", len(got))
+	if len(got) != 0 {
+		t.Fatalf("signals = %+v, want none (no reviewable-floor rescue)", got)
 	}
-	if got[0].ExecutionQuality != V7ExecNearConfirm {
-		t.Fatalf("execution quality = %s, want %s", got[0].ExecutionQuality, V7ExecNearConfirm)
+}
+
+// #96 regression: a round that contains only WATCH-grade rows returns no
+// promoted REVIEWABLE rows. Rows that pass MinAIPriority are sent unchanged;
+// the rest are dropped. Nothing is upgraded to Ready/NearConfirm.
+func TestFilterV7SignalsWatchOnlyRoundReturnsNoPromotedReviewableRows(t *testing.T) {
+	watch := func(sym string, setup V7SetupType, dir V7Direction, prio, risk float64) V7SignalOutput {
+		return V7SignalOutput{
+			Symbol: sym, Direction: dir, SetupType: setup,
+			Status: V7StatusWaitConfirm, ExecutionQuality: V7ExecWatchOnly,
+			AIPriority: prio, SetupScore: 70, TimingScore: 70, RegimeFitScore: 70,
+			LiquidityScore: 80, RiskScore: risk, Confidence: "B",
+		}
 	}
-	if !containsString(got[0].ReasonCodes, "reviewable_floor_rescue") {
-		t.Fatalf("missing rescue reason: %+v", got[0].ReasonCodes)
+	signals := []V7SignalOutput{
+		watch("AUSDT", V7SetupFundingReversal, V7DirShort, 58, 20),
+		watch("BUSDT", V7SetupPanicReversalLong, V7DirLong, 49, 25),
+		watch("CUSDT", V7SetupPullbackLong, V7DirLong, 47, 10),
+		watch("DUSDT", V7SetupFundingReversal, V7DirLong, 44, 15),
+	}
+	for _, aggressive := range []bool{false, true} {
+		got := filterV7SignalsForLLM(signals, V7Config{
+			MaxOutput: 10, MinOutput: 3, MinAIPriority: 55, FallbackMinAIPriority: 45, Aggressive: aggressive,
+		})
+		if len(got) != 1 || got[0].Symbol != "AUSDT" {
+			t.Fatalf("aggressive=%v signals = %+v, want only AUSDT", aggressive, got)
+		}
+		for _, sig := range got {
+			if sig.ExecutionQuality == V7ExecReady || sig.ExecutionQuality == V7ExecNearConfirm {
+				t.Fatalf("aggressive=%v promoted row: %+v", aggressive, sig)
+			}
+			if containsString(sig.ReasonCodes, "reviewable_floor_rescue") || containsString(sig.RiskTags, "fallback_reviewable_needs_live_confirm") {
+				t.Fatalf("aggressive=%v rescue tags: %+v", aggressive, sig)
+			}
+		}
 	}
 }
 
