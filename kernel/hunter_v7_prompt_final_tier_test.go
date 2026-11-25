@@ -9,8 +9,8 @@ import (
 )
 
 // Fix 12: BuildUserPrompt records the prompt-final tier (what the LLM sees)
-// next to the assembled tier, without changing the prompt or the
-// assembled candidates.
+// next to the assembled tier, without changing the prompt. Since #86 the
+// prompt-final tier is also written back to the candidates.
 
 func promptFinalFixture() (*StrategyEngine, func() *Context) {
 	engine := NewStrategyEngine(&store.StrategyConfig{Language: "en", CoinSource: store.CoinSourceConfig{SourceType: "hunter_v7"}})
@@ -46,10 +46,19 @@ func TestBuildUserPromptRecordsPromptFinalTier(t *testing.T) {
 		f.AssembledTier != "WATCH" || f.AssembledReason != "backend_rr_infeasible" || f.SetupType == "" {
 		t.Fatalf("entry %+v", f)
 	}
-	// The assembled candidates are not mutated (the guard and the decision
-	// path keep reading them).
-	if ctx.CandidateCoins[0].V7ExecutionTier != "WATCH" || ctx.CandidateCoins[0].V7TierReason != "backend_rr_infeasible" {
-		t.Fatalf("assembled candidate changed: %s/%s", ctx.CandidateCoins[0].V7ExecutionTier, ctx.CandidateCoins[0].V7TierReason)
+	// #86 (AUD-B7): the prompt-final tier is authoritative. It is written
+	// back to the candidate the AI-skip check, the validator and the guard
+	// read; the assembly verdict is kept aside for records.
+	c := ctx.CandidateCoins[0]
+	if c.V7ExecutionTier != "EXECUTABLE" || c.V7TierReason != "momentum_ready_strong_flow" ||
+		c.V7AssembledTier != "WATCH" || c.V7AssembledReason != "backend_rr_infeasible" {
+		t.Fatalf("finalized candidate %s/%s (assembled %s/%s)", c.V7ExecutionTier, c.V7TierReason, c.V7AssembledTier, c.V7AssembledReason)
+	}
+	// Candidates the LLM was not shown keep their assembly verdict.
+	for _, c := range ctx.CandidateCoins[1:] {
+		if c.V7AssembledTier != "" {
+			t.Fatalf("%s not shown but finalized: %+v", c.Symbol, c.V7AssembledTier)
+		}
 	}
 	// The prompt text itself is unchanged by the recording: the U11 and
 	// golden prompt fixtures (TestU11LegacyPromptGolden,

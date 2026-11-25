@@ -183,7 +183,7 @@ Repro column:
 | `kernel.TestAudit_B4_KernelConfidenceFloorIs60` | B4 |
 | `kernel.TestAudit_B5_TriggerPriceInflatesKernelRR` | B5 |
 | `kernel.TestAudit_B6_PlainTextCandidateLinesAreNotEscaped` | B6 |
-| `kernel.TestAudit_B7_PromptTierAndExecutionTierDiverge` | B7 |
+| `kernel.TestAudit_B7_PromptTierIsExecutionTier` (inverted by #86) | B7 |
 | `trader.TestAudit_C1_RepairModeDriftStacksAcrossPasses` | C1 |
 | `trader.TestAudit_C1b_DriftThroughStopIsStillRejected` | locks correct behaviour |
 | `trader.TestAudit_C2_TakeProfitCapIgnoresRejectMode` | C2 |
