@@ -2148,7 +2148,6 @@ type setupGuardDefaults struct {
 	RequireOIFlush  bool
 }
 
-
 func hunterV7CandidateForDecision(ctx *kernel.Context, decision *kernel.Decision) *kernel.CandidateCoin {
 	if ctx == nil || decision == nil {
 		return nil
