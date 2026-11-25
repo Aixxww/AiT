@@ -8,6 +8,8 @@ import { TraderConfigViewModal } from './TraderConfigViewModal'
 import { getTraderColor } from '../../utils/traderColors'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { t } from '../../i18n/translations'
+import { humanizeCode } from '../../i18n/displayNames'
+import { getModelDisplayName } from './model-constants'
 import { PunkAvatar, getTraderAvatar } from '../common/PunkAvatar'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 
@@ -48,20 +50,20 @@ export function CompetitionPage() {
       <DeepVoidBackground className="py-8">
         <div className="container mx-auto max-w-7xl px-4 md:px-8">
           <div className="space-y-6">
-            <div className="animate-pulse bg-black/40 border border-white/10 rounded-xl p-8 backdrop-blur-md">
+            <div className="animate-pulse bg-surface-alt border border-border rounded-xl p-8 backdrop-blur-md">
               <div className="flex items-center justify-between mb-6">
                 <div className="space-y-3 flex-1">
-                  <div className="h-8 w-64 bg-white/5 rounded"></div>
-                  <div className="h-4 w-48 bg-white/5 rounded"></div>
+                  <div className="h-8 w-64 bg-surface-alt rounded"></div>
+                  <div className="h-4 w-48 bg-surface-alt rounded"></div>
                 </div>
-                <div className="h-12 w-32 bg-white/5 rounded"></div>
+                <div className="h-12 w-32 bg-surface-alt rounded"></div>
               </div>
             </div>
-            <div className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md">
-              <div className="h-6 w-40 mb-4 bg-white/5 rounded"></div>
+            <div className="bg-surface-alt border border-border rounded-xl p-6 backdrop-blur-md">
+              <div className="h-6 w-40 mb-4 bg-surface-alt rounded"></div>
               <div className="space-y-3">
-                <div className="h-20 w-full bg-white/5 rounded"></div>
-                <div className="h-20 w-full bg-white/5 rounded"></div>
+                <div className="h-20 w-full bg-surface-alt rounded"></div>
+                <div className="h-20 w-full bg-surface-alt rounded"></div>
               </div>
             </div>
           </div>
@@ -78,7 +80,7 @@ export function CompetitionPage() {
           {/* Competition Header - 精简版 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-surface-alt border border-primary/30">
                 <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
               </div>
               <div>
@@ -96,7 +98,7 @@ export function CompetitionPage() {
           </div>
 
           {/* Empty State */}
-          <div className="bg-black/40 border border-white/10 rounded-xl p-16 text-center backdrop-blur-md">
+          <div className="bg-surface-alt border border-border rounded-xl p-16 text-center backdrop-blur-md">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
             <h3 className="text-lg font-bold mb-2 text-foreground">
               {t('noTraders', language)}
@@ -124,7 +126,7 @@ export function CompetitionPage() {
         {/* Competition Header - 精简版 */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
           <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-black/60 border border-primary/30">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center bg-surface-alt border border-primary/30">
               <Trophy className="w-6 h-6 md:w-7 md:h-7 text-primary" />
             </div>
             <div>
@@ -165,7 +167,7 @@ export function CompetitionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Performance Comparison Chart */}
           <div
-            className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md animate-slide-in hover:border-white/20 transition-colors"
+            className="bg-surface-alt border border-border rounded-xl p-6 backdrop-blur-md animate-slide-in hover:border-border-hover transition-colors"
             style={{ animationDelay: '0.1s' }}
           >
             <div className="flex items-center justify-between mb-6">
@@ -181,7 +183,7 @@ export function CompetitionPage() {
 
           {/* Right: Leaderboard */}
           <div
-            className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md animate-slide-in hover:border-white/20 transition-colors"
+            className="bg-surface-alt border border-border rounded-xl p-6 backdrop-blur-md animate-slide-in hover:border-border-hover transition-colors"
             style={{ animationDelay: '0.1s' }}
           >
             <div className="flex items-center justify-between mb-6">
@@ -252,11 +254,11 @@ export function CompetitionPage() {
                             {trader.trader_name}
                           </div>
                           <div
-                            className="text-xs mono font-semibold"
+                            className="text-xs font-medium"
                             style={{ color: traderColor }}
                           >
-                            {trader.ai_model.toUpperCase()} +{' '}
-                            {trader.exchange.toUpperCase()}
+                            {getModelDisplayName(trader.ai_model)} ·{' '}
+                            {humanizeCode(trader.exchange, 'en')}
                           </div>
                         </div>
                       </div>
@@ -342,7 +344,7 @@ export function CompetitionPage() {
         {/* Head-to-Head Stats */}
         {competition.traders.length === 2 && (
           <div
-            className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md animate-slide-in"
+            className="bg-surface-alt border border-border rounded-xl p-6 backdrop-blur-md animate-slide-in"
             style={{ animationDelay: '0.3s' }}
           >
             <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-foreground">

@@ -274,7 +274,10 @@ export function BacktestPage() {
       if (action === 'resume') await api.resumeBacktest(selectedRunId)
       if (action === 'stop') await api.stopBacktest(selectedRunId)
       setToast({
-        text: tr('toasts.actionSuccess', { action, id: selectedRunId }),
+        text: tr('toasts.actionSuccess', {
+          action: tr(`actions.${action}`),
+          id: selectedRunId,
+        }),
         tone: 'success',
       })
       await refreshRuns()
@@ -450,7 +453,10 @@ export function BacktestPage() {
                         size={80}
                       />
                       <div>
-                        <h2 className="font-mono font-bold text-foreground">
+                        <h2
+                          data-raw
+                          className="font-mono font-bold text-foreground"
+                        >
                           {selectedRunId}
                         </h2>
                         <div className="flex items-center gap-2 mt-1">
@@ -473,7 +479,9 @@ export function BacktestPage() {
                           {selectedRun?.summary.decision_tf && (
                             <span className="text-xs text-muted-foreground">
                               {selectedRun.summary.decision_tf} ·{' '}
-                              {selectedRun.summary.symbol_count} symbols
+                              {tr('symbolCount', {
+                                count: selectedRun.summary.symbol_count,
+                              })}
                             </span>
                           )}
                         </div>

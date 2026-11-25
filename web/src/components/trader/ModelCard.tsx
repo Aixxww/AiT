@@ -33,7 +33,7 @@ export function ModelCard({
       }}
     >
       <div className="relative">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-black border border-white/10">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-surface-alt border border-border">
           {getModelIcon(model.provider || model.id, {
             width: 32,
             height: 32,
@@ -51,7 +51,7 @@ export function ModelCard({
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
             style={{ background: 'var(--color-profit)' }}
           >
-            <Check className="w-3 h-3 text-black" />
+            <Check className="w-3 h-3 text-primary-foreground" />
           </div>
         )}
         {configured && !selected && (
@@ -59,7 +59,7 @@ export function ModelCard({
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
             style={{ background: 'var(--color-primary)' }}
           >
-            <Check className="w-2.5 h-2.5 text-black" />
+            <Check className="w-2.5 h-2.5 text-primary-foreground" />
           </div>
         )}
       </div>
@@ -67,7 +67,7 @@ export function ModelCard({
         {getShortName(model.name)}
       </span>
       <span
-        className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide"
+        className="text-[10px] px-2 py-0.5 rounded-full"
         style={{
           background:
             'color-mix(in srgb, var(--color-purple) 20%, transparent)',

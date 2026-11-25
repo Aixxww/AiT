@@ -227,7 +227,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
           />
         </div>
         <div className="text-sm mt-4 font-medium text-muted-foreground">
-          {t('loadingChartData', language) || 'Loading chart data...'}
+          {t('loadingChartData', language)}
         </div>
       </div>
     )
@@ -712,7 +712,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
           style={{ background: 'var(--color-profit-bg)' }}
         >
           <div className="text-[10px] uppercase tracking-wider mb-1 text-muted-foreground">
-            {t('leadPnL', language) || 'Lead PnL'}
+            {t('leadPnL', language)}
           </div>
           <div
             className="text-sm font-bold mono"

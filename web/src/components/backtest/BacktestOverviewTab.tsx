@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { MetricTooltip } from '../common/MetricTooltip'
 import { t, type Language } from '../../i18n/translations'
+import { useOptionalLanguage } from '../../contexts/LanguageContext'
 import { EquityChart } from './BacktestChartTab'
 import type {
   BacktestEquityPoint,
@@ -89,6 +90,7 @@ interface ProgressRingProps {
 }
 
 export function ProgressRing({ progress, size = 120 }: ProgressRingProps) {
+  const language = useOptionalLanguage()
   const strokeWidth = 8
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
@@ -126,7 +128,9 @@ export function ProgressRing({ progress, size = 120 }: ProgressRingProps) {
         >
           {progress.toFixed(0)}%
         </span>
-        <span className="text-xs text-muted-foreground">Complete</span>
+        <span className="text-xs text-muted-foreground">
+          {t('backtestOverview.complete', language)}
+        </span>
       </div>
     </div>
   )

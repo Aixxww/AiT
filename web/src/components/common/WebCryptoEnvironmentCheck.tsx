@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Loader2, ShieldAlert, ShieldCheck, ShieldMinus } from 'lucide-react'
 import { CryptoService, diagnoseWebCryptoEnvironment } from '../../lib/crypto'
 import { t, type Language } from '../../i18n/translations'
+import { RichText } from '../ui/RichText'
 
 export type WebCryptoCheckStatus =
   | 'idle'
@@ -130,7 +131,9 @@ export function WebCryptoEnvironmentCheck({
           <div className="font-semibold">
             {t('environmentCheck.disabledTitle', language)}
           </div>
-          <div>{t('environmentCheck.disabledDesc', language)}</div>
+          <div>
+            <RichText text={t('environmentCheck.disabledDesc', language)} />
+          </div>
         </div>
       </div>
     ),

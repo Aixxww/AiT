@@ -228,7 +228,7 @@ export function TelegramConfigModal({
                 variant="unstyled"
                 type="button"
                 onClick={() => setStep(step - 1)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-panel-hover transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-muted-foreground" />
               </Button>
@@ -247,7 +247,7 @@ export function TelegramConfigModal({
             variant="unstyled"
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground"
+            className="p-2 rounded-lg hover:bg-panel-hover transition-colors text-muted-foreground"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -261,7 +261,7 @@ export function TelegramConfigModal({
         {/* Content */}
         <div className="px-6 pb-6 space-y-5">
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground text-sm font-mono">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               {t('telegram.loading', language)}
             </div>
           ) : (
@@ -407,7 +407,7 @@ export function TelegramConfigModal({
                     >
                       <div className="w-2 h-2 rounded-full bg-warning animate-pulse flex-shrink-0" />
                       <div>
-                        <div className="text-xs font-mono text-muted-foreground">
+                        <div className="t-caption text-muted-foreground">
                           {t('telegram.currentToken', language)}
                         </div>
                         <div className="text-sm font-mono text-foreground">
@@ -441,7 +441,7 @@ export function TelegramConfigModal({
                         setStep(0)
                         setToken('')
                       }}
-                      className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5"
+                      className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-panel-hover"
                       style={{
                         background: 'var(--color-border)',
                         color: 'var(--color-muted-fg)',
@@ -512,8 +512,8 @@ export function TelegramConfigModal({
                     >
                       <div className="w-2 h-2 rounded-full bg-profit flex-shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-xs font-mono text-muted-foreground">
-                          Bot Token
+                        <div className="t-caption text-muted-foreground">
+                          {t('telegram.currentToken', language)}
                         </div>
                         <div className="text-sm font-mono truncate text-foreground">
                           {config.token_masked}
@@ -542,7 +542,7 @@ export function TelegramConfigModal({
                       border: '1px solid var(--color-border)',
                     }}
                   >
-                    <div className="text-xs font-semibold uppercase tracking-wide mb-2 text-muted-foreground">
+                    <div className="t-label mb-2 text-muted-foreground">
                       {t('telegram.supportedCommands', language)}
                     </div>
                     {[
@@ -586,7 +586,7 @@ export function TelegramConfigModal({
                       variant="unstyled"
                       onClick={handleUnbind}
                       disabled={isUnbinding}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/5 disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-panel-hover disabled:opacity-50"
                       style={{
                         background:
                           'color-mix(in srgb, var(--color-loss) 10%, transparent)',

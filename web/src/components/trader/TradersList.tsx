@@ -232,8 +232,9 @@ function TraderRow({
           >
             {getModelDisplayName(
               trader.ai_model.split('_').pop() || trader.ai_model
-            )}{' '}
-            Model • {getExchangeDisplayName(trader.exchange_id, allExchanges)}
+            )}
+            {' · '}
+            {getExchangeDisplayName(trader.exchange_id, allExchanges)}
           </div>
         </div>
       </div>
@@ -266,12 +267,8 @@ function TraderRow({
               className="p-0.5 rounded hover:bg-panel-hover transition-colors"
               title={
                 isVisible
-                  ? language === 'zh'
-                    ? '隐藏'
-                    : 'Hide'
-                  : language === 'zh'
-                    ? '显示'
-                    : 'Show'
+                  ? t('tradersList.hide', language)
+                  : t('tradersList.show', language)
               }
             >
               {isVisible ? (
@@ -288,7 +285,7 @@ function TraderRow({
                 onCopyAddress(trader.trader_id, walletAddr)
               }}
               className="p-0.5 rounded hover:bg-panel-hover transition-colors"
-              title={language === 'zh' ? '复制' : 'Copy'}
+              title={t('tradersList.copy', language)}
             >
               {isCopied ? (
                 <Check
@@ -415,8 +412,8 @@ function TraderRow({
             }
             title={
               trader.show_in_competition !== false
-                ? '在竞技场显示'
-                : '在竞技场隐藏'
+                ? t('tradersList.shownInArena', language)
+                : t('tradersList.hiddenInArena', language)
             }
           >
             {trader.show_in_competition !== false ? (

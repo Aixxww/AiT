@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { t, type Language } from '../../i18n/translations'
+import { displayName } from '../../i18n/displayNames'
 import type {
   BacktestEquityPoint,
   BacktestTradeEvent,
@@ -434,7 +435,11 @@ export function CandlestickChartComponent({
           <span>{t('backtestChart.lossClose', language)}</span>
         </div>
         <span style={{ color: 'var(--color-muted-fg)' }}>|</span>
-        <span>▲ Long · ▼ Short · × {t('backtestChart.close', language)}</span>
+        <span>
+          ▲ {displayName('direction', 'long', language)} · ▼{' '}
+          {displayName('direction', 'short', language)} · ×{' '}
+          {t('backtestChart.close', language)}
+        </span>
       </div>
     </div>
   )

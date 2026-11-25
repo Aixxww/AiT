@@ -403,9 +403,7 @@ export function LoginPage() {
                   disabled={loading}
                   className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  {loading
-                    ? t('loggingIn', language) || 'Signing in...'
-                    : t('signIn', language) || 'Sign In'}
+                  {loading ? t('loggingIn', language) : t('signIn', language)}
                 </Button>
               </form>
             )}

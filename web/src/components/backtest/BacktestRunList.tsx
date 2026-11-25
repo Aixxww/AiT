@@ -117,8 +117,10 @@ export function BacktestRunList({
               }}
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-foreground">
-                  {run.run_id.slice(0, 20)}...
+                <span data-raw className="font-mono text-xs text-foreground">
+                  {run.run_id.length > 20
+                    ? `${run.run_id.slice(0, 20)}…`
+                    : run.run_id}
                 </span>
                 <span
                   className="flex items-center gap-1 text-xs"

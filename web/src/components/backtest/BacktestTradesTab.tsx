@@ -2,10 +2,14 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import type { BacktestTradeEvent } from '../../types'
+import { useOptionalLanguage } from '../../contexts/LanguageContext'
+import { t } from '../../i18n/translations'
+import { displayName } from '../../i18n/displayNames'
 
 // ============ Trade Timeline ============
 
 function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
+  const language = useOptionalLanguage()
   const recentTrades = useMemo(() => [...trades].slice(-20).reverse(), [trades])
 
   if (recentTrades.length === 0) {
@@ -14,7 +18,7 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
         className="py-12 text-center"
         style={{ color: 'var(--color-muted-fg)' }}
       >
-        No trades yet
+        {t('backtestTrades.noTrades', language)}
       </div>
     )
   }
@@ -66,7 +70,7 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
                   className="px-2 py-0.5 rounded text-xs font-medium"
                   style={{ background: iconBg, color: iconColor }}
                 >
-                  {trade.action.replace('_', ' ').toUpperCase()}
+                  {displayName('action', trade.action, language)}
                 </span>
                 {trade.leverage && (
                   <span className="text-xs text-muted-foreground">
@@ -75,8 +79,11 @@ function TradeTimeline({ trades }: { trades: BacktestTradeEvent[] }) {
                 )}
               </div>
               <div className="text-xs mt-1 text-muted-foreground">
-                {new Date(trade.ts).toLocaleString()} · Qty:{' '}
-                {trade.qty.toFixed(4)} · ${trade.price.toFixed(2)}
+                {new Date(trade.ts).toLocaleString(
+                  language === 'zh' ? 'zh-CN' : 'en-US'
+                )}{' '}
+                · {t('backtestOverview.qty', language)}: {trade.qty.toFixed(4)}{' '}
+                · ${trade.price.toFixed(2)}
               </div>
             </div>
             <div className="text-right">
