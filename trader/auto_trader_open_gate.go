@@ -42,7 +42,8 @@ func (at *AutoTrader) maxPositionsLimit() (int, error) {
 	if at.config.StrategyConfig == nil {
 		return 0, nil
 	}
-	return at.config.StrategyConfig.RiskControl.ValidateMaxPositions()
+	r := at.resolved() // #95
+	return r.MaxPositions, r.MaxPositionsErr
 }
 
 func (at *AutoTrader) pendingConditionalEntryCount() int {

@@ -171,6 +171,10 @@ export interface HunterConfig {
   v7_watch_output?: number
   v7_min_ai_priority?: number
   v7_aggressive?: boolean
+  // #95: router knobs that were code-only; unset = default (3 / 45 / 3)
+  v7_min_output?: number
+  v7_fallback_min_ai_priority?: number
+  v7_correlation_max_per_theme?: number // 0 = off
   include_non_crypto_futures?: boolean
   // Task-2 scanner transplant module fields (hunter_v7_t2_setups)
   v7_t2_enabled?: boolean
@@ -265,4 +269,59 @@ export interface RiskControlConfig {
   max_take_profit_price_move_pct?: number // Max TP1 price distance from executable entry, percent (CODE ENFORCED)
   min_stop_loss_price_move_pct?: number // Minimum stop-loss distance from executable entry, percent (CODE ENFORCED)
   geometry_repair?: 'repair' | 'reject' // Hunter v7 open path: repair (default) or reject-not-repair (CODE ENFORCED)
+  // #95: backend-only knobs now editable. Unset = documented default.
+  setup_guard?: Record<string, SetupGuardConfig>
+  daily_loss_breaker?: DailyLossBreakerConfig
+  protector?: ProtectorCoreConfig
+  cooldowns?: CooldownConfig
+}
+
+export interface SetupGuardConfig {
+  min_ai_priority?: number
+  min_zone_pos_short?: number
+  max_zone_pos_long?: number
+  require_oi_flush?: boolean
+}
+
+export interface DailyLossBreakerConfig {
+  mode?: 'off' | 'shadow' | 'armed'
+  max_daily_loss_pct?: number
+  near_trip_fraction?: number
+}
+
+export interface ProtectorLevel {
+  value: number
+  unit: 'roe_pct' | 'price_pct' | 'r' | ''
+}
+
+/** The protector fields the Strategy Studio edits; the backend keeps the rest. */
+export interface ProtectorCoreConfig {
+  tp0?: ProtectorLevel
+  tp1?: ProtectorLevel
+  tp0_close_ratio?: number
+  tp1_close_ratio?: number
+  giveback_close_ratio?: number
+  breakeven_buffer_frac?: number
+  [key: string]: unknown
+}
+
+export interface CooldownConfig {
+  failed_open_cycles?: number // unset = 3, 0 = off
+  recent_loss?: {
+    window_minutes?: number // unset = 60, 0 = off
+    min_losses?: number // unset = 2
+    loss_pct?: number // unset = 5
+  }
+}
+
+/** #95: one effective value from store.ResolveHunterV7. */
+export interface ResolvedValue {
+  key: string
+  group: string
+  value: unknown
+  source: 'config' | 'default' | 'safety_limit'
+  configured?: unknown
+  limit?: string
+  note?: string
+  enforced?: boolean
 }

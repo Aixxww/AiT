@@ -468,6 +468,12 @@ type HunterConfig struct {
 	// Binance USDT-perpetual pattern. Default false (the upstream
 	// scanner has no such gate).
 	V7T2SymbolValidityGate bool `json:"v7_t2_symbol_validity_gate,omitempty"`
+
+	// #95: router knobs that were code-only (DefaultV7Config). nil = the
+	// default (3 / 45 / 3); v7_correlation_max_per_theme 0 = off.
+	V7MinOutput              *int     `json:"v7_min_output,omitempty"`
+	V7FallbackMinAIPriority  *float64 `json:"v7_fallback_min_ai_priority,omitempty"`
+	V7CorrelationMaxPerTheme *int     `json:"v7_correlation_max_per_theme,omitempty"`
 }
 
 // SnifferConfig tunable parameters for the Hunter Sniff mode (institutional ambush detector).
@@ -635,6 +641,10 @@ type RiskControlConfig struct {
 	//                    min_risk_reward_ratio rejects the open. The TP cap
 	//                    (max_take_profit_price_move_pct) still clamps.
 	GeometryRepair string `json:"geometry_repair,omitempty"`
+
+	// Cooldowns (#95): failed-open and recent-loss cooldowns, with
+	// explicit unset (nil = default) vs off (0).
+	Cooldowns *CooldownConfig `json:"cooldowns,omitempty"`
 }
 
 // SetupGuardConfig defines execution guard thresholds for a specific Hunter v7 setup type.
@@ -1304,6 +1314,11 @@ var ErrInvalidMaxPositions = errors.New("invalid risk_control.max_positions")
 func (r RiskControlConfig) ValidateMaxPositions() (int, error) {
 	if r.MaxPositions <= 0 {
 		return 0, fmt.Errorf("%w: %d (must be >= 1; set it in the strategy config)", ErrInvalidMaxPositions, r.MaxPositions)
+	}
+	// #95 §5.3 item 6: a distinct safety ceiling above the trading setting.
+	// It fails loudly (opens blocked) instead of clamping.
+	if r.MaxPositions > SafetyMaxPositionsCeiling {
+		return 0, fmt.Errorf("%w: %d > %d (lower max_positions, or the owner raises the ceiling)", ErrMaxPositionsAboveSafetyCeiling, r.MaxPositions, SafetyMaxPositionsCeiling)
 	}
 	return r.MaxPositions, nil
 }

@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -28,12 +29,22 @@ func TestMaxPositionsUsesConfiguredOne(t *testing.T) {
 	if err := at.enforceMaxPositions(1); err == nil || !strings.Contains(err.Error(), "(1/1)") {
 		t.Fatalf("1 of 1 must be blocked at the configured limit, got %v", err)
 	}
-	at.config.StrategyConfig.RiskControl.MaxPositions = 5
-	if err := at.enforceMaxPositions(4); err != nil {
-		t.Fatalf("a configured 5 must not be capped at 3: %v", err)
+	at.config.StrategyConfig.RiskControl.MaxPositions = 3
+	if err := at.enforceMaxPositions(2); err != nil {
+		t.Fatalf("a configured 3 (= the safety ceiling) must be honored: %v", err)
 	}
-	if n, err := at.maxPositionsLimit(); err != nil || n != 5 {
+	if n, err := at.maxPositionsLimit(); err != nil || n != 3 {
 		t.Fatalf("limit %d %v", n, err)
+	}
+	// #95 §5.3 item 6: above the distinct safety ceiling (3, carried over
+	// from the pre-#82 bound, owner to confirm) opens fail loudly; the
+	// value is never clamped silently.
+	at.config.StrategyConfig.RiskControl.MaxPositions = 5
+	if err := at.enforceMaxPositions(0); err == nil || !errors.Is(err, store.ErrMaxPositionsAboveSafetyCeiling) {
+		t.Fatalf("a configured 5 must block opens with the ceiling error, got %v", err)
+	}
+	if _, err := at.maxPositionsLimit(); !errors.Is(err, store.ErrMaxPositionsAboveSafetyCeiling) {
+		t.Fatalf("limit must report the ceiling error, got %v", err)
 	}
 }
 

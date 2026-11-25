@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -36,8 +37,22 @@ func validateStrategyConfig(config *store.StrategyConfig) []string {
 
 	// #77: max_positions is authoritative; a missing value is not defaulted,
 	// so every open is blocked until it is set.
-	if _, err := config.RiskControl.ValidateMaxPositions(); err != nil && config.StrategyType != "grid_trading" {
+	if _, err := config.RiskControl.ValidateMaxPositions(); err != nil && config.StrategyType != "grid_trading" &&
+		!errors.Is(err, store.ErrMaxPositionsAboveSafetyCeiling) { // above the ceiling is a save error (#95)
 		warnings = append(warnings, fmt.Sprintf("%v. New positions will be blocked until max_positions is set.", err))
+	}
+
+	// #95: token-budget clamps are visible, not silent.
+	if config.CoinSource.HunterLimit > store.MaxCandidateCoins {
+		warnings = append(warnings, fmt.Sprintf("coin_source.hunter_limit %d is above the token-budget cap; the effective value is %d (safety_limit).",
+			config.CoinSource.HunterLimit, store.MaxCandidateCoins))
+	}
+	if h := config.CoinSource.Hunter; h != nil && h.V7MaxOutput > store.MaxCandidateCoins {
+		warnings = append(warnings, fmt.Sprintf("hunter_config.v7_max_output %d: at most %d candidates reach the LLM (safety_limit).",
+			h.V7MaxOutput, store.MaxCandidateCoins))
+	}
+	if config.RiskControl.MaxMarginUsage > 0 {
+		warnings = append(warnings, "risk_control.max_margin_usage is shown to the AI but not enforced in execution (owner decision pending).")
 	}
 
 	return warnings
@@ -221,6 +236,12 @@ func (s *Server) handleCreateStrategy(c *gin.Context) {
 		req.Config = &defaultCfg
 	}
 
+	// #95 §5.4.3: out-of-range values fail the save.
+	if err := store.ValidateTradingConfig(req.Config); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid strategy config: " + err.Error()})
+		return
+	}
+
 	// Serialize configuration
 	configJSON, err := json.Marshal(req.Config)
 	if err != nil {
@@ -318,6 +339,12 @@ func (s *Server) handleUpdateStrategy(c *gin.Context) {
 	description := req.Description
 	if description == "" {
 		description = existing.Description
+	}
+
+	// #95 §5.4.3: out-of-range values fail the save (before persisting).
+	if err := store.ValidateTradingConfig(&mergedConfig); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid strategy config: " + err.Error()})
+		return
 	}
 
 	configJSON, err := json.Marshal(mergedConfig)
@@ -894,4 +921,23 @@ func (s *Server) runRealAITest(userID, modelID, systemPrompt, userPrompt string)
 
 func (s *Server) resolveStrategyDataWalletKey(userID, selectedModelID string) (string, error) {
 	return s.store.AIModel().ResolveClaw402WalletKey(userID, selectedModelID)
+}
+
+// handleEffectiveConfig resolves a strategy config (#95 §5.4.6) and returns
+// every effective trading-behaviour value with its source (config, default,
+// safety_limit). The body is the editor's current, possibly unsaved, config.
+func (s *Server) handleEffectiveConfig(c *gin.Context) {
+	var req struct {
+		Config store.StrategyConfig `json:"config"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SafeBadRequest(c, "Invalid request parameters")
+		return
+	}
+	resolved := store.ResolveHunterV7(&req.Config)
+	resp := gin.H{"values": resolved.Values}
+	if err := store.ValidateTradingConfig(&req.Config); err != nil {
+		resp["validation_error"] = err.Error()
+	}
+	c.JSON(http.StatusOK, resp)
 }

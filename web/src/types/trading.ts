@@ -105,6 +105,7 @@ export interface TraderInfo {
   show_in_competition?: boolean
   strategy_id?: string
   strategy_name?: string
+  scan_interval_minutes?: number // #95: shown on the strategy page
   custom_prompt?: string
   use_ai500?: boolean
   use_oi_top?: boolean

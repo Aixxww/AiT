@@ -7,6 +7,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
+import { EffectiveConfigPanel } from '../components/strategy/EffectiveConfigPanel'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
@@ -1458,6 +1459,14 @@ export function StrategyStudioPage() {
                   }
                 )}
               </div>
+              {currentStrategyType === 'ai_trading' && (
+                <EffectiveConfigPanel
+                  config={editingConfig}
+                  strategyId={selectedStrategy?.id}
+                  token={token}
+                  language={language}
+                />
+              )}
             </div>
           ) : (
             <EmptyState

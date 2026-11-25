@@ -36,9 +36,11 @@ type DecisionRecordDB struct {
 	// #94: AI failure reason code (AUD-B1/B3) and the X2 instrumentation
 	// (AUD-B8): rank of the chosen signal among the prompt's E+R
 	// candidates, and the E+R count.
-	AIFailureReason string    `gorm:"column:ai_failure_reason;default:''"`
-	ChosenRank      int       `gorm:"column:chosen_rank;default:0"`
-	ERCount         int       `gorm:"column:er_count;default:0"`
+	AIFailureReason string `gorm:"column:ai_failure_reason;default:''"`
+	ChosenRank      int    `gorm:"column:chosen_rank;default:0"`
+	ERCount         int    `gorm:"column:er_count;default:0"`
+	// #95 §5.4.6: the resolver output (value + source) of the cycle, JSON.
+	EffectiveConfig string    `gorm:"column:effective_config;default:''"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -70,11 +72,14 @@ type DecisionRecord struct {
 	// selected signal among the prompt's EXECUTABLE+REVIEWABLE candidates
 	// in prompt order; 0 = no open; -1 = the signal was not an E+R
 	// candidate. ERCount is the number of E+R candidates in the prompt.
-	ChosenRank   int                `json:"chosen_rank"`
-	ERCount      int                `json:"er_count"`
-	AccountState AccountSnapshot    `json:"account_state"`
-	Positions    []PositionSnapshot `json:"positions"`
-	Decisions    []DecisionAction   `json:"decisions"`
+	ChosenRank int `json:"chosen_rank"`
+	ERCount    int `json:"er_count"`
+	// EffectiveConfig (#95) is store.ResolveHunterV7(...).Values for the
+	// cycle: every trading-behaviour value with its source.
+	EffectiveConfig []ResolvedValue    `json:"effective_config,omitempty"`
+	AccountState    AccountSnapshot    `json:"account_state"`
+	Positions       []PositionSnapshot `json:"positions"`
+	Decisions       []DecisionAction   `json:"decisions"`
 }
 
 // AccountSnapshot account state snapshot
@@ -168,9 +173,9 @@ func (s *DecisionStore) initTables() error {
 		var tableExists int64
 		s.db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'decision_records'`).Scan(&tableExists)
 		if tableExists > 0 {
-			// #94: add the new columns to an existing table.
+			// #94 / #95: add the new columns to an existing table.
 			m := s.db.Migrator()
-			for _, field := range []string{"AIFailureReason", "ChosenRank", "ERCount"} {
+			for _, field := range []string{"AIFailureReason", "ChosenRank", "ERCount", "EffectiveConfig"} {
 				if !m.HasColumn(&DecisionRecordDB{}, field) {
 					if err := m.AddColumn(&DecisionRecordDB{}, field); err != nil {
 						return fmt.Errorf("failed to add decision_records.%s: %w", field, err)
@@ -208,6 +213,9 @@ func (db *DecisionRecordDB) toRecord() *DecisionRecord {
 	json.Unmarshal([]byte(db.CandidateCoins), &record.CandidateCoins)
 	json.Unmarshal([]byte(db.ExecutionLog), &record.ExecutionLog)
 	json.Unmarshal([]byte(db.Decisions), &record.Decisions)
+	if db.EffectiveConfig != "" {
+		json.Unmarshal([]byte(db.EffectiveConfig), &record.EffectiveConfig)
+	}
 	return record
 }
 
@@ -223,6 +231,12 @@ func (s *DecisionStore) LogDecision(record *DecisionRecord) error {
 	candidateCoinsJSON, _ := json.Marshal(record.CandidateCoins)
 	executionLogJSON, _ := json.Marshal(record.ExecutionLog)
 	decisionsJSON, _ := json.Marshal(record.Decisions)
+	effectiveConfigJSON := ""
+	if len(record.EffectiveConfig) > 0 {
+		if b, err := json.Marshal(record.EffectiveConfig); err == nil {
+			effectiveConfigJSON = string(b)
+		}
+	}
 
 	dbRecord := &DecisionRecordDB{
 		TraderID:            record.TraderID,
@@ -245,6 +259,7 @@ func (s *DecisionStore) LogDecision(record *DecisionRecord) error {
 		AIFailureReason:     record.AIFailureReason,
 		ChosenRank:          record.ChosenRank,
 		ERCount:             record.ERCount,
+		EffectiveConfig:     effectiveConfigJSON,
 	}
 
 	if err := s.db.Create(dbRecord).Error; err != nil {
