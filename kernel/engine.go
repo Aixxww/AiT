@@ -299,7 +299,8 @@ type Decision struct {
 	EffectiveRRAfterCap      float64 `json:"effective_rr_after_cap,omitempty"`
 	SignalAgeMs              int64   `json:"signal_age_ms,omitempty"`
 	// Server-derived execution plan. These fields are hydrated from the selected
-	// Hunter v7 signal after response validation; they are not LLM inputs.
+	// Hunter v7 signal before response validation (#106); they are not LLM
+	// inputs.
 	HunterV7TP0Price float64          `json:"hunter_v7_tp0_price,omitempty"`
 	HunterV7TP1Price float64          `json:"hunter_v7_tp1_price,omitempty"`
 	HunterV7TP2Price float64          `json:"hunter_v7_tp2_price,omitempty"`

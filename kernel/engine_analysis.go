@@ -172,11 +172,11 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 		rrFloor,
 		riskConfig.MinConfidence, // #77: the configured min-open confidence
 		tierCounts,
+		ctx.CandidateCoins, // #106: hydrated before validation
 	)
 
 	if decision != nil {
 		if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
-			hydrateHunterV7DecisionExecutionPlans(decision.Decisions, ctx.CandidateCoins)
 			// #94 / AUD-B8: X2 instrumentation (rank of the pick, E+R count).
 			decision.HunterV7ERCount, decision.HunterV7ChosenRank = annotateHunterV7ChosenRank(decision.Decisions, ctx.HunterV7PromptFinal)
 		}
@@ -210,6 +210,8 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 // hydrateHunterV7DecisionExecutionPlans copies price targets only from the
 // backend candidate selected by signal ID. The model never supplies these
 // fields, preventing a free-form response from changing the protector plan.
+// #106 / AUD-B5: it runs inside parseFullDecisionResponseWithTiers BEFORE
+// validation, so the RR check sees the backend trigger.
 func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []CandidateCoin) {
 	byID := make(map[string]CandidateCoin, len(candidates))
 	for _, candidate := range candidates {
@@ -219,11 +221,7 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 	}
 	for i := range decisions {
 		decision := &decisions[i]
-		decision.HunterV7MinRR = 0
-		decision.HunterV7MinStopPct = 0
-		decision.HunterV7MaxTPPct = 0
-		decision.HunterV7MaxDriftPct, decision.HunterV7DriftReference, decision.HunterV7TriggerPrice = 0, "", 0
-		decision.HunterV7ConditionalEntry, decision.HunterV7InvalidationPrice, decision.HunterV7IntentKey = false, 0, ""
+		resetHunterV7ExecutionPlan(decision)
 		if decision.Action != "open_long" && decision.Action != "open_short" {
 			continue
 		}
@@ -243,6 +241,17 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		decision.HunterV7TP1Price = candidate.V7TP1Price
 		decision.HunterV7TP2Price = candidate.V7TP2Price
 	}
+}
+
+// resetHunterV7ExecutionPlan clears the backend plan fields that
+// hydrateHunterV7DecisionExecutionPlans owns, for a decision that is not an
+// open on a known signal (or was demoted to wait after hydration).
+func resetHunterV7ExecutionPlan(decision *Decision) {
+	decision.HunterV7MinRR = 0
+	decision.HunterV7MinStopPct = 0
+	decision.HunterV7MaxTPPct = 0
+	decision.HunterV7MaxDriftPct, decision.HunterV7DriftReference, decision.HunterV7TriggerPrice = 0, "", 0
+	decision.HunterV7ConditionalEntry, decision.HunterV7InvalidationPrice, decision.HunterV7IntentKey = false, 0, ""
 }
 
 const hunterV7DecisionMaxOutputTokens = 1600
@@ -536,12 +545,16 @@ func hunterV7PromptFinalTierCounts(final []HunterV7PromptFinalTier) hunterV7Tier
 }
 
 func parseFullDecisionResponse(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int) (*FullDecision, error) {
-	return parseFullDecisionResponseWithTiers(aiResponse, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, hunterV7Mode, priceMap, rrFloor, minOpenConfidence, unknownHunterV7TierCounts)
+	return parseFullDecisionResponseWithTiers(aiResponse, accountEquity, btcEthLeverage, altcoinLeverage, btcEthPosRatio, altcoinPosRatio, hunterScoreMap, hunterV7Mode, priceMap, rrFloor, minOpenConfidence, unknownHunterV7TierCounts, nil)
 }
 
 // parseFullDecisionResponseWithTiers is parseFullDecisionResponse with the
-// round's prompt-final tier counts for the wait-code check (#104).
-func parseFullDecisionResponseWithTiers(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int, tiers hunterV7TierCounts) (*FullDecision, error) {
+// round's prompt-final tier counts for the wait-code check (#104) and, in
+// hunter_v7 mode, the round's candidates: their backend execution plan
+// (trigger price, conditional entry, ...) is hydrated onto the decisions
+// BEFORE validation, so the RR check measures from the backend trigger
+// (#106 / AUD-B5).
+func parseFullDecisionResponseWithTiers(aiResponse string, accountEquity float64, btcEthLeverage, altcoinLeverage int, btcEthPosRatio, altcoinPosRatio float64, hunterScoreMap map[string]HunterScoreInfo, hunterV7Mode bool, priceMap map[string]float64, rrFloor DecisionRRFloor, minOpenConfidence int, tiers hunterV7TierCounts, candidates []CandidateCoin) (*FullDecision, error) {
 	cotTrace := extractCoTTrace(aiResponse)
 
 	decisions, err := extractDecisions(aiResponse)
@@ -554,6 +567,7 @@ func parseFullDecisionResponseWithTiers(aiResponse string, accountEquity float64
 
 	if hunterV7Mode {
 		normalizeHunterV7WaitReasons(decisions)
+		hydrateHunterV7DecisionExecutionPlans(decisions, candidates)
 	}
 	// F06: validate each decision on its own. A decision that fails is
 	// demoted to wait (backend_guard_risk) and the rest of the batch still
@@ -611,6 +625,11 @@ func demoteInvalidDecisions(decisions []Decision, accountEquity float64, btcEthL
 		d.ValidatorRejection = err.Error()
 		d.Action = "wait"
 		d.BlockedReasonCode = "backend_guard_risk"
+		// #106: a demoted decision carries no backend execution plan, as when
+		// hydration ran after validation. The TP ladder is cleared too: it is
+		// the plan of an open that is no longer executed.
+		resetHunterV7ExecutionPlan(d)
+		d.HunterV7TP0Price, d.HunterV7TP1Price, d.HunterV7TP2Price = 0, 0, 0
 		if d.BlockedSignalSymbol == "" && d.Symbol != "" && d.Symbol != "ALL" {
 			d.BlockedSignalSymbol = d.Symbol
 		}
