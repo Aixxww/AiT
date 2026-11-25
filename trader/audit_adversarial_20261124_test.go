@@ -109,10 +109,10 @@ func TestAudit_E1_FreshnessGuardUsesBackendAge(t *testing.T) {
 	}
 }
 
-// AUD-D1: the staged giveback fires at cur <= 0 (mark at or below entry for a
-// long), and the stop it then rebuilds is entry*(1+0.15%), i.e. above mark.
-// The exchange rejects such a stop ("would immediately trigger"); the old stop
-// was already cancelled, so the path ends in the emergency close.
+// AUD-D1 (fixed in #93): the staged giveback fires at cur <= 0 (mark at or
+// below entry for a long). The breakeven stop entry*(1+0.15%) would sit above
+// mark; the rebuild now clamps it to the protective side of mark, so the
+// exchange accepts it and the remainder is not emergency-closed.
 func TestAudit_D1_GivebackRebuildsStopOnTheWrongSideOfMark(t *testing.T) {
 	e := defaultProtectorEngine()
 	now := time.Now()
@@ -123,63 +123,98 @@ func TestAudit_D1_GivebackRebuildsStopOnTheWrongSideOfMark(t *testing.T) {
 	if action != protectionGivebackClose {
 		t.Fatalf("expected the giveback-to-zero rule, got %v", action)
 	}
-	stop := rebuildStop(state, "long", entry, e.cfg.GivebackBreakevenBufferFrac)
-	if stop <= mark {
-		t.Fatalf("FLAW no longer present: rebuilt stop %.4f is below mark %.4f; update AUD-D1", stop, mark)
+	if raw := rebuildStop(state, "long", entry, e.cfg.GivebackBreakevenBufferFrac); raw <= mark {
+		t.Fatalf("setup: the unclamped breakeven stop %.4f should be above mark %.4f", raw, mark)
 	}
-	t.Logf("giveback at mark %.2f rebuilds a LONG stop at %.4f (above mark)", mark, stop)
+	clamped, ok := clampStopToProtectiveSide("long", mark, e.cfg.GivebackBreakevenBufferFrac)
+	if !ok || !isStopOnProtectiveSide("long", clamped, mark) {
+		t.Fatalf("clamped stop %.4f must be below mark %.4f", clamped, mark)
+	}
+
+	// End to end: the giveback partial places a valid stop and keeps the remainder.
+	v := newProtectorSimVenue("AAAUSDT", "long", entry, 10, 10, 98, 104)
+	at := newProtectorWalkTrader(v, nil)
+	at.protectionState["AAAUSDT_long"] = state
+	v.mark = mark
+	closedAll, err := at.executeProtectionActionWith(e, "AAAUSDT", "long", 10, mark, entry, protectionGivebackClose)
+	if closedAll || err != nil {
+		t.Fatalf("giveback must keep the remainder with a valid stop: closedAll=%v err=%v orders=%v", closedAll, err, v.orders)
+	}
+	if v.stop <= 0 || v.stop >= mark || v.qty != 5 {
+		t.Fatalf("stop %.4f must be below mark %.4f, qty %.4f", v.stop, mark, v.qty)
+	}
+	// No valid clamp (mark unknown in the clamp): a deliberate close.
+	if _, ok := clampStopToProtectiveSide("long", 0, 0.0015); ok {
+		t.Fatal("no mark: clamping must be impossible")
+	}
 }
 
-// AUD-D2: ROE is 0 when the position reports leverage 0, which switches off
-// every ROE rule (hard loss, early loss, TP0, givebacks, profit floor). The
-// DefaultLeverage fallback in checkPositionDrawdown only applies when the
-// "leverage" key is not a float64, so a parsed 0.0 (Binance) or an int
-// (Gate adapter) never reaches it.
+// AUD-D2 (fixed in #93): leverage 0 or a non-float leverage no longer
+// switches off the ROE rules. Int and float are accepted; <= 0 is unknown and
+// uses the protector default (10) with a warning.
 func TestAudit_D2_ZeroLeverageSwitchesOffROERules(t *testing.T) {
-	cur := calculateLeveragedPnLPct("long", 100, 85, 0) // -15% price move
-	if cur != 0 {
-		t.Fatalf("FLAW no longer present: ROE with leverage 0 is %.2f; update AUD-D2", cur)
+	def := store.EffectiveProtector(nil).DefaultLeverage
+	for _, tc := range []struct {
+		raw  interface{}
+		want int
+	}{{0.0, def}, {-3.0, def}, {nil, def}, {"", def}, {20, 20}, {int64(15), 15}, {20.0, 20}, {"12", 12}} {
+		pos := map[string]interface{}{"leverage": tc.raw}
+		if tc.raw == nil {
+			pos = map[string]interface{}{}
+		}
+		if got := positionLeverage(pos, def, "XUSDT", "long"); got != tc.want {
+			t.Fatalf("leverage %#v -> %d, want %d", tc.raw, got, tc.want)
+		}
 	}
+	// With the default leverage, a -15% price move fires the hard-loss close.
+	lev := positionLeverage(map[string]interface{}{"leverage": 0.0}, def, "XUSDT", "long")
+	cur := calculateLeveragedPnLPct("long", 100, 85, lev)
 	e := defaultProtectorEngine()
 	now := time.Now()
 	state := &positionProtectionState{OpenedAt: now.Add(-5 * time.Minute)}
-	action, _ := e.choose(state, protectorPos{Side: "long", Leverage: 0}, cur, -15, now)
-	if action == protectionHardLossClose {
-		t.Fatal("FLAW no longer present: hard loss fires with leverage 0; update AUD-D2")
-	}
-	t.Logf("-15%% price move with leverage 0 -> action %q (no hard-loss close)", action)
-
-	// The extraction rule used by checkPositionDrawdown (auto_trader_risk.go:149-152).
-	extract := func(pos map[string]interface{}) int {
-		leverage := store.EffectiveProtector(nil).DefaultLeverage
-		if lev, ok := pos["leverage"].(float64); ok {
-			leverage = int(lev)
-		}
-		return leverage
-	}
-	if got := extract(map[string]interface{}{"leverage": 0.0}); got != 0 {
-		t.Fatalf("parsed 0.0 leverage -> %d", got)
-	}
-	if got := extract(map[string]interface{}{"leverage": 20}); got != 10 {
-		t.Fatalf("int leverage 20 -> %d (default used instead of the real leverage)", got)
+	if action, _ := e.choose(state, protectorPos{Side: "long", Leverage: lev}, cur, -15, now); action != protectionHardLossClose {
+		t.Fatalf("-15%% move with unknown leverage -> %q, want the hard-loss close", action)
 	}
 }
 
-// AUD-D3: ROE-unit TP0 / profit-floor levels shrink with leverage. At 20x,
-// TP0 (8% ROE) closes 35% of the position on a 0.4% price move, about four
-// round-trip taker fees.
+// AUD-D3 (#93): ROE-unit TP0 / profit-floor levels shrink with leverage. At
+// 20x, TP0 (8% ROE) closes 35% on a 0.4% price move. #93 adds owner-set
+// minimum price moves (tp0_min_move, profit_floor_min_move) as TP1 has.
+// Unset, the behaviour is unchanged; set, the floor holds.
 func TestAudit_D3_TP0At20xFiresOnFourTenthsPercentMove(t *testing.T) {
 	e := defaultProtectorEngine()
 	now := time.Now()
-	state := &positionProtectionState{OpenedAt: now.Add(-time.Hour)}
 	entry, mark := 100.0, 100.4
 	cur := calculateLeveragedPnLPct("long", entry, mark, 20)
-	action, _ := e.choose(state, protectorPos{Side: "long", Leverage: 20}, cur, 0.4, now)
-	if action != protectionTP0 {
-		t.Fatalf("expected TP0 at %.2f%% ROE, got %v", cur, action)
-	}
 	if math.Abs(cur-8) > 1e-9 {
 		t.Fatalf("ROE %.4f", cur)
 	}
-	t.Logf("20x: +0.40%% price = %.1f%% ROE -> %v (closes %.0f%%)", cur, action, e.cfg.TP0CloseRatio*100)
+	p := protectorPos{Side: "long", Leverage: 20}
+	// Unset (default): unchanged, TP0 fires on the 0.4% move.
+	if action, _ := e.choose(&positionProtectionState{OpenedAt: now.Add(-time.Hour)}, p, cur, 0.4, now); action != protectionTP0 {
+		t.Fatalf("unset floor: expected TP0 at %.2f%% ROE, got %v", cur, action)
+	}
+	// Set: a 1.0% minimum price move holds TP0 back at 0.4%, and lets it fire at 1.0%.
+	cfg := store.EffectiveProtector(&store.ProtectorConfig{
+		TP0MinMove:         store.ProtectorLevel{Value: 1.0, Unit: store.ProtectorUnitPricePct},
+		ProfitFloorMinMove: store.ProtectorLevel{Value: 0.5, Unit: store.ProtectorUnitPricePct},
+	})
+	ef := newProtectorEngine(cfg)
+	if action, _ := ef.choose(&positionProtectionState{OpenedAt: now.Add(-time.Hour)}, p, cur, 0.4, now); action == protectionTP0 {
+		t.Fatal("tp0_min_move 1.0%: TP0 must not fire on a 0.4% move")
+	}
+	cur1 := calculateLeveragedPnLPct("long", entry, 101.0, 20)
+	if action, _ := ef.choose(&positionProtectionState{OpenedAt: now.Add(-time.Hour)}, p, cur1, 1.0, now); action != protectionTP0 {
+		t.Fatalf("tp0_min_move 1.0%%: TP0 must fire on a 1.0%% move, got %v", action)
+	}
+	// Profit floor: a 6% ROE peak at 20x is a 0.3% move, below the 0.5% floor.
+	if stop := ef.profitFloorStop(p, entry, 6); stop != 0 {
+		t.Fatalf("profit_floor_min_move 0.5%%: no floor stop on a 0.3%% peak move, got %.4f", stop)
+	}
+	if stop := e.profitFloorStop(p, entry, 6); stop <= 0 {
+		t.Fatal("unset floor: the profit floor stop is unchanged")
+	}
+	if stop := ef.profitFloorStop(p, entry, 12); stop <= entry {
+		t.Fatalf("profit_floor_min_move 0.5%%: a 0.6%% peak move keeps the floor, got %.4f", stop)
+	}
 }

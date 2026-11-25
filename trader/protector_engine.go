@@ -105,6 +105,15 @@ func (p protectorPos) ge(l store.ProtectorLevel, roePct, movePct float64) bool {
 	return ok && v >= l.Value
 }
 
+// minMoveOK is an optional minimum-move gate (#93 / AUD-D3): an unset level
+// (no valid unit) always passes, which is the behaviour before #93.
+func (p protectorPos) minMoveOK(l store.ProtectorLevel, roePct, movePct float64) bool {
+	if !store.ValidProtectorUnit(l.Unit) {
+		return true
+	}
+	return p.ge(l, roePct, movePct)
+}
+
 func (p protectorPos) gt(l store.ProtectorLevel, roePct, movePct float64) bool {
 	v, ok := p.metric(l.Unit, roePct, movePct)
 	return ok && v > l.Value
@@ -300,7 +309,7 @@ func (e *protectorEngine) choose(state *positionProtectionState, p protectorPos,
 		return protectionGivebackClose, dd
 	}
 	// 3. TP0 by level.
-	if !state.TP0Done && p.peakGE(c.TP0, peak) && p.ge(c.TP0, cur, move) {
+	if !state.TP0Done && p.peakGE(c.TP0, peak) && p.ge(c.TP0, cur, move) && p.minMoveOK(c.TP0MinMove, cur, move) {
 		return protectionTP0, dd
 	}
 	// 4-5. High / mid profit lock.
@@ -434,6 +443,10 @@ func (e *protectorEngine) baseStop(p protectorPos, entry float64) float64 {
 func (e *protectorEngine) profitFloorStop(p protectorPos, entry, peakROE float64) float64 {
 	c := e.cfg
 	if entry <= 0 || p.Leverage <= 0 || !p.peakGE(c.ProfitFloorPeak, peakROE) {
+		return 0
+	}
+	// #93 / AUD-D3: an owner-set minimum peak price move (unset = none).
+	if store.ValidProtectorUnit(c.ProfitFloorMinMove.Unit) && !p.peakGE(c.ProfitFloorMinMove, peakROE) {
 		return 0
 	}
 	lock := 0.0

@@ -62,8 +62,8 @@ func (t *legacyTestTrader) SetStopLoss(symbol, positionSide string, quantity, st
 	return t.contextTestTrader.SetStopLoss(symbol, positionSide, quantity, stopPrice)
 }
 
-// F27: the breakeven rebuild cancels side-scoped (take-profit included, as
-// before for the managed side), never symbol-wide, then places the stop.
+// F27: the breakeven rebuild cancels side-scoped, never symbol-wide, then
+// places the stop. #93 / AUD-D5: stops only; the take-profit is kept.
 func TestF27RebuildUsesSideScopedCancel(t *testing.T) {
 	ft := &rebuildTestTrader{}
 	at := &AutoTrader{trader: ft}
@@ -71,8 +71,8 @@ func TestF27RebuildUsesSideScopedCancel(t *testing.T) {
 	if err != nil || closed {
 		t.Fatalf("rebuild: closed=%v err=%v", closed, err)
 	}
-	if len(ft.ownedCancels) != 1 || ft.ownedCancels[0] != (ownedCancelCall{"AAAUSDT", "SHORT", false}) {
-		t.Fatalf("owned cancels = %+v, want one SHORT protective cancel", ft.ownedCancels)
+	if len(ft.ownedCancels) != 1 || ft.ownedCancels[0] != (ownedCancelCall{"AAAUSDT", "SHORT", true}) {
+		t.Fatalf("owned cancels = %+v, want one SHORT stops-only cancel", ft.ownedCancels)
 	}
 	if ft.symbolWideCalls != 0 {
 		t.Fatalf("symbol-wide cancel called %d times", ft.symbolWideCalls)
@@ -105,8 +105,9 @@ func TestF27FallbackKeepsPreviousCalls(t *testing.T) {
 	if _, err := at.replaceDynamicStop("AAAUSDT", "long", 5, 99); err != nil {
 		t.Fatal(err)
 	}
-	if ft.stopOrdersCalls != 1 || ft.stopLossCalls != 1 {
-		t.Fatalf("fallback calls: CancelStopOrders=%d CancelStopLossOrders=%d, want 1/1", ft.stopOrdersCalls, ft.stopLossCalls)
+	// #93 / AUD-D5: the rebuild now cancels stops only too (never the TP).
+	if ft.stopOrdersCalls != 0 || ft.stopLossCalls != 2 {
+		t.Fatalf("fallback calls: CancelStopOrders=%d CancelStopLossOrders=%d, want 0/2", ft.stopOrdersCalls, ft.stopLossCalls)
 	}
 }
 
