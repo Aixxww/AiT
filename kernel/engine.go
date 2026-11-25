@@ -102,25 +102,29 @@ type CandidateCoin struct {
 	V7ConfirmSummary   *local.V7ConfirmationSummary `json:"-"`
 	V7PriceContext     *local.V7PriceContext        `json:"-"`
 	V7DerivativesCtx   *local.V7DerivativesContext  `json:"-"`
-	V7DataFreshness    local.V7DataFreshness        `json:"-"`
-	V7Readiness        *local.V7ExecutionReadiness  `json:"-"`
-	V7ExecutionContext *local.V7ExecutionContext    `json:"-"`
-	V7TP0Price         float64                      `json:"-"`
-	V7TP0RR            float64                      `json:"-"`
-	V7TP0TimeWindow    string                       `json:"-"`
-	V7TP0Method        string                       `json:"-"`
-	V7TP1Price         float64                      `json:"-"`
-	V7TP1RR            float64                      `json:"-"`
-	V7TP1TimeWindow    string                       `json:"-"`
-	V7TP1Method        string                       `json:"-"`
-	V7TP2Price         float64                      `json:"-"`
-	V7TP2RR            float64                      `json:"-"`
-	V7TP2TimeWindow    string                       `json:"-"`
-	V7TP2Method        string                       `json:"-"`
-	V7TPPlan           *local.V7TakeProfitPlan      `json:"-"`
-	V7VWAP15m          float64                      `json:"-"`
-	V7ExecutionTier    string                       `json:"-"`
-	V7TierReason       string                       `json:"-"`
+	// v7AssumeMissingDataPasses is set only on the copy the tier classifier
+	// evaluates to find the demotion target of a row with missing taker or
+	// liquidity data (#103 / AUD-A3). It is never set on a live candidate.
+	v7AssumeMissingDataPasses bool
+	V7DataFreshness           local.V7DataFreshness       `json:"-"`
+	V7Readiness               *local.V7ExecutionReadiness `json:"-"`
+	V7ExecutionContext        *local.V7ExecutionContext   `json:"-"`
+	V7TP0Price                float64                     `json:"-"`
+	V7TP0RR                   float64                     `json:"-"`
+	V7TP0TimeWindow           string                      `json:"-"`
+	V7TP0Method               string                      `json:"-"`
+	V7TP1Price                float64                     `json:"-"`
+	V7TP1RR                   float64                     `json:"-"`
+	V7TP1TimeWindow           string                      `json:"-"`
+	V7TP1Method               string                      `json:"-"`
+	V7TP2Price                float64                     `json:"-"`
+	V7TP2RR                   float64                     `json:"-"`
+	V7TP2TimeWindow           string                      `json:"-"`
+	V7TP2Method               string                      `json:"-"`
+	V7TPPlan                  *local.V7TakeProfitPlan     `json:"-"`
+	V7VWAP15m                 float64                     `json:"-"`
+	V7ExecutionTier           string                      `json:"-"`
+	V7TierReason              string                      `json:"-"`
 	// V7AssembledTier / V7AssembledReason keep the assembly verdict after
 	// FinalizeHunterV7Tiers has replaced V7ExecutionTier / V7TierReason with
 	// the prompt-final verdict (#86). Empty until finalization; read only
@@ -814,7 +818,51 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	return tier, reason
 }
 
+// hunterV7TakerDataMissing: no derivatives context or no 15m taker ratio.
+func hunterV7TakerDataMissing(coin CandidateCoin) bool {
+	return coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.TakerBuy15m <= 0
+}
+
+// classifyHunterV7CandidateTierRules is the assembly tier (#103 / AUD-A3:
+// missing data fails closed and demotes to REVIEWABLE, never REJECTED):
+//   - every taker gate and the MinLiquidity floor fail closed on missing
+//     data (no derivatives context / TakerBuy15m <= 0; liquidity score 0);
+//   - a row with missing taker data is never EXECUTABLE: an EXECUTABLE
+//     verdict is capped at REVIEWABLE (the prompt readiness pass already
+//     caps missing-derivatives rows the same way, #89);
+//   - a row that only fell below REVIEWABLE because a gate lacked data
+//     (its verdict with missing data assumed passing is EXECUTABLE or
+//     REVIEWABLE) is REVIEWABLE: the demotion target, at best.
 func classifyHunterV7CandidateTierRules(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
+	coin.v7AssumeMissingDataPasses = false
+	tier, reason := hunterV7TierRulesEval(coin, geometry)
+	takerMissing := hunterV7TakerDataMissing(coin)
+	liquidityMissing := coin.V7LiquidityScore <= 0
+	if coin.V7SetupType == "" || (!takerMissing && !liquidityMissing) {
+		return tier, reason
+	}
+	missing := "liquidity"
+	if takerMissing {
+		missing = "taker"
+	}
+	if tier == "EXECUTABLE" {
+		if takerMissing {
+			return "REVIEWABLE", "missing_taker_data_reviewable_cap"
+		}
+		return tier, reason
+	}
+	if tier == "REVIEWABLE" {
+		return tier, reason
+	}
+	optimistic := coin
+	optimistic.v7AssumeMissingDataPasses = true
+	if ot, _ := hunterV7TierRulesEval(optimistic, geometry); ot == "EXECUTABLE" || ot == "REVIEWABLE" {
+		return "REVIEWABLE", "missing_" + missing + "_data_reviewable_cap"
+	}
+	return tier, reason
+}
+
+func hunterV7TierRulesEval(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	if coin.V7SetupType == "" {
 		return "", ""
 	}
@@ -1680,8 +1728,8 @@ func hunterV7EntryZoneReachable(coin CandidateCoin) bool {
 
 // hunterV7TakerBuyAligned checks if taker flow is aligned with direction.
 func hunterV7TakerBuyAligned(coin CandidateCoin) bool {
-	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.TakerBuy15m <= 0 {
-		return true // no data = don't penalize
+	if hunterV7TakerDataMissing(coin) {
+		return coin.v7AssumeMissingDataPasses // #103 / AUD-A3: no data is not alignment
 	}
 	tb := coin.V7DerivativesCtx.TakerBuy15m
 	if strings.EqualFold(coin.Direction, "LONG") {
@@ -2010,8 +2058,8 @@ func hunterV7HighRiskSignalWaitReason(coin CandidateCoin) string {
 }
 
 func hunterV7TakerBuyAtLeast(coin CandidateCoin, threshold float64) bool {
-	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.TakerBuy15m <= 0 {
-		return true
+	if hunterV7TakerDataMissing(coin) {
+		return coin.v7AssumeMissingDataPasses // #103 / AUD-A3: fail closed
 	}
 	return coin.V7DerivativesCtx.TakerBuy15m >= threshold
 }
@@ -2031,8 +2079,8 @@ func hunterV7TakerBuyConfirmedAtMost(coin CandidateCoin, threshold float64) bool
 }
 
 func hunterV7TakerBuyAtMost(coin CandidateCoin, threshold float64) bool {
-	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.TakerBuy15m <= 0 {
-		return true
+	if hunterV7TakerDataMissing(coin) {
+		return coin.v7AssumeMissingDataPasses // #103 / AUD-A3: fail closed
 	}
 	return coin.V7DerivativesCtx.TakerBuy15m <= threshold
 }

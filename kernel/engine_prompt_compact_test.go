@@ -2471,9 +2471,23 @@ func hunterV7ShortSideTierCases() []v7TierCase {
 				withScores(61, 78, 66, 8, 80),
 				withRiskLevel("LOW"),
 				withReasons("strong_1h_downside_momentum", "below_vwap_breakdown", "heavy_taker_selling", "oi_confirms_new_shorts", "sell_volume_confirmed"),
+				withTaker(0.40), // #103 / AUD-A3: EXECUTABLE needs measured taker flow
 			),
 			wantTier:   "EXECUTABLE",
 			wantReason: "short_or_reversion_ready_confirmed",
+		},
+		{
+			name: "TestClassifyHunterV7CandidateTierBreakdownMomentumShortWithoutTakerDataIsReviewable",
+			coin: v7Candidate("breakdown_momentum_short",
+				withSymbol("SKYAIUSDT"),
+				withDirection("SHORT"),
+				withQuality("ready"),
+				withScores(61, 78, 66, 8, 80),
+				withRiskLevel("LOW"),
+				withReasons("strong_1h_downside_momentum", "below_vwap_breakdown", "heavy_taker_selling", "oi_confirms_new_shorts", "sell_volume_confirmed"),
+			),
+			wantTier:   "REVIEWABLE",
+			wantReason: "missing_taker_data_reviewable_cap",
 		},
 	}
 }
