@@ -4,8 +4,6 @@ import {
   ArrowRight,
   Shield,
   Activity,
-  CircuitBoard,
-  Wifi,
   Globe,
   Zap,
   Star,
@@ -17,8 +15,12 @@ import { useState, useEffect } from 'react'
 import { useGitHubStats } from '../../../hooks/useGitHubStats'
 import AgentTerminal from '../brand/AgentTerminal'
 import { Button } from '../../ui/Button'
+import { useOptionalLanguage } from '../../../contexts/LanguageContext'
+import { t } from '../../../i18n/translations'
 
 export default function TerminalHero() {
+  const language = useOptionalLanguage()
+  const tr = (key: string) => t(`landingHero.${key}`, language)
   // Real-time price state
   const [prices, setPrices] = useState<Record<string, string>>({
     BTC: '...',
@@ -126,61 +128,21 @@ export default function TerminalHero() {
       <div className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-8 max-w-[1800px] mx-auto w-full px-6 h-full pb-20 pt-10 pointer-events-none">
         {/* LEFT COLUMN: TELEMETRY & STATUS */}
         <div className="hidden lg:flex col-span-3 flex-col justify-between h-full border-r border-white/5 pr-8 py-10 pointer-events-auto">
-          {/* Top: System Health */}
-          <div className="space-y-6">
-            <div className="tech-border p-4 bg-black/40 backdrop-blur-sm">
-              <h3 className="text-xs font-mono text-primary mb-4 flex items-center gap-2">
-                <Activity className="w-3 h-3" /> SYSTEM_DIAGNOSTICS
+          <div className="space-y-4">
+            <div className="p-4 rounded-card bg-surface/40 border border-border backdrop-blur-sm">
+              <h3 className="t-caption font-semibold text-primary mb-3 flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5" /> {tr('sideTitle')}
               </h3>
-              <div className="space-y-3 font-mono text-[10px] text-muted-foreground">
-                <div className="flex justify-between items-center">
-                  <span>KERNEL_LATENCY</span>
-                  <span className="text-accent">12ms</span>
-                </div>
-                <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
-                  <div className="w-[90%] h-full bg-accent/50"></div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span>MEMORY_INTEGRITY</span>
-                  <span className="text-profit">100%</span>
-                </div>
-                <div className="w-full h-1 bg-surface-alt rounded-full overflow-hidden">
-                  <div className="w-full h-full bg-profit/50"></div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span>UPTIME</span>
-                  <span className="text-foreground">99.999%</span>
-                </div>
-              </div>
+              <ol className="space-y-2 t-caption text-muted-foreground list-decimal pl-4">
+                <li>{tr('sideStep1')}</li>
+                <li>{tr('sideStep2')}</li>
+                <li>{tr('sideStep3')}</li>
+              </ol>
             </div>
-
-            <div className="p-4 border border-border/50 rounded bg-surface/20">
-              <div className="flex items-center gap-3 text-muted-foreground mb-2">
-                <Shield className="w-4 h-4" />
-                <span className="text-[10px] font-mono tracking-widest">
-                  SECURITY PROTOCOLS
-                </span>
-              </div>
-              <div className="flex gap-1">
-                <div className="h-1 flex-1 bg-primary"></div>
-                <div className="h-1 flex-1 bg-primary"></div>
-                <div className="h-1 flex-1 bg-primary"></div>
-                <div className="h-1 flex-1 bg-surface-alt"></div>
-              </div>
-              <div className="mt-2 text-right text-[10px] text-primary/80 font-mono">
-                LEVEL 3 ACTIVATE
-              </div>
+            <div className="p-4 rounded-card border border-border/60 bg-surface/20 flex items-center gap-3 t-caption text-muted-foreground">
+              <Shield className="w-4 h-4 shrink-0" />
+              {tr('sideSafety')}
             </div>
-          </div>
-
-          {/* Bottom: Network Log */}
-          <div className="font-mono text-[10px] text-muted-foreground space-y-1 opacity-70">
-            <div>&gt; CONNECTING TO MAINNET... OK</div>
-            <div>&gt; SYNCING NODES (424/424)... OK</div>
-            <div>&gt; LOADING ASSETS... DONE</div>
-            <div className="animate-pulse">&gt; AWAITING USER INPUT_</div>
           </div>
         </div>
 
@@ -196,45 +158,47 @@ export default function TerminalHero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-xs font-mono text-primary tracking-widest">
-              AiT OPEN-SOURCE AGENTIC OS
-            </span>
+            <span className="t-caption text-primary">{tr('chip')}</span>
           </motion.div>
 
           {/* Main Title - Massive & Impactful */}
           {/* Main Title - Massive & Impactful */}
           <div className="relative z-20 mix-blend-hard-light md:mix-blend-normal">
             <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.9] md:leading-[0.8] mb-6 select-none bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-muted-foreground drop-shadow-2xl">
-              AGENTIC
+              {tr('titleTop')}
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary animate-shimmer bg-[length:200%_auto] tracking-tight filter drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                TRADING
+                {tr('titleBottom')}
               </span>
             </h1>
 
             <p className="max-w-xl text-foreground md:text-muted-foreground text-lg mb-6 font-light leading-relaxed drop-shadow-md">
-              The World's First Open-Source Agentic Trading OS. Deploy
-              autonomous high-frequency trading agents powered by advanced LLMs.
+              {tr('lead')}
             </p>
           </div>
 
           {/* Market Access Strip - Prominent Display */}
           {/* Market Access Strip - Prominent Display */}
           <div className="flex flex-col gap-4 mb-14">
-            <div className="text-primary/80 font-mono text-xs tracking-[0.3em] uppercase flex items-center gap-2 ml-1">
+            <div className="text-primary/80 t-caption flex items-center gap-2 ml-1">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-profit opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-profit"></span>
               </span>
-              Live Data Feeds Active
+              {tr('liveFeeds')}
             </div>
-            <div className="flex flex-wrap gap-4 font-mono">
-              {['CRYPTO', 'US STOCKS', 'FOREX', 'METALS'].map((market) => (
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                tr('marketCrypto'),
+                tr('marketStocks'),
+                tr('marketForex'),
+                tr('marketMetals'),
+              ].map((market) => (
                 <div key={market} className="relative group cursor-default">
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-info/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
                   <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-surface/80 border border-border hover:border-primary/50 transition-all duration-300 backdrop-blur-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-profit shadow-[0_0_8px_rgba(74,222,128,0.6)] animate-pulse"></div>
-                    <span className="text-lg md:text-xl font-bold text-foreground tracking-wider group-hover:text-primary transition-colors">
+                    <span className="text-base md:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                       {market}
                     </span>
                   </div>
@@ -252,12 +216,8 @@ export default function TerminalHero() {
                 ?.scrollIntoView({ behavior: 'smooth' })
             }
           >
-            <span className="text-profit mr-2">$</span>
-            <span className="text-accent mr-2">~</span>
-            <span className="text-muted-foreground">
-              deploy agent --strategy=hft
-            </span>
-            <span className="w-2 h-4 bg-primary ml-1 animate-pulse"></span>
+            <span className="text-muted-foreground">{tr('commandHint')}</span>
+            <ArrowRight className="w-4 h-4 text-primary ml-auto" />
           </div>
 
           {/* CTA Buttons */}
@@ -269,14 +229,14 @@ export default function TerminalHero() {
                   .getElementById('market-scanner')
                   ?.scrollIntoView({ behavior: 'smooth' })
               }
-              className="group relative overflow-hidden bg-primary text-primary-foreground px-8 py-4 font-bold font-mono tracking-wider hover:scale-105 transition-transform duration-200"
+              className="group relative overflow-hidden bg-primary text-primary-foreground px-8 py-4 font-semibold hover:scale-105 transition-transform duration-200"
               style={{
                 clipPath:
                   'polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%)',
               }}
             >
               <span className="relative z-10 flex items-center gap-2">
-                INITIALIZE PROTOCOL <ArrowRight className="w-4 h-4" />
+                {tr('cta')} <ArrowRight className="w-4 h-4" />
               </span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             </Button>
@@ -316,14 +276,11 @@ export default function TerminalHero() {
       <div className="absolute bottom-0 w-full bg-black/80 border-t border-border/50 backdrop-blur-md z-30 overflow-hidden py-2 flex items-center">
         <div className="flex animate-marquee whitespace-nowrap gap-12 text-xs font-mono text-muted-foreground px-4">
           <span className="flex items-center gap-2">
-            <Globe className="w-3 h-3 text-muted-foreground" /> GLOBAL MARKET
-            ACCESS
+            <Globe className="w-3 h-3 text-muted-foreground" />{' '}
+            {tr('tickerMarkets')}
           </span>
           <span className="flex items-center gap-2 text-primary">
-            <Zap className="w-3 h-3" /> FLASH LOANS ENABLED
-          </span>
-          <span className="flex items-center gap-2">
-            <Wifi className="w-3 h-3 text-profit" /> LOW LATENCY LINK: 12ms
+            <Zap className="w-3 h-3" /> {tr('tickerSelfHosted')}
           </span>
 
           {/* Dynamic Coins */}
@@ -333,11 +290,6 @@ export default function TerminalHero() {
               <span className="text-profit">${price}</span>
             </span>
           ))}
-
-          <span className="flex items-center gap-2">
-            <CircuitBoard className="w-3 h-3 text-accent" /> AI MODEL: Claude
-            Opus 4.6
-          </span>
 
           {/* Duplicate sequence for seamless loop effect (basic set) */}
           {Object.entries(prices).map(([symbol, price]) => (
@@ -361,6 +313,8 @@ export default function TerminalHero() {
 import { OFFICIAL_LINKS } from '../../../constants/branding'
 
 function CommunityStats() {
+  const language = useOptionalLanguage()
+  const tr = (key: string) => t(`landingHero.${key}`, language)
   const { stars, forks, contributors, isLoading, error } = useGitHubStats(
     'Aixxww',
     'AiT'
@@ -368,28 +322,28 @@ function CommunityStats() {
 
   const stats = [
     {
-      label: 'GITHUB STARS',
+      label: tr('statStars'),
       value: isLoading ? '...' : error ? '10,500+' : stars.toLocaleString(),
       icon: Star,
       color: 'text-primary',
       href: OFFICIAL_LINKS.github,
     },
     {
-      label: 'FORKS',
+      label: tr('statForks'),
       value: isLoading ? '...' : error ? '2,800+' : forks.toLocaleString(),
       icon: GitFork,
       color: 'text-info',
       href: `${OFFICIAL_LINKS.github}/fork`,
     },
     {
-      label: 'CONTRIBUTORS',
+      label: tr('statContributors'),
       value: isLoading ? '...' : contributors > 0 ? contributors : '50+',
       icon: Users,
       color: 'text-profit',
       href: `${OFFICIAL_LINKS.github}/graphs/contributors`,
     },
     {
-      label: 'DEV COMMUNITY',
+      label: tr('statCommunity'),
       value: '6,600+',
       icon: MessageCircle,
       color: 'text-info',
@@ -409,9 +363,7 @@ function CommunityStats() {
         >
           <div className="flex items-center gap-2 mb-1">
             <stat.icon className={`w-4 h-4 ${stat.color}`} />
-            <span className="text-[10px] font-mono text-muted-foreground tracking-wider">
-              {stat.label}
-            </span>
+            <span className="t-micro text-muted-foreground">{stat.label}</span>
           </div>
           <span className="text-xl font-bold font-mono text-foreground group-hover:text-primary transition-colors">
             {stat.value}

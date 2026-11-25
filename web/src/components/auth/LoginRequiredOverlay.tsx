@@ -1,12 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  LogIn,
-  UserPlus,
-  X,
-  AlertTriangle,
-  Terminal,
-  Check,
-} from 'lucide-react'
+import { LogIn, UserPlus, X, Lock, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DeepVoidBackground } from '../common/DeepVoidBackground'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -49,117 +42,64 @@ export function LoginRequiredOverlay({
             onClick={onClose}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-              className="relative max-w-md w-full overflow-hidden bg-background border border-primary/30 rounded-sm group font-mono"
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 300 }}
+              className="relative max-w-md w-full ait-card shadow-e3 rounded-sheet p-6 sm:p-8"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="login-required-title"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Terminal Window Header */}
-              <div className="flex items-center justify-between px-3 py-2 bg-surface border-b border-primary/20">
-                <div className="flex items-center gap-2">
-                  <Terminal size={12} className="text-primary" />
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    auth_protocol.exe
-                  </span>
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                aria-label={tr('abort')}
+                className="absolute top-3 right-3 rounded-control p-1.5"
+              >
+                <X size={16} />
+              </Button>
+
+              <div className="flex flex-col items-center text-center gap-3 mb-6">
+                <div className="w-11 h-11 rounded-pill bg-primary-dim text-primary flex items-center justify-center">
+                  <Lock size={20} />
                 </div>
-                <Button
-                  variant="unstyled"
-                  onClick={onClose}
-                  className="text-muted-foreground hover:text-loss transition-colors"
+                <h2 id="login-required-title" className="t-title">
+                  {tr('title')}
+                </h2>
+                <p className="t-body text-muted-foreground">{subtitle}</p>
+              </div>
+
+              <p className="t-body text-muted-foreground mb-4">
+                {tr('description')}
+              </p>
+
+              <ul className="space-y-2 mb-6">
+                {benefits.map((benefit, i) => (
+                  <li key={i} className="flex items-center gap-2 t-body">
+                    <Check className="w-4 h-4 text-primary shrink-0" />
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="space-y-3">
+                <Link
+                  to="/login"
+                  className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-control bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
                 >
-                  <X size={14} />
-                </Button>
+                  <LogIn size={16} />
+                  <span>{tr('loginButton')}</span>
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-control border border-border text-foreground font-medium text-sm hover:bg-panel-hover hover:border-border-hover transition-colors"
+                >
+                  <UserPlus size={16} />
+                  <span>{tr('registerButton')}</span>
+                </Link>
               </div>
-
-              {/* Main Content */}
-              <div className="p-8 relative">
-                {/* Background Grid */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px)] bg-[size:14px_14px] pointer-events-none"></div>
-
-                <div className="relative z-10">
-                  {/* Flashing Access Denied */}
-                  <div className="flex justify-center mb-6">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-loss/20 blur-xl animate-pulse"></div>
-                      <div className="bg-background border border-loss/50 text-loss px-4 py-2 flex items-center gap-3">
-                        <AlertTriangle size={18} className="animate-pulse" />
-                        <span className="font-bold tracking-widest text-sm uppercase">
-                          {tr('accessDenied')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Terminal Text */}
-                  <div className="space-y-4 mb-8">
-                    <div className="text-center">
-                      <h2 className="text-xl font-bold text-foreground uppercase tracking-wider mb-2">
-                        {tr('title')}
-                      </h2>
-                      <p className="text-primary text-xs uppercase tracking-widest border-b border-primary/20 pb-4 inline-block">
-                        {subtitle}
-                      </p>
-                    </div>
-
-                    <div className="bg-surface border-l-2 border-primary/20 p-3 my-4">
-                      <p className="text-xs text-muted-foreground leading-relaxed font-mono">
-                        <span className="text-profit mr-2">$</span>
-                        {tr('description')}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {benefits.map((benefit, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wide"
-                        >
-                          <Check className="w-3 h-3 text-primary shrink-0" />{' '}
-                          {benefit}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-3">
-                    <Link
-                      to="/login"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-all group"
-                    >
-                      <LogIn size={14} />
-                      <span>{tr('loginButton')}</span>
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity -ml-2 group-hover:ml-0">
-                        -&gt;
-                      </span>
-                    </Link>
-
-                    <Link
-                      to="/register"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-transparent border border-primary/20 text-muted-foreground hover:text-foreground hover:border-primary font-bold text-xs uppercase tracking-widest transition-all hover:bg-primary-dim"
-                    >
-                      <UserPlus size={14} />
-                      <span>{tr('registerButton')}</span>
-                    </Link>
-                  </div>
-
-                  <div className="mt-4 text-center">
-                    <Button
-                      variant="unstyled"
-                      onClick={onClose}
-                      className="text-[10px] text-muted-foreground hover:text-loss uppercase tracking-widest hover:underline decoration-loss/30"
-                    >
-                      [ {tr('abort')} ]
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Corner Accents */}
-              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-primary"></div>
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-primary"></div>
             </motion.div>
           </DeepVoidBackground>
         </motion.div>

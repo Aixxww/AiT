@@ -190,6 +190,11 @@ Breakpoints are checked at 360 / 768 / 1280 / 1920. Rules:
 - Their info affordances.
 - Settings tabs, which currently wrap at 1280px.
 
+The "PR 2 and later" list is split into two stacked PRs:
+
+- **PR 2 (pages):** Settings (tabs, all tab bodies), the traders page config grid, strategy market, data, FAQ, auth (login, register, reset password, sign-in overlay, onboarding mode selector), 404, landing `TerminalHero`, and the `PositionHistory` "per page" leftover from PR 1. Screenshots: `docs/frontend-redesign/screenshots/pr2/`.
+- **PR 3 (modals and lists):** `ModelConfigModal`, `ExchangeConfigModal`, `TelegramConfigModal`, `TraderConfigModal`, `TradersList`, backtest (raw `action` and coin-source codes), competition, and the transport-encryption notice in `WebCryptoEnvironmentCheck`.
+
 **Unchanged on purpose:**
 - The tier colour contract.
 - The chart components (lightweight-charts / recharts theming).

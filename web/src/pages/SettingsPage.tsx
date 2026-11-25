@@ -25,6 +25,8 @@ import { CUSTOM_PROVIDER } from '../components/trader/model-constants'
 import { SecuritySettings } from '../components/settings/SecuritySettings'
 import type { Exchange, AIModel } from '../types'
 import { Button } from '../components/ui/Button'
+import { InfoTip } from '../components/ui/InfoTip'
+import { t, type Language } from '../i18n/translations'
 
 type Tab =
   | 'account'
@@ -48,8 +50,10 @@ function configBadge(label: string, active: boolean) {
   )
 }
 
-function AppearanceTab() {
+function AppearanceTab({ language }: { language: Language }) {
   const { mode, setMode, isDark } = useTheme()
+  const tr = (k: string, p?: Record<string, string | number>) =>
+    t(`settingsPage.${k}`, language, p)
 
   const themeOptions = [
     // Swatch values are per-theme preview data: they must render each
@@ -57,20 +61,20 @@ function AppearanceTab() {
     // literal (kept in sync with the token blocks in index.css).
     {
       mode: 'pro-dark' as const,
-      label: 'Professional Dark',
-      description: 'Flat terminal',
+      label: tr('themeProDark'),
+      description: tr('themeProDarkDesc'),
       preview: { bg: '#0A0D10', surface: '#171C24', accent: '#F0B90B' },
     },
     {
       mode: 'pro-light' as const,
-      label: 'Professional Light',
-      description: 'Daylight terminal',
+      label: tr('themeProLight'),
+      description: tr('themeProLightDesc'),
       preview: { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#D4A00A' },
     },
     {
       mode: 'glass-dark' as const,
-      label: 'Glass Dark',
-      description: 'Liquid glass',
+      label: tr('themeGlassDark'),
+      description: tr('themeGlassDarkDesc'),
       preview: {
         bg: '#0A0C12',
         surface: 'rgba(18,22,34,0.72)',
@@ -79,8 +83,8 @@ function AppearanceTab() {
     },
     {
       mode: 'glass-light' as const,
-      label: 'Glass Light',
-      description: 'Frosted glass',
+      label: tr('themeGlassLight'),
+      description: tr('themeGlassLightDesc'),
       preview: {
         bg: '#F0F2F5',
         surface: 'rgba(255,255,255,0.72)',
@@ -89,8 +93,8 @@ function AppearanceTab() {
     },
     {
       mode: 'system' as const,
-      label: 'System',
-      description: 'Auto',
+      label: tr('themeSystem'),
+      description: tr('themeSystemDesc'),
       preview: null,
     },
   ]
@@ -98,7 +102,7 @@ function AppearanceTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-4">Theme</h3>
+        <h3 className="t-headline mb-4">{tr('themeTitle')}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {themeOptions.map((option) => (
             <Button
@@ -147,17 +151,14 @@ function AppearanceTab() {
 
       <div className="text-xs text-muted-foreground p-3 rounded-lg bg-surface-alt border border-border">
         {mode === 'system' ? (
-          <>
-            Following system preference. Currently:{' '}
-            <span className="font-medium text-foreground">
-              {isDark ? 'Dark' : 'Light'}
-            </span>
-          </>
+          tr('themeFollowing', {
+            mode: isDark ? tr('themeDark') : tr('themeLight'),
+          })
         ) : (
           <>
             {mode.startsWith('glass')
-              ? 'Liquid glass with translucent panels.'
-              : 'High-density professional terminal with adaptive contrast.'}
+              ? tr('themeGlassNote')
+              : tr('themeProNote')}
           </>
         )}
       </div>
@@ -169,6 +170,8 @@ export function SettingsPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
   const [activeTab, setActiveTab] = useState<Tab>('account')
+  const tr = (k: string, p?: Record<string, string | number>) =>
+    t(`settingsPage.${k}`, language, p)
 
   // Account state
   const [newPassword, setNewPassword] = useState('')
@@ -206,11 +209,11 @@ export function SettingsPage() {
   // Fetch data when tabs are visited
   useEffect(() => {
     if (activeTab === 'models') {
-      refreshModelConfigs().catch(() => toast.error('Failed to load AI models'))
+      refreshModelConfigs().catch(() => toast.error(tr('loadModelsFailed')))
     }
     if (activeTab === 'exchanges') {
       refreshExchangeConfigs().catch(() =>
-        toast.error('Failed to load exchanges')
+        toast.error(tr('loadExchangesFailed'))
       )
     }
   }, [activeTab])
@@ -228,7 +231,7 @@ export function SettingsPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters')
+      toast.error(tr('passwordTooShort'))
       return
     }
     setChangingPassword(true)
@@ -243,13 +246,13 @@ export function SettingsPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to update password')
+        throw new Error(data.error || tr('passwordUpdateFailed'))
       }
-      toast.success('Password updated successfully')
+      toast.success(tr('passwordUpdated'))
       setNewPassword('')
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to update password'
+        err instanceof Error ? err.message : tr('passwordUpdateFailed')
       )
     } finally {
       setChangingPassword(false)
@@ -268,7 +271,7 @@ export function SettingsPage() {
       const modelTemplate = supportedModels.find((m) => m.id === modelId)
       const modelToUpdate = existingModel || modelTemplate
       if (!modelToUpdate) {
-        toast.error('Model not found')
+        toast.error(tr('modelNotFound'))
         return
       }
 
@@ -287,7 +290,7 @@ export function SettingsPage() {
             },
           },
         })
-        toast.success('Model config saved')
+        toast.success(tr('modelSaved'))
         await refreshModelConfigs()
         setShowModelModal(false)
         setEditingModel(null)
@@ -336,12 +339,12 @@ export function SettingsPage() {
         ),
       }
       await api.updateModelConfigs(request)
-      toast.success('Model config saved')
+      toast.success(tr('modelSaved'))
       await refreshModelConfigs()
       setShowModelModal(false)
       setEditingModel(null)
     } catch {
-      toast.error('Failed to save model config')
+      toast.error(tr('modelSaveFailed'))
     }
   }
 
@@ -353,7 +356,7 @@ export function SettingsPage() {
         await refreshModelConfigs()
         setShowModelModal(false)
         setEditingModel(null)
-        toast.success('Model config removed')
+        toast.success(tr('modelRemoved'))
         return
       }
       const updatedModels = configuredModels.map((m) =>
@@ -386,9 +389,9 @@ export function SettingsPage() {
       await refreshModelConfigs()
       setShowModelModal(false)
       setEditingModel(null)
-      toast.success('Model config removed')
+      toast.success(tr('modelRemoved'))
     } catch {
-      toast.error('Failed to remove model config')
+      toast.error(tr('modelRemoveFailed'))
     }
   }
 
@@ -433,7 +436,7 @@ export function SettingsPage() {
           },
         }
         await api.updateExchangeConfigsEncrypted(request)
-        toast.success('Exchange config updated')
+        toast.success(tr('exchangeUpdated'))
       } else {
         const createRequest = {
           exchange_type: exchangeType,
@@ -454,96 +457,122 @@ export function SettingsPage() {
           proxy_url: proxyURL || '',
         }
         await api.createExchangeEncrypted(createRequest)
-        toast.success('Exchange account created')
+        toast.success(tr('exchangeCreated'))
       }
       await refreshExchangeConfigs()
       setShowExchangeModal(false)
       setEditingExchange(null)
     } catch {
-      toast.error('Failed to save exchange config')
+      toast.error(tr('exchangeSaveFailed'))
     }
   }
 
   const handleDeleteExchange = async (exchangeId: string) => {
     try {
       await api.deleteExchange(exchangeId)
-      toast.success('Exchange account deleted')
+      toast.success(tr('exchangeDeleted'))
       await refreshExchangeConfigs()
       setShowExchangeModal(false)
       setEditingExchange(null)
     } catch {
-      toast.error('Failed to delete exchange account')
+      toast.error(tr('exchangeDeleteFailed'))
     }
   }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'account', label: 'Account', icon: <User size={16} /> },
-    { key: 'security', label: 'Security', icon: <ShieldCheck size={16} /> },
-    { key: 'models', label: 'AI Models', icon: <Cpu size={16} /> },
-    { key: 'exchanges', label: 'Exchanges', icon: <Building2 size={16} /> },
-    { key: 'telegram', label: 'Telegram', icon: <MessageCircle size={16} /> },
-    { key: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
+    { key: 'account', label: tr('tabAccount'), icon: <User size={16} /> },
+    {
+      key: 'security',
+      label: tr('tabSecurity'),
+      icon: <ShieldCheck size={16} />,
+    },
+    { key: 'models', label: tr('tabModels'), icon: <Cpu size={16} /> },
+    {
+      key: 'exchanges',
+      label: tr('tabExchanges'),
+      icon: <Building2 size={16} />,
+    },
+    {
+      key: 'telegram',
+      label: tr('tabTelegram'),
+      icon: <MessageCircle size={16} />,
+    },
+    {
+      key: 'appearance',
+      label: tr('tabAppearance'),
+      icon: <Palette size={16} />,
+    },
   ]
 
   return (
-    <div className="min-h-screen pt-20 pb-12 px-4 bg-background">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-xl font-bold text-foreground mb-6">Settings</h1>
+    <div className="min-h-screen pt-20 pb-12 bg-background">
+      <div className="max-w-3xl mx-auto px-[var(--page-gutter)]">
+        <h1 className="t-title mb-6">{tr('title')}</h1>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1 mb-6 bg-panel border border-border rounded-xl p-1">
+        {/* Tabs: one row that scrolls horizontally when it does not fit
+            (#81 PR 2: they used to wrap into two lines at 1280px); labels
+            stay visible on phones. */}
+        <div
+          data-shot="settings-tabs"
+          role="tablist"
+          className="ait-segmented w-full mb-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {tabs.map((tab) => (
-            <Button
-              variant="unstyled"
+            <button
+              type="button"
+              role="tab"
               key={tab.key}
+              aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
-                ${
-                  activeTab === tab.key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+              className="flex-1 shrink-0 inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3"
             >
               {tab.icon}
-              <span className="hidden sm:inline">{tab.label}</span>
-            </Button>
+              {tab.label}
+            </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        <div className="bg-panel backdrop-blur-xl border border-border rounded-2xl p-6">
+        <div className="ait-card p-4 sm:p-6">
           {/* Account Tab */}
           {activeTab === 'account' && (
             <div className="space-y-6">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Email</p>
+                <p className="t-micro text-muted-foreground mb-1">
+                  {tr('email')}
+                </p>
                 <p className="text-sm text-foreground font-medium">
                   {user?.email}
                 </p>
               </div>
 
               <div className="border-t border-border pt-6">
-                <h3 className="text-sm font-semibold text-foreground mb-4">
-                  Change Password
-                </h3>
+                <h3 className="t-headline mb-4">{tr('changePassword')}</h3>
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-2">
-                      New Password
+                    <label
+                      htmlFor="settings-new-password"
+                      className="block t-caption text-muted-foreground mb-2"
+                    >
+                      {tr('newPassword')}
                     </label>
                     <div className="relative">
                       <input
+                        id="settings-new-password"
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-11 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
-                        placeholder="At least 8 characters"
+                        placeholder={tr('passwordPlaceholder')}
                         required
                       />
                       <Button
                         variant="unstyled"
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={
+                          showPassword ? tr('hidePassword') : tr('showPassword')
+                        }
                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {showPassword ? (
@@ -560,7 +589,7 @@ export function SettingsPage() {
                     disabled={changingPassword || newPassword.length < 8}
                     className="w-full bg-primary hover:opacity-90 active:scale-[0.98] text-black font-semibold py-3 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {changingPassword ? 'Updating...' : 'Update Password'}
+                    {changingPassword ? tr('updating') : tr('updatePassword')}
                   </Button>
                 </form>
               </div>
@@ -575,8 +604,7 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  {configuredModels.length} model
-                  {configuredModels.length !== 1 ? 's' : ''} configured
+                  {tr('modelsCount', { n: configuredModels.length })}
                 </p>
                 <Button
                   variant="unstyled"
@@ -587,13 +615,13 @@ export function SettingsPage() {
                   className="flex items-center gap-1.5 text-xs font-medium bg-primary-dim hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
-                  Add Model
+                  {tr('addModel')}
                 </Button>
               </div>
 
               {configuredModels.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No AI models configured yet
+                  {tr('noModels')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -619,12 +647,15 @@ export function SettingsPage() {
                             <p className="text-xs text-muted-foreground">
                               {model.provider}
                             </p>
-                            {configBadge('API Key', !!model.has_api_key)}
+                            {configBadge(
+                              tr('badgeApiKey'),
+                              !!model.has_api_key
+                            )}
                             {model.customModelName
-                              ? configBadge('Custom Model', true)
+                              ? configBadge(tr('badgeCustomModel'), true)
                               : null}
                             {model.customApiUrl
-                              ? configBadge('Base URL', true)
+                              ? configBadge(tr('badgeBaseUrl'), true)
                               : null}
                           </div>
                         </div>
@@ -633,7 +664,7 @@ export function SettingsPage() {
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full ${model.enabled ? 'bg-profit/10 text-profit' : 'bg-muted text-muted-foreground'}`}
                         >
-                          {model.enabled ? 'Active' : 'Inactive'}
+                          {model.enabled ? tr('active') : tr('inactive')}
                         </span>
                         <Pencil
                           size={14}
@@ -652,8 +683,7 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  {exchanges.length} account{exchanges.length !== 1 ? 's' : ''}{' '}
-                  connected
+                  {tr('exchangesCount', { n: exchanges.length })}
                 </p>
                 <Button
                   variant="unstyled"
@@ -664,13 +694,13 @@ export function SettingsPage() {
                   className="flex items-center gap-1.5 text-xs font-medium bg-primary-dim hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus size={14} />
-                  Add Exchange
+                  {tr('addExchange')}
                 </Button>
               </div>
 
               {exchanges.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No exchange accounts connected yet
+                  {tr('noExchanges')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -696,20 +726,26 @@ export function SettingsPage() {
                             <p className="text-xs text-muted-foreground capitalize">
                               {exchange.exchange_type || exchange.type}
                             </p>
-                            {configBadge('API Key', !!exchange.has_api_key)}
-                            {configBadge('Secret', !!exchange.has_secret_key)}
+                            {configBadge(
+                              tr('badgeApiKey'),
+                              !!exchange.has_api_key
+                            )}
+                            {configBadge(
+                              tr('badgeSecret'),
+                              !!exchange.has_secret_key
+                            )}
                             {exchange.has_passphrase
-                              ? configBadge('Passphrase', true)
+                              ? configBadge(tr('badgePassphrase'), true)
                               : null}
                             {exchange.hyperliquidWalletAddr
-                              ? configBadge('Wallet', true)
+                              ? configBadge(tr('badgeWallet'), true)
                               : null}
                             {exchange.has_aster_private_key
-                              ? configBadge('Aster Key', true)
+                              ? configBadge(tr('badgeAsterKey'), true)
                               : null}
                             {exchange.has_lighter_private_key ||
                             exchange.has_lighter_api_key_private_key
-                              ? configBadge('Lighter Key', true)
+                              ? configBadge(tr('badgeLighterKey'), true)
                               : null}
                           </div>
                         </div>
@@ -728,9 +764,12 @@ export function SettingsPage() {
           {/* Telegram Tab */}
           {activeTab === 'telegram' && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Connect a Telegram bot to receive trading notifications and
-                interact with your traders.
+              <p className="t-caption text-muted-foreground inline-flex items-center gap-1.5">
+                {tr('telegramSummary')}
+                <InfoTip
+                  content={tr('telegramInfo')}
+                  title={tr('tabTelegram')}
+                />
               </p>
               <Button
                 variant="unstyled"
@@ -742,7 +781,7 @@ export function SettingsPage() {
                     <MessageCircle size={14} className="text-[#0088cc]" />
                   </div>
                   <span className="text-sm font-medium text-foreground">
-                    Configure Telegram Bot
+                    {tr('configureTelegram')}
                   </span>
                 </div>
                 <ChevronRight
@@ -754,7 +793,7 @@ export function SettingsPage() {
           )}
 
           {/* Appearance Tab */}
-          {activeTab === 'appearance' && <AppearanceTab />}
+          {activeTab === 'appearance' && <AppearanceTab language={language} />}
         </div>
       </div>
 

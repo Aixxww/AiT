@@ -56,10 +56,7 @@ export function FAQContent({
   return (
     <div className="space-y-12">
       {categories.map((category) => (
-        <div
-          key={category.id}
-          className="ait-glass p-8 rounded-xl border border-white/5"
-        >
+        <div key={category.id} className="ait-card p-5 sm:p-8">
           {/* Category Header */}
           <div className="flex items-center gap-3 mb-6 pb-3 border-b border-white/10">
             <category.icon className="w-7 h-7 text-primary" />
@@ -86,367 +83,144 @@ export function FAQContent({
                 {/* Answer */}
                 <div className="prose prose-invert max-w-none text-muted-foreground leading-relaxed">
                   {item.id === 'github-projects-tasks' ? (
-                    <div className="space-y-3">
-                      <div className="text-base">
-                        {language === 'zh' ? '链接：' : 'Links:'}{' '}
-                        <a
-                          href="https://github.com/orgs/AiTAiOS/projects/3"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'var(--color-primary)' }}
-                        >
-                          {language === 'zh' ? '路线图' : 'Roadmap'}
-                        </a>
-                        {'  |  '}
-                        <a
-                          href="https://github.com/orgs/AiTAiOS/projects/5"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'var(--color-primary)' }}
-                        >
-                          {language === 'zh' ? '任务看板' : 'Task Dashboard'}
-                        </a>
-                      </div>
-                      <ol className="list-decimal pl-5 space-y-1 text-base">
-                        {language === 'zh' ? (
-                          <>
-                            <li>
-                              打开以上链接，按标签筛选（good first issue / help
-                              wanted / frontend / backend）。
-                            </li>
-                            <li>
-                              打开任务，阅读描述与验收标准（Acceptance
-                              Criteria）。
-                            </li>
-                            <li>评论“assign me”或自助分配（若权限允许）。</li>
-                            <li>Fork 仓库到你的 GitHub 账户。</li>
-                            <li>
-                              同步你的 fork 的 <code>dev</code>{' '}
-                              分支与上游保持一致：
-                              <code className="ml-2">
-                                git remote add upstream
-                                https://github.com/Aixxww/AiT.git
-                              </code>
-                              <br />
-                              <code>git fetch upstream</code>
-                              <br />
-                              <code>git checkout dev</code>
-                              <br />
-                              <code>git rebase upstream/dev</code>
-                              <br />
-                              <code>git push origin dev</code>
-                            </li>
-                            <li>
-                              从你的 fork 的 <code>dev</code> 建立特性分支：
-                              <code className="ml-2">
-                                git checkout -b feat/your-topic
-                              </code>
-                            </li>
-                            <li>
-                              推送到你的 fork：
-                              <code className="ml-2">
-                                git push origin feat/your-topic
-                              </code>
-                            </li>
-                            <li>
-                              打开 PR：base 选择 <code>Aixxww/AiT:dev</code> ←
-                              compare 选择{' '}
-                              <code>你的用户名/AiT:feat/your-topic</code>。
-                            </li>
-                            <li>
-                              在 PR 中关联 Issue（示例：
-                              <code className="ml-1">Closes #123</code>
-                              ），选择正确 PR 模板；必要时与{' '}
-                              <code>upstream/dev</code>{' '}
-                              同步（rebase）后继续推送。
-                            </li>
-                          </>
-                        ) : (
-                          <>
-                            <li>
-                              Open the links above and filter by labels (good
-                              first issue / help wanted / frontend / backend).
-                            </li>
-                            <li>
-                              Open the task and read the Description &
-                              Acceptance Criteria.
-                            </li>
-                            <li>
-                              Comment "assign me" or self-assign (if permitted).
-                            </li>
-                            <li>Fork the repository to your GitHub account.</li>
-                            <li>
-                              Sync your fork's <code>dev</code> with upstream:
-                              <code className="ml-2">
-                                git remote add upstream
-                                https://github.com/Aixxww/AiT.git
-                              </code>
-                              <br />
-                              <code>git fetch upstream</code>
-                              <br />
-                              <code>git checkout dev</code>
-                              <br />
-                              <code>git rebase upstream/dev</code>
-                              <br />
-                              <code>git push origin dev</code>
-                            </li>
-                            <li>
-                              Create a feature branch from your fork's{' '}
-                              <code>dev</code>:
-                              <code className="ml-2">
-                                git checkout -b feat/your-topic
-                              </code>
-                            </li>
-                            <li>
-                              Push to your fork:
-                              <code className="ml-2">
-                                git push origin feat/your-topic
-                              </code>
-                            </li>
-                            <li>
-                              Open a PR: base <code>Aixxww/AiT:dev</code> ←
-                              compare{' '}
-                              <code>your-username/AiT:feat/your-topic</code>.
-                            </li>
-                            <li>
-                              In PR, reference the Issue (e.g.,{' '}
-                              <code className="ml-1">Closes #123</code>) and
-                              choose the proper PR template; rebase onto{' '}
-                              <code>upstream/dev</code> as needed.
-                            </li>
-                          </>
-                        )}
-                      </ol>
-
-                      <div
-                        className="rounded p-3 mt-3"
-                        style={{
-                          background:
-                            'color-mix(in srgb, var(--color-primary) 8%, transparent)',
-                          border:
-                            '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)',
-                        }}
-                      >
-                        {language === 'zh' ? (
-                          <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>
-                              提示：
-                            </strong>{' '}
-                            参与贡献将享有激励制度（如
-                            Bounty/奖金、荣誉徽章与鸣谢、优先
-                            Review/合并与内测资格 等）。 可在任务中优先选择带
-                            <a
-                              href="https://github.com/Aixxww/AiT/labels/bounty"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              bounty 标签
-                            </a>
-                            的事项，或完成后提交
-                            <a
-                              href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              Bounty Claim
-                            </a>
-                            申请。
-                          </div>
-                        ) : (
-                          <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>
-                              Note:
-                            </strong>{' '}
-                            Contribution incentives are available (e.g., cash
-                            bounties, badges & shout-outs, priority
-                            review/merge, beta access). Prefer tasks with
-                            <a
-                              href="https://github.com/Aixxww/AiT/labels/bounty"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              bounty label
-                            </a>
-                            , or file a
-                            <a
-                              href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              Bounty Claim
-                            </a>
-                            after completion.
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ContributeGuide
+                      language={language}
+                      lead="faqGuide.links"
+                      links={[
+                        {
+                          key: 'faqGuide.roadmap',
+                          href: 'https://github.com/orgs/AiTAiOS/projects/3',
+                        },
+                        {
+                          key: 'faqGuide.taskBoard',
+                          href: 'https://github.com/orgs/AiTAiOS/projects/5',
+                        },
+                      ]}
+                      steps="faqGuide.tasksSteps"
+                      note="faqGuide.tasksNote"
+                    />
                   ) : item.id === 'contribute-pr-guidelines' ? (
-                    <div className="space-y-3">
-                      <div className="text-base">
-                        {language === 'zh' ? '参考文档：' : 'References:'}{' '}
-                        <a
-                          href="https://github.com/Aixxww/AiT/blob/dev/CONTRIBUTING.md"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          CONTRIBUTING.md
-                        </a>
-                        {'  |  '}
-                        <a
-                          href="https://github.com/Aixxww/AiT/blob/dev/.github/PR_TITLE_GUIDE.md"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          PR_TITLE_GUIDE.md
-                        </a>
-                      </div>
-                      <ol className="list-decimal pl-5 space-y-1 text-base">
-                        {language === 'zh' ? (
-                          <>
-                            <li>
-                              Fork 仓库后，从你的 fork 的 <code>dev</code>{' '}
-                              分支创建特性分支；避免直接向上游 <code>main</code>{' '}
-                              提交。
-                            </li>
-                            <li>
-                              分支命名：feat/…、fix/…、docs/…；提交信息遵循
-                              Conventional Commits。
-                            </li>
-                            <li>
-                              提交前运行检查：
-                              <code className="ml-2">
-                                npm --prefix web run lint && npm --prefix web
-                                run build
-                              </code>
-                            </li>
-                            <li>涉及 UI 变更请附截图或短视频。</li>
-                            <li>
-                              选择正确的 PR
-                              模板（frontend/backend/docs/general）。
-                            </li>
-                            <li>
-                              在 PR 中关联 Issue（示例：
-                              <code className="ml-1">Closes #123</code>），PR
-                              目标选择 <code>Aixxww/AiT:dev</code>。
-                            </li>
-                            <li>
-                              保持与 <code>upstream/dev</code>{' '}
-                              同步（rebase），确保 CI 通过；尽量保持 PR
-                              小而聚焦。
-                            </li>
-                          </>
-                        ) : (
-                          <>
-                            <li>
-                              After forking, branch from your fork's{' '}
-                              <code>dev</code>; avoid direct commits to upstream{' '}
-                              <code>main</code>.
-                            </li>
-                            <li>
-                              Branch naming: feat/…, fix/…, docs/…; commit
-                              messages follow Conventional Commits.
-                            </li>
-                            <li>
-                              Run checks before PR:
-                              <code className="ml-2">
-                                npm --prefix web run lint && npm --prefix web
-                                run build
-                              </code>
-                            </li>
-                            <li>
-                              For UI changes, attach screenshots or a short
-                              video.
-                            </li>
-                            <li>
-                              Choose the proper PR template
-                              (frontend/backend/docs/general).
-                            </li>
-                            <li>
-                              Link the Issue in PR (e.g.,{' '}
-                              <code className="ml-1">Closes #123</code>) and
-                              target <code>Aixxww/AiT:dev</code>.
-                            </li>
-                            <li>
-                              Keep rebasing onto <code>upstream/dev</code>,
-                              ensure CI passes; prefer small and focused PRs.
-                            </li>
-                          </>
-                        )}
-                      </ol>
-
-                      <div className="rounded p-3 mt-3 bg-primary-dim border border-primary/25">
-                        {language === 'zh' ? (
-                          <div className="text-sm">
-                            <strong className="text-primary">Note:</strong>{' '}
-                            我们为高质量贡献提供激励（Bounty/奖金、荣誉徽章与鸣谢、优先
-                            Review/合并与内测资格 等）。 详情可关注带
-                            <a
-                              href="https://github.com/Aixxww/AiT/labels/bounty"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              bounty 标签
-                            </a>
-                            的任务，或使用
-                            <a
-                              href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              Bounty Claim 模板
-                            </a>
-                            提交申请。
-                          </div>
-                        ) : (
-                          <div className="text-sm">
-                            <strong style={{ color: 'var(--color-primary)' }}>
-                              Note:
-                            </strong>{' '}
-                            We offer contribution incentives (bounties, badges,
-                            shout-outs, priority review/merge, beta access).
-                            Look for tasks with
-                            <a
-                              href="https://github.com/Aixxww/AiT/labels/bounty"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              bounty label
-                            </a>
-                            , or submit a
-                            <a
-                              href="https://github.com/Aixxww/AiT/blob/dev/.github/ISSUE_TEMPLATE/bounty_claim.md"
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              Bounty Claim
-                            </a>
-                            when ready.
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ContributeGuide
+                      language={language}
+                      lead="faqGuide.references"
+                      links={[
+                        {
+                          label: 'CONTRIBUTING.md',
+                          href: 'https://github.com/Aixxww/AiT/blob/dev/CONTRIBUTING.md',
+                        },
+                        {
+                          label: 'PR_TITLE_GUIDE.md',
+                          href: 'https://github.com/Aixxww/AiT/blob/dev/.github/PR_TITLE_GUIDE.md',
+                        },
+                      ]}
+                      steps="faqGuide.prSteps"
+                      note="faqGuide.prNote"
+                    />
                   ) : (
-                    <p className="text-base">{t(item.answerKey, language)}</p>
+                    <p className="text-base">
+                      <RichText text={t(item.answerKey, language)} />
+                    </p>
                   )}
                 </div>
 
                 {/* Divider */}
-                <div className="mt-6 h-px bg-white/5" />
+                <div className="mt-6 h-px bg-border" />
               </section>
             ))}
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Minimal rich text for dictionary strings (#81 PR 2): `code` spans,
+ * **bold** and [label](url) links. Keeps long guides in the i18n
+ * dictionaries instead of per-language JSX.
+ */
+function RichText({ text }: { text: string }) {
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g)
+  return (
+    <>
+      {parts.map((p, i) => {
+        if (p.startsWith('`') && p.endsWith('`')) {
+          return (
+            <code key={i} className="mx-0.5">
+              {p.slice(1, -1)}
+            </code>
+          )
+        }
+        if (p.startsWith('**') && p.endsWith('**')) {
+          return (
+            <strong key={i} className="text-primary">
+              {p.slice(2, -2)}
+            </strong>
+          )
+        }
+        const link = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+        if (link) {
+          return (
+            <a
+              key={i}
+              href={link[2]}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              {link[1]}
+            </a>
+          )
+        }
+        return <span key={i}>{p}</span>
+      })}
+    </>
+  )
+}
+
+function ContributeGuide({
+  language,
+  lead,
+  links,
+  steps,
+  note,
+}: {
+  language: Language
+  lead: string
+  links: { key?: string; label?: string; href: string }[]
+  steps: string
+  note: string
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="text-base">
+        {t(lead, language)}{' '}
+        {links.map((l, i) => (
+          <span key={l.href}>
+            {i > 0 && '  |  '}
+            <a
+              href={l.href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              {l.key ? t(l.key, language) : <span data-raw>{l.label}</span>}
+            </a>
+          </span>
+        ))}
+      </div>
+      <ol className="list-decimal pl-5 space-y-1 text-base">
+        {t(steps, language)
+          .split('\n')
+          .map((line, i) => (
+            <li key={i}>
+              <RichText text={line} />
+            </li>
+          ))}
+      </ol>
+      <div className="rounded-control p-3 mt-3 bg-primary-dim border border-primary/25 text-sm">
+        <RichText text={t(note, language)} />
+      </div>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type { UserMode } from '../../lib/onboarding'
 import { Button } from '../ui/Button'
+import { t, type Language } from '../../i18n/translations'
 
 interface OnboardingModeSelectorProps {
   language: string
@@ -12,7 +13,7 @@ export function OnboardingModeSelector({
   mode,
   onChange,
 }: OnboardingModeSelectorProps) {
-  const isZh = language === 'zh'
+  const tr = (key: string) => t(`onboardingMode.${key}`, language as Language)
 
   const options: Array<{
     id: UserMode
@@ -22,25 +23,21 @@ export function OnboardingModeSelector({
   }> = [
     {
       id: 'beginner',
-      title: isZh ? '新手模式' : 'Beginner Mode',
-      badge: isZh ? '推荐' : 'Recommended',
-      description: isZh
-        ? '自动生成 Base 钱包，默认接入 Claw402 + GLM，最快完成首次启动。'
-        : 'Generate a Base wallet automatically and start with Claw402 + GLM by default.',
+      title: tr('beginnerTitle'),
+      badge: tr('recommended'),
+      description: tr('beginnerDesc'),
     },
     {
       id: 'advanced',
-      title: isZh ? '老手模式' : 'Advanced Mode',
-      description: isZh
-        ? '保持现在的完整配置流程，你自己决定模型、钱包和交易所。'
-        : 'Keep the full manual flow and configure models, wallets, and exchanges yourself.',
+      title: tr('advancedTitle'),
+      description: tr('advancedDesc'),
     },
   ]
 
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium text-muted-foreground">
-        {isZh ? '使用模式' : 'Experience'}
+        {tr('label')}
       </div>
       <div className="grid grid-cols-1 gap-2">
         {options.map((option) => {
@@ -51,16 +48,16 @@ export function OnboardingModeSelector({
               key={option.id}
               type="button"
               onClick={() => onChange(option.id)}
-              className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+              className={`w-full flex-col !items-start rounded-control border px-4 py-3 text-left transition-all ${
                 selected
                   ? 'border-primary/60 bg-primary-dim ring-1 ring-primary/15'
-                  : 'border-border bg-background/60 hover:border-border'
+                  : 'border-border bg-background/60 hover:border-border-hover'
               }`}
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <span>{option.title}</span>
                 {option.badge ? (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+                  <span className="ait-pill bg-primary text-primary-foreground">
                     {option.badge}
                   </span>
                 ) : null}

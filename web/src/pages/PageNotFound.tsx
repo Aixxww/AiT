@@ -1,43 +1,30 @@
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
-import { AlertCircle, Home } from 'lucide-react'
+import { Compass, Home } from 'lucide-react'
+import { useOptionalLanguage } from '../contexts/LanguageContext'
+import { t } from '../i18n/translations'
 
 export function PageNotFound() {
+  const language = useOptionalLanguage()
   return (
     <DeepVoidBackground className="flex items-center justify-center text-center p-4">
-      <div className="bg-background border border-primary/20 p-8 rounded-lg max-w-md w-full relative overflow-hidden group">
-        {/* Background Grid inside Card */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-muted-fg)_5%,transparent)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
-
-        <div className="relative z-10 flex flex-col items-center gap-6">
-          <div className="relative">
-            <div className="absolute inset-0 bg-loss/20 blur-xl animate-pulse"></div>
-            <AlertCircle size={64} className="text-loss relative z-10" />
+      <div className="ait-card p-8 sm:p-10 max-w-md w-full">
+        <div className="flex flex-col items-center gap-5">
+          <span className="inline-flex w-14 h-14 items-center justify-center rounded-full bg-surface-alt text-muted-foreground">
+            <Compass size={28} />
+          </span>
+          <div className="space-y-1">
+            <div className="t-display t-num text-foreground">404</div>
+            <h1 className="t-headline">{t('notFound.title', language)}</h1>
           </div>
-
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold font-mono tracking-tighter text-white">
-              404
-            </h1>
-            <div className="text-xs uppercase tracking-[0.3em] text-loss font-mono border-b border-loss/30 pb-2 inline-block">
-              SIGNAL_LOST
-            </div>
-          </div>
-
-          <p className="text-sm text-muted-foreground font-mono leading-relaxed">
-            The requested coordinates do not exist in the current sector. The
-            page may have been moved, deleted, or never existed in this
-            timeline.
+          <p className="t-body text-muted-foreground">
+            {t('notFound.body', language)}
           </p>
-
           <a
             href="/"
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-primary/90 transition-all group mt-4"
+            className="inline-flex items-center gap-2 h-10 px-5 rounded-control bg-primary text-primary-foreground t-label hover:opacity-90"
           >
             <Home size={16} />
-            <span>RETURN_BASE</span>
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity -ml-2 group-hover:ml-0">
-              -&gt;
-            </span>
+            {t('notFound.home', language)}
           </a>
         </div>
       </div>

@@ -210,12 +210,14 @@ export function LoginPage() {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-1.5">
-              {onMfaStep ? t('mfa.loginTitle', language) : 'Welcome back'}
+              {onMfaStep
+                ? t('mfa.loginTitle', language)
+                : t('auth.welcomeBack', language)}
             </h1>
             <p className="text-muted-foreground text-sm">
               {onMfaStep
                 ? t('mfa.loginSubtitle', language)
-                : 'Sign in to your account'}
+                : t('auth.signInSubtitle', language)}
             </p>
           </div>
 

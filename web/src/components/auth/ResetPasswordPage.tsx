@@ -92,7 +92,7 @@ export function ResetPasswordPage() {
               {t('resetPasswordTitle', language)}
             </h1>
             <p className="text-sm mt-2 text-muted-foreground">
-              使用邮箱和新密码重置账户密码
+              {t('auth.resetSubtitle', language)}
             </p>
           </div>
 
@@ -111,7 +111,7 @@ export function ResetPasswordPage() {
                   {t('resetPasswordSuccess', language)}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  3秒后将自动跳转到登录页面...
+                  {t('auth.resetRedirect', language)}
                 </p>
               </div>
             ) : (
