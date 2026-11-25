@@ -55,14 +55,14 @@ func TestF06HunterV7BadWaitCodeDemotedNotFatal(t *testing.T) {
 }
 
 func TestF06NoJSONKeepsExistingSafeWait(t *testing.T) {
-	// Pre-existing behaviour (unchanged by F06): a response without a JSON
-	// array becomes one ALL/wait fallback and is not a validator rejection.
+	// #94 / AUD-B1 changed the pre-F06 fallback: a response without a JSON
+	// array is no longer an ALL/wait fallback but an AI failure
+	// (no_structured_decision). It is still not a validator rejection.
 	fd, err := parseFullDecisionResponse("no json here", 10000, 20, 10, 10, 1.5, nil, true, nil, FixedDecisionRRFloor(1.5), 0)
-	if err != nil || len(fd.Decisions) != 1 {
-		t.Fatalf("expected single safe-wait fallback, got %v / %+v", err, fd)
+	if err == nil || AIFailureReason(err) != AIFailureNoStructuredDecision {
+		t.Fatalf("expected no_structured_decision, got %v / %+v", err, fd)
 	}
-	d := fd.Decisions[0]
-	if d.Symbol != "ALL" || d.Action != "wait" || d.BlockedReasonCode != "backend_guard_risk" || d.ValidatorRejection != "" {
-		t.Fatalf("unexpected fallback decision %+v", d)
+	if fd == nil || len(fd.Decisions) != 0 {
+		t.Fatalf("no fallback decision may be produced, got %+v", fd)
 	}
 }

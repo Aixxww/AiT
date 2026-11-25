@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -28,6 +29,8 @@ var (
 	// XML tag extraction (supports any characters in reasoning chain)
 	reReasoningTag = regexp.MustCompile(`(?s)<reasoning>(.*?)</reasoning>`)
 	reDecisionTag  = regexp.MustCompile(`(?s)<decision>(.*?)</decision>`)
+	// reEmptyJSONArray matches a decision payload that is exactly `[]`.
+	reEmptyJSONArray = regexp.MustCompile(`^\s*\[\s*\]\s*$`)
 )
 
 // ============================================================================
@@ -164,6 +167,8 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 	if decision != nil {
 		if strings.EqualFold(engine.GetConfig().CoinSource.SourceType, "hunter_v7") {
 			hydrateHunterV7DecisionExecutionPlans(decision.Decisions, ctx.CandidateCoins)
+			// #94 / AUD-B8: X2 instrumentation (rank of the pick, E+R count).
+			decision.HunterV7ERCount, decision.HunterV7ChosenRank = annotateHunterV7ChosenRank(decision.Decisions, ctx.HunterV7PromptFinal)
 		}
 		decision.Timestamp = time.Now()
 		decision.SystemPrompt = systemPrompt
@@ -655,14 +660,48 @@ func extractCoTTrace(response string) string {
 	return strings.TrimSpace(response)
 }
 
+// AI failure reasons (#94). They are AI failures: they count toward safe
+// mode like a failed call, and the trader records the reason code.
+const (
+	AIFailureNoStructuredDecision   = "no_structured_decision"
+	AIFailureMultipleDecisionBlocks = "multiple_decision_blocks"
+)
+
+var (
+	// ErrNoStructuredDecision: the reply contains no decision JSON (AUD-B1).
+	ErrNoStructuredDecision = errors.New(AIFailureNoStructuredDecision)
+	// ErrMultipleDecisionBlocks: the reply contains more than one
+	// <decision> block (AUD-B3).
+	ErrMultipleDecisionBlocks = errors.New(AIFailureMultipleDecisionBlocks)
+)
+
+// AIFailureReason returns the #94 reason code carried by an AI decision
+// error, or "" for other errors.
+func AIFailureReason(err error) string {
+	switch {
+	case errors.Is(err, ErrNoStructuredDecision):
+		return AIFailureNoStructuredDecision
+	case errors.Is(err, ErrMultipleDecisionBlocks):
+		return AIFailureMultipleDecisionBlocks
+	}
+	return ""
+}
+
 func extractDecisions(response string) ([]Decision, error) {
 	s := removeInvisibleRunes(response)
 	s = strings.TrimSpace(s)
 	s = fixMissingQuotes(s)
 
 	var jsonPart string
-	if match := reDecisionTag.FindStringSubmatch(s); match != nil && len(match) > 1 {
-		jsonPart = strings.TrimSpace(match[1])
+	if blocks := reDecisionTag.FindAllStringSubmatch(s, -1); len(blocks) > 1 {
+		// #94 / AUD-B3: an example block in the reasoning must never be
+		// executed in place of the real one; reject the reply, log every block.
+		for i, b := range blocks {
+			logger.Warnf("⚠  [%s] <decision> block %d of %d: %s", AIFailureMultipleDecisionBlocks, i+1, len(blocks), strings.TrimSpace(b[1]))
+		}
+		return nil, fmt.Errorf("%w: %d blocks", ErrMultipleDecisionBlocks, len(blocks))
+	} else if len(blocks) == 1 && len(blocks[0]) > 1 {
+		jsonPart = strings.TrimSpace(blocks[0][1])
 		logger.Infof("✓ Extracted JSON using <decision> tag")
 	} else {
 		jsonPart = s
@@ -686,21 +725,18 @@ func extractDecisions(response string) ([]Decision, error) {
 	}
 
 	jsonContent := strings.TrimSpace(reJSONArray.FindString(jsonPart))
+	if jsonContent == "" && reEmptyJSONArray.MatchString(jsonPart) {
+		return []Decision{}, nil // an explicit empty decision list is structured
+	}
 	if jsonContent == "" {
-		logger.Infof("⚠️  [SafeFallback] AI didn't output JSON decision, entering safe wait mode")
-
+		// #94 / AUD-B1: a reply with no structured decision is an AI
+		// failure (counts toward safe mode), not a successful wait.
 		cotSummary := jsonPart
 		if len(cotSummary) > 240 {
 			cotSummary = cotSummary[:240] + "..."
 		}
-
-		fallbackDecision := Decision{
-			Symbol:    "ALL",
-			Action:    "wait",
-			Reasoning: fmt.Sprintf("Model didn't output structured JSON decision, entering safe wait; summary: %s", cotSummary),
-		}
-
-		return []Decision{fallbackDecision}, nil
+		logger.Warnf("⚠  [%s] AI reply has no structured decision; counted as an AI failure", AIFailureNoStructuredDecision)
+		return nil, fmt.Errorf("%w; summary: %s", ErrNoStructuredDecision, cotSummary)
 	}
 
 	jsonContent = compactArrayOpen(jsonContent)

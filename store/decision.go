@@ -33,33 +33,48 @@ type DecisionRecordDB struct {
 	PromptTokens        int       `gorm:"column:prompt_tokens;default:0"`
 	CompletionTokens    int       `gorm:"column:completion_tokens;default:0"`
 	TotalTokens         int       `gorm:"column:total_tokens;default:0"`
-	CreatedAt           time.Time `json:"created_at"`
+	// #94: AI failure reason code (AUD-B1/B3) and the X2 instrumentation
+	// (AUD-B8): rank of the chosen signal among the prompt's E+R
+	// candidates, and the E+R count.
+	AIFailureReason string    `gorm:"column:ai_failure_reason;default:''"`
+	ChosenRank      int       `gorm:"column:chosen_rank;default:0"`
+	ERCount         int       `gorm:"column:er_count;default:0"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 func (DecisionRecordDB) TableName() string { return "decision_records" }
 
 // DecisionRecord decision record (external API struct)
 type DecisionRecord struct {
-	ID                  int64              `json:"id"`
-	TraderID            string             `json:"trader_id"`
-	CycleNumber         int                `json:"cycle_number"`
-	Timestamp           time.Time          `json:"timestamp"`
-	SystemPrompt        string             `json:"system_prompt"`
-	InputPrompt         string             `json:"input_prompt"`
-	CoTTrace            string             `json:"cot_trace"`
-	DecisionJSON        string             `json:"decision_json"`
-	RawResponse         string             `json:"raw_response"` // Raw AI response for debugging
-	CandidateCoins      []string           `json:"candidate_coins"`
-	ExecutionLog        []string           `json:"execution_log"`
-	Success             bool               `json:"success"`
-	ErrorMessage        string             `json:"error_message"`
-	AIRequestDurationMs int64              `json:"ai_request_duration_ms"`
-	PromptTokens        int                `json:"prompt_tokens"`
-	CompletionTokens    int                `json:"completion_tokens"`
-	TotalTokens         int                `json:"total_tokens"`
-	AccountState        AccountSnapshot    `json:"account_state"`
-	Positions           []PositionSnapshot `json:"positions"`
-	Decisions           []DecisionAction   `json:"decisions"`
+	ID                  int64     `json:"id"`
+	TraderID            string    `json:"trader_id"`
+	CycleNumber         int       `json:"cycle_number"`
+	Timestamp           time.Time `json:"timestamp"`
+	SystemPrompt        string    `json:"system_prompt"`
+	InputPrompt         string    `json:"input_prompt"`
+	CoTTrace            string    `json:"cot_trace"`
+	DecisionJSON        string    `json:"decision_json"`
+	RawResponse         string    `json:"raw_response"` // Raw AI response for debugging
+	CandidateCoins      []string  `json:"candidate_coins"`
+	ExecutionLog        []string  `json:"execution_log"`
+	Success             bool      `json:"success"`
+	ErrorMessage        string    `json:"error_message"`
+	AIRequestDurationMs int64     `json:"ai_request_duration_ms"`
+	PromptTokens        int       `json:"prompt_tokens"`
+	CompletionTokens    int       `json:"completion_tokens"`
+	TotalTokens         int       `json:"total_tokens"`
+	// AIFailureReason is a #94 reason code (no_structured_decision,
+	// multiple_decision_blocks) when the AI reply was rejected.
+	AIFailureReason string `json:"ai_failure_reason,omitempty"`
+	// ChosenRank (#94 / AUD-B8, X2): 1-based position of the first open's
+	// selected signal among the prompt's EXECUTABLE+REVIEWABLE candidates
+	// in prompt order; 0 = no open; -1 = the signal was not an E+R
+	// candidate. ERCount is the number of E+R candidates in the prompt.
+	ChosenRank   int                `json:"chosen_rank"`
+	ERCount      int                `json:"er_count"`
+	AccountState AccountSnapshot    `json:"account_state"`
+	Positions    []PositionSnapshot `json:"positions"`
+	Decisions    []DecisionAction   `json:"decisions"`
 }
 
 // AccountSnapshot account state snapshot
@@ -115,6 +130,9 @@ type DecisionAction struct {
 	Timestamp                time.Time        `json:"timestamp"`
 	Success                  bool             `json:"success"`
 	Error                    string           `json:"error"`
+	// ChosenRank (#94 / AUD-B8): for an open, its signal's 1-based rank
+	// among the prompt's E+R candidates; -1 = not one of them.
+	ChosenRank int `json:"chosen_rank,omitempty"`
 }
 
 type DecisionTrigger struct {
@@ -150,6 +168,15 @@ func (s *DecisionStore) initTables() error {
 		var tableExists int64
 		s.db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'decision_records'`).Scan(&tableExists)
 		if tableExists > 0 {
+			// #94: add the new columns to an existing table.
+			m := s.db.Migrator()
+			for _, field := range []string{"AIFailureReason", "ChosenRank", "ERCount"} {
+				if !m.HasColumn(&DecisionRecordDB{}, field) {
+					if err := m.AddColumn(&DecisionRecordDB{}, field); err != nil {
+						return fmt.Errorf("failed to add decision_records.%s: %w", field, err)
+					}
+				}
+			}
 			return nil
 		}
 	}
@@ -174,6 +201,9 @@ func (db *DecisionRecordDB) toRecord() *DecisionRecord {
 		PromptTokens:        db.PromptTokens,
 		CompletionTokens:    db.CompletionTokens,
 		TotalTokens:         db.TotalTokens,
+		AIFailureReason:     db.AIFailureReason,
+		ChosenRank:          db.ChosenRank,
+		ERCount:             db.ERCount,
 	}
 	json.Unmarshal([]byte(db.CandidateCoins), &record.CandidateCoins)
 	json.Unmarshal([]byte(db.ExecutionLog), &record.ExecutionLog)
@@ -212,6 +242,9 @@ func (s *DecisionStore) LogDecision(record *DecisionRecord) error {
 		PromptTokens:        record.PromptTokens,
 		CompletionTokens:    record.CompletionTokens,
 		TotalTokens:         record.TotalTokens,
+		AIFailureReason:     record.AIFailureReason,
+		ChosenRank:          record.ChosenRank,
+		ERCount:             record.ERCount,
 	}
 
 	if err := s.db.Create(dbRecord).Error; err != nil {

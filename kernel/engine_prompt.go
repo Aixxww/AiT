@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Aixxww/AiT/market"
 	"github.com/Aixxww/AiT/provider/aitos"
@@ -761,10 +762,10 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 				compact := e.formatHunterV7CompactSignalJSON(item.Coin)
 				if compact != "" {
 					sb.WriteString(fmt.Sprintf("- %s %s tier=%s compact_execution_json=%s\n",
-						item.Coin.Symbol, item.Coin.Direction, item.Tier, compact))
+						pt(item.Coin.Symbol), pt(item.Coin.Direction), pt(item.Tier), compact))
 				} else {
 					sb.WriteString(fmt.Sprintf("- %s %s setup=%s ai_priority=%.1f reason=%s (compact only; lower priority)\n",
-						item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7AIPriority, item.Reason))
+						pt(item.Coin.Symbol), pt(item.Coin.Direction), pt(item.Coin.V7SetupType), item.Coin.V7AIPriority, pt(item.Reason)))
 				}
 				continue
 			}
@@ -788,8 +789,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 				break
 			}
 			sb.WriteString(fmt.Sprintf("- %s %s tier=%s setup=%s status=%s quality=%s%s ai_priority=%.1f risk=%.0f reason=%s\n",
-				item.Coin.Symbol, item.Coin.Direction, item.Tier, item.Coin.V7SetupType, item.Coin.V7Status,
-				item.Coin.V7ExecutionQuality, hunterV7ShapeEntrySignalSuffix(item.Coin), item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+				pt(item.Coin.Symbol), pt(item.Coin.Direction), pt(item.Tier), pt(item.Coin.V7SetupType), pt(item.Coin.V7Status),
+				pt(item.Coin.V7ExecutionQuality), pt(hunterV7ShapeEntrySignalSuffix(item.Coin)), item.Coin.V7AIPriority, item.Coin.V7RiskScore, pt(item.Reason)))
 		}
 		if displayedBlocked == 0 {
 			sb.WriteString("- None\n")
@@ -810,8 +811,8 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 				break
 			}
 			sb.WriteString(fmt.Sprintf("- %s %s setup=%s status=%s quality=%s%s ai_priority=%.1f risk=%.0f reason=%s\n",
-				item.Coin.Symbol, item.Coin.Direction, item.Coin.V7SetupType, item.Coin.V7Status,
-				item.Coin.V7ExecutionQuality, hunterV7ShapeEntrySignalSuffix(item.Coin), item.Coin.V7AIPriority, item.Coin.V7RiskScore, item.Reason))
+				pt(item.Coin.Symbol), pt(item.Coin.Direction), pt(item.Coin.V7SetupType), pt(item.Coin.V7Status),
+				pt(item.Coin.V7ExecutionQuality), pt(hunterV7ShapeEntrySignalSuffix(item.Coin)), item.Coin.V7AIPriority, item.Coin.V7RiskScore, pt(item.Reason)))
 		}
 		if displayedWatch == 0 {
 			sb.WriteString("- None\n")
@@ -839,9 +840,35 @@ func (e *StrategyEngine) writeHunterV7TieredCandidatePrompt(sb *strings.Builder,
 	}
 	sort.Strings(reasons)
 	for _, reason := range reasons {
-		sb.WriteString(fmt.Sprintf("- %s: %d\n", reason, reasonCounts[reason]))
+		sb.WriteString(fmt.Sprintf("- %s: %d\n", pt(reason), reasonCounts[reason]))
 	}
 	sb.WriteString("\n")
+}
+
+// pt makes a backend or exchange string safe for one plain-text prompt line
+// (#94 / AUD-B6): CR, LF and other control characters are escaped, so a
+// symbol or reason can never start a new prompt line. The JSON payloads are
+// escaped by encoding/json and are not passed through this.
+func pt(s string) string {
+	if !strings.ContainsFunc(s, unicode.IsControl) {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case unicode.IsControl(r):
+			fmt.Fprintf(&b, `\u%04x`, r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // hunterV7PromptItems re-prices, re-tiers and orders the cycle's
@@ -1158,8 +1185,8 @@ func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, ite
 	if coin.Direction == "LONG" || coin.Direction == "SHORT" {
 		directionTag = fmt.Sprintf(" [%s]", coin.Direction)
 	}
-	sb.WriteString(fmt.Sprintf("#### %d. %s%s%s\n\n", index, coin.Symbol, directionTag, sourceTags))
-	sb.WriteString(fmt.Sprintf("execution_tier=%s tier_reason=%s\n", item.Tier, item.Reason))
+	sb.WriteString(fmt.Sprintf("#### %d. %s%s%s\n\n", index, pt(coin.Symbol), pt(directionTag), pt(sourceTags)))
+	sb.WriteString(fmt.Sprintf("execution_tier=%s tier_reason=%s\n", pt(item.Tier), pt(item.Reason)))
 	if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
 		sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
 	}

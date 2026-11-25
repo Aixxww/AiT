@@ -164,16 +164,7 @@ func (at *AutoTrader) runCycle() error {
 	}
 
 	// Save chain of thought, decisions, and input prompt even if there's an error (for debugging)
-	if aiDecision != nil {
-		record.SystemPrompt = aiDecision.SystemPrompt // Save system prompt
-		record.InputPrompt = aiDecision.UserPrompt
-		record.CoTTrace = aiDecision.CoTTrace
-		record.RawResponse = aiDecision.RawResponse // Save raw AI response for debugging
-		if len(aiDecision.Decisions) > 0 {
-			decisionJSON, _ := json.MarshalIndent(aiDecision.Decisions, "", "  ")
-			record.DecisionJSON = string(decisionJSON)
-		}
-	}
+	applyAIDecisionToRecord(record, aiDecision)
 
 	// Record AI charge (track cost regardless of decision outcome)
 	if aiDecision != nil && at.store != nil {
@@ -183,9 +174,15 @@ func (at *AutoTrader) runCycle() error {
 	}
 
 	if err != nil {
+		// #94 / AUD-B1, B3: a reply without a structured decision, or with
+		// more than one decision block, is an AI failure like a failed call.
 		at.consecutiveAIFailures++
 		record.Success = false
+		record.AIFailureReason = kernel.AIFailureReason(err)
 		record.ErrorMessage = fmt.Sprintf("Failed to get AI decision: %v", err)
+		if record.AIFailureReason != "" {
+			record.ErrorMessage = fmt.Sprintf("Failed to get AI decision (%s): %v", record.AIFailureReason, err)
+		}
 
 		// Activate safe mode after 3 consecutive failures
 		if at.consecutiveAIFailures >= 3 && !at.safeMode {
@@ -356,6 +353,7 @@ func (at *AutoTrader) runCycle() error {
 			Reasoning:         d.Reasoning,
 			BlockedReasonCode: d.BlockedReasonCode,
 			Trigger:           decisionTriggerForStore(d.Trigger),
+			ChosenRank:        d.HunterV7ChosenRank, // #94 / AUD-B8
 			Timestamp:         time.Now().UTC(),
 			Success:           false,
 		}
@@ -1186,5 +1184,25 @@ func (at *AutoTrader) checkClaw402Balance() {
 		}
 		logger.Infof("💰 [%s] USDC Balance: $%.2f | Daily AI cost: ~$%.2f | Runway: ~%.1f days",
 			at.name, balance, dailyCost, runway)
+	}
+}
+
+// applyAIDecisionToRecord copies the AI reply into the cycle's decision
+// record, also when the reply was rejected (for debugging). #94 / AUD-B8:
+// the X2 instrumentation (chosen_rank, E+R count) is recorded here on every
+// record.
+func applyAIDecisionToRecord(record *store.DecisionRecord, aiDecision *kernel.FullDecision) {
+	if record == nil || aiDecision == nil {
+		return
+	}
+	record.SystemPrompt = aiDecision.SystemPrompt // Save system prompt
+	record.InputPrompt = aiDecision.UserPrompt
+	record.CoTTrace = aiDecision.CoTTrace
+	record.RawResponse = aiDecision.RawResponse // Save raw AI response for debugging
+	record.ERCount = aiDecision.HunterV7ERCount
+	record.ChosenRank = aiDecision.HunterV7ChosenRank
+	if len(aiDecision.Decisions) > 0 {
+		decisionJSON, _ := json.MarshalIndent(aiDecision.Decisions, "", "  ")
+		record.DecisionJSON = string(decisionJSON)
 	}
 }
