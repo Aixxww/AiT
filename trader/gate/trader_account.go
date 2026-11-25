@@ -90,7 +90,7 @@ func (t *GateTrader) GetPositions() ([]map[string]interface{}, error) {
 			"entryPrice":       entryPrice,
 			"markPrice":        markPrice,
 			"unRealizedProfit": unrealizedPnl,
-			"leverage":         int(leverage),
+			"leverage":         float64(leverage), // #93 / AUD-D2: float like the other adapters
 			"liquidationPrice": liqPrice,
 			"side":             side,
 		})

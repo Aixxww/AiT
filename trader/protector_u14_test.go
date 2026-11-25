@@ -168,7 +168,9 @@ func TestU14F31TakeProfitReplacedForTheRemainder(t *testing.T) {
 	if v.tp != 104 || v.stop != 100.1 || v.qty != 6.5 {
 		t.Fatalf("after TP0: tp %.4f stop %.4f qty %.4f orders %v", v.tp, v.stop, v.qty, v.orders)
 	}
-	want := []string{"close 3.5@100.9", "cancel side stop+tp", "stop 100.1", "tp 104"}
+	// #93 / AUD-D5: only stops are replaced; the resting take-profit is
+	// never cancelled, so it is not re-placed either.
+	want := []string{"close 3.5@100.9", "cancel side stops", "stop 100.1"}
 	if !reflect.DeepEqual(v.orders, want) {
 		t.Fatalf("orders = %v, want %v", v.orders, want)
 	}
@@ -176,9 +178,20 @@ func TestU14F31TakeProfitReplacedForTheRemainder(t *testing.T) {
 	v2 := newProtectorSimVenue("BBBUSDT", "long", 100, 10, 10, 98, 101)
 	at2 := newProtectorWalkTrader(v2, nil)
 	at2.protectionState["BBBUSDT_long"] = &positionProtectionState{ActiveStopLoss: 98, ExchangeTakeProfit: 101}
+	v2.tp = 0 // the take-profit is gone (filled or cancelled outside the bot)
 	at2.executeProtectionAction("BBBUSDT", "long", 10, 101.2, 100, protectionTP1)
 	if v2.tp != 0 {
 		t.Fatalf("a take-profit behind the mark was placed: %.4f", v2.tp)
+	}
+	// No take-profit open: the state's take-profit is re-placed for the remainder.
+	v3 := newProtectorSimVenue("CCCUSDT", "long", 100, 10, 10, 98, 104)
+	at3 := newProtectorWalkTrader(v3, nil)
+	at3.protectionState["CCCUSDT_long"] = &positionProtectionState{ActiveStopLoss: 98, ExchangeTakeProfit: 104}
+	v3.tp = 0
+	v3.mark = 100.9
+	at3.executeProtectionAction("CCCUSDT", "long", 10, 100.9, 100, protectionTP0)
+	if v3.tp != 104 {
+		t.Fatalf("missing take-profit must be re-placed from the state, got %.4f (%v)", v3.tp, v3.orders)
 	}
 	// Hydration records the open's take-profit.
 	st := &positionProtectionState{}

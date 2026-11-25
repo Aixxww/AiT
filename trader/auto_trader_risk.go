@@ -11,7 +11,6 @@ import (
 	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -148,10 +147,8 @@ func (at *AutoTrader) checkPositionDrawdown() time.Duration {
 			continue
 		}
 
-		leverage := e.cfg.DefaultLeverage
-		if lev, ok := pos["leverage"].(float64); ok {
-			leverage = int(lev)
-		}
+		// #93 / AUD-D2: int or float leverage; <= 0 is unknown -> default.
+		leverage := positionLeverage(pos, e.cfg.DefaultLeverage, symbol, side)
 
 		currentPnLPct := calculateLeveragedPnLPct(side, entryPrice, markPrice, leverage)
 		openedAt := at.resolveProtectionPositionOpenedAt(symbol, side)
@@ -377,6 +374,11 @@ func (at *AutoTrader) getOrCreateProtectionState(posKey string, quantity, curren
 			PeakPnLPct:      peakPnLPct,
 			OpenedAt:        openedAt,
 		}
+		// #93 / AUD-D4: a restart resumes the persisted flags, peak and
+		// first-seen time instead of starting the position over.
+		if sym, side, ok := splitPosKey(posKey); ok {
+			applyPersistedProtection(state, at.positionLifecycleRow(sym, side, true))
+		}
 		at.protectionState[posKey] = state
 		return state
 	}
@@ -399,9 +401,17 @@ func (at *AutoTrader) resolveProtectionPositionOpenedAt(symbol, side string) tim
 	if firstSeen, ok := at.positionFirstSeenTime[posKey]; ok && firstSeen > 0 {
 		return time.UnixMilli(firstSeen)
 	}
+	// #93 / AUD-D4: the first-seen time survives a restart.
 	now := time.Now()
-	at.positionFirstSeenTime[posKey] = now.UnixMilli()
-	return now
+	firstSeen := now.UnixMilli()
+	if persisted := at.persistedFirstSeen(symbol, side, firstSeen); persisted > 0 {
+		firstSeen = persisted
+	}
+	if at.positionFirstSeenTime == nil {
+		at.positionFirstSeenTime = map[string]int64{}
+	}
+	at.positionFirstSeenTime[posKey] = firstSeen
+	return time.UnixMilli(firstSeen)
 }
 
 func (at *AutoTrader) markProtectionAction(posKey string, action protectionAction, closedAll bool) {
@@ -417,6 +427,9 @@ func (at *AutoTrader) markProtectionAction(posKey string, action protectionActio
 	}
 	state.LastActionAt = time.Now()
 	markProtectionDone(state, action)
+	if sym, side, ok := splitPosKey(posKey); ok {
+		at.persistProtectionState(sym, side, state) // #93 / AUD-D4
+	}
 }
 
 func (at *AutoTrader) executeProtectionAction(symbol, side string, quantity, markPrice, entryPrice float64, action protectionAction) (bool, error) {
@@ -484,19 +497,65 @@ func (at *AutoTrader) minProtectionCloseNotionalWith(e *protectorEngine) float64
 // the position's active stop when that is more protective (F29: never
 // loosen), and records the placed stop in the protection state.
 func (at *AutoTrader) rebuildProtectionStopsWithBuffer(symbol, side string, remainingQty, entryPrice, buffer float64) (bool, error) {
+	return at.rebuildProtectionStopsAt(symbol, side, remainingQty, entryPrice, 0, buffer)
+}
+
+// rebuildProtectionStopsAt places the remainder's stop after a partial.
+//   - #93 / AUD-D1: with a known mark, the stop is clamped to the protective
+//     side of mark (isStopOnProtectiveSide). The exchange would reject a stop
+//     on the wrong side ("would immediately trigger") after the old stop was
+//     cancelled. If no valid clamped stop exists, the remainder is closed
+//     deliberately instead of through the error path.
+//   - #93 / AUD-D5: only stops are cancelled and replaced; the side's
+//     take-profit is never cancelled here (reprotectAfterPartialAt re-places
+//     one only when none is open).
+func (at *AutoTrader) rebuildProtectionStopsAt(symbol, side string, remainingQty, entryPrice, markPrice, buffer float64) (bool, error) {
 	if remainingQty <= 0 {
 		return false, nil
 	}
 	state := at.protectionStateFor(symbol, side)
 	stopPrice := rebuildStop(state, side, entryPrice, buffer)
-	// F27/F28: side-scoped owned cancel, then a confirmed replacement.
-	closedAll, err := at.replaceProtectiveStop(symbol, side, remainingQty, stopPrice, false)
+	if markPrice > 0 && !isStopOnProtectiveSide(side, stopPrice, markPrice) {
+		clamped, ok := clampStopToProtectiveSide(side, markPrice, buffer)
+		if !ok {
+			logger.Warnf("  🛡 [PROTECTOR] %s %s rebuild stop %.8f is on the wrong side of mark %.8f and cannot be clamped; closing the remainder deliberately", symbol, side, stopPrice, markPrice)
+			if err := at.closeProtectedPosition(symbol, side, 0, "rebuild_stop_unclampable"); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		logger.Infof("  🛡 [PROTECTOR] %s %s rebuild stop %.8f is on the wrong side of mark %.8f; clamped to %.8f", symbol, side, stopPrice, markPrice, clamped)
+		stopPrice = clamped
+	}
+	// F27/F28: side-scoped owned cancel (stops only, D5), then a confirmed replacement.
+	closedAll, err := at.replaceProtectiveStop(symbol, side, remainingQty, stopPrice, true)
 	if state != nil && !closedAll && (err == nil || errors.Is(err, errProtectionCancelUnconfirmed)) {
 		at.protectionStateMutex.Lock()
 		state.ActiveStopLoss = stopPrice
 		at.protectionStateMutex.Unlock()
 	}
 	return closedAll, err
+}
+
+// clampStopToProtectiveSide is the closest valid stop on the protective side
+// of mark: one buffer away from it (at least 0.05%). ok=false when no valid
+// stop exists.
+func clampStopToProtectiveSide(side string, markPrice, buffer float64) (float64, bool) {
+	if markPrice <= 0 {
+		return 0, false
+	}
+	gap := buffer
+	if gap < 0.0005 {
+		gap = 0.0005
+	}
+	stop := markPrice * (1 + gap)
+	if side == "long" {
+		stop = markPrice * (1 - gap)
+	}
+	if !isStopOnProtectiveSide(side, stop, markPrice) {
+		return 0, false
+	}
+	return stop, true
 }
 
 // protectionStateFor returns the protection state of a position, or nil.
@@ -587,17 +646,23 @@ func (at *AutoTrader) GetPeakPnLCache() map[string]float64 {
 // UpdatePeakPnL updates peak profit cache
 func (at *AutoTrader) UpdatePeakPnL(symbol, side string, currentPnLPct float64) {
 	at.peakPnLCacheMutex.Lock()
-	defer at.peakPnLCacheMutex.Unlock()
 
 	posKey := symbol + "_" + side
+	raised := false
 	if peak, exists := at.peakPnLCache[posKey]; exists {
 		// Update peak (if long, take larger value; if short, currentPnLPct is negative, also compare)
 		if currentPnLPct > peak {
 			at.peakPnLCache[posKey] = currentPnLPct
+			raised = true
 		}
 	} else {
 		// First time recording
 		at.peakPnLCache[posKey] = currentPnLPct
+		raised = true
+	}
+	at.peakPnLCacheMutex.Unlock()
+	if raised {
+		at.persistPeakPnL(symbol, side, currentPnLPct) // #93 / AUD-D4
 	}
 }
 
@@ -611,9 +676,11 @@ func (at *AutoTrader) ensurePeakPnLCacheInitialized(symbol, side string, current
 	at.peakPnLCacheMutex.RUnlock()
 
 	peak := currentPnLPct
-	if recovered := at.recoverPositionPeakPnLPctFromRecentPrompts(symbol, side, openedAt); recovered > peak {
-		peak = recovered
-		logger.Infof("📈 Restored position peak PnL from recent decisions: %s %s peak=%.2f%%", symbol, side, peak)
+	// #93 / AUD-D4: the peak comes from the lifecycle record, never from
+	// the last 20 prompts.
+	if persisted := at.persistedPeakPnL(symbol, side); persisted > peak {
+		peak = persisted
+		logger.Infof("📈 Restored position peak PnL from the lifecycle record: %s %s peak=%.2f%%", symbol, side, peak)
 	}
 
 	at.peakPnLCacheMutex.Lock()
@@ -629,38 +696,6 @@ func (at *AutoTrader) ensurePeakPnLCacheInitialized(symbol, side string, current
 	return peak
 }
 
-func (at *AutoTrader) recoverPositionPeakPnLPctFromRecentPrompts(symbol, side string, openedAt time.Time) float64 {
-	if at == nil || at.store == nil || symbol == "" || side == "" {
-		return 0
-	}
-	records, err := at.store.Decision().GetLatestRecords(at.id, 20)
-	if err != nil {
-		logger.Infof("⚠️ Failed to recover peak PnL from decision history: %v", err)
-		return 0
-	}
-	pattern := regexp.MustCompile(`(?m)\b` + regexp.QuoteMeta(strings.ToUpper(symbol)) + `\s+` + regexp.QuoteMeta(strings.ToUpper(side)) + `\s+\|[^\n]*Peak PnL\s*([+-]?\d+(?:\.\d+)?)%`)
-	peak := 0.0
-	for _, record := range records {
-		if record == nil || record.InputPrompt == "" {
-			continue
-		}
-		if !openedAt.IsZero() && record.Timestamp.Before(openedAt.Add(-1*time.Minute)) {
-			continue
-		}
-		matches := pattern.FindAllStringSubmatch(record.InputPrompt, -1)
-		for _, match := range matches {
-			if len(match) < 2 {
-				continue
-			}
-			value, err := strconv.ParseFloat(match[1], 64)
-			if err == nil && value > peak {
-				peak = value
-			}
-		}
-	}
-	return peak
-}
-
 // ClearPeakPnLCache clears peak cache for specified position
 func (at *AutoTrader) ClearPeakPnLCache(symbol, side string) {
 	at.peakPnLCacheMutex.Lock()
@@ -668,6 +703,7 @@ func (at *AutoTrader) ClearPeakPnLCache(symbol, side string) {
 
 	posKey := symbol + "_" + side
 	delete(at.peakPnLCache, posKey)
+	at.lifecycleRows.drop(posKey) // a new open gets its own row
 	at.protectionStateMutex.Lock()
 	defer at.protectionStateMutex.Unlock()
 	delete(at.protectionState, posKey)
@@ -2359,4 +2395,41 @@ func getSideFromAction(action string) string {
 	default:
 		return "BUY"
 	}
+}
+
+// splitPosKey splits a protection key "SYMBOL_side".
+func splitPosKey(posKey string) (string, string, bool) {
+	i := strings.LastIndex(posKey, "_")
+	if i <= 0 || i == len(posKey)-1 {
+		return "", "", false
+	}
+	return posKey[:i], posKey[i+1:], true
+}
+
+// positionLeverage reads a position's leverage (#93 / AUD-D2). Exchanges
+// report it as float64 (Binance, parsed), int (Gate) or a string. A value
+// <= 0 or missing is unknown: the protector's default leverage is used and a
+// warning is logged, so ROE rules (hard loss, TP0, givebacks, profit floor)
+// are never switched off by a zero ROE.
+func positionLeverage(pos map[string]interface{}, def int, symbol, side string) int {
+	lev := 0.0
+	switch v := pos["leverage"].(type) {
+	case float64:
+		lev = v
+	case float32:
+		lev = float64(v)
+	case int:
+		lev = float64(v)
+	case int64:
+		lev = float64(v)
+	case int32:
+		lev = float64(v)
+	case string:
+		lev, _ = strconv.ParseFloat(strings.TrimSpace(v), 64)
+	}
+	if lev <= 0 {
+		logger.Warnf("⚠ Protector: %s %s reports leverage %v; treating it as unknown and using the default %dx", symbol, side, pos["leverage"], def)
+		return def
+	}
+	return int(math.Round(lev))
 }

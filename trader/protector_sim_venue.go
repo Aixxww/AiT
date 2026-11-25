@@ -151,7 +151,23 @@ func (v *protectorSimVenue) GetOrderStatus(string, string) (map[string]interface
 	return map[string]interface{}{"status": "FILLED"}, nil
 }
 func (v *protectorSimVenue) GetClosedPnL(time.Time, int) ([]ClosedPnLRecord, error) { return nil, nil }
-func (v *protectorSimVenue) GetOpenOrders(string) ([]OpenOrder, error)              { return nil, nil }
+
+// GetOpenOrders reports the resting stop and take-profit (#93: the D5
+// take-profit check reads them).
+func (v *protectorSimVenue) GetOpenOrders(string) ([]OpenOrder, error) {
+	ps := "LONG"
+	if v.side == "short" {
+		ps = "SHORT"
+	}
+	var out []OpenOrder
+	if v.stop > 0 {
+		out = append(out, OpenOrder{Symbol: v.symbol, PositionSide: ps, Type: "STOP_MARKET", StopPrice: v.stop, Quantity: v.qty})
+	}
+	if v.tp > 0 {
+		out = append(out, OpenOrder{Symbol: v.symbol, PositionSide: ps, Type: "TAKE_PROFIT_MARKET", StopPrice: v.tp, Quantity: v.qty})
+	}
+	return out, nil
+}
 
 // CancelOwnedProtectionOrders is the F27 side-scoped owned cancel.
 func (v *protectorSimVenue) CancelOwnedProtectionOrders(_, _ string, stopsOnly bool) error {

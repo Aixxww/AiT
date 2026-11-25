@@ -1389,6 +1389,8 @@ func TestChoosePositionProtectionActionNearTP1SecondChance(t *testing.T) {
 	}
 }
 
+// #93 / AUD-D4: the peak is restored from the lifecycle record, never from
+// the last 20 prompts (a prompt mentioning a higher peak is ignored).
 func TestEnsurePeakPnLCacheInitializedRestoresFromRecentPrompt(t *testing.T) {
 	at := testRiskAutoTrader()
 	at.id = "test-trader"
@@ -1399,30 +1401,20 @@ func TestEnsurePeakPnLCacheInitializedRestoresFromRecentPrompt(t *testing.T) {
 	at.store = st
 
 	openedAt := time.Now().Add(-40 * time.Minute).UTC()
-	oldPrompt := "1. OPENUSDT SHORT | Entry 0.1997 Current 0.1980 | PnL+8.00% | Peak PnL8.00% | Leverage 10x"
-	currentPrompt := "1. OPENUSDT SHORT | Entry 0.1997 Current 0.1999 | PnL-1.00% | Peak PnL5.99% | Leverage 10x"
 	if err := st.Decision().LogDecision(&store.DecisionRecord{
-		TraderID:    at.id,
-		CycleNumber: 1,
-		Timestamp:   openedAt.Add(-10 * time.Minute),
-		Success:     true,
-		InputPrompt: oldPrompt,
+		TraderID: at.id, CycleNumber: 2, Timestamp: openedAt.Add(30 * time.Minute), Success: true,
+		InputPrompt: "1. OPENUSDT SHORT | Entry 0.1997 Current 0.1999 | PnL-1.00% | Peak PnL9.50% | Leverage 10x",
 	}); err != nil {
-		t.Fatalf("old decision log failed: %v", err)
+		t.Fatalf("decision log failed: %v", err)
 	}
-	if err := st.Decision().LogDecision(&store.DecisionRecord{
-		TraderID:    at.id,
-		CycleNumber: 2,
-		Timestamp:   openedAt.Add(30 * time.Minute),
-		Success:     true,
-		InputPrompt: currentPrompt,
-	}); err != nil {
-		t.Fatalf("current decision log failed: %v", err)
+	if err := st.Decision().CreateLifecycle(&store.PositionLifecycle{TraderID: at.id, Symbol: "OPENUSDT", Side: "short",
+		Status: store.LifecycleStatusOpen, PeakPnLPct: 5.99}); err != nil {
+		t.Fatal(err)
 	}
 
 	peak := at.ensurePeakPnLCacheInitialized("OPENUSDT", "short", -1.0, openedAt)
 	if peak != 5.99 {
-		t.Fatalf("peak = %v, want restored 5.99", peak)
+		t.Fatalf("peak = %v, want 5.99 from the lifecycle record (not 9.50 from a prompt)", peak)
 	}
 	state := at.getOrCreateProtectionState("OPENUSDT_short", 117, -1.0, openedAt)
 	if state.PeakPnLPct != 5.99 {

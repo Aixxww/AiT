@@ -52,6 +52,18 @@ type PositionLifecycle struct {
 	StopLoss      float64 `gorm:"column:stop_loss" json:"stop_loss"`     // placed, fill-anchored
 	TakeProfit    float64 `gorm:"column:take_profit" json:"take_profit"` // placed, fill-anchored
 
+	// Protection state (#93 / AUD-D4): the protector's per-position flags,
+	// peak PnL and first-seen time, so a restart neither re-fires partials
+	// on the remainder nor loses the peak and the age clocks.
+	TP0Done         bool    `gorm:"column:tp0_done" json:"tp0_done"`
+	TP1Done         bool    `gorm:"column:tp1_done" json:"tp1_done"`
+	TP2Done         bool    `gorm:"column:tp2_done" json:"tp2_done"`
+	GivebackDone    bool    `gorm:"column:giveback_done" json:"giveback_done"`
+	TrailDone       bool    `gorm:"column:trail_done" json:"trail_done"`
+	PeakPnLPct      float64 `gorm:"column:peak_pnl_pct" json:"peak_pnl_pct"`
+	FirstSeenAt     int64   `gorm:"column:first_seen_at" json:"first_seen_at,omitempty"` // Unix ms
+	InitialQuantity float64 `gorm:"column:initial_quantity" json:"initial_quantity,omitempty"`
+
 	// Conditional entry (C6): the serialized pending entry and its expiry.
 	PendingPayload string `gorm:"column:pending_payload;type:text" json:"-"`
 	ExpiresAt      int64  `gorm:"column:expires_at" json:"expires_at,omitempty"`

@@ -377,6 +377,7 @@ func (at *AutoTrader) placeOpenOrderWithLifecycle(decision *kernel.Decision, sid
 		"stop_loss":      stop,
 		"take_profit":    tp,
 		"note":           "fill source: " + fill.Source,
+		"first_seen_at":  time.Now().UnixMilli(), // #93 / AUD-D4
 	})
 	if fill.Partial {
 		logger.Warnf("  ⚠ %s %s partial fill: %.8f of %.8f", decision.Symbol, side, fill.Qty, quantity)

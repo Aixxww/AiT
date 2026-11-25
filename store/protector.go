@@ -71,8 +71,15 @@ type ProtectorConfig struct {
 	TP0        ProtectorLevel `json:"tp0"`
 	TP1        ProtectorLevel `json:"tp1"`
 	TP1MinMove ProtectorLevel `json:"tp1_min_move"`
-	TP2        ProtectorLevel `json:"tp2"`
-	TP2MinMove ProtectorLevel `json:"tp2_min_move"`
+	// TP0MinMove / ProfitFloorMinMove (#93 / AUD-D3): an optional minimum
+	// price move for TP0 and for the profit-floor stop, as TP1 has
+	// (TP1MinMove). ROE levels shrink with leverage (at 20x, TP0 8% ROE is a
+	// 0.4% move). Unset (no unit) = no minimum = the behaviour before #93;
+	// the value is the owner's choice, there is deliberately no default.
+	TP0MinMove         ProtectorLevel `json:"tp0_min_move"`
+	ProfitFloorMinMove ProtectorLevel `json:"profit_floor_min_move"`
+	TP2                ProtectorLevel `json:"tp2"`
+	TP2MinMove         ProtectorLevel `json:"tp2_min_move"`
 	// TrailDrawdownPct: after TP1, close on this drawdown (% of peak).
 	TrailDrawdownPct float64 `json:"trail_drawdown_pct,omitempty"`
 

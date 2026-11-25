@@ -119,30 +119,39 @@ func (at *AutoTrader) reprotectAfterPartial(symbol, side string, remainingQty, e
 	return at.reprotectAfterPartialAt(symbol, side, remainingQty, entryPrice, 0, buffer, action)
 }
 
-// reprotectAfterPartialAt places the remainder's stop and then, when the
-// position's open take-profit is known and still ahead of the mark, re-places
-// that take-profit for the remaining quantity (F31: the rebuild cancels the
-// side's take-profit). A failed take-profit is logged, not fatal: the stop
-// protects the remainder, as at open.
+// reprotectAfterPartialAt places the remainder's stop and keeps its
+// take-profit (#93 / AUD-D5):
+//   - the stop rebuild cancels and replaces stops only, so the side's open
+//     take-profit stays in place for the remainder;
+//   - if no take-profit is open on the side, the take-profit is re-placed
+//     from the protection state, else the lifecycle record, else the
+//     exchange's open orders (a TP is never cancelled without a replacement);
+//   - a TP the mark is already beyond is not re-placed.
+//
+// A failed take-profit is logged, not fatal: the stop protects the
+// remainder, as at open.
 func (at *AutoTrader) reprotectAfterPartialAt(symbol, side string, remainingQty, entryPrice, markPrice, buffer float64, action protectionAction) bool {
-	closedAll, err := at.rebuildProtectionStopsWithBuffer(symbol, side, remainingQty, entryPrice, buffer)
+	closedAll, err := at.rebuildProtectionStopsAt(symbol, side, remainingQty, entryPrice, markPrice, buffer)
 	if err != nil {
 		logger.Errorf("⚠ Protection rebuild after %s close (%s %s): %v", action, symbol, side, err)
 	}
 	if closedAll || remainingQty <= 0 || (err != nil && !errors.Is(err, errProtectionCancelUnconfirmed)) {
 		return closedAll
 	}
-	state := at.protectionStateFor(symbol, side)
-	if state == nil || state.ExchangeTakeProfit <= 0 {
+	tp, source, open := at.reprotectTakeProfit(symbol, side)
+	if open {
+		return false // the existing take-profit order still protects the remainder
+	}
+	if tp <= 0 {
+		logger.Infof("  ℹ No take-profit known for %s %s after %s (state, record and exchange); the stop protects the remainder", symbol, side, action)
 		return false
 	}
-	tp := state.ExchangeTakeProfit
 	if markPrice > 0 && ((side == "long" && tp <= markPrice) || (side == "short" && tp >= markPrice)) {
 		logger.Infof("  ℹ Take-profit %.8f not re-placed for %s %s: mark %.8f is already beyond it", tp, symbol, side, markPrice)
 		return false
 	}
 	if tpErr := at.trader.SetTakeProfit(symbol, protectionPositionSide(side), remainingQty, tp); tpErr != nil {
-		logger.Errorf("  ⚠ Take-profit re-place after %s close failed for %s %s (stop is in place): %v", action, symbol, side, tpErr)
+		logger.Errorf("  ⚠ Take-profit re-place (from %s) after %s close failed for %s %s (stop is in place): %v", source, action, symbol, side, tpErr)
 	}
 	return false
 }
