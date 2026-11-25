@@ -335,6 +335,10 @@ type Decision struct {
 	// backend repair (#92 / AUD-C1). Every repair pass measures entry drift
 	// against it, so passes cannot stack.
 	HunterV7OriginalPrice float64 `json:"-"`
+	// HunterV7ChosenRank (#94 / AUD-B8): for an open, the 1-based position
+	// of its selected signal among the prompt's E+R candidates (prompt
+	// order); -1 when the signal is not one of them, 0 for non-opens.
+	HunterV7ChosenRank int `json:"-"`
 }
 
 type DecisionTrigger struct {
@@ -356,6 +360,14 @@ type FullDecision struct {
 	PromptTokens        int        `json:"prompt_tokens,omitempty"`
 	CompletionTokens    int        `json:"completion_tokens,omitempty"`
 	TotalTokens         int        `json:"total_tokens,omitempty"`
+
+	// #94 / AUD-B8 (X2 instrumentation). HunterV7ERCount is the number of
+	// EXECUTABLE + REVIEWABLE candidates in the prompt this round.
+	// HunterV7ChosenRank is the 1-based position of the first open's
+	// selected signal among them, in prompt order; 0 = no open, -1 = the
+	// open's signal is not an E/R candidate of this prompt.
+	HunterV7ERCount    int `json:"hunter_v7_er_count,omitempty"`
+	HunterV7ChosenRank int `json:"hunter_v7_chosen_rank,omitempty"`
 }
 
 // QuantData quantitative data structure (fund flow, position changes, price changes)

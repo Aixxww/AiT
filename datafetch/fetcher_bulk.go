@@ -3,6 +3,7 @@ package datafetch
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -17,6 +18,9 @@ func (f *DataFetcher) fetchAllTickers(ctx context.Context) (map[string]*ticker24
 	}
 	out := make(map[string]*ticker24hrRaw, len(raw))
 	for i := range raw {
+		if !IsValidSymbol(raw[i].Symbol) {
+			continue // AUD-B6
+		}
 		out[raw[i].Symbol] = &raw[i]
 	}
 	return out, nil
@@ -41,6 +45,9 @@ func (f *DataFetcher) fetchAllPremiumIndex(ctx context.Context) (map[string]*pre
 	}
 	out := make(map[string]*premiumIndexRaw, len(raw))
 	for i := range raw {
+		if !IsValidSymbol(raw[i].Symbol) {
+			continue // AUD-B6
+		}
 		out[raw[i].Symbol] = &raw[i]
 	}
 	return out, nil
@@ -67,6 +74,10 @@ func (f *DataFetcher) fetchExchangeInfo(ctx context.Context) ([]string, error) {
 	for _, s := range raw.Symbols {
 		if s.Status == "TRADING" && s.ContractType == "PERPETUAL" && strings.HasSuffix(s.Symbol, "USDT") {
 			if !f.cfg.IncludeNonCryptoFutures && excludedNonCryptoFuturesSymbol(s) {
+				continue
+			}
+			if !IsValidSymbol(s.Symbol) {
+				log.Printf("datafetch: symbol %q dropped: only [A-Z0-9] symbols are ingested (AUD-B6)", s.Symbol)
 				continue
 			}
 			symbols = append(symbols, s.Symbol)

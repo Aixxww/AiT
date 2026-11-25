@@ -29,7 +29,8 @@ func TestFetchTickerPricesOneBulkCall(t *testing.T) {
 	if atomic.LoadInt64(&hits) != 1 {
 		t.Fatalf("calls %d, want 1", hits)
 	}
-	if len(prices) != 2 || prices["AUSDT"] != 1.2345 || prices["牛来USDT"] != 0.0353 {
+	// #94 / AUD-B6: only [A-Z0-9] symbols are ingested; 牛来USDT is dropped.
+	if _, ok := prices["牛来USDT"]; ok || len(prices) != 1 || prices["AUSDT"] != 1.2345 {
 		t.Fatalf("prices %v", prices)
 	}
 	if at.Before(before) {
