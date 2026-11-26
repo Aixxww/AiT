@@ -27,6 +27,7 @@ import (
 
 type validationReport struct {
 	GeneratedAt       string                       `json:"generated_at"`
+	GeneratedAtUTC    string                       `json:"generated_at_utc,omitempty"` // #107: RFC3339 UTC, for the run summary's UTC-day count
 	HarnessGitSHA     string                       `json:"harness_git_sha"`
 	HarnessDirty      bool                         `json:"harness_dirty"`
 	Accepted          bool                         `json:"accepted"`                  // TA-2: passed the contract and was persisted
@@ -254,6 +255,17 @@ type validationRunSummary struct {
 	EffectiveFlags       *runEffectiveFlags       `json:"effective_flags,omitempty"` // fix 15: settings in effect for the run
 	ExitCode             int                      `json:"exit_code"`
 	ExitReason           string                   `json:"exit_reason,omitempty"`
+	// #107 / AUD-E4 (additive; see run_summary_stats.go). SampleLabel is
+	// "DOWN-MARKET-ONLY" when the sampling-rule coverage test fails at the
+	// round level, else "".
+	SampleLabel                 string                   `json:"sample_label,omitempty"`
+	MeanSignalsPerRound         float64                  `json:"mean_signals_per_round"`           // signal_count / rounds
+	MeanOpenReviewPerRound      float64                  `json:"mean_open_review_per_round"`       // open_review_count / rounds
+	ValidMeanSignalsPerRound    float64                  `json:"valid_mean_signals_per_round"`     // valid_signal_count / valid_rounds
+	ValidMeanOpenReviewPerRound float64                  `json:"valid_mean_open_review_per_round"` // valid_open_review_count / valid_rounds
+	Tiers                       validationTierBreakdown  `json:"tiers"`                            // sum of the round rows' tiers
+	ValidTiers                  validationTierBreakdown  `json:"valid_tiers"`                      // same, non-degraded rounds only
+	MarketCoverage              validationMarketCoverage `json:"market_coverage"`
 }
 
 type validationRoundSummary struct {
@@ -268,6 +280,12 @@ type validationRoundSummary struct {
 	UniverseCount  int      `json:"universe_count"`
 	Degraded       bool     `json:"degraded"`
 	Reasons        []string `json:"reasons,omitempty"`
+	// #107 / AUD-E4 (additive).
+	GeneratedAtUTC string                  `json:"generated_at_utc,omitempty"`
+	UTCDay         string                  `json:"utc_day,omitempty"` // YYYY-MM-DD of generated_at_utc
+	BTC24h         float64                 `json:"btc_24h"`           // snapshot.btc_24h, for the §2 cross-check
+	MarketBucket   string                  `json:"market_bucket"`     // sampling-rule §2 bucket, see marketBucketForRegime
+	Tiers          validationTierBreakdown `json:"tiers"`             // prompt-final tier counts (Tier Summary line)
 }
 
 type validationStatusOutcome struct {
@@ -829,14 +847,15 @@ func runValidation(opts validationOptions, round int) (validationReport, error) 
 
 	sha, dirty := harnessBuildInfo()
 	report = validationReport{
-		GeneratedAt:   now.Format("2006-01-02 15:04:05 MST"),
-		HarnessGitSHA: sha,
-		HarnessDirty:  dirty,
-		Round:         round,
-		Snapshot:      buildSnapshotSummary(snap, len(universe), string(regime), time.Since(start)),
-		Config:        cfg,
-		Signals:       signals,
-		PotentialPool: v7Result.PotentialPool,
+		GeneratedAt:    now.Format("2006-01-02 15:04:05 MST"),
+		GeneratedAtUTC: now.UTC().Format(time.RFC3339),
+		HarnessGitSHA:  sha,
+		HarnessDirty:   dirty,
+		Round:          round,
+		Snapshot:       buildSnapshotSummary(snap, len(universe), string(regime), time.Since(start)),
+		Config:         cfg,
+		Signals:        signals,
+		PotentialPool:  v7Result.PotentialPool,
 	}
 	report.Snapshot = annotateSnapshotQuality(report.Snapshot)
 	if report.Snapshot.FailedRequests > 0 && opts.fetchErrors != nil {
@@ -1241,6 +1260,11 @@ func buildValidationRunSummary(reports []validationReport, now time.Time) valida
 			UniverseCount:  report.Snapshot.UniverseCount,
 			Degraded:       report.Snapshot.Degraded,
 			Reasons:        append([]string(nil), report.Snapshot.DegradationReasons...),
+			GeneratedAtUTC: report.GeneratedAtUTC,
+			UTCDay:         utcDay(report.GeneratedAtUTC),
+			BTC24h:         report.Snapshot.BTC24h,
+			MarketBucket:   marketBucketForRegime(report.Snapshot.Regime, report.Snapshot.BTC24h),
+			Tiers:          newTierBreakdown(report.AIRecognition.PromptTierCounts, signalCount),
 		}
 		summary.Round = append(summary.Round, round)
 		summary.SignalCount += signalCount
@@ -1255,6 +1279,7 @@ func buildValidationRunSummary(reports []validationReport, now time.Time) valida
 	}
 	summary.OpenReviewRate = pct(summary.OpenReviewCount, summary.SignalCount)
 	summary.ValidOpenReviewRate = pct(summary.ValidOpenReviewCount, summary.ValidSignalCount)
+	applyRunSummaryStats(&summary) // #107 / AUD-E4
 	return summary
 }
 
@@ -1271,7 +1296,13 @@ func pct(n, d int) float64 {
 
 func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) string {
 	var sb strings.Builder
-	sb.WriteString("# Hunter v7 验证 Run 汇总\n\n")
+	// #107 / AUD-E4: sampling-rule §4 label in the title and first line.
+	if summary.SampleLabel != "" {
+		sb.WriteString(fmt.Sprintf("# %s Hunter v7 验证 Run 汇总\n\n", summary.SampleLabel))
+	} else {
+		sb.WriteString("# Hunter v7 验证 Run 汇总\n\n")
+	}
+	sb.WriteString("> " + marketCoverageLine(summary) + "\n\n")
 	sb.WriteString(fmt.Sprintf("> 生成时间：%s\n", summary.GeneratedAt))
 	sb.WriteString(fmt.Sprintf("> 原始 JSON：`%s`\n\n", rawPath))
 	sb.WriteString("## 1. 总览\n\n")
@@ -1283,18 +1314,26 @@ func formatRunSummaryMarkdown(summary validationRunSummary, rawPath string) stri
 	sb.WriteString(fmt.Sprintf("| all_signals | %d |\n", summary.SignalCount))
 	sb.WriteString(fmt.Sprintf("| all_open_review | %d |\n", summary.OpenReviewCount))
 	sb.WriteString(fmt.Sprintf("| valid_signals | %d |\n", summary.ValidSignalCount))
-	sb.WriteString(fmt.Sprintf("| valid_open_review | %d |\n\n", summary.ValidOpenReviewCount))
+	sb.WriteString(fmt.Sprintf("| valid_open_review | %d |\n", summary.ValidOpenReviewCount))
+	sb.WriteString(fmt.Sprintf("| mean_signals_per_round | %.2f |\n", summary.MeanSignalsPerRound))
+	sb.WriteString(fmt.Sprintf("| mean_open_review_per_round | %.2f |\n", summary.MeanOpenReviewPerRound))
+	sb.WriteString(fmt.Sprintf("| valid_mean_signals_per_round | %.2f |\n", summary.ValidMeanSignalsPerRound))
+	sb.WriteString(fmt.Sprintf("| valid_mean_open_review_per_round | %.2f |\n\n", summary.ValidMeanOpenReviewPerRound))
+	sb.WriteString(tierSharesMarkdown(summary))
+	sb.WriteString(marketCoverageMarkdown(summary.MarketCoverage))
 	if summary.Rounds > 0 && summary.ValidRounds == 0 {
 		sb.WriteString("> INVALID_SAMPLE_DO_NOT_USE_FOR_WINRATE: 本次所有轮次均为 degraded，all_open_review_rate 仅可用于 smoke 回归，不可作为胜率/开仓率验收。\n\n")
 	}
 	sb.WriteString("## 2. Round 明细\n\n")
 	sb.WriteString("> Open-review = EXECUTABLE + REVIEWABLE at the **prompt-final tier** (what the LLM saw), over all module signals.\n\n")
-	sb.WriteString("| Round | Regime | Signals | Open-review (prompt-final) | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons |\n")
-	sb.WriteString("|---:|---|---:|---:|---:|---:|---:|---:|---|---|\n")
+	sb.WriteString("| Round | Regime | Signals | Open-review (prompt-final) | Open-rate | REST errors | REST error rate | Universe | Degraded | Reasons | Bucket | BTC 24h | UTC day | E | R | W | Rj | Not in prompt |\n")
+	sb.WriteString("|---:|---|---:|---:|---:|---:|---:|---:|---|---|---|---:|---|---:|---:|---:|---:|---:|\n")
 	for _, round := range summary.Round {
-		sb.WriteString(fmt.Sprintf("| %d | %s | %d | %d | %.1f%% | %d | %.1f%% | %d | %v | %s |\n",
+		sb.WriteString(fmt.Sprintf("| %d | %s | %d | %d | %.1f%% | %d | %.1f%% | %d | %v | %s | %s | %.2f%% | %s | %d | %d | %d | %d | %d |\n",
 			round.Round, round.Regime, round.SignalCount, round.OpenReview, round.OpenReviewRate,
-			round.RestErrors, round.RestErrorRate*100, round.UniverseCount, round.Degraded, strings.Join(round.Reasons, ", ")))
+			round.RestErrors, round.RestErrorRate*100, round.UniverseCount, round.Degraded, strings.Join(round.Reasons, ", "),
+			round.MarketBucket, round.BTC24h, round.UTCDay,
+			round.Tiers.Executable, round.Tiers.Reviewable, round.Tiers.Watch, round.Tiers.Rejected, round.Tiers.NotInPrompt))
 	}
 	if len(summary.RejectedRounds) > 0 {
 		sb.WriteString("\n## 3. Rejected rounds (contract, skipped; artifacts in rejected/)\n\n")
