@@ -9,6 +9,10 @@ const (
 	V7ConfirmContext    V7ConfirmSeverity = "context"
 )
 
+// V7ConfirmRiskRewardMinRR is the code of the hard RR check; its threshold
+// is the resolved strategy RR floor (#108; was risk_reward_min_1_2).
+const V7ConfirmRiskRewardMinRR = "risk_reward_min_rr"
+
 // V7ConfirmationCheck is a machine-readable confirmation result for a single
 // setup requirement. It turns free-form RequiredConfirms into measurable funnel
 // attribution without changing each setup module's scoring contract.
@@ -60,21 +64,20 @@ func EvaluateV7Confirmations(sig *V7SignalOutput, ctx *V7SymbolContext, cfg V7Co
 		summary.RR = rr
 	}
 
+	// #108: one configured RR floor (#77). The hard gate reads the resolved
+	// strategy floor (cfg.EffectiveMinRR: V7Config.MinRiskRewardRatio, set
+	// by the kernel from ResolveHunterV7; 0 -> store default). The former
+	// fixed 1.5 review-wait check (the pre-#77 executable floor) is removed:
+	// it kept RR between the configured floor and 1.5 out of review whatever
+	// the owner configured.
+	minRR := cfg.EffectiveMinRR()
 	summary.addCheck(V7ConfirmationCheck{
-		Code:      "risk_reward_min_1_2",
-		Passed:    summary.RR >= 1.2,
+		Code:      V7ConfirmRiskRewardMinRR,
+		Passed:    summary.RR >= minRR,
 		Actual:    summary.RR,
-		Threshold: 1.2,
+		Threshold: minRR,
 		Severity:  V7ConfirmHardBlock,
-		Reason:    "risk/reward below executable geometry floor",
-	})
-	summary.addCheck(V7ConfirmationCheck{
-		Code:      "risk_reward_min_1_5",
-		Passed:    summary.RR >= 1.5,
-		Actual:    summary.RR,
-		Threshold: 1.5,
-		Severity:  V7ConfirmReviewWait,
-		Reason:    "risk/reward below preferred review floor",
+		Reason:    "risk/reward below the configured RR floor",
 	})
 
 	thresholds := cfg.GetSetupThresholds(sig.SetupType)
