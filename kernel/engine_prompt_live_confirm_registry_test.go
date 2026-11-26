@@ -11,7 +11,7 @@ import (
 // dead branch (a verifier for a code no module ever produced) and prevents
 // its recurrence.
 func TestHunterV7LiveConfirmVerifiersAreRegistered(t *testing.T) {
-	for code := range hunterV7LiveConfirmVerifiers {
+	for _, code := range local.V7ConfirmLiveVerifiableCodes() {
 		if !local.V7ConfirmKnown(code) {
 			t.Errorf("%s: kernel verifier exists for an unregistered confirmation code", code)
 		}

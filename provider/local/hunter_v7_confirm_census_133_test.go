@@ -158,7 +158,8 @@ func scanEmittedConfirmCodes(t *testing.T) map[string][]string {
 }
 
 // evaluatorConfirmCases returns the codes evaluateV7KnownConfirmation has
-// a case for.
+// a case for: its own switch cases plus (#136) every code it delegates to a
+// shared predicate (v7SharedConfirmPredicates and their scoring aliases).
 func evaluatorConfirmCases(t *testing.T) map[string]bool {
 	t.Helper()
 	af, err := parser.ParseFile(token.NewFileSet(), "hunter_v7_confirmation.go", nil, 0)
@@ -182,6 +183,12 @@ func evaluatorConfirmCases(t *testing.T) map[string]bool {
 			}
 			return true
 		})
+	}
+	for code := range v7SharedConfirmPredicates {
+		out[code] = true
+	}
+	for code := range v7ConfirmPredicateAliases {
+		out[code] = true
 	}
 	if len(out) < 30 {
 		t.Fatalf("found only %d evaluator cases; the scan is broken", len(out))
@@ -240,6 +247,12 @@ func TestConfirmCensus133_RegistriesAligned(t *testing.T) {
 	for code := range v7RefreshSettledConfirms {
 		if !V7ConfirmMachineVerifiable(code) || !V7ConfirmRefreshSatisfiable(code) {
 			t.Errorf("refresh-settled %q must be a refresh-satisfiable machine code", code)
+		}
+	}
+	// #136: the refresh-settled set is exactly the RefreshOwned registry rows.
+	for code, spec := range v7ConfirmRegistry {
+		if spec.RefreshOwned != v7RefreshSettledConfirms[code] {
+			t.Errorf("%s: RefreshOwned=%v disagrees with the refresh-settled set", code, spec.RefreshOwned)
 		}
 	}
 }

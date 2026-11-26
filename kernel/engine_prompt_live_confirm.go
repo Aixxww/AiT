@@ -119,129 +119,87 @@ func hunterV7PassChecks(checks []local.V7ConfirmationCheck, clear func(string) b
 	return updated
 }
 
-// hunterV7LiveConfirmVerifiers maps each confirmation code the kernel can
-// settle pre-prompt to its verifier. Membership is data so a test can assert
-// every key is a registered confirmation code — the class of bug where a
-// verifier exists for a code no module produces (taker_buy_15m_gt_0_50 was one
-// such dead branch) or a producible code silently lacks a verifier.
-var hunterV7LiveConfirmVerifiers = map[string]func(coin CandidateCoin, data *market.Data, isLong bool, price float64) (passed, known bool){
-	"live_price_in_entry_zone": func(coin CandidateCoin, _ *market.Data, _ bool, price float64) (bool, bool) {
-		zone := coin.V7EntryZone
-		if price <= 0 || zone.Lower <= 0 || zone.Upper <= zone.Lower {
-			return false, false
-		}
-		return price >= zone.Lower && price <= zone.Upper, true
-	},
-
-	"taker_buy_15m_gt_0_52": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7TakerAtLeast(coin, 0.52)
-	},
-	"taker_buy_15m_lt_0_48": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7TakerAtMostLive(coin, 0.48)
-	},
-	"taker_buy_15m_lt_0_45": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7TakerAtMostLive(coin, 0.45)
-	},
-
-	"taker_flow_not_flipping_against_direction": func(coin CandidateCoin, _ *market.Data, isLong bool, _ float64) (bool, bool) {
-		taker, ok := hunterV7LiveTakerBuy(coin)
-		if !ok {
-			return false, false
-		}
-		if isLong {
-			return taker >= 0.50, true
-		}
-		return taker <= 0.50, true
-	},
-	"taker_flow_confirms_long": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7TakerAtLeast(coin, 0.52)
-	},
-	"taker_flow_confirms_short": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7TakerAtMostLive(coin, 0.48)
-	},
-
-	"5m_price_holds_ema20_or_trailing_support": func(_ CandidateCoin, data *market.Data, isLong bool, _ float64) (bool, bool) {
-		return hunterV7CloseHoldsEMA20(data, "5m", isLong)
-	},
-	"directional_15m_close_long": func(_ CandidateCoin, data *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7CloseHoldsEMA20(data, "15m", true)
-	},
-	"directional_15m_close_short": func(_ CandidateCoin, data *market.Data, _ bool, _ float64) (bool, bool) {
-		return hunterV7CloseHoldsEMA20(data, "15m", false)
-	},
-
-	"oi_delta_1h_positive_or_quote_volume_expands": func(coin CandidateCoin, _ *market.Data, _ bool, _ float64) (bool, bool) {
-		if coin.V7DerivativesCtx == nil {
-			return false, false
-		}
-		return coin.V7DerivativesCtx.OIChange1h > 0, true
-	},
-}
+// The live verifier has no predicates of its own (#136): every code it can
+// settle is one of local's shared confirmation predicates
+// (local.V7ConfirmLiveVerifiable), evaluated here on facts built from the
+// prompt cycle's market data. Scoring time and the trader's decision-time
+// recheck call the same predicates, so a code cannot pass live at a weaker
+// threshold than its scoring definition.
 
 // hunterV7VerifyLiveConfirmation checks one confirmation against live prompt
 // data. The second return reports whether this code is one we know how to
-// verify at all; unknown codes are never treated as satisfied.
+// verify at all with the data at hand; unknown codes are never treated as
+// satisfied.
 func hunterV7VerifyLiveConfirmation(coin CandidateCoin, data *market.Data, code string) (passed bool, known bool) {
-	verifier, ok := hunterV7LiveConfirmVerifiers[code]
-	if !ok {
+	if data == nil {
 		return false, false
 	}
-	isLong := strings.EqualFold(coin.Direction, "LONG")
 	price := data.CurrentPrice
 	if price <= 0 && coin.V7PriceContext != nil {
 		price = coin.V7PriceContext.Last
 	}
-	return verifier(coin, data, isLong, price)
+	return HunterV7VerifyConfirmation(coin, data, price, code)
 }
 
-func hunterV7LiveTakerBuy(coin CandidateCoin) (float64, bool) {
-	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.TakerBuy15m <= 0 {
-		return 0, false
+// HunterV7VerifyConfirmation evaluates a live-verifiable confirmation code's
+// shared predicate for a candidate at price. Timeframe facts come from data
+// when given (the prompt cycle's bars); with data nil they come from the
+// candidate's scoring-time execution context (the trader's decision-time
+// recheck, which holds no bars). known is false for a code without a shared
+// predicate or when the predicate's inputs are unavailable.
+func HunterV7VerifyConfirmation(coin CandidateCoin, data *market.Data, price float64, code string) (passed, known bool) {
+	if !local.V7ConfirmLiveVerifiable(code) {
+		return false, false
 	}
-	return coin.V7DerivativesCtx.TakerBuy15m, true
+	check, known, _ := local.V7EvaluateSharedConfirmation(code, HunterV7ConfirmFacts(coin, data, price))
+	return known && check.Passed, known
 }
 
-// Boundary semantics are inclusive (>=/<=), matching the provider's
-// v7TakerConfirmationCheck and the tier classifier's hunterV7TakerBuyAtLeast.
-// The strict > used here previously meant a reading of exactly 0.52 failed
-// taker_buy_15m_gt_0_52 in this pass while passing every other gate on the
-// same request path.
-func hunterV7TakerAtLeast(coin CandidateCoin, threshold float64) (bool, bool) {
-	taker, ok := hunterV7LiveTakerBuy(coin)
-	if !ok {
-		return false, false
+// HunterV7ConfirmFacts builds the shared predicate facts for a candidate.
+func HunterV7ConfirmFacts(coin CandidateCoin, data *market.Data, price float64) local.V7ConfirmFacts {
+	if price <= 0 && coin.V7PriceContext != nil {
+		price = coin.V7PriceContext.Last
 	}
-	return taker >= threshold, true
-}
-
-func hunterV7TakerAtMostLive(coin CandidateCoin, threshold float64) (bool, bool) {
-	taker, ok := hunterV7LiveTakerBuy(coin)
-	if !ok {
-		return false, false
+	f := local.V7ConfirmFacts{
+		Direction: local.V7Direction(strings.ToUpper(strings.TrimSpace(coin.Direction))),
+		SetupType: local.V7SetupType(coin.V7SetupType),
+		Price:     price,
+		EntryZone: coin.V7EntryZone,
 	}
-	return taker <= threshold, true
-}
-
-// hunterV7CloseHoldsEMA20 checks the latest close of a timeframe against its
-// EMA20, which is what "price holds support" means for a long and the mirror
-// for a short.
-func hunterV7CloseHoldsEMA20(data *market.Data, timeframe string, isLong bool) (bool, bool) {
-	if data == nil || data.TimeframeData == nil {
-		return false, false
+	if d := coin.V7DerivativesCtx; d != nil {
+		f.TakerBuy15m = d.TakerBuy15m
+		f.OIDelta1h, f.HasOIDelta1h = d.OIChange1h, true
 	}
-	tf, ok := data.TimeframeData[timeframe]
-	if !ok || tf == nil || len(tf.Klines) == 0 || len(tf.EMA20Values) == 0 {
-		return false, false
+	if data == nil {
+		if coin.V7ExecutionContext != nil {
+			f.Timeframes = coin.V7ExecutionContext.Timeframes
+		}
+		return f
 	}
-	close := tf.Klines[len(tf.Klines)-1].Close
-	ema := tf.EMA20Values[len(tf.EMA20Values)-1]
-	if close <= 0 || ema <= 0 {
-		return false, false
+	f.Timeframes = make(map[string]local.V7ExecutionTimeframeSummary, 2)
+	for _, tf := range []string{"15m", "5m"} {
+		series := data.TimeframeData[tf]
+		if series == nil || len(series.Klines) == 0 {
+			continue
+		}
+		bars := make([]local.V7Bar, len(series.Klines))
+		volumes := make([]float64, len(series.Klines))
+		for i, k := range series.Klines {
+			bars[i] = local.V7Bar{High: k.High, Low: k.Low, Close: k.Close, Volume: k.Volume}
+			volumes[i] = k.Volume
+		}
+		ema20 := 0.0
+		if n := len(series.EMA20Values); n > 0 {
+			ema20 = series.EMA20Values[n-1]
+		}
+		if summary, ok := local.V7TimeframeFactsFromBars(tf, bars, ema20); ok {
+			f.Timeframes[tf] = summary
+		}
+		if tf == "15m" {
+			f.VolumeBurst15m = local.V7VolumeBurst(volumes, local.V7VolumeBurst15mLookback)
+		}
 	}
-	if isLong {
-		return close >= ema, true
-	}
-	return close <= ema, true
+	return f
 }
 
 func appendReasonCodeIfMissing(codes []string, code string) []string {

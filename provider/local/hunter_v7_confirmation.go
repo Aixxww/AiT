@@ -148,26 +148,18 @@ func (s *V7ConfirmationSummary) addCheck(check V7ConfirmationCheck) {
 }
 
 func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7SymbolContext) (V7ConfirmationCheck, bool) {
+	// #136: a code with a shared predicate is evaluated by that predicate,
+	// the same one the kernel live verifier and the trader recheck call.
+	// Unavailable inputs (known=false) yield the predicate's failing check.
+	if check, _, ok := V7EvaluateSharedConfirmation(code, v7ScoringConfirmFacts(sig, ctx)); ok {
+		return check, true
+	}
 	price := ctx.CurrentPrice
 	switch code {
-	case "live_price_in_entry_zone":
-		passed := price >= sig.EntryZone.Lower && price <= sig.EntryZone.Upper
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    passed,
-			Actual:    price,
-			Threshold: sig.EntryZone.Upper,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "live price must be inside entry zone",
-		}, true
 	case "15m_close_above_vwap_or_ema20_or_entry_zone_upper":
 		return v7Directional15mCloseCheck(code, sig, ctx, true, sig.EntryZone.Upper), true
 	case "15m_close_below_vwap_or_ema20_or_entry_zone_lower":
 		return v7Directional15mCloseCheck(code, sig, ctx, false, sig.EntryZone.Lower), true
-	case "directional_15m_close_long":
-		return v7Directional15mCloseCheck(code, sig, ctx, true, v7EntryZoneMid(sig)), true
-	case "directional_15m_close_short":
-		return v7Directional15mCloseCheck(code, sig, ctx, false, v7EntryZoneMid(sig)), true
 	case "15m_close_above_vwap_or_ema20":
 		return v7Directional15mCloseCheck(code, sig, ctx, true, 0), true
 	case "15m_close_below_vwap_or_ema20":
@@ -180,22 +172,6 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 		return v7VWAP15mCloseCheck(code, ctx, false), true
 	case "15m_reclaim_vwap":
 		return v7VWAP15mCloseCheck(code, ctx, true), true
-	case "5m_price_holds_ema20_or_trailing_support":
-		return v7EMA20CloseCheck(code, ctx, "5m", sig.Direction != V7DirShort), true
-	case "taker_buy_15m_gt_0_52", "taker_buy_15m_stays_above_0_52":
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.52, true), true
-	case "taker_buy_15m_lt_0_48":
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.48, false), true
-	case "taker_buy_15m_lt_0_45":
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.45, false), true
-	case "taker_flow_confirms_long":
-		threshold := 0.52
-		if sig.SetupType == V7SetupWhaleFlow {
-			threshold = 0.56
-		}
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, threshold, true), true
-	case "taker_flow_confirms_short":
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.48, false), true
 	case "risk_level_not_extreme":
 		passed := sig.RiskLevel != V7RiskExtreme && sig.RiskScore < 65
 		return V7ConfirmationCheck{
@@ -235,26 +211,6 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity:  V7ConfirmReviewWait,
 			Reason:    "breakout confirmation requires price above entry-zone upper bound",
 		}, true
-	case "5m_or_15m_close_above_trigger", "5m_or_15m_close_through_breakout_level":
-		trigger := sig.EntryZone.Upper
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    trigger > 0 && price >= trigger,
-			Actual:    price,
-			Threshold: trigger,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "long trigger has not cleared entry-zone upper bound",
-		}, true
-	case "5m_or_15m_close_below_trigger":
-		trigger := sig.EntryZone.Lower
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    trigger > 0 && price <= trigger,
-			Actual:    price,
-			Threshold: trigger,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "short trigger has not cleared entry-zone lower bound",
-		}, true
 	case "no_new_low_after_reclaim", "no_new_low_after_rejection", "no_new_low_after_reversal_signal", "no_new_low_after_crowding_signal":
 		return v7NoNewExtremeCheck(code, ctx, true), true
 	case "no_new_high_after_rejection", "no_new_high_after_reversal_signal", "no_new_high_after_crowding_signal":
@@ -289,19 +245,6 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity: V7ConfirmReviewWait,
 			Reason:   "1h OI change is not positive after the breakout",
 		}, true
-	case "oi_continues_inflow", "oi_delta_1h_positive_or_quote_volume_expands", "oi_or_volume_expands_with_price":
-		oiDelta := 0.0
-		if ctx.Snapshot != nil {
-			oiDelta = ctx.Snapshot.OIDelta1h
-		}
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    oiDelta > 0 || ctx.VolumeBurst15m >= 1.2,
-			Actual:    oiDelta,
-			Threshold: 0,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "OI or short-term volume expansion is not yet confirmed",
-		}, true
 	case "bb_width_expansion_starts":
 		return V7ConfirmationCheck{
 			Code:      code,
@@ -320,11 +263,6 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity:  V7ConfirmReviewWait,
 			Reason:    "momentum is overheated or late",
 		}, true
-	case "taker_flow_not_flipping_against_direction":
-		if sig.Direction == V7DirShort {
-			return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.50, false), true
-		}
-		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.50, true), true
 	case "oi_stabilize":
 		// Pullback continuation wants open interest to stop bleeding, not
 		// necessarily to grow yet.
@@ -356,48 +294,7 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 }
 
 func v7Directional15mCloseCheck(code string, sig *V7SignalOutput, ctx *V7SymbolContext, long bool, zoneThreshold float64) V7ConfirmationCheck {
-	check := V7ConfirmationCheck{
-		Code:     code,
-		Severity: V7ConfirmReviewWait,
-		Reason:   "15m execution close is unavailable",
-	}
-	tf, ok := v7ExecutionTimeframe(ctx, "15m")
-	if !ok || tf.LastClose <= 0 {
-		return check
-	}
-
-	check.Actual = tf.LastClose
-	check.Threshold = zoneThreshold
-	if long {
-		passed := false
-		if tf.HasVWAP20 && tf.CloseVsVWAP20Pct >= 0 {
-			passed = true
-			check.Threshold = tf.VWAP20
-		}
-		if tf.HasEMA20 && tf.CloseVsEMA20Pct >= 0 {
-			passed = true
-		}
-		if zoneThreshold > 0 && tf.LastClose >= zoneThreshold {
-			passed = true
-		}
-		check.Passed = passed
-		check.Reason = "15m close is not above VWAP/EMA20 or the required long zone threshold"
-		return check
-	}
-
-	passed := false
-	if tf.HasVWAP20 && tf.CloseVsVWAP20Pct <= 0 {
-		passed = true
-		check.Threshold = tf.VWAP20
-	}
-	if tf.HasEMA20 && tf.CloseVsEMA20Pct <= 0 {
-		passed = true
-	}
-	if zoneThreshold > 0 && tf.LastClose <= zoneThreshold {
-		passed = true
-	}
-	check.Passed = passed
-	check.Reason = "15m close is not below VWAP/EMA20 or the required short zone threshold"
+	check, _ := v7Directional15mClosePredicate(code, v7ScoringConfirmFacts(sig, ctx), long, zoneThreshold)
 	return check
 }
 
@@ -416,25 +313,6 @@ func v7VWAP15mCloseCheck(code string, ctx *V7SymbolContext, above bool) V7Confir
 	} else {
 		check.Passed = tf.CloseVsVWAP20Pct <= 0
 		check.Reason = "15m close is not below VWAP20"
-	}
-	return check
-}
-
-// v7EMA20CloseCheck: the latest close of a timeframe holds EMA20 on the
-// direction's side (#133; the kernel live verifier uses the same rule).
-func v7EMA20CloseCheck(code string, ctx *V7SymbolContext, timeframe string, long bool) V7ConfirmationCheck {
-	check := V7ConfirmationCheck{Code: code, Severity: V7ConfirmReviewWait, Reason: timeframe + " EMA20 is unavailable"}
-	tf, ok := v7ExecutionTimeframe(ctx, timeframe)
-	if !ok || !tf.HasEMA20 || tf.LastClose <= 0 {
-		return check
-	}
-	check.Actual = tf.CloseVsEMA20Pct
-	if long {
-		check.Passed = tf.CloseVsEMA20Pct >= 0
-		check.Reason = timeframe + " close is below EMA20"
-	} else {
-		check.Passed = tf.CloseVsEMA20Pct <= 0
-		check.Reason = timeframe + " close is above EMA20"
 	}
 	return check
 }
@@ -478,23 +356,6 @@ func v7ExecutionTimeframe(ctx *V7SymbolContext, timeframe string) (V7ExecutionTi
 	}
 	tf, ok := ctx.ExecutionContext.Timeframes[timeframe]
 	return tf, ok
-}
-
-func v7TakerConfirmationCheck(code string, actual, threshold float64, above bool) V7ConfirmationCheck {
-	passed := actual >= threshold
-	reason := "15m taker buy is below required long threshold"
-	if !above {
-		passed = actual <= threshold
-		reason = "15m taker buy is above required short threshold"
-	}
-	return V7ConfirmationCheck{
-		Code:      code,
-		Passed:    passed,
-		Actual:    actual,
-		Threshold: threshold,
-		Severity:  V7ConfirmReviewWait,
-		Reason:    reason,
-	}
 }
 
 func v7EntryZoneMid(sig *V7SignalOutput) float64 {

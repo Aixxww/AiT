@@ -18,15 +18,21 @@ package local
 //	                     REVIEWABLE instead of WATCH, for live re-checking
 //	                     (was: hunterV7ConfirmationCanBeLiveReviewed)
 //
-// Evaluation logic itself still lives with each layer's data access
-// (EvaluateV7Confirmations in the provider, hunterV7VerifyLiveConfirmation in
-// the kernel); consistency between those evaluators and this registry is
-// enforced by tests, and full evaluator unification is a later phase.
+// Evaluation (#136): every code verified both at scoring time and against
+// live data has ONE shared predicate (hunter_v7_confirm_predicates.go) that
+// the scoring evaluator, the kernel live verifier and the trader's refresh
+// recheck all call. LiveReviewable is not hand-picked: it must equal
+// (live-verifiable AND RefreshSatisfiable) OR RefreshOwned, which
+// TestV7ConfirmLiveReviewableMatchesVerifiers enforces.
 
 // V7ConfirmSpec describes how one required-confirmation code can be settled.
 type V7ConfirmSpec struct {
 	RefreshSatisfiable bool
 	LiveReviewable     bool
+	// RefreshOwned (#136) marks a code whose verifier is the trader's
+	// decision-time refresh itself (fresh_micro_confirmed): no predicate can
+	// settle it earlier, and the refresh guard is its single owner.
+	RefreshOwned bool
 	// Checklist (#133) marks an LLM-checklist-only code: the prompt shows it
 	// in required_confirmations for the LLM to verify on the bars, but no
 	// backend layer checks or enforces it (it never blocks a tier or an
@@ -55,7 +61,7 @@ var v7ConfirmVocab = []struct {
 		tagDef("5m_or_15m_close_below_trigger", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Fast short confirmation needs a 5m or 15m close below the trigger.")},
 	{"5m_price_holds_ema20_or_trailing_support", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
 		tagDef("5m_price_holds_ema20_or_trailing_support", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Momentum trailing entry needs 5m price to hold EMA20 or the provided trailing support.")},
-	{"momentum_not_exhausted", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
+	{"momentum_not_exhausted", V7ConfirmSpec{RefreshSatisfiable: true},
 		tagDef("momentum_not_exhausted", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Momentum setup must not show exhaustion before entry.")},
 	{"taker_flow_confirms_long", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
 		tagDef("taker_flow_confirms_long", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long setup needs taker flow to remain aligned before opening.")},
@@ -63,7 +69,7 @@ var v7ConfirmVocab = []struct {
 		tagDef("taker_flow_confirms_short", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short setup needs taker flow to remain aligned before opening.")},
 	{"taker_flow_not_flipping_against_direction", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
 		tagDef("taker_flow_not_flipping_against_direction", "required_confirmation", "confirmation", "mixed", V7TagActionRequiredConfirm, "Taker flow must not flip against the signal direction.")},
-	{"fresh_micro_confirmed", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
+	{"fresh_micro_confirmed", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true, RefreshOwned: true},
 		tagDef("fresh_micro_confirmed", "required_confirmation", "confirmation", "neutral", V7TagActionRequiredConfirm, "Latest symbol-level micro refresh confirms price, flow, entry zone, and RR after the original signal.")},
 	{"live_price_in_entry_zone", V7ConfirmSpec{},
 		tagDef("live_price_in_entry_zone", "required_confirmation", "confirmation", "mixed", V7TagActionRequiredConfirm, "Live price must remain inside the signal entry zone before opening.")},
@@ -75,9 +81,9 @@ var v7ConfirmVocab = []struct {
 		tagDef("15m_close_above_vwap_or_ema20_or_entry_zone_upper", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long confirmation requires a 15m close above VWAP/EMA20 or entry-zone upper bound.")},
 	{"15m_close_below_vwap_or_ema20_or_entry_zone_lower", V7ConfirmSpec{RefreshSatisfiable: true},
 		tagDef("15m_close_below_vwap_or_ema20_or_entry_zone_lower", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short confirmation requires a 15m close below VWAP/EMA20 or entry-zone lower bound.")},
-	{"taker_buy_15m_gt_0_52", V7ConfirmSpec{RefreshSatisfiable: true},
+	{"taker_buy_15m_gt_0_52", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
 		tagDef("taker_buy_15m_gt_0_52", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long needs 15m taker buy ratio above 0.52.")},
-	{"taker_buy_15m_lt_0_48", V7ConfirmSpec{RefreshSatisfiable: true},
+	{"taker_buy_15m_lt_0_48", V7ConfirmSpec{RefreshSatisfiable: true, LiveReviewable: true},
 		tagDef("taker_buy_15m_lt_0_48", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short needs 15m taker buy ratio below 0.48.")},
 	{"no_new_low_after_reclaim", V7ConfirmSpec{RefreshSatisfiable: true},
 		tagDef("no_new_low_after_reclaim", "required_confirmation", "confirmation", "bullish", V7TagActionRequiredConfirm, "Long reclaim remains valid only if price does not make a new low after reclaim.")},
