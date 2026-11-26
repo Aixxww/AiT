@@ -122,7 +122,7 @@ These are prompt-level rule changes. No backend gate changed.
 
 1. Trap warning (02/04): a breakout or breakdown on shrinking volume or falling OI → wait, `confirmation_missing`.
 2. No averaging down (01).
-3. Candidate tie-break inside a tier: higher `effective_rr_after_cap`, then lower `signal_age_ms`.
+3. Candidate tie-break inside a tier: higher `effective_rr_after_cap`, then fresher data (lower `price_age_ms`, else `snapshot_age_ms`; #119: `signal_age_ms` was never in either payload).
 4. A setup_type outside S3 → conservative size at most. (`short_squeeze_long` moved into the momentum family in #74, Q1.)
 5. Conservative / live-recheck opens → the low end of the confidence band (C5).
 6. Holding outside the protector levels: close only on the planned stop, hard invalidation or a 5m+15m structural reversal, using the "if flat now" test. Before, this exit rule applied only to micro-profit noise.
