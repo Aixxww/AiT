@@ -16,6 +16,7 @@ func promptFinalFixture() (*StrategyEngine, func() *Context) {
 	engine := NewStrategyEngine(&store.StrategyConfig{Language: "en", CoinSource: store.CoinSourceConfig{SourceType: "hunter_v7"}})
 	mk := func() *Context {
 		up := hunterV7PromptReadyLeaderCandidate("LIVEINUSDT", 104) // assembled WATCH; the live price promotes it
+		up.V7Invalidation.Price = 98                                // #113: stop below the live price 100, so the backend RR is computable
 		up.V7ExecutionTier, up.V7TierReason = "WATCH", "backend_rr_infeasible"
 		held := hunterV7PromptReadyLeaderCandidate("HELDUSDT", 100) // held position: not shown
 		nodata := hunterV7PromptReadyLeaderCandidate("NODATAUSDT", 100)

@@ -482,6 +482,7 @@ func TestBuildUserPromptCanUpgradeHunterV7TierAfterLivePriceReturnsToWindow(t *t
 		},
 	})
 	coin := hunterV7PromptReadyLeaderCandidate("LIVEINUSDT", 104)
+	coin.V7Invalidation.Price = 98 // #113: stop below the live price 100, so the backend RR is computable
 	coin.V7ExecutionTier = "WATCH"
 	coin.V7TierReason = "backend_rr_infeasible"
 	ctx := &Context{

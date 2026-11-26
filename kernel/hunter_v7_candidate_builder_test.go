@@ -8,6 +8,7 @@ package kernel
 // market samples: when adding rows, preserve fixture values verbatim.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Aixxww/AiT/provider/local"
@@ -171,7 +172,7 @@ func runHunterV7TierCases(t *testing.T, cases []v7TierCase) {
 	t.Helper()
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			tier, reason := classifyHunterV7CandidateTier(tt.coin)
+			tier, reason := classifyHunterV7CandidateTier(withNeutralRRGeometry(tt.coin))
 			if tt.wantTier != "" && tier != tt.wantTier {
 				t.Fatalf("tier = %q (%s), want %s", tier, reason, tt.wantTier)
 			}
@@ -193,4 +194,40 @@ func runHunterV7TierCases(t *testing.T, cases []v7TierCase) {
 			}
 		})
 	}
+}
+
+// withNeutralRRGeometry completes a tier-table fixture's RR geometry when the
+// row does not carry one (#113: the admission gate fails closed on unknown
+// RR, rr_unknown). Only absent pieces are filled, relative to the row's own
+// reference price: a stop 2.2% away and a target 10% away. With the
+// helper geometry (min stop 2%, TP cap 3.25%) that is RR 3.25/2.2 = 1.48,
+// above the 1.2 floor. A row without any reference price gets V7RRReferencePrice
+// 100. Rows that carry complete geometry, or whose stop is already beyond
+// the price, are left as they are. The tables test the tier rules; the gate
+// itself is covered in hunter_v7_rr_admission_113_test.go.
+func withNeutralRRGeometry(coin CandidateCoin) CandidateCoin {
+	g := HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)
+	if _, _, ok := hunterV7BackendCappedRR(coin, g); ok {
+		return coin
+	}
+	price := hunterV7ReferencePrice(coin)
+	if price <= 0 {
+		price = 100
+		coin.V7RRReferencePrice = price
+	}
+	short := strings.EqualFold(coin.Direction, "SHORT")
+	if coin.V7Invalidation.Price <= 0 {
+		coin.V7Invalidation.Price = price * 0.978
+		if short {
+			coin.V7Invalidation.Price = price * 1.022
+		}
+	}
+	if len(coin.V7Targets) == 0 {
+		target := price * 1.10
+		if short {
+			target = price * 0.90
+		}
+		coin.V7Targets = []local.V7Target{{Price: target}}
+	}
+	return coin
 }

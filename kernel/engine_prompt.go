@@ -1103,7 +1103,7 @@ func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tie
 	if missing.hasMissing() {
 		readiness.DataQuality = "partial"
 	}
-	if reason == "backend_rr_infeasible" {
+	if reason == "backend_rr_infeasible" || reason == hunterV7RRBelowFloorReason || reason == hunterV7RRUnknownReason {
 		readiness.Tier = local.V7ReadinessWatch
 		readiness.Reason = reason
 		readiness.BlockedGate = "execution_geometry"
