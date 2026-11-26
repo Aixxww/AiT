@@ -177,6 +177,9 @@ func TestS2GetFullDecisionFailsClosedWithoutCallingAI(t *testing.T) {
 	if got.Symbol != "ALL" || got.Action != "wait" || got.BlockedReasonCode != "backend_guard_risk" || !strings.HasPrefix(got.Reasoning, hunterV7PromptContractMismatch+": ") {
 		t.Fatalf("wait %+v", got)
 	}
+	if !d.AINotCalled {
+		t.Fatal("a contract-stopped round must be marked AINotCalled (no AI charge)")
+	}
 	if d.RawResponse != "" || d.SystemPrompt == "" || d.UserPrompt == "" {
 		t.Fatalf("prompts must be kept for audit and no AI response recorded: raw=%q", d.RawResponse)
 	}

@@ -137,6 +137,7 @@ func (e *StrategyEngine) hunterV7PromptContractError(systemPrompt, userPrompt st
 func hunterV7PromptContractMismatchDecision(err error, systemPrompt, userPrompt string) *FullDecision {
 	reason := hunterV7PromptContractMismatch + ": " + err.Error()
 	return &FullDecision{
+		AINotCalled:  true,
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		CoTTrace:     reason,

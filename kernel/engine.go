@@ -373,6 +373,11 @@ type FullDecision struct {
 	// open's signal is not an E/R candidate of this prompt.
 	HunterV7ERCount    int `json:"hunter_v7_er_count,omitempty"`
 	HunterV7ChosenRank int `json:"hunter_v7_chosen_rank,omitempty"`
+
+	// AINotCalled (#111 S2) marks a round the backend decided without calling
+	// the AI (the prompt contract stopped it). The trader books no AI charge
+	// for it.
+	AINotCalled bool `json:"ai_not_called,omitempty"`
 }
 
 // QuantData quantitative data structure (fund flow, position changes, price changes)
