@@ -516,6 +516,9 @@ func ValidateTradingConfig(cfg *StrategyConfig) error {
 	if h := cfg.CoinSource.Hunter; h != nil && h.V7Prompt != nil && !ValidV7PayloadVersion(h.V7Prompt.PayloadVersion) {
 		add("coin_source.hunter_config.v7_prompt.payload_version %q must be %q or %q", h.V7Prompt.PayloadVersion, V7PayloadVersionLegacy, V7PayloadVersionHybridV2)
 	}
+	if h := cfg.CoinSource.Hunter; h != nil && h.V7Prompt != nil && (h.V7Prompt.AnatomyBars < 0 || h.V7Prompt.AnatomyBars > MaxV7PromptAnatomyBars) {
+		add("coin_source.hunter_config.v7_prompt.anatomy_bars %d must be 0 (off) to %d", h.V7Prompt.AnatomyBars, MaxV7PromptAnatomyBars)
+	}
 	switch strings.ToLower(strings.TrimSpace(rc.GeometryRepair)) {
 	case "", "repair", "reject":
 	default:

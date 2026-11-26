@@ -38,6 +38,8 @@ type hunterV7DoctrineInputs struct {
 	MaxDriftPct  float64
 	MinRR        float64
 	Protector    store.ProtectorConfig
+	// AnatomyBars is v7_prompt.anatomy_bars (#111 S5; 0 = off, no doctrine line).
+	AnatomyBars int
 }
 
 func (e *StrategyEngine) hunterV7DoctrineInputs() hunterV7DoctrineInputs {
@@ -52,6 +54,7 @@ func (e *StrategyEngine) hunterV7DoctrineInputs() hunterV7DoctrineInputs {
 		MaxDriftPct:  maxDriftPct,
 		MinRR:        minRR,
 		Protector:    store.EffectiveProtector(e.config.RiskControl.Protector),
+		AnatomyBars:  e.hunterV7PromptConfig().AnatomyBars,
 	}
 }
 
@@ -105,6 +108,18 @@ func doctrineRegimes() string {
 	return strings.Join(out, " / ")
 }
 
+// doctrineAnatomy is the S2 line that explains the opt-in anatomy field
+// (#111 S5); "" when it is off, so the doctrine stays byte-identical.
+func doctrineAnatomy(n int, lang Language) string {
+	if n <= 0 {
+		return ""
+	}
+	if lang == LangChinese {
+		return fmt.Sprintf("\n- execution_context.timeframes[tf].anatomy：最近 %d 根已收盘 K 线（bars_ago 0 = 最新一根已收盘），由旧到新：dir、body_pct / upper_wick_pct / lower_wick_pct / close_pos_pct（占该 K 线高低区间的百分比）、range_atr（区间 / ATR14）。只描述形态，不是信号。", n)
+	}
+	return fmt.Sprintf("\n- execution_context.timeframes[tf].anatomy: the last %d closed bars (bars_ago 0 = the latest closed bar), oldest first: dir, body_pct / upper_wick_pct / lower_wick_pct / close_pos_pct (percent of that bar's high-low range) and range_atr (range / ATR14). Shape only, not a signal.", n)
+}
+
 func hunterV7DoctrinePrompt(lang Language, in hunterV7DoctrineInputs) string {
 	p := in.Protector
 	r := strings.NewReplacer(
@@ -132,6 +147,7 @@ func hunterV7DoctrinePrompt(lang Language, in hunterV7DoctrineInputs) string {
 		"{P_BE_BUF}", doctrineNum(p.BreakevenBufferFrac*100),
 		"{P_TRAIL}", doctrineTrail(p, lang),
 		"{REGIMES}", doctrineRegimes(),
+		"{ANATOMY}", doctrineAnatomy(in.AnatomyBars, lang),
 	)
 	if lang == LangChinese {
 		return r.Replace(hunterV7DoctrineZH)
@@ -153,7 +169,7 @@ const hunterV7DoctrineZH = `
 - taker 阶梯：flow_taker_buy_aggressive > strong > moderate/aligned > recovering > neutral > weak（空侧 flow_taker_sell_* 对称）。同向 aggressive/strong 且 confirmation_summary 通过 → 支持正常仓；moderate → 现场 taker 复核后才开；neutral/weak 不能单独成立；逆向弱流 → 减仓或 wait。
 - 三时钟新鲜度：信号在采集时打分，prompt 构建时按最新收盘与资金流重结算并重判 tier，下单前后端再以 REST/orderbook 复核。因此 confirmation_summary.passed_review=true 且 rr/effective_rr ≥ {MIN_RR} 时，后端 RR 已验证，不得臆造更严格的结构 RR。
 - market_regime 是后端按 BTC/ETH 判定的全局状态，取值：{REGIMES}。trend_continuation 表示两大币 4h EMA20/EMA60 趋势结构同向保持、但 24h 涨跌与 ADX 尚未确认（趋势中的休整）。只有 regime_against_direction 与下文点名的规则使用它，不得自行重判行情。
-- 分级：只有 EXECUTABLE 可立即执行。REVIEWABLE 是预备候选：只有当 must_confirm / required_confirmations 在本轮数据中逐条可见满足时才可开仓，否则 wait。WATCH 只是下一轮触发背景；REJECTED 不参与。tier_reason=execution_quality_ready 表示只过了泛化分数门，开仓前须核对 entry_zone_position 与实时 taker。
+- 分级：只有 EXECUTABLE 可立即执行。REVIEWABLE 是预备候选：只有当 must_confirm / required_confirmations 在本轮数据中逐条可见满足时才可开仓，否则 wait。WATCH 只是下一轮触发背景；REJECTED 不参与。tier_reason=execution_quality_ready 表示只过了泛化分数门，开仓前须核对 entry_zone_position 与实时 taker。{ANATOMY}
 
 ## §3 决策漏斗与形态族剧本
 漏斗：先逐个审验全部 EXECUTABLE；全部被阻断后才审 REVIEWABLE。空仓且存在开仓复核候选时，只能在最佳 open 与一个精确 blocked_reason 之间二选一；WATCH 池缺失、市场情绪、账户回撤都不能作为全局 wait。逆势统一硬边界：risk_tags 含 regime_against_direction 且 passed_review=false 的候选一律 wait，优先级、单根 EMA 收复、强 taker、RR 达标都不能覆盖。高周期规则：候选自身 1h/4h 结构定方向，5m/15m 只定时机。动量延续族、突破族、阶梯族、breakdown_momentum_short 与 relative_weakness_short 不得逆 1h/4h 开仓（wait + confirmation_missing）。逆势形态（反转修复族、distribution_short、long_squeeze_short、range_reversion）逆 1h/4h 时最多按 REVIEWABLE 对待：must_confirm 逐条可见且 confidence >=85 才开。开仓前在 reasoning 中点名 setup_score / timing_score / regime_fit_score / liquidity_score 中最弱的一项。下列族之外的 setup_type 没有剧本：只依据 execution_contract 与 tag_semantics，最多保守仓。
@@ -190,7 +206,7 @@ You are the Hunter v7 execution auditor. The upstream funnel is done: 500+ contr
 - Taker ladder: flow_taker_buy_aggressive > strong > moderate/aligned > recovering > neutral > weak (short side flow_taker_sell_* symmetric). Direction-aligned aggressive/strong with a passed confirmation_summary supports normal size; moderate requires a live taker re-check before opening; neutral/weak is never sufficient alone; weak flow against the direction means reduce or wait.
 - Three freshness clocks: signals are scored at capture, re-settled against the latest closes and flow at prompt build (tier re-judged), and re-verified by the backend via REST/orderbook before ordering. So when confirmation_summary.passed_review=true and rr/effective_rr >= {MIN_RR}, backend RR is validated; do not invent a stricter structural RR.
 - market_regime is the backend's global state from BTC/ETH; values: {REGIMES}. trend_continuation means both majors keep the same 4h EMA20/EMA60 trend structure while the 24h change and ADX have not confirmed it (a pause inside the trend). Only regime_against_direction and the rules below that name it use it; never re-classify the market yourself.
-- Tiers: only EXECUTABLE is immediately actionable. REVIEWABLE is a prepared candidate: open it only when every item of must_confirm / required_confirmations is visibly satisfied in this cycle's data; otherwise wait. WATCH is next-cycle trigger context only; REJECTED never participates. tier_reason=execution_quality_ready means only the generic score floor ran: verify entry_zone_position and live taker before opening.
+- Tiers: only EXECUTABLE is immediately actionable. REVIEWABLE is a prepared candidate: open it only when every item of must_confirm / required_confirmations is visibly satisfied in this cycle's data; otherwise wait. WATCH is next-cycle trigger context only; REJECTED never participates. tier_reason=execution_quality_ready means only the generic score floor ran: verify entry_zone_position and live taker before opening.{ANATOMY}
 
 ## S3 Funnel And Family Playbooks
 Funnel: audit every EXECUTABLE first; REVIEWABLE only after all EXECUTABLE are blocked. When flat and an open-review candidate exists, choose between the best open and one precise blocked_reason — WATCH-pool gaps, market mood and account drawdown are never a global wait. Unified counter-trend boundary: a candidate with regime_against_direction in risk_tags and passed_review=false waits; priority, a single EMA reclaim, strong taker or passing RR never override it. HTF rule: the candidate's own 1h/4h structure sets direction, 5m/15m only timing. Momentum continuation, Breakout, Ladder, breakdown_momentum_short and relative_weakness_short never open against 1h/4h (wait + confirmation_missing). Counter-trend setups (Reversal repair, distribution_short, long_squeeze_short, range_reversion) against 1h/4h are REVIEWABLE at most: open only with every must_confirm visible and confidence >=85. Before an open, name in reasoning the weakest of setup_score / timing_score / regime_fit_score / liquidity_score. A setup_type outside the families below has no playbook: use execution_contract and tag_semantics only, at conservative size at most.
