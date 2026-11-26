@@ -748,8 +748,11 @@ func AIFailureReason(err error) string {
 
 func extractDecisions(response string) ([]Decision, error) {
 	s := removeInvisibleRunes(response)
-	s = sanitizeWhyThisCouldFail(s) // #111 S3: fail-soft free-text field
 	s = strings.TrimSpace(s)
+	// #131 / Audit R2 H5: the why_this_could_fail sanitizer runs on the
+	// decision payload only, before fixMissingQuotes, never on <reasoning>
+	// or the rest of the reply.
+	raw := s
 	s = fixMissingQuotes(s)
 
 	var jsonPart string
@@ -761,10 +764,21 @@ func extractDecisions(response string) ([]Decision, error) {
 		}
 		return nil, fmt.Errorf("%w: %d blocks", ErrMultipleDecisionBlocks, len(blocks))
 	} else if len(blocks) == 1 && len(blocks[0]) > 1 {
-		jsonPart = strings.TrimSpace(blocks[0][1])
+		// The raw block (the tags are ASCII, unaffected by fixMissingQuotes).
+		if rb := reDecisionTag.FindStringSubmatch(raw); len(rb) > 1 {
+			jsonPart = strings.TrimSpace(sanitizeWhyThisCouldFail(rb[1]))
+		} else {
+			jsonPart = strings.TrimSpace(blocks[0][1])
+		}
 		logger.Infof("✓ Extracted JSON using <decision> tag")
 	} else {
-		jsonPart = s
+		// No tag: a closed reasoning block stays out of the sanitizer's
+		// reach; the text after it is the decision payload.
+		head, payload := "", raw
+		if i := strings.LastIndex(raw, "</reasoning>"); i >= 0 {
+			head, payload = raw[:i+len("</reasoning>")], raw[i+len("</reasoning>"):]
+		}
+		jsonPart = head + sanitizeWhyThisCouldFail(payload)
 		logger.Infof("⚠️  <decision> tag not found, searching JSON in full text")
 	}
 
