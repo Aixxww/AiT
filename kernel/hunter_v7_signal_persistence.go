@@ -51,6 +51,7 @@ func BuildHunterV7SignalRecordsTagged(signals []local.V7SignalOutput, candidates
 			}
 		}
 		rec.Tags = hunterV7SignalTags(sig, matched, rec.Tier, opts)
+		rec.Tags.StateCode = hunterV7SignalStateCode(sig, rec.Tier) // #111 S4
 		records = append(records, rec)
 	}
 	return records
@@ -166,6 +167,7 @@ func BuildHunterV7SignalDBRecordsWithAudit(cycleNum int, records []local.V7Signa
 			CalibrationVersion:       rec.Tags.CalibrationVersion,
 			DoctrineVersion:          rec.Tags.DoctrineVersion,
 			PayloadVersion:           rec.Tags.PayloadVersion,
+			StateCode:                rec.Tags.StateCode,
 			LifecycleStateAtDecision: rec.Tags.LifecycleState,
 			TriggerPrice:             triggerPrice,
 			T2EventID:                rec.Tags.T2EventID,

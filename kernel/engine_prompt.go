@@ -944,6 +944,7 @@ func (e *StrategyEngine) hunterV7PromptItems(ctx *Context, positionSymbols map[s
 func logHunterV7Funnel(items []hunterV7PromptCandidate) {
 	e, r, w, x := hunterV7PromptTierCounts(items)
 	logger.Infof("hunter_v7 funnel: E+R=%d (EXECUTABLE=%d REVIEWABLE=%d WATCH=%d REJECTED=%d, shown=%d)", e+r, e, r, w, x, len(items))
+	logHunterV7StateCodes(items) // #111 S4: one state code per prompt-final candidate
 }
 
 // hunterV7PromptTierCounts counts the prompt items per tier.

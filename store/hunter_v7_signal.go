@@ -88,6 +88,7 @@ type HunterV7SignalRecord struct {
 	CalibrationVersion       string   `gorm:"column:calibration_version" json:"calibration_version"`
 	DoctrineVersion          string   `gorm:"column:doctrine_version" json:"doctrine_version"`
 	PayloadVersion           string   `gorm:"column:payload_version" json:"payload_version"` // #111 S2
+	StateCode                string   `gorm:"column:state_code" json:"state_code,omitempty"` // #111 S4: state code at execution_tier
 	LifecycleStateAtDecision string   `gorm:"column:lifecycle_state_at_decision" json:"lifecycle_state_at_decision"`
 	TriggerPrice             *float64 `gorm:"column:trigger_price" json:"trigger_price,omitempty"`
 	T2EventID                string   `gorm:"column:t2_event_id" json:"t2_event_id,omitempty"` // fix 11: Task-2 lifecycle event id ("" = native)
