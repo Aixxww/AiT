@@ -825,6 +825,13 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly && (tier == "EXECUTABLE" || tier == "REVIEWABLE") {
 		return "WATCH", "class_shadow_only"
 	}
+	// #137: a correlation-backfilled row is context only. Whatever rule
+	// promoted it, it never reaches EXECUTABLE/REVIEWABLE, so it is never
+	// counted as open-review and the trader (which reads this tier) never
+	// treats it as openable.
+	if (tier == "EXECUTABLE" || tier == "REVIEWABLE") && containsStringValue(coin.V7RiskTags, local.V7CorrelationFloorContextTag) {
+		return "WATCH", local.V7CorrelationFloorContextTag
+	}
 	// #113: RR admission, fail closed (after the class caps, so a
 	// shadow_only row keeps class_shadow_only). Whatever rule promoted the row, an
 	// EXECUTABLE or REVIEWABLE candidate is kept in WATCH when its backend

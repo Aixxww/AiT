@@ -496,7 +496,7 @@ func applyV7CorrelationFilter(signals []V7SignalOutput, cfg V7Config) []V7Signal
 		if _, ok := seen[key]; ok {
 			continue
 		}
-		sig.RiskTags = appendIfMissing(sig.RiskTags, "correlation_floor_context")
+		markV7CorrelationFloorContext(&sig)
 		filtered = append(filtered, sig)
 		seen[key] = struct{}{}
 	}
@@ -504,6 +504,25 @@ func applyV7CorrelationFilter(signals []V7SignalOutput, cfg V7Config) []V7Signal
 		return filtered[i].AIPriority > filtered[j].AIPriority
 	})
 	return filtered
+}
+
+// V7CorrelationFloorContextTag marks a row restored after theme
+// de-duplication only to keep MinOutput rows of context (#137). Such a row is
+// context, never an open candidate: the provider caps its readiness at WATCH
+// here, the kernel caps its tier at WATCH (classifyHunterV7CandidateTier-
+// WithGeometry), and the tag is wait_only in the catalog, so it is a prompt
+// hard block and the trader execution guard rejects an open on it.
+const V7CorrelationFloorContextTag = "correlation_floor_context"
+
+// markV7CorrelationFloorContext tags a backfilled row and demotes its
+// readiness to WATCH (it keeps its scores, so it still reads as context).
+func markV7CorrelationFloorContext(sig *V7SignalOutput) {
+	sig.RiskTags = appendIfMissing(sig.RiskTags, V7CorrelationFloorContextTag)
+	if r := sig.ExecutionReadiness; r != nil && (r.Tier == V7ReadinessExecutable || r.Tier == V7ReadinessReviewable) {
+		r.Tier = V7ReadinessWatch
+		r.BlockedGate = V7CorrelationFloorContextTag
+		r.Reason = "restored after theme de-duplication as context only"
+	}
 }
 
 func v7SignalIdentity(sig V7SignalOutput) string {
