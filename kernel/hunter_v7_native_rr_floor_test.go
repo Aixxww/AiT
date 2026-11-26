@@ -54,9 +54,15 @@ func TestNativeRRFallbackOnlyWhenUnset(t *testing.T) {
 	if got := (local.V7Config{}).EffectiveMinRR(); got != store.DefaultMinRiskRewardRatio {
 		t.Fatalf("router unset floor %.2f, want the store default", got)
 	}
-	// The decision validator's own unset fallback is unchanged too.
-	if legacyMinRiskRewardRatio != 3.0 {
-		t.Fatalf("validator unset fallback %.2f, want 3.0 (unchanged in fix 07)", legacyMinRiskRewardRatio)
+	// #138 M9: the decision validator's unset fallback is the same store
+	// default (it was a separate literal 3.0). RR 1.5 passes an unset floor.
+	d := &Decision{Symbol: "XUSDT", Action: "open_long", Leverage: 5, PositionSizeUSD: 100, StopLoss: 98, TakeProfit: 103, Confidence: 80}
+	if err := validateDecision(d, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100}, FixedDecisionRRFloor(0), 0); err != nil {
+		t.Fatalf("unset validator floor must be the store default %.2f, RR 1.5 rejected: %v", store.DefaultMinRiskRewardRatio, err)
+	}
+	d.TakeProfit = 102.2 // RR 1.1 < 1.2
+	if err := validateDecision(d, 1000, 20, 20, 10, 10, nil, map[string]float64{"XUSDT": 100}, FixedDecisionRRFloor(0), 0); err == nil {
+		t.Fatal("unset validator floor must still reject RR below the store default")
 	}
 }
 

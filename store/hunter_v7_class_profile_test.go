@@ -21,9 +21,15 @@ func TestV7ClassProfilesDefaultInheritAndOverride(t *testing.T) {
 
 func TestV7SetupGeometryOverrides(t *testing.T) {
 	d := RiskControlConfig{}.EffectiveV7SetupGeometryOverrides()
-	if d["intraday_scalp_long"] != (V7SetupGeometryOverride{MinRRCap: 1.0, MaxTPFloorPct: 3}) ||
-		d["displacement_momentum_long"] != (V7SetupGeometryOverride{MinRRCap: 1.35, MaxTPFloorPct: 12}) || len(d) != 3 {
+	// #138 M9: defaults relax the TP cap only; no default lowers the RR floor.
+	if d["intraday_scalp_long"] != (V7SetupGeometryOverride{MaxTPFloorPct: 3}) ||
+		d["displacement_momentum_long"] != (V7SetupGeometryOverride{MaxTPFloorPct: 12}) || len(d) != 3 {
 		t.Fatalf("defaults = %+v", d)
+	}
+	for setup, o := range d {
+		if o.MinRRCap != 0 {
+			t.Errorf("default override %s carries MinRRCap %.2f; an RR floor below the strategy floor must be explicit config", setup, o.MinRRCap)
+		}
 	}
 	rc := RiskControlConfig{SetupGeometryOverrides: map[string]V7SetupGeometryOverride{
 		"intraday_scalp_long": {}, "range_reversion": {MinRRCap: 1.1},

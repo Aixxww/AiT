@@ -2,7 +2,7 @@ package kernel
 
 // DecisionRRFloor returns the RR admission floor the validator applies to
 // one decision. A value <= 0 means "unset" and the validator falls back to
-// legacyMinRiskRewardRatio, as before.
+// store.DefaultMinRiskRewardRatio (#138 M9).
 type DecisionRRFloor func(d *Decision) float64
 
 // FixedDecisionRRFloor applies one floor to every decision (the pre-U2

@@ -75,7 +75,13 @@ func buildV7SignalPasses(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 	resonanceScorer := DefaultResonanceScorer()
 	sectorRotation := NewSectorRotationAnalyzer(universe)
 
+	minRR := cfg.EffectiveMinRR()
 	return []v7SignalPass{
+		// First, so it sees the module's raw geometry exactly where the
+		// former in-Score check did (#138 M9).
+		{"displacement_rr_floor", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
+			applyDisplacementRRFloor(sig, ctx, minRR)
+		}},
 		{"attach_context", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
 			sig.ExecutionContext = ctx.ExecutionContext
 			sig.DataFreshness = ctx.DataFreshness

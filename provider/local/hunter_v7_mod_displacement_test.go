@@ -38,6 +38,7 @@ func TestDisplacementUsesLaterTargetForRRRepair(t *testing.T) {
 	if sig == nil {
 		t.Fatal("expected displacement signal")
 	}
+	applyDisplacementRRFloor(sig, ctx, 1.5) // the router pass, at the floor the fixture was built for
 	if containsString(sig.RiskTags, "displacement_rr_insufficient") {
 		t.Fatalf("unexpected rr rejection after repair: tags=%+v targets=%+v invalidation=%+v", sig.RiskTags, sig.Targets, sig.Invalidation)
 	}
@@ -71,7 +72,7 @@ func TestDisplacementStillRejectsInfeasibleGeometry(t *testing.T) {
 		Targets:      []V7Target{{Price: 103}, {Price: 104}},
 	}
 
-	if displacementRRValid(sig, ctx) {
+	if displacementRRValid(sig, ctx, DefaultV7Config().EffectiveMinRR()) {
 		t.Fatal("expected insufficient RR to remain invalid")
 	}
 }

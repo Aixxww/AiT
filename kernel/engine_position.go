@@ -13,9 +13,6 @@ import (
 // ============================================================================
 
 // HunterScoreInfo carries Hunter bidirectional scores for cross-validation.
-// legacyMinRiskRewardRatio is the pre-D1 literal, used only when
-// RiskControl.MinRiskRewardRatio is unset (<= 0).
-const legacyMinRiskRewardRatio = 3.0
 
 // legacyContradictionConfidenceCap is the direction-contradiction cap when
 // the strategy leaves min_confidence unset (#77); a configured value replaces
@@ -139,9 +136,9 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		}
 
 		// F07/D1: the RR floor comes from strategy config
-		// (RiskControl.MinRiskRewardRatio). legacyMinRiskRewardRatio applies
-		// only when the strategy leaves the field unset, preserving the
-		// historical behaviour of configs that never set it.
+		// (RiskControl.MinRiskRewardRatio). When the strategy leaves it unset
+		// the store default applies (#138 M9: the same default the router's
+		// EffectiveMinRR uses; the pre-D1 literal 3.0 is gone).
 		// U2/P2a: the floor is resolved per decision, so a Task-2
 		// candidate's own floor applies to the decision that selects it.
 		requiredRR := 0.0
@@ -149,7 +146,7 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			requiredRR = rrFloor(d)
 		}
 		if requiredRR <= 0 {
-			requiredRR = legacyMinRiskRewardRatio
+			requiredRR = store.DefaultMinRiskRewardRatio
 		}
 		if riskRewardRatio < requiredRR {
 			return fmt.Errorf("risk/reward ratio too low (%.2f:1), must be ≥%.2f:1 [risk: %.2f%% reward: %.2f%%] [stop loss: %.2f take profit: %.2f]",

@@ -106,11 +106,18 @@ func TestAssemblyStampsProfileRiskOnlyWhenItDiffers(t *testing.T) {
 func TestSetupGeometryOverridesFromConfig(t *testing.T) {
 	g := profiledGeometry(nil)
 	coin := CandidateCoin{V7SetupType: "intraday_scalp_long"}
-	if out := hunterV7SetupExecutionGeometry(coin, g); out.MinRR != 1.0 || out.MaxTPMovePct != g.MaxTPMovePct {
+	// #138 M9: defaults never lower the strategy RR floor.
+	if out := hunterV7SetupExecutionGeometry(coin, g); out.MinRR != g.MinRR || out.MaxTPMovePct != g.MaxTPMovePct {
 		t.Fatalf("default intraday_scalp = %v/%v (cap 4.0 already >= 3)", out.MinRR, out.MaxTPMovePct)
 	}
-	if out := hunterV7SetupExecutionGeometry(CandidateCoin{V7SetupType: "displacement_momentum_long"}, g); out.MinRR != 1.35 || out.MaxTPMovePct != 12 {
+	if out := hunterV7SetupExecutionGeometry(CandidateCoin{V7SetupType: "displacement_momentum_long"}, g); out.MinRR != g.MinRR || out.MaxTPMovePct != 12 {
 		t.Fatalf("default displacement = %v/%v", out.MinRR, out.MaxTPMovePct)
+	}
+	// An explicit opt-in still lowers it (owner decision on U6).
+	opt := g
+	opt.SetupOverrides = store.RiskControlConfig{SetupGeometryOverrides: map[string]store.V7SetupGeometryOverride{"intraday_scalp_long": {MinRRCap: 1.0, MaxTPFloorPct: 3}}}.EffectiveV7SetupGeometryOverrides()
+	if out := hunterV7SetupExecutionGeometry(coin, opt); out.MinRR != 1.0 {
+		t.Fatalf("explicit opt-in intraday_scalp = %v, want 1.0", out.MinRR)
 	}
 	g.SetupOverrides = store.RiskControlConfig{SetupGeometryOverrides: map[string]store.V7SetupGeometryOverride{"intraday_scalp_long": {}}}.EffectiveV7SetupGeometryOverrides()
 	if out := hunterV7SetupExecutionGeometry(coin, g); out.MinRR != g.MinRR {
@@ -150,6 +157,11 @@ func setupSig(id, setup string, rewardPct float64) local.V7SignalOutput {
 // (through hydration) the executor use 1.0 instead of the strategy 1.5.
 func TestSetupOverrideReachesValidatorAndHydration(t *testing.T) {
 	g := profiledGeometry(nil) // strategy RR 1.5, stop 2.0, TP cap 4.0
+	// #138 M9: RR relaxations are explicit config, not defaults.
+	g.SetupOverrides = store.RiskControlConfig{SetupGeometryOverrides: map[string]store.V7SetupGeometryOverride{
+		"intraday_scalp_long":        {MinRRCap: 1.0, MaxTPFloorPct: 3},
+		"displacement_momentum_long": {MinRRCap: 1.35, MaxTPFloorPct: 12},
+	}}.EffectiveV7SetupGeometryOverrides()
 	sigs := []local.V7SignalOutput{
 		setupSig("SCALP", "intraday_scalp_long", 2.2),       // RR 1.1
 		setupSig("DISP", "displacement_momentum_long", 2.8), // RR 1.4

@@ -19,17 +19,19 @@ func TestValidateDecisionRRUsesRealPrice(t *testing.T) {
 		}
 	}
 	priceMap := map[string]float64{"BTCUSDT": 100.0}
+	// #138 M9: the unset fallback is now the store default (1.2), so the
+	// 3.0 floor this test pins is passed explicitly.
 
 	// Real RR at market 100: risk 2% (SL 98), reward 4% (TP 104) -> RR=2.0 < 3.0 -> reject.
 	// (Legacy formula would compute exactly 4.0 and pass.)
 	d := mk(98, 104)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0), 0); err == nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(3.0), 0); err == nil {
 		t.Errorf("expected rejection for real RR=2.0 (< 3.0), got pass (P0-2a regression)")
 	}
 
 	// Real RR: risk 2% (SL 98), reward 8% (TP 108) -> RR=4.0 >= 3.0 -> pass.
 	d = mk(98, 108)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0), 0); err != nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(3.0), 0); err != nil {
 		t.Errorf("expected pass for real RR=4.0, got %v", err)
 	}
 
@@ -38,13 +40,13 @@ func TestValidateDecisionRRUsesRealPrice(t *testing.T) {
 	// the check measures from the market price 100 instead (RR 4.0).
 	d = mk(98, 108)
 	d.Trigger = &DecisionTrigger{TriggerPrice: 97.5}
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(0), 0); err != nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, priceMap, FixedDecisionRRFloor(3.0), 0); err != nil {
 		t.Errorf("model trigger must be ignored; RR at the market price is 4.0, got %v", err)
 	}
 
 	// No price at all: the RR check fails (the fabricated 4.0 fallback is gone).
 	d = mk(98, 104)
-	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(0), 0); err == nil {
+	if err := validateDecision(d, 10000, 20, 10, 10.0, 1.5, nil, nil, FixedDecisionRRFloor(3.0), 0); err == nil {
 		t.Errorf("a decision with no real entry price must fail the RR check")
 	}
 }

@@ -90,13 +90,17 @@ type V7SetupGeometryOverride struct {
 	MaxTPFloorPct float64 `json:"max_tp_floor_pct,omitempty"`
 }
 
-// DefaultV7SetupGeometryOverrides are the values the kernel hard-coded
-// before U6.
+// DefaultV7SetupGeometryOverrides are the TP-distance relaxations the
+// kernel hard-coded before U6. #138 M9: no default carries a MinRRCap. A
+// default may never lower the strategy RR floor; a setup RR floor below it
+// exists only when the strategy opts in explicitly through
+// RiskControlConfig.SetupGeometryOverrides (the former defaults were 1.35 for
+// the first two rows and 1.0 for intraday_scalp_long).
 func DefaultV7SetupGeometryOverrides() map[string]V7SetupGeometryOverride {
 	return map[string]V7SetupGeometryOverride{
-		"volatility_squeeze_breakout": {MinRRCap: 1.35, MaxTPFloorPct: 12},
-		"displacement_momentum_long":  {MinRRCap: 1.35, MaxTPFloorPct: 12},
-		"intraday_scalp_long":         {MinRRCap: 1.0, MaxTPFloorPct: 3},
+		"volatility_squeeze_breakout": {MaxTPFloorPct: 12},
+		"displacement_momentum_long":  {MaxTPFloorPct: 12},
+		"intraday_scalp_long":         {MaxTPFloorPct: 3},
 	}
 }
 
