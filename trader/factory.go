@@ -13,6 +13,7 @@ import (
 	"github.com/Aixxww/AiT/trader/kucoin"
 	"github.com/Aixxww/AiT/trader/lighter"
 	"github.com/Aixxww/AiT/trader/okx"
+	"os"
 )
 
 // NewTraderFromExchange creates a trader adapter from a persisted exchange account.
@@ -44,7 +45,9 @@ func NewTraderFromExchange(exchangeCfg *store.Exchange, userID string) (Trader, 
 		t.SetReferralID(exchangeCfg.ReferralID)
 		return t, nil
 	case "kucoin":
-		return kucoin.NewKuCoinTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase)), nil
+		t := kucoin.NewKuCoinTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey), string(exchangeCfg.Passphrase))
+		t.SetPartner(exchangeCfg.ReferralID, os.Getenv(kucoin.PartnerKeyEnv)) // #127: opt-in
+		return t, nil
 	case "indodax":
 		return indodax.NewIndodaxTrader(string(exchangeCfg.APIKey), string(exchangeCfg.SecretKey)), nil
 	case "hyperliquid":

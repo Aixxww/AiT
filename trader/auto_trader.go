@@ -3,6 +3,7 @@ package trader
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -301,7 +302,9 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		trader = gt
 	case "kucoin":
 		logger.Infof("🏦 [%s] Using KuCoin Futures trading", config.Name)
-		trader = kucoin.NewKuCoinTrader(config.KuCoinAPIKey, config.KuCoinSecretKey, config.KuCoinPassphrase)
+		kt := kucoin.NewKuCoinTrader(config.KuCoinAPIKey, config.KuCoinSecretKey, config.KuCoinPassphrase)
+		kt.SetPartner(config.ReferralID, os.Getenv(kucoin.PartnerKeyEnv)) // #127: opt-in
+		trader = kt
 	case "hyperliquid":
 		logger.Infof("🏦 [%s] Using Hyperliquid trading", config.Name)
 		trader, err = hyperliquid.NewHyperliquidTrader(config.HyperliquidPrivateKey, config.HyperliquidWalletAddr, config.HyperliquidTestnet, config.HyperliquidUnifiedAcct)
