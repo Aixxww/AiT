@@ -119,7 +119,7 @@ func GetFullDecisionWithStrategy(ctx *Context, mcpClient mcp.AIClient, engine *S
 
 	// #111 S2: the Hunter v7 prompt contract fails the round closed before
 	// the AI call (one wait, backend_guard_risk; not an AI failure).
-	if err := engine.hunterV7PromptContractError(systemPrompt, userPrompt); err != nil {
+	if err := engine.hunterV7PromptContractError(systemPrompt, userPrompt, len(ctx.CandidateCoins)); err != nil {
 		logger.Errorf("🚫 [%s] %v; round not sent to the AI", hunterV7PromptContractMismatch, err)
 		decision := hunterV7PromptContractMismatchDecision(err, systemPrompt, userPrompt)
 		decision.Timestamp = time.Now()

@@ -100,7 +100,7 @@ func (r *Runner) stepOnce() error {
 		if r.aiCache != nil {
 			if key, err := computeCacheKey(ctx, r.cfg.PromptVariant, ts); err == nil {
 				cacheKey = key
-				if cached, ok := r.aiCache.Get(cacheKey); ok {
+				if cached, ok := r.cachedAIDecision(cacheKey); ok {
 					fullDecision = cached
 					fromCache = true
 				} else if r.cfg.ReplayOnly {
@@ -124,13 +124,19 @@ func (r *Runner) stepOnce() error {
 				record.ErrorMessage = fmt.Sprintf("AI decision failed: %v", err)
 				execLog = append(execLog, fmt.Sprintf("⚠️ AI decision failed: %v", err))
 				r.setLastError(err)
+			} else if abortErr := r.acceptAIDecision(cacheKey, ts, fd); abortErr != nil {
+				// #132 / Audit R2 H6: a round the backend stopped before the AI
+				// call is a configuration error, not a decision: nothing is
+				// cached or executed, the cycle is not counted, and the run
+				// stops with the reason.
+				record.Success = false
+				record.ErrorMessage = abortErr.Error()
+				record.InputPrompt = fd.UserPrompt
+				_ = r.logDecision(record)
+				r.setLastError(abortErr)
+				return abortErr
 			} else {
 				fullDecision = fd
-				if r.cfg.CacheAI && r.aiCache != nil && cacheKey != "" {
-					if err := r.aiCache.Put(cacheKey, r.cfg.PromptVariant, ts, fullDecision); err != nil {
-						logger.Infof("failed to persist ai cache for %s: %v", r.cfg.RunID, err)
-					}
-				}
 			}
 		}
 
@@ -380,6 +386,42 @@ func (r *Runner) fillDecisionRecord(record *store.DecisionRecord, full *kernel.F
 			record.DecisionJSON = string(data)
 		}
 	}
+}
+
+// cachedAIDecision reads the AI cache. An entry of a round decided
+// without an AI call (FullDecision.AINotCalled, written before #132) is
+// never replayed: it reads as a miss.
+func (r *Runner) cachedAIDecision(key string) (*kernel.FullDecision, bool) {
+	if r.aiCache == nil || key == "" {
+		return nil, false
+	}
+	cached, ok := r.aiCache.Get(key)
+	if !ok || cached == nil || cached.AINotCalled {
+		return nil, false
+	}
+	return cached, true
+}
+
+// acceptAIDecision stores a fresh AI decision in the cache (when caching is
+// on). A round decided without an AI call (#132: the prompt contract
+// stopped it) is never cached and returns the error that aborts the run.
+func (r *Runner) acceptAIDecision(key string, ts int64, fd *kernel.FullDecision) error {
+	if fd == nil {
+		return nil
+	}
+	if fd.AINotCalled {
+		reason := "prompt contract stopped the round before the AI call"
+		if len(fd.Decisions) > 0 && fd.Decisions[0].Reasoning != "" {
+			reason = fd.Decisions[0].Reasoning
+		}
+		return fmt.Errorf("backtest aborted: %s", reason)
+	}
+	if r.cfg.CacheAI && r.aiCache != nil && key != "" {
+		if err := r.aiCache.Put(key, r.cfg.PromptVariant, ts, fd); err != nil {
+			logger.Infof("failed to persist ai cache for %s: %v", r.cfg.RunID, err)
+		}
+	}
+	return nil
 }
 
 func (r *Runner) invokeAIWithRetry(ctx *kernel.Context) (*kernel.FullDecision, error) {

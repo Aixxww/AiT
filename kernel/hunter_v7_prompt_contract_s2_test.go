@@ -35,13 +35,13 @@ func TestS2HeaderAndContractPass(t *testing.T) {
 		if !strings.Contains(user, c.header) {
 			t.Fatalf("user prompt lacks %q", c.header)
 		}
-		if err := NewStrategyEngine(c.cfg).hunterV7PromptContractError(system, user); err != nil {
+		if err := NewStrategyEngine(c.cfg).hunterV7PromptContractError(system, user, 0); err != nil {
 			t.Fatalf("a correctly paired round must pass: %v", err)
 		}
 	}
 	// Other source types are not checked.
 	other := store.GetDefaultStrategyConfig("en")
-	if err := NewStrategyEngine(&other).hunterV7PromptContractError("", ""); err != nil {
+	if err := NewStrategyEngine(&other).hunterV7PromptContractError("", "", 0); err != nil {
 		t.Fatalf("non-hunter_v7: %v", err)
 	}
 }
@@ -60,12 +60,12 @@ func TestS2ContractFailsClosed(t *testing.T) {
 		err          error
 		wantContains string
 	}{
-		{"unknown stored version", NewStrategyEngine(unknown).hunterV7PromptContractError(legacySys, legacyUser), `unknown v7_prompt.payload_version "hybrid_v3"`},
-		{"legacy payload, hybrid doctrine", legacy.hunterV7PromptContractError(hybridSys, legacyUser), "lacks the legacy doctrine"},
-		{"hybrid payload, legacy doctrine", hybrid.hunterV7PromptContractError(legacySys, hybridUser), "lacks the hybrid_v2 doctrine"},
-		{"both doctrines", legacy.hunterV7PromptContractError(legacySys+hybridSys, legacyUser), "carries the hybrid_v2 doctrine"},
-		{"legacy strategy, hybrid user prompt", legacy.hunterV7PromptContractError(legacySys, hybridUser), "lacks the header"},
-		{"legacy header plus a hybrid header", legacy.hunterV7PromptContractError(legacySys, legacyUser+"\npayload_version=hybrid_v2 | x"), "carries payload_version=hybrid_v2"},
+		{"unknown stored version", NewStrategyEngine(unknown).hunterV7PromptContractError(legacySys, legacyUser, 0), `unknown v7_prompt.payload_version "hybrid_v3"`},
+		{"legacy payload, hybrid doctrine", legacy.hunterV7PromptContractError(hybridSys, legacyUser, 0), "lacks the legacy doctrine"},
+		{"hybrid payload, legacy doctrine", hybrid.hunterV7PromptContractError(legacySys, hybridUser, 0), "lacks the hybrid_v2 doctrine"},
+		{"both doctrines", legacy.hunterV7PromptContractError(legacySys+hybridSys, legacyUser, 0), "carries the hybrid_v2 doctrine"},
+		{"legacy strategy, hybrid user prompt", legacy.hunterV7PromptContractError(legacySys, hybridUser, 0), "lacks the header"},
+		{"legacy header plus a hybrid header", legacy.hunterV7PromptContractError(legacySys, legacyUser+"\npayload_version=hybrid_v2 | x", 0), "carries payload_version=hybrid_v2"},
 	}
 	for _, c := range cases {
 		if c.err == nil || !strings.Contains(c.err.Error(), c.wantContains) {
@@ -73,7 +73,7 @@ func TestS2ContractFailsClosed(t *testing.T) {
 		}
 	}
 	// A user prompt without the tier section (no candidates) needs no header.
-	if err := legacy.hunterV7PromptContractError(legacySys, "no candidates this round"); err != nil {
+	if err := legacy.hunterV7PromptContractError(legacySys, "no candidates this round", 0); err != nil {
 		t.Fatalf("no tier section: %v", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestS2TemplatePairing(t *testing.T) {
 		t.Fatalf("legacy strategy-07: %v", refs)
 	}
 	sys, user := s2Render(cfg)
-	if err := NewStrategyEngine(cfg).hunterV7PromptContractError(sys, user); err != nil {
+	if err := NewStrategyEngine(cfg).hunterV7PromptContractError(sys, user, 0); err != nil {
 		t.Fatalf("strategy-07 as stored: %v", err)
 	}
 	cfg.CoinSource.Hunter.V7Prompt = &store.V7PromptConfig{PayloadVersion: store.V7PayloadVersionHybridV2}
@@ -96,7 +96,7 @@ func TestS2TemplatePairing(t *testing.T) {
 		t.Fatalf("strategy-07 + hybrid_v2 must report its legacy-only references, got %v", refs)
 	}
 	sys, user = s2Render(cfg)
-	if err := NewStrategyEngine(cfg).hunterV7PromptContractError(sys, user); err == nil || !strings.Contains(err.Error(), "legacy-only doctrine content") {
+	if err := NewStrategyEngine(cfg).hunterV7PromptContractError(sys, user, 0); err == nil || !strings.Contains(err.Error(), "legacy-only doctrine content") {
 		t.Fatalf("strategy-07 + hybrid_v2 must fail the contract, got %v", err)
 	}
 
