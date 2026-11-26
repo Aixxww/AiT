@@ -49,38 +49,25 @@ var hunterV7DoctrineHeadings = map[string][]string{
 	},
 }
 
-// hunterV7LegacyOnlyDoctrineRefs are words of the legacy doctrine that the
-// hybrid_v2 doctrine dropped (llm_action levels, the family playbooks). A
-// hybrid_v2 strategy whose prompt_sections or custom_prompt cite them points
-// the LLM at content that is not in its prompt.
-var hunterV7LegacyOnlyDoctrineRefs = []string{"llm_action", "剧本", "playbook"}
-
 // hunterV7PromptHeader is the version header line (without the trailing
 // prompt time hybrid_v2 adds).
 func hunterV7PromptHeader(pc store.V7PromptConfig) string {
 	return fmt.Sprintf("payload_version=%s | doctrine_version=%s", pc.PayloadVersion, pc.DoctrineVersion())
 }
 
-// HunterV7PromptSectionsLegacyOnlyRefs lists the legacy-only doctrine words
-// a hybrid_v2 strategy's own prompt text cites (nil for any other strategy).
+// HunterV7PromptSectionsLegacyOnlyRefs lists the legacy-only references a
+// hybrid_v2 strategy's own prompt text cites (nil for any other strategy).
+// The token set and matching rule live in store (V7PromptLegacyOnlyRefs,
+// #132), so the save-time validation and this pre-send check agree.
 func HunterV7PromptSectionsLegacyOnlyRefs(cfg *store.StrategyConfig) []string {
-	if cfg == nil || cfg.CoinSource.Hunter == nil || !store.EffectiveV7Prompt(cfg.CoinSource.Hunter.V7Prompt).HybridV2() {
-		return nil
-	}
-	ps := cfg.PromptSections
-	text := strings.ToLower(strings.Join([]string{ps.RoleDefinition, ps.TradingFrequency, ps.EntryStandards, ps.DecisionProcess, cfg.CustomPrompt}, "\n"))
-	var hits []string
-	for _, ref := range hunterV7LegacyOnlyDoctrineRefs {
-		if strings.Contains(text, strings.ToLower(ref)) {
-			hits = append(hits, ref)
-		}
-	}
-	return hits
+	return store.V7PromptLegacyOnlyRefs(cfg)
 }
 
 // hunterV7PromptContractError is the pre-send check of a hunter_v7 round.
-// nil for any other source type.
-func (e *StrategyEngine) hunterV7PromptContractError(systemPrompt, userPrompt string) error {
+// nil for any other source type. candidates is the round's hunter_v7
+// candidate count: with any candidate the version header is required
+// (#132), whatever the user prompt prints.
+func (e *StrategyEngine) hunterV7PromptContractError(systemPrompt, userPrompt string, candidates int) error {
 	if e == nil || e.config == nil || !strings.EqualFold(e.config.CoinSource.SourceType, "hunter_v7") {
 		return nil
 	}
@@ -111,7 +98,7 @@ func (e *StrategyEngine) hunterV7PromptContractError(systemPrompt, userPrompt st
 			return fmt.Errorf("system prompt carries the %s doctrine, but payload_version is %s", version, pc.PayloadVersion)
 		}
 	}
-	if strings.Contains(userPrompt, "Tier Summary:") {
+	if candidates > 0 || strings.Contains(userPrompt, "Tier Summary:") {
 		header := hunterV7PromptHeader(pc)
 		if !strings.Contains(userPrompt, header) {
 			return fmt.Errorf("user prompt lacks the header %q", header)
