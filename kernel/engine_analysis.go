@@ -795,6 +795,7 @@ func extractDecisions(response string) ([]Decision, error) {
 		if err := json.Unmarshal([]byte(jsonContent), &decisions); err != nil {
 			return nil, fmt.Errorf("JSON parsing failed: %w\nJSON content: %s", err, jsonContent)
 		}
+		clearBackendOwnedDecisionFields(decisions)
 		return decisions, nil
 	}
 
@@ -824,8 +825,24 @@ func extractDecisions(response string) ([]Decision, error) {
 	if err := json.Unmarshal([]byte(jsonContent), &decisions); err != nil {
 		return nil, fmt.Errorf("JSON parsing failed: %w\nJSON content: %s", err, jsonContent)
 	}
-
+	clearBackendOwnedDecisionFields(decisions)
 	return decisions, nil
+}
+
+// clearBackendOwnedDecisionFields zeroes the Decision fields the backend
+// owns but that carry JSON tags (#138 M7b). The tags stay because the
+// decision record serializes them; a model reply must never set them.
+//   - HunterV7TP0/TP1/TP2Price: hydrated from the selected signal
+//     (hydrateHunterV7DecisionExecutionPlans).
+//   - RejectedAction / ValidatorRejection: written only by the validator
+//     when it demotes a decision (demoteInvalidDecisions); a forged pair
+//     would make the trader log a fake demotion and count a fake open.
+func clearBackendOwnedDecisionFields(decisions []Decision) {
+	for i := range decisions {
+		d := &decisions[i]
+		d.HunterV7TP0Price, d.HunterV7TP1Price, d.HunterV7TP2Price = 0, 0, 0
+		d.RejectedAction, d.ValidatorRejection = "", ""
+	}
 }
 
 func fixMissingQuotes(jsonStr string) string {
