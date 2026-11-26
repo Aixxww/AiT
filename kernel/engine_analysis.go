@@ -574,6 +574,7 @@ func parseFullDecisionResponseWithTiers(aiResponse string, accountEquity float64
 		}, fmt.Errorf("failed to extract decisions: %w", err)
 	}
 
+	normalizeWhyThisCouldFail(decisions) // #111 S3: opens only, bounded
 	if hunterV7Mode {
 		normalizeHunterV7WaitReasons(decisions)
 		hydrateHunterV7DecisionExecutionPlans(decisions, candidates)
@@ -747,6 +748,7 @@ func AIFailureReason(err error) string {
 
 func extractDecisions(response string) ([]Decision, error) {
 	s := removeInvisibleRunes(response)
+	s = sanitizeWhyThisCouldFail(s) // #111 S3: fail-soft free-text field
 	s = strings.TrimSpace(s)
 	s = fixMissingQuotes(s)
 

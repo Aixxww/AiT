@@ -226,7 +226,8 @@ func (at *AutoTrader) executeHunterV7PendingEntry(p *hunterV7PendingEntry) {
 	d := p.Decision
 	rec := store.DecisionAction{Action: d.Action, Symbol: d.Symbol, Leverage: d.Leverage, StopLoss: d.StopLoss, TakeProfit: d.TakeProfit,
 		HunterV7TP0Price: d.HunterV7TP0Price, HunterV7TP1Price: d.HunterV7TP1Price, HunterV7TP2Price: d.HunterV7TP2Price,
-		Confidence: d.Confidence, Reasoning: d.Reasoning, Trigger: decisionTriggerForStore(d.Trigger), Timestamp: time.Now().UTC()}
+		Confidence: d.Confidence, Reasoning: d.Reasoning, Trigger: decisionTriggerForStore(d.Trigger), Timestamp: time.Now().UTC(),
+		WhyThisCouldFail: string(d.WhyThisCouldFail)} // #111 S3
 	ctx := &kernel.Context{CandidateCoins: []kernel.CandidateCoin{at.fireTimeCandidate(p, time.Now())}}
 	exec := at.conditional.execute
 	if exec == nil {

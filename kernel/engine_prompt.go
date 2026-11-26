@@ -206,10 +206,12 @@ func (e *StrategyEngine) BuildSystemPrompt(accountEquity float64, variant string
 			sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_v2_json.signal.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier` (`execution.tier`), `selected_hunter_v7_setup` (`signal.setup_type`), `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
 			sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
 			sb.WriteString("- `trigger` (REQUIRED for a Hunter v7 wait whose blocker is a level not yet reached, and for a conditional entry): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `signal.trigger_price` when present instead of hiding the trigger in reasoning.\n")
+			sb.WriteString("- `why_this_could_fail` (opens only, optional): one plain sentence, at most 160 characters, naming the single most likely way this trade fails. Plain text only: no quotes, brackets or thousands separators.\n")
 		} else {
 			sb.WriteString("- Required when opening a Hunter v7 candidate: copy `hunter_v7_signal_json.signal_id` into `selected_hunter_v7_signal_id`, and include `selected_hunter_v7_tier`, `selected_hunter_v7_setup`, `effective_rr_after_cap`, and `signal_age_ms` when available.\n")
 			sb.WriteString("- Required when waiting despite an EXECUTABLE/REVIEWABLE Hunter v7 candidate: include `blocked_signal_symbol` for the best blocked candidate.\n")
 			sb.WriteString("- `trigger` (REQUIRED for Hunter v7 wait on `entry_trigger_near`, `entry_reclaim_wait`, or `entry_pullback_wait`): object with `trigger_price`, `required_close`, `expires_in_bars`, `action_if_triggered`. Use `hunter_v7_signal_json.suggested_trigger` when present instead of hiding the trigger in reasoning.\n")
+			sb.WriteString("- `why_this_could_fail` (opens only, optional): one plain sentence, at most 160 characters, naming the single most likely way this trade fails. Plain text only: no quotes, brackets or thousands separators.\n")
 		}
 	}
 	sb.WriteString("- **IMPORTANT**: All numeric values must be calculated numbers, NOT formulas/expressions (e.g., use `27.76` not `3000 * 0.01`)\n\n")

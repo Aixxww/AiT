@@ -3,7 +3,9 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -40,8 +42,11 @@ type DecisionRecordDB struct {
 	ChosenRank      int    `gorm:"column:chosen_rank;default:0"`
 	ERCount         int    `gorm:"column:er_count;default:0"`
 	// #95 §5.4.6: the resolver output (value + source) of the cycle, JSON.
-	EffectiveConfig string    `gorm:"column:effective_config;default:''"`
-	CreatedAt       time.Time `json:"created_at"`
+	EffectiveConfig string `gorm:"column:effective_config;default:''"`
+	// #111 S3 (owner decision Q3): the first open's why_this_could_fail,
+	// NULL when the cycle had no open or the model gave no usable value.
+	WhyThisCouldFail *string   `gorm:"column:why_this_could_fail"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 func (DecisionRecordDB) TableName() string { return "decision_records" }
@@ -76,10 +81,13 @@ type DecisionRecord struct {
 	ERCount    int `json:"er_count"`
 	// EffectiveConfig (#95) is store.ResolveHunterV7(...).Values for the
 	// cycle: every trading-behaviour value with its source.
-	EffectiveConfig []ResolvedValue    `json:"effective_config,omitempty"`
-	AccountState    AccountSnapshot    `json:"account_state"`
-	Positions       []PositionSnapshot `json:"positions"`
-	Decisions       []DecisionAction   `json:"decisions"`
+	EffectiveConfig []ResolvedValue `json:"effective_config,omitempty"`
+	// WhyThisCouldFail (#111 S3) is the first open's why_this_could_fail;
+	// nil (NULL) when absent. Each action's own value is in Decisions.
+	WhyThisCouldFail *string            `json:"why_this_could_fail,omitempty"`
+	AccountState     AccountSnapshot    `json:"account_state"`
+	Positions        []PositionSnapshot `json:"positions"`
+	Decisions        []DecisionAction   `json:"decisions"`
 }
 
 // AccountSnapshot account state snapshot
@@ -138,6 +146,8 @@ type DecisionAction struct {
 	// ChosenRank (#94 / AUD-B8): for an open, its signal's 1-based rank
 	// among the prompt's E+R candidates; -1 = not one of them.
 	ChosenRank int `json:"chosen_rank,omitempty"`
+	// WhyThisCouldFail (#111 S3): the model's failure case for an open.
+	WhyThisCouldFail string `json:"why_this_could_fail,omitempty"`
 }
 
 type DecisionTrigger struct {
@@ -175,7 +185,7 @@ func (s *DecisionStore) initTables() error {
 		if tableExists > 0 {
 			// #94 / #95: add the new columns to an existing table.
 			m := s.db.Migrator()
-			for _, field := range []string{"AIFailureReason", "ChosenRank", "ERCount", "EffectiveConfig"} {
+			for _, field := range []string{"AIFailureReason", "ChosenRank", "ERCount", "EffectiveConfig", "WhyThisCouldFail"} {
 				if !m.HasColumn(&DecisionRecordDB{}, field) {
 					if err := m.AddColumn(&DecisionRecordDB{}, field); err != nil {
 						return fmt.Errorf("failed to add decision_records.%s: %w", field, err)
@@ -209,6 +219,7 @@ func (db *DecisionRecordDB) toRecord() *DecisionRecord {
 		AIFailureReason:     db.AIFailureReason,
 		ChosenRank:          db.ChosenRank,
 		ERCount:             db.ERCount,
+		WhyThisCouldFail:    db.WhyThisCouldFail,
 	}
 	json.Unmarshal([]byte(db.CandidateCoins), &record.CandidateCoins)
 	json.Unmarshal([]byte(db.ExecutionLog), &record.ExecutionLog)
@@ -217,6 +228,20 @@ func (db *DecisionRecordDB) toRecord() *DecisionRecord {
 		json.Unmarshal([]byte(db.EffectiveConfig), &record.EffectiveConfig)
 	}
 	return record
+}
+
+// failSoftNullableText is the #111 S3 write rule for free-text columns: an
+// empty, whitespace-only or invalid-UTF-8 value is stored as NULL, so a bad
+// value never fails the insert.
+func failSoftNullableText(v *string) *string {
+	if v == nil {
+		return nil
+	}
+	t := strings.TrimSpace(*v)
+	if t == "" || !utf8.ValidString(t) {
+		return nil
+	}
+	return &t
 }
 
 // LogDecision logs decision
@@ -260,6 +285,7 @@ func (s *DecisionStore) LogDecision(record *DecisionRecord) error {
 		ChosenRank:          record.ChosenRank,
 		ERCount:             record.ERCount,
 		EffectiveConfig:     effectiveConfigJSON,
+		WhyThisCouldFail:    failSoftNullableText(record.WhyThisCouldFail),
 	}
 
 	if err := s.db.Create(dbRecord).Error; err != nil {

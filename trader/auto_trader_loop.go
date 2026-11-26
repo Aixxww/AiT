@@ -299,6 +299,7 @@ func (at *AutoTrader) runCycle() error {
 					Reasoning:         d.Reasoning,
 					BlockedReasonCode: d.BlockedReasonCode,
 					Trigger:           decisionTriggerForStore(d.Trigger),
+					WhyThisCouldFail:  string(d.WhyThisCouldFail), // #111 S3
 					Timestamp:         time.Now().UTC(),
 					Success:           false,
 					Error:             "degraded trading context: open orders disabled",
@@ -342,7 +343,8 @@ func (at *AutoTrader) runCycle() error {
 			Reasoning:         d.Reasoning,
 			BlockedReasonCode: d.BlockedReasonCode,
 			Trigger:           decisionTriggerForStore(d.Trigger),
-			ChosenRank:        d.HunterV7ChosenRank, // #94 / AUD-B8
+			ChosenRank:        d.HunterV7ChosenRank,       // #94 / AUD-B8
+			WhyThisCouldFail:  string(d.WhyThisCouldFail), // #111 S3
 			Timestamp:         time.Now().UTC(),
 			Success:           false,
 		}
@@ -1226,6 +1228,20 @@ func (at *AutoTrader) noteAISuccess(aiDecision *kernel.FullDecision) {
 	}
 }
 
+// firstOpenWhyThisCouldFail is the decision record's why_this_could_fail
+// column value (#111 S3): the first open's non-empty value, counting an open
+// the validator demoted (RejectedAction), else nil (NULL).
+func firstOpenWhyThisCouldFail(decisions []kernel.Decision) *string {
+	for _, d := range decisions {
+		open := d.Action == "open_long" || d.Action == "open_short" || d.RejectedAction == "open_long" || d.RejectedAction == "open_short"
+		if open && d.WhyThisCouldFail != "" {
+			v := string(d.WhyThisCouldFail)
+			return &v
+		}
+	}
+	return nil
+}
+
 func applyAIDecisionToRecord(record *store.DecisionRecord, aiDecision *kernel.FullDecision) {
 	if record == nil || aiDecision == nil {
 		return
@@ -1236,6 +1252,7 @@ func applyAIDecisionToRecord(record *store.DecisionRecord, aiDecision *kernel.Fu
 	record.RawResponse = aiDecision.RawResponse // Save raw AI response for debugging
 	record.ERCount = aiDecision.HunterV7ERCount
 	record.ChosenRank = aiDecision.HunterV7ChosenRank
+	record.WhyThisCouldFail = firstOpenWhyThisCouldFail(aiDecision.Decisions)
 	if len(aiDecision.Decisions) > 0 {
 		decisionJSON, _ := json.MarshalIndent(aiDecision.Decisions, "", "  ")
 		record.DecisionJSON = string(decisionJSON)
