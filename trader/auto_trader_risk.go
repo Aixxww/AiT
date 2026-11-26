@@ -973,6 +973,35 @@ func (at *AutoTrader) enforceSingleTradeLossLimit(decision *kernel.Decision, cur
 	return maxPositionSize, true, nil
 }
 
+// recheckRiskAfterPreflight re-runs the price- and stop-dependent open
+// checks on the post-preflight state (#129 / Audit R2 H4):
+// refreshHunterV7OpenPreflight re-reads the executable price (up to the
+// drift limit) and repairHunterV7OpenDecision may widen the stop, so the
+// single-trade loss limit sized before the refresh no longer holds. The
+// loss limit is applied again at finalPrice with the repaired stop (it may
+// only shrink the position), then the minimum size and validateOpenDecision.
+// It returns the position size to open; any failure blocks the open with
+// the blocked reason post_preflight_risk_recheck.
+func (at *AutoTrader) recheckRiskAfterPreflight(decision *kernel.Decision, finalPrice, equity float64, side string) (size float64, reduced bool, err error) {
+	block := func(e error) error {
+		return fmt.Errorf("❌ [RISK CONTROL] %s %s blocked after the preflight refresh (post_preflight_risk_recheck): %w", decision.Symbol, side, e)
+	}
+	size, reduced, err = at.enforceSingleTradeLossLimit(decision, finalPrice, equity, side)
+	if err != nil {
+		return decision.PositionSizeUSD, false, block(err)
+	}
+	if reduced {
+		decision.PositionSizeUSD = size
+	}
+	if err := at.enforceMinPositionSize(decision.PositionSizeUSD); err != nil {
+		return decision.PositionSizeUSD, reduced, block(err)
+	}
+	if err := at.validateOpenDecision(decision, finalPrice, side); err != nil {
+		return decision.PositionSizeUSD, reduced, block(err)
+	}
+	return decision.PositionSizeUSD, reduced, nil
+}
+
 // hunterV7GeometryRejectMode reports whether the strategy runs the
 // reject-not-repair open contract (RiskControl.GeometryRepair == "reject";
 // F02/F05/F25).
