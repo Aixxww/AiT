@@ -861,7 +861,7 @@ func TestFormatHunterV7SignalJSONDefinesP2Tags(t *testing.T) {
 		"volume_burst_at_breakout":           local.V7TagActionOpenSupport,
 		"taker_buy_ratio_above_0.55":         local.V7TagActionEvidence,
 		"sector_rotation_leader":             local.V7TagActionEvidence,
-		"correlation_floor_context":          local.V7TagActionContextOnly,
+		"correlation_floor_context":          local.V7TagActionWaitOnly, // #137: never an open candidate
 		"whale_flow_detected":                local.V7TagActionEvidence,
 		"stealth_accumulation_breakout":      local.V7TagActionEvidence,
 		"accelerating_1h":                    local.V7TagActionEvidence,
