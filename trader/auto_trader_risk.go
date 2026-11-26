@@ -1911,8 +1911,19 @@ func hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate *kernel.Candidat
 	if !hunterV7ConfirmationCanBeSatisfiedByRefresh(code) {
 		return false
 	}
-	return containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") &&
-		containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed")
+	if !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") ||
+		!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed") {
+		return false
+	}
+	// #136: the refresh waives a gap only if nothing proves it still fails.
+	// A code with a shared predicate is re-evaluated on the candidate's
+	// current facts with the same predicate scoring and the kernel live pass
+	// use; a known failure is never waived (a whale_flow_reversal at taker
+	// 0.53 cannot pass taker_flow_confirms_long here when scoring needs 0.56).
+	if passed, known := kernel.HunterV7VerifyConfirmation(*candidate, nil, 0, code); known && !passed {
+		return false
+	}
+	return true
 }
 
 func hunterV7ConfirmationCanBeSatisfiedByRefresh(code string) bool {
@@ -2073,9 +2084,11 @@ func validateHunterV7WhaleFlowGuard(candidate *kernel.CandidateCoin, decision *k
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: entry zone position %.1f%% exceeds 45%% confirmation limit",
 			decision.Symbol, pos)
 	}
-	if taker := hunterV7CandidateTakerBuy15m(candidate); taker > 0 && taker < 0.56 {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: taker_buy_15m %.3f below 0.560",
-			decision.Symbol, taker)
+	// #136: the same named floor taker_flow_confirms_long uses for this setup.
+	floor := local.V7ConfirmTakerLongThreshold(local.V7SetupWhaleFlow)
+	if taker := hunterV7CandidateTakerBuy15m(candidate); taker > 0 && taker < floor {
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] whale_flow_reversal %s LONG blocked: taker_buy_15m %.3f below %.3f",
+			decision.Symbol, taker, floor)
 	}
 	return nil
 }

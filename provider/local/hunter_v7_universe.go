@@ -438,7 +438,7 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 	ctx.Velocity5m = symbolKlineVelocityPct(ss, "5m")
 	ctx.Velocity15m = symbolKlineVelocityPct(ss, "15m")
 	ctx.VolumeBurst5m = symbolKlineVolumeBurst(ss, "5m", 12)
-	ctx.VolumeBurst15m = symbolKlineVolumeBurst(ss, "15m", 8)
+	ctx.VolumeBurst15m = symbolKlineVolumeBurst(ss, "15m", V7VolumeBurst15mLookback)
 	ctx.VolumeBurst1h = symbolKlineVolumeBurst(ss, "1h", 24)
 
 	// Range expansion: latest 1h true range / median of last 20 1h true ranges
@@ -579,35 +579,15 @@ func symbolKlineVelocityPct(ss *datafetch.SymbolSnapshot, interval string) float
 }
 
 func symbolKlineVolumeBurst(ss *datafetch.SymbolSnapshot, interval string, lookback int) float64 {
-	if ss == nil || ss.Klines == nil || lookback <= 0 {
+	if ss == nil || ss.Klines == nil {
 		return 0
 	}
 	bars := ss.Klines[interval]
-	if len(bars) < 3 {
-		return 0
+	volumes := make([]float64, len(bars))
+	for i, b := range bars {
+		volumes[i] = b.Volume
 	}
-	last := bars[len(bars)-1].Volume
-	start := len(bars) - 1 - lookback
-	if start < 0 {
-		start = 0
-	}
-	if start >= len(bars)-1 {
-		return 0
-	}
-	sum := 0.0
-	count := 0
-	for i := start; i < len(bars)-1; i++ {
-		sum += bars[i].Volume
-		count++
-	}
-	if count == 0 {
-		return 0
-	}
-	avg := sum / float64(count)
-	if avg <= 0 {
-		return 0
-	}
-	return last / avg
+	return V7VolumeBurst(volumes, lookback)
 }
 
 func computeCloseStdRatio(klines []klineBar, lookback int) float64 {
