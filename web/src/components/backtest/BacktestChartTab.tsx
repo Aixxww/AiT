@@ -37,6 +37,7 @@ import type {
   BacktestKlinesResponse,
 } from '../../types'
 import { Button } from '../ui/Button'
+import { cssVar, CHART_COLOR_FALLBACK } from '../../utils/chartTheme'
 
 // ============ Equity Chart (Recharts) ============
 
@@ -195,21 +196,28 @@ export function CandlestickChartComponent({
 
     const chart = createChart(container, {
       layout: {
-        background: { type: ColorType.Solid, color: 'var(--color-background)' },
-        textColor: 'var(--color-muted-fg)',
+        background: {
+          type: ColorType.Solid,
+          color: cssVar('--color-background', CHART_COLOR_FALLBACK.background),
+        },
+        textColor: cssVar('--color-muted-fg', CHART_COLOR_FALLBACK.mutedFg),
       },
       grid: {
-        vertLines: { color: 'var(--chart-grid)' },
-        horzLines: { color: 'var(--chart-grid)' },
+        vertLines: {
+          color: cssVar('--chart-grid', CHART_COLOR_FALLBACK.chartGrid),
+        },
+        horzLines: {
+          color: cssVar('--chart-grid', CHART_COLOR_FALLBACK.chartGrid),
+        },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
       },
       rightPriceScale: {
-        borderColor: 'var(--color-border)',
+        borderColor: cssVar('--color-border', CHART_COLOR_FALLBACK.border),
       },
       timeScale: {
-        borderColor: 'var(--color-border)',
+        borderColor: cssVar('--color-border', CHART_COLOR_FALLBACK.border),
         timeVisible: true,
         secondsVisible: false,
       },
@@ -220,12 +228,12 @@ export function CandlestickChartComponent({
     chartRef.current = chart
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: 'var(--color-profit)',
-      downColor: 'var(--color-loss)',
-      borderUpColor: 'var(--color-profit)',
-      borderDownColor: 'var(--color-loss)',
-      wickUpColor: 'var(--color-profit)',
-      wickDownColor: 'var(--color-loss)',
+      upColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+      downColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
+      borderUpColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+      borderDownColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
+      wickUpColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+      wickDownColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
     })
     candleSeriesRef.current = candleSeries
 
@@ -260,15 +268,15 @@ export function CandlestickChartComponent({
             const pnl = trade.realized_pnl
 
             let text = ''
-            let color = 'var(--color-profit)'
+            let color = cssVar('--color-profit', CHART_COLOR_FALLBACK.profit)
 
             if (isOpen) {
               if (isLong) {
                 text = `▲ Long @${trade.price.toFixed(2)}`
-                color = 'var(--color-profit)'
+                color = cssVar('--color-profit', CHART_COLOR_FALLBACK.profit)
               } else {
                 text = `▼ Short @${trade.price.toFixed(2)}`
-                color = 'var(--color-loss)'
+                color = cssVar('--color-loss', CHART_COLOR_FALLBACK.loss)
               }
             } else {
               const pnlStr =
@@ -276,7 +284,10 @@ export function CandlestickChartComponent({
                   ? `+$${pnl.toFixed(2)}`
                   : `-$${Math.abs(pnl).toFixed(2)}`
               text = `× ${pnlStr}`
-              color = pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)'
+              color =
+                pnl >= 0
+                  ? cssVar('--color-profit', CHART_COLOR_FALLBACK.profit)
+                  : cssVar('--color-loss', CHART_COLOR_FALLBACK.loss)
             }
 
             return {

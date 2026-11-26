@@ -263,6 +263,7 @@ const ACRONYMS: Record<string, string> = {
 }
 
 const WORD_ZH: Record<string, string> = {
+  htf: '高周期',
   taker: '主动成交',
   or: '或',
   range: '区间',

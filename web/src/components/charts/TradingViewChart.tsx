@@ -132,8 +132,9 @@ function TradingViewChartComponent({
       style: '1',
       locale: language === 'zh' ? 'zh_CN' : 'en',
       enable_publishing: false,
-      backgroundColor: 'var(--chart-bg)',
-      gridColor: 'var(--chart-grid)',
+      // The embed widget JSON cannot resolve CSS var() either (#153).
+      backgroundColor: 'rgba(11, 14, 17, 1)',
+      gridColor: 'rgba(43, 49, 57, 0.2)',
       hide_top_toolbar: !showToolbar,
       hide_legend: false,
       save_image: false,

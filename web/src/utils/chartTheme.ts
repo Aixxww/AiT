@@ -3,6 +3,37 @@
  * for lightweight-charts and recharts.
  */
 
+// lightweight-charts paints on <canvas>, which cannot resolve CSS var()
+// references — an unresolved color is silently ignored and the series is
+// painted in the default black. Resolve theme variables to concrete
+// color values before handing them to the chart.
+export function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback
+  const v = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim()
+  return v || fallback
+}
+
+// Dark-theme values from index.css, the cssVar() fallbacks for canvas-bound
+// chart colors (#153). A palette data file, whitelisted by the design-token
+// lint guard.
+export const CHART_COLOR_FALLBACK = {
+  chartBg: '#0b0e11',
+  chartText: '#8b95a5',
+  chartGrid: 'rgba(43, 49, 57, 0.2)',
+  primary: '#f0b90b',
+  border: 'rgba(255, 255, 255, 0.075)',
+  profit: '#0ecb81',
+  loss: '#f6465d',
+  profitBorder: 'rgba(14, 203, 129, 0.25)',
+  lossBorder: 'rgba(246, 70, 93, 0.25)',
+  background: '#0b0e11',
+  foreground: '#eaecef',
+  mutedFg: '#929aa5',
+} as const
+
 function getCSSVar(name: string): string {
   return getComputedStyle(document.documentElement)
     .getPropertyValue(name)
