@@ -74,12 +74,18 @@ export function takerLadderCodes(signal: V7Signal): string[] {
   )
 }
 
-/** Zone position in percent (0-100), or null when unknown (-1 sentinel). */
+/**
+ * Zone position in percent from the zone's lower edge (0-100, both
+ * directions), or null when unknown. Only the exact -1 value is the "unknown"
+ * sentinel; any other out-of-range value (e.g. a legacy unclamped -12 for a
+ * price below the zone) is clamped to the zone edge instead of hidden.
+ */
 export function zonePositionPct(signal: V7Signal): number | null {
   const pos =
     signal.execution_readiness?.entry_zone_position ??
     signal.confirmation_summary?.entry_zone_position
-  if (pos === undefined || pos === null || pos < 0) return null
+  if (pos === undefined || pos === null || pos === -1 || !Number.isFinite(pos))
+    return null
   return Math.min(100, Math.max(0, pos))
 }
 

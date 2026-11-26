@@ -1474,7 +1474,7 @@ func hunterV7ReadinessMissingExecutionWaitReason(coin CandidateCoin) string {
 func hunterV7DirectOpenWaitOnlyReason(coin CandidateCoin) string {
 	for _, tag := range coin.V7ReasonCodes {
 		switch tag {
-		case "chase_high_protection":
+		case "chase_high_protection", "chase_low_protection":
 			if hunterV7ConfirmedRangeExpansionContinuation(coin, true) {
 				continue
 			}
@@ -1554,14 +1554,7 @@ func hunterV7RangeExpansionLongFragileWaitReason(coin CandidateCoin) string {
 	if coin.V7DerivativesCtx == nil || coin.V7DerivativesCtx.OIChange1h >= 0 {
 		return ""
 	}
-	entryZonePos := 0.0
-	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.EntryZonePosition > 0 {
-		entryZonePos = coin.V7ConfirmSummary.EntryZonePosition
-	}
-	if coin.V7Readiness != nil && coin.V7Readiness.EntryZonePos > entryZonePos {
-		entryZonePos = coin.V7Readiness.EntryZonePos
-	}
-	if entryZonePos <= 60 {
+	if entryZonePos, ok := hunterV7EntryZonePositionPct(coin); !ok || entryZonePos <= 60 {
 		return ""
 	}
 	if containsAnyStringValue(coin.V7ReasonCodes, []string{
@@ -1998,7 +1991,7 @@ func hunterV7LeaderMomentumLatePullbackWait(coin CandidateCoin) bool {
 	if coin.V7PriceContext == nil {
 		return false
 	}
-	pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, coin.V7PriceContext.Last)
+	pos, ok := local.V7ZonePositionPctClamped(coin.V7EntryZone, coin.V7PriceContext.Last)
 	if !ok || pos < 70 {
 		return false
 	}
@@ -3527,26 +3520,25 @@ func hunterV7AltLadderShortLayeredReleaseHardBlock(coin CandidateCoin) bool {
 	return coin.V7DerivativesCtx != nil && coin.V7DerivativesCtx.TakerBuy15m > 0.42
 }
 
+// hunterV7EntryZonePositionPct is the kernel's reader of the canonical
+// zone_position (#134: local.V7ZonePositionPctClamped, from the lower edge,
+// clamped to [0,100], direction-independent). The provider stamps that value
+// on both V7Readiness.EntryZonePos and V7ConfirmSummary.EntryZonePosition with
+// the same helper at the same price; the reader takes the stamped copy and
+// otherwise computes it from the entry zone and the last price. A stamped 0 is
+// indistinguishable from "unset" on these structs, so it falls through to the
+// computation, which returns 0 again for a price at/below the lower edge.
 func hunterV7EntryZonePositionPct(coin CandidateCoin) (float64, bool) {
-	entryZonePos := 0.0
+	if coin.V7Readiness != nil && coin.V7Readiness.EntryZonePos > 0 {
+		return coin.V7Readiness.EntryZonePos, true
+	}
 	if coin.V7ConfirmSummary != nil && coin.V7ConfirmSummary.EntryZonePosition > 0 {
-		entryZonePos = coin.V7ConfirmSummary.EntryZonePosition
+		return coin.V7ConfirmSummary.EntryZonePosition, true
 	}
-	if coin.V7Readiness != nil && coin.V7Readiness.EntryZonePos > entryZonePos {
-		entryZonePos = coin.V7Readiness.EntryZonePos
-	}
-	if entryZonePos > 0 {
-		return entryZonePos, true
-	}
-	if coin.V7PriceContext == nil || coin.V7PriceContext.Last <= 0 {
+	if coin.V7PriceContext == nil {
 		return 0, false
 	}
-	lower := coin.V7EntryZone.Lower
-	upper := coin.V7EntryZone.Upper
-	if lower <= 0 || upper <= lower {
-		return 0, false
-	}
-	return (coin.V7PriceContext.Last - lower) / (upper - lower) * 100, true
+	return local.V7ZonePositionPctClamped(coin.V7EntryZone, coin.V7PriceContext.Last)
 }
 
 func hunterV7BreakoutTriggerNearFlowReviewable(coin CandidateCoin, minRR float64) bool {

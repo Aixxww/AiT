@@ -219,19 +219,19 @@ func hunterV7V2RR(direction string, entry, stop, target float64) *float64 {
 	return hunterV7V2Ptr(hunterV7V2Round(reward/risk, 3))
 }
 
-// hunterV7V2ZonePositionPct is the single clamped zone position (dictionary
-// signal.zone_position_pct): LONG from the lower edge, SHORT from the upper
-// edge, at price. Undefined for a single-price zone.
-func hunterV7V2ZonePositionPct(direction string, zone local.V7PriceZone, price float64) *float64 {
-	width := zone.Upper - zone.Lower
-	if price <= 0 || zone.Lower <= 0 || width <= 0 {
+// hunterV7V2ZonePositionPct is signal.zone_position_pct: the canonical
+// zone_position (#134, local.V7ZonePositionPctClamped) — from the zone's lower
+// edge for BOTH directions, clamped to [0,100], at price. It reports the same
+// number as the legacy entry_zone_position. Undefined for a single-price zone.
+func hunterV7V2ZonePositionPct(zone local.V7PriceZone, price float64) *float64 {
+	if zone.Upper-zone.Lower <= 0 {
 		return nil
 	}
-	pos := (price - zone.Lower) / width * 100
-	if strings.EqualFold(direction, "SHORT") {
-		pos = (zone.Upper - price) / width * 100
+	pos, ok := local.V7ZonePositionPctClamped(zone, price)
+	if !ok {
+		return nil
 	}
-	return hunterV7V2Ptr(hunterV7V2Round(math.Min(100, math.Max(0, pos)), 2))
+	return hunterV7V2Ptr(hunterV7V2Round(pos, 2))
 }
 
 func (e *StrategyEngine) buildHunterV7V2Payload(item hunterV7PromptCandidate, promptTime time.Time, geometry HunterV7ExecutionGeometry) hunterV7V2Payload {
@@ -287,7 +287,7 @@ func (e *StrategyEngine) buildHunterV7V2Payload(item hunterV7PromptCandidate, pr
 		CellStatus:            hunterV7V2Enum("cell", store.V7CellStatusProbation),
 		EntryZoneLowerPrice:   coin.V7EntryZone.Lower,
 		EntryZoneUpperPrice:   coin.V7EntryZone.Upper,
-		ZonePositionPct:       hunterV7V2ZonePositionPct(coin.Direction, coin.V7EntryZone, price),
+		ZonePositionPct:       hunterV7V2ZonePositionPct(coin.V7EntryZone, price),
 		TriggerPrice:          coin.V7TriggerPrice,
 		InvalidationPrice:     coin.V7Invalidation.Price,
 		TP1Price:              coin.V7TP1Price,

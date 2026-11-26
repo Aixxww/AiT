@@ -143,6 +143,16 @@ describe('zonePositionPct', () => {
     expect(zonePositionPct(signal)).toBeNull()
   })
 
+  it('clamps a legitimately negative unclamped value to 0 instead of hiding it', () => {
+    const signal = makeSignal({
+      execution_readiness: {
+        tier: 'REVIEWABLE',
+        entry_zone_position: -12.5,
+      },
+    })
+    expect(zonePositionPct(signal)).toBe(0)
+  })
+
   it('falls back to the confirmation summary position', () => {
     const signal = makeSignal({
       confirmation_summary: {
