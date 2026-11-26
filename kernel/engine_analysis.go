@@ -469,7 +469,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 					}
 				}
 			}
-			oiValue := data.OpenInterest.Latest * data.CurrentPrice
+			oiValue, _, _ := data.OpenInterest.NotionalUSDT(data.CurrentPrice)
 			oiValueInMillions := oiValue / 1_000_000
 			if oiValueInMillions < effectiveMinOIThreshold {
 				logger.Infof("⚠️  %s OI value too low (%.2fM USD < %.2fM adaptive), skipping coin",

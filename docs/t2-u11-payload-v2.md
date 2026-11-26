@@ -163,5 +163,5 @@ The dictionary marks entries "code" or "prompt 表面" but marks none "safe", so
 
 ## Open points
 
-- **Positions block.** The held-position block still uses the legacy compact market line (`oi_latest`, `funding=`). It is outside the candidate payload, carries no deleted entry, and is unchanged in U11.
+- **Positions block.** The held-position block still uses the legacy compact market line (`oi_notional_usdt` (#135: USDT notional, was raw-contract `oi_latest`), `funding=`). It is outside the candidate payload, carries no deleted entry, and is unchanged in U11.
 - **M2 menu depth.** The menus are built from the bars the prompt fetches (31 per timeframe). That is shorter than the FAST lookbacks (96 × 15m, 168 × 1h), so menus can be sparser than in the structure geometry mode.

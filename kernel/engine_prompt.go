@@ -1696,9 +1696,12 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 	if indicators.EnableOI || indicators.EnableFundingRate {
 		sb.WriteString(fmt.Sprintf("Additional data for %s:\n\n", data.Symbol))
 
-		if indicators.EnableOI && data.OpenInterest != nil {
-			sb.WriteString(fmt.Sprintf("Open Interest: Latest: %.2f Average: %.2f\n\n",
-				data.OpenInterest.Latest, data.OpenInterest.Average))
+		if indicators.EnableOI {
+			// #135: USDT notional (contracts × price), the dictionary's OI unit.
+			if oiLatest, oiAvg, ok := data.OpenInterest.NotionalUSDT(data.CurrentPrice); ok {
+				sb.WriteString(fmt.Sprintf("Open Interest (oi_notional_usdt): Latest: %.0f Average: %.0f\n\n",
+					oiLatest, oiAvg))
+			}
 		}
 
 		if indicators.EnableFundingRate {
@@ -1796,8 +1799,12 @@ func (e *StrategyEngine) formatCompactMarketData(data *market.Data, coin *Candid
 	if indicators.EnableRSI && data.CurrentRSI7 > 0 {
 		parts = append(parts, fmt.Sprintf("rsi7=%.1f", data.CurrentRSI7))
 	}
-	if indicators.EnableOI && data.OpenInterest != nil {
-		parts = append(parts, fmt.Sprintf("oi_latest=%.2f oi_avg=%.2f", data.OpenInterest.Latest, data.OpenInterest.Average))
+	if indicators.EnableOI {
+		// #135: USDT notional (contracts × price), named like hybrid
+		// market.oi_notional_usdt; raw contract counts are never printed.
+		if oiLatest, oiAvg, ok := data.OpenInterest.NotionalUSDT(data.CurrentPrice); ok {
+			parts = append(parts, fmt.Sprintf("oi_notional_usdt=%.0f oi_avg_notional_usdt=%.0f", oiLatest, oiAvg))
+		}
 	}
 	if indicators.EnableFundingRate {
 		parts = append(parts, fmt.Sprintf("funding=%.5f", data.FundingRate))

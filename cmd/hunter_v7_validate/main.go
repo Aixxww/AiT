@@ -1697,7 +1697,12 @@ func promptMarketData(signals []local.V7SignalOutput, snap *datafetch.Snapshot) 
 		hasDerivCtx := sig.DerivativesCtx != nil
 		if hasDerivCtx {
 			funding = sig.DerivativesCtx.FundingRate
-			oi = sig.DerivativesCtx.OIValue
+			// #135: OIValue is USDT notional, market.OIData holds contracts;
+			// convert back so the prompt's notional (contracts × price) is
+			// the signal's own OIValue rather than OIValue × price.
+			if price > 0 {
+				oi = sig.DerivativesCtx.OIValue / price
+			}
 		} else if snap != nil {
 			// TA-1: without a derivatives context, fall back to the
 			// snapshot's own funding rate instead of reporting 0.
