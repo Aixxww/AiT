@@ -23,6 +23,12 @@ const legacyMinRiskRewardRatio = 3.0
 // store.ResolveMinConfidence (#105 / AUD-B4).
 const legacyContradictionConfidenceCap = 70
 
+// hunterLowScoreConfidenceCap is the confidence a high-confidence open is
+// capped to when its Hunter score is below 15 (a suspicious combination).
+// It is applied before the confidence floor check (#138 M7a), so with a
+// configured floor above it the open is rejected at validation.
+const hunterLowScoreConfidenceCap = 65
+
 type HunterScoreInfo struct {
 	LongScore  float64
 	ShortScore float64
@@ -155,9 +161,6 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		// min_confidence (0 = unset); the effective floor comes from the
 		// resolver (configured value, else its documented 60).
 		minConfidenceHard, confidenceConfigured := store.ResolveMinConfidence(minOpenConfidence)
-		if d.Confidence < minConfidenceHard {
-			return fmt.Errorf("confidence %d below absolute minimum %d", d.Confidence, minConfidenceHard)
-		}
 		// The direction-contradiction cap lowers confidence to the open
 		// threshold (the lowest size band), as it did when the threshold was
 		// the old hard-coded 70; it no longer hard-codes 70 (#77).
@@ -166,6 +169,11 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			contradictionCap = minConfidenceHard
 		}
 
+		// #138 M7a: the Hunter-score caps run BEFORE the floor check, so a
+		// capped confidence is judged here. Before, the low-score cap (65)
+		// ran after the check: the decision passed kernel validation with a
+		// confidence below a configured floor (e.g. 75) and failed late in
+		// the trader, with failed-open cooldown side effects.
 		if hunterScoreMap != nil {
 			if info, ok := hunterScoreMap[d.Symbol]; ok {
 				selectedHunterScore := info.LongScore
@@ -176,14 +184,14 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 				// Direction contradiction: AI opens LONG but Hunter says SHORT is stronger
 				if d.Action == "open_long" && info.ShortScore > info.LongScore+10 {
 					if d.Confidence > 80 {
-						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter SHORT (%.1f) > LONG (%.1f) — capping confidence to %d",
+						logger.Infof("⚠  %s: AI confidence %d HIGH but Hunter SHORT (%.1f) > LONG (%.1f) — capping confidence to %d",
 							d.Symbol, d.Confidence, info.ShortScore, info.LongScore, contradictionCap)
 						d.Confidence = contradictionCap
 					}
 				}
 				if d.Action == "open_short" && info.LongScore > info.ShortScore+10 {
 					if d.Confidence > 80 {
-						logger.Infof("⚠️  %s: AI confidence %d HIGH but Hunter LONG (%.1f) > SHORT (%.1f) — capping confidence to %d",
+						logger.Infof("⚠  %s: AI confidence %d HIGH but Hunter LONG (%.1f) > SHORT (%.1f) — capping confidence to %d",
 							d.Symbol, d.Confidence, info.LongScore, info.ShortScore, contradictionCap)
 						d.Confidence = contradictionCap
 					}
@@ -191,11 +199,15 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 
 				// Low Hunter score + high AI confidence = suspicious
 				if selectedHunterScore < 15 && d.Confidence > 85 {
-					logger.Infof("⚠️  %s: Hunter score %.1f LOW but AI confidence %d HIGH — capping confidence to 65",
-						d.Symbol, selectedHunterScore, d.Confidence)
-					d.Confidence = 65
+					logger.Infof("⚠  %s: Hunter score %.1f LOW but AI confidence %d HIGH — capping confidence to %d",
+						d.Symbol, selectedHunterScore, d.Confidence, hunterLowScoreConfidenceCap)
+					d.Confidence = hunterLowScoreConfidenceCap
 				}
 			}
+		}
+
+		if d.Confidence < minConfidenceHard {
+			return fmt.Errorf("confidence %d below absolute minimum %d", d.Confidence, minConfidenceHard)
 		}
 	}
 
