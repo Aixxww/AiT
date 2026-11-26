@@ -542,6 +542,7 @@ type V7SignalTags struct {
 	CalibrationVersion string
 	DoctrineVersion    string
 	PayloadVersion     string // #111 S2: prompt payload version (legacy / hybrid_v2)
+	StateCode          string // #111 S4: one-line state code at the record's tier
 	LifecycleState     string // T2 event state, or the native signal status
 	TriggerPrice       float64
 	T2EventID          string // fix 11: Task-2 lifecycle event id ("" = native / no event store)
