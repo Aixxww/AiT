@@ -35,17 +35,28 @@ func (at *AutoTrader) resolveEffectiveLeverage(symbol string, requested int) int
 }
 
 func (at *AutoTrader) resolveOpenExecutionPrice(symbol, side string, fallbackPrice float64) float64 {
+	if price, ok := at.freshOpenExecutionPrice(symbol, side); ok {
+		return price
+	}
+	return fallbackPrice
+}
+
+// freshOpenExecutionPrice reads an executable quote for an open: the best
+// ask (long) / bid (short) from the order book, else the ticker price. ok is
+// false when neither fetch produced a positive price; there is no fallback,
+// so a caller that needs a fresh quote can fail closed (#138 M1).
+func (at *AutoTrader) freshOpenExecutionPrice(symbol, side string) (float64, bool) {
 	if gridTrader, ok := at.trader.(GridTrader); ok {
 		bids, asks, err := gridTrader.GetOrderBook(symbol, 5)
 		if err == nil {
 			switch side {
 			case "long":
 				if len(asks) > 0 && len(asks[0]) > 0 && asks[0][0] > 0 {
-					return asks[0][0]
+					return asks[0][0], true
 				}
 			case "short":
 				if len(bids) > 0 && len(bids[0]) > 0 && bids[0][0] > 0 {
-					return bids[0][0]
+					return bids[0][0], true
 				}
 			}
 		} else {
@@ -55,10 +66,10 @@ func (at *AutoTrader) resolveOpenExecutionPrice(symbol, side string, fallbackPri
 
 	if at.trader != nil {
 		if price, err := at.trader.GetMarketPrice(symbol); err == nil && price > 0 {
-			return price
+			return price, true
 		}
 	}
-	return fallbackPrice
+	return 0, false
 }
 
 // executeDecisionWithRecord executes AI decision and records detailed information
