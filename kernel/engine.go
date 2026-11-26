@@ -336,6 +336,10 @@ type Decision struct {
 	HunterV7TriggerPrice      float64 `json:"-"`
 	HunterV7ConditionalEntry  bool    `json:"-"`
 	HunterV7InvalidationPrice float64 `json:"-"`
+	// HunterV7HTFGate (#122) is the selected candidate's HTF gate family
+	// (store.V7HTFFamily*) when it trades against its 1h/4h direction, else
+	// "". Same hydration and json "-" contract as HunterV7MinRR.
+	HunterV7HTFGate string `json:"-"`
 	// HunterV7IntentKey overrides the per-cycle F04 open intent key; a
 	// pending conditional entry carries the key of the cycle that approved
 	// it, so its execution has one deterministic client order id.
@@ -832,6 +836,11 @@ func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry Hunt
 	if (tier == "EXECUTABLE" || tier == "REVIEWABLE") && containsStringValue(coin.V7RiskTags, local.V7CorrelationFloorContextTag) {
 		return "WATCH", local.V7CorrelationFloorContextTag
 	}
+	// #122 (#111 Q2): against the candidate's own 1h/4h direction a trend
+	// family never reaches open-review, and a counter-trend family is held
+	// at REVIEWABLE (the downgrade channel; the validator adds the
+	// confidence floor). Whatever rule promoted the row, this cap wins.
+	tier, reason = hunterV7HTFTierCap(coin, tier, reason)
 	// #113: RR admission, fail closed (after the class caps, so a
 	// shadow_only row keeps class_shadow_only). Whatever rule promoted the row, an
 	// EXECUTABLE or REVIEWABLE candidate is kept in WATCH when its backend
@@ -1240,6 +1249,43 @@ func hunterV7RangeExpansionLiveReviewableReason(coin CandidateCoin, missing stri
 	}
 	return true, "range_expansion_live_reviewable_long_" + missing
 }
+
+// Tier reasons of the #122 HTF direction gate.
+const (
+	hunterV7HTFTrendBlockedReason = "htf_against_trend_family"
+	hunterV7HTFCounterTrendReason = "htf_against_counter_trend_reviewable"
+)
+
+// hunterV7HTFGate returns the HTF gate family that applies to a candidate:
+// its store.V7HTFFamily when the provider tagged it htf_against_direction,
+// else "" (not against 1h/4h, or a setup the gate does not cover).
+func hunterV7HTFGate(coin CandidateCoin) string {
+	if !containsStringValue(coin.V7RiskTags, local.V7HTFAgainstDirectionTag) {
+		return ""
+	}
+	return store.V7HTFFamily(coin.V7SetupType)
+}
+
+// hunterV7HTFTierCap applies the HTF gate to an open-review tier: a trend
+// family against 1h/4h drops to WATCH, a counter-trend family is held at
+// REVIEWABLE. Other tiers and ungated candidates pass through unchanged.
+func hunterV7HTFTierCap(coin CandidateCoin, tier, reason string) (string, string) {
+	if tier != "EXECUTABLE" && tier != "REVIEWABLE" {
+		return tier, reason
+	}
+	switch hunterV7HTFGate(coin) {
+	case store.V7HTFFamilyTrend:
+		return "WATCH", hunterV7HTFTrendBlockedReason
+	case store.V7HTFFamilyCounterTrend:
+		if tier == "EXECUTABLE" {
+			return "REVIEWABLE", hunterV7HTFCounterTrendReason
+		}
+	}
+	return tier, reason
+}
+
+// HunterV7HTFGate is hunterV7HTFGate for the trader guard.
+func HunterV7HTFGate(coin CandidateCoin) string { return hunterV7HTFGate(coin) }
 
 func hunterV7ConfirmationCanBeLiveReviewed(code string) bool {
 	return local.V7ConfirmLiveReviewable(code)

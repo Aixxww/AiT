@@ -114,6 +114,8 @@ Prose thresholds kept unchanged that have no single config or constant source (n
 
 #111 S1 (prompt hard rules) adds two prose numbers, both the existing Position Sizing band boundaries in `BuildSystemPrompt` ("High confidence (≥85)", the medium band ending at 84): the high band (≥85) needs every confirmation visible and no shown level before take_profit, and a counter-trend setup against the 1h/4h direction opens only in that band. The 1h/4h and 5m/15m timeframe names in the HTF rule are prose as well.
 
+#122 adds the code half of that rule. The floor 85 has one source, `store.V7CounterTrendMinConfidence`, and the family split is `store.V7HTFFamily`. The provider tags a gated setup `htf_against_direction` when its 1h and 4h both oppose it (EMA20/EMA60 with price on the same side). The kernel holds a trend family at WATCH and a counter-trend family at REVIEWABLE. The decision validator rejects a trend-family open and a counter-trend open below 85, and the trader guard repeats both checks.
+
 ## 7. Non-numeric behaviour changes for review
 
 These are prompt-level rule changes. No backend gate changed.

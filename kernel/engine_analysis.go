@@ -246,6 +246,7 @@ func hydrateHunterV7DecisionExecutionPlans(decisions []Decision, candidates []Ca
 		decision.HunterV7TriggerPrice = candidate.V7TriggerPrice
 		decision.HunterV7ConditionalEntry = candidate.V7ConditionalEntry
 		decision.HunterV7InvalidationPrice = candidate.V7Invalidation.Price
+		decision.HunterV7HTFGate = hunterV7HTFGate(candidate)
 		decision.HunterV7TP0Price = candidate.V7TP0Price
 		decision.HunterV7TP1Price = candidate.V7TP1Price
 		decision.HunterV7TP2Price = candidate.V7TP2Price
@@ -261,6 +262,7 @@ func resetHunterV7ExecutionPlan(decision *Decision) {
 	decision.HunterV7MaxTPPct = 0
 	decision.HunterV7MaxDriftPct, decision.HunterV7DriftReference, decision.HunterV7TriggerPrice = 0, "", 0
 	decision.HunterV7ConditionalEntry, decision.HunterV7InvalidationPrice, decision.HunterV7IntentKey = false, 0, ""
+	decision.HunterV7HTFGate = ""
 }
 
 const hunterV7DecisionMaxOutputTokens = 1600

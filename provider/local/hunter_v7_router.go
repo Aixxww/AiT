@@ -177,6 +177,10 @@ func buildV7SignalPasses(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 			}
 		}},
 		{"readiness_refresh", refreshV7ExecutionReadiness},
+		// Last, so no earlier pass (risk, timing) scores the tag (#122):
+		// it states the 1h/4h fact for the kernel tier cap, the validator
+		// and the trader guard.
+		{"htf_direction", applyV7HTFDirectionTag},
 	}
 }
 
