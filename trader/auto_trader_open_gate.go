@@ -145,6 +145,7 @@ func (at *AutoTrader) capResponseOpens(ctx *kernel.Context, decisions []kernel.D
 				Reasoning:         d.Reasoning,
 				BlockedReasonCode: d.BlockedReasonCode,
 				Trigger:           decisionTriggerForStore(d.Trigger),
+				WhyThisCouldFail:  string(d.WhyThisCouldFail), // #111 S3
 				Timestamp:         time.Now().UTC(),
 				Success:           false,
 				Error:             msg,

@@ -298,6 +298,10 @@ type Decision struct {
 	BlockedSignalSymbol      string  `json:"blocked_signal_symbol,omitempty"`
 	EffectiveRRAfterCap      float64 `json:"effective_rr_after_cap,omitempty"`
 	SignalAgeMs              int64   `json:"signal_age_ms,omitempty"`
+	// WhyThisCouldFail (#111 S3) is the model's one-sentence failure case for
+	// an open. Fail-soft: an unusable value decodes to "" and is stored as
+	// NULL (see decision_why_this_could_fail.go).
+	WhyThisCouldFail FailSoftText `json:"why_this_could_fail,omitempty"`
 	// Server-derived execution plan. These fields are hydrated from the selected
 	// Hunter v7 signal before response validation (#106); they are not LLM
 	// inputs.
