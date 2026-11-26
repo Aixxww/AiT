@@ -1986,11 +1986,9 @@ func validateHunterV7SignalFreshness(candidate *kernel.CandidateCoin, decision *
 	}
 	// #87 / AUD-E1: backend ages only. The model's signal_age_ms is an
 	// echo of prompt text and can be anything (1 used to pass a 120s-old
-	// high-volatility signal), so it is ignored here.
-	ageMs := candidate.V7DataFreshness.PriceAgeMs
-	if ageMs <= 0 {
-		ageMs = candidate.V7DataFreshness.SnapshotAgeMs
-	}
+	// high-volatility signal), so it is ignored here (#119: the same helper
+	// as the U10 snapshot budget).
+	ageMs := hunterV7BackendDataAgeMs(candidate)
 	if ageMs <= 0 {
 		return nil
 	}

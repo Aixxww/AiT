@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Aixxww/AiT/kernel"
+	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/store"
 )
 
@@ -43,12 +44,12 @@ func (at *AutoTrader) scanChannel(ticker *time.Ticker, isGrid bool, now time.Tim
 	return timer.C, func() { timer.Stop() }
 }
 
-// hunterV7SignalAgeMs is the age of the data behind a candidate (decision
-// signal age, else price age, else snapshot age; 0 = unknown).
-func hunterV7SignalAgeMs(candidate *kernel.CandidateCoin, decision *kernel.Decision) int64 {
-	if decision != nil && decision.SignalAgeMs > 0 {
-		return decision.SignalAgeMs
-	}
+// hunterV7BackendDataAgeMs is the age of the data behind a candidate from
+// backend sources only (#119, AUD-E1): price age, else snapshot age; 0 =
+// unknown. The model's signal_age_ms is an echo of prompt text and is never
+// an input. Both age gates (the U10 snapshot budget and the high-velocity
+// freshness check) read this one function.
+func hunterV7BackendDataAgeMs(candidate *kernel.CandidateCoin) int64 {
 	if candidate == nil {
 		return 0
 	}
@@ -56,6 +57,17 @@ func hunterV7SignalAgeMs(candidate *kernel.CandidateCoin, decision *kernel.Decis
 		return candidate.V7DataFreshness.PriceAgeMs
 	}
 	return candidate.V7DataFreshness.SnapshotAgeMs
+}
+
+// logHunterV7EchoedAgeMismatch records, for diagnostics only, a model-echoed
+// signal_age_ms that disagrees with the backend age. It never changes a
+// verdict.
+func logHunterV7EchoedAgeMismatch(candidate *kernel.CandidateCoin, decision *kernel.Decision, backendMs int64) {
+	if candidate == nil || decision == nil || decision.SignalAgeMs <= 0 || decision.SignalAgeMs == backendMs {
+		return
+	}
+	logger.Infof("ℹ [HUNTER V7] %s: model-echoed signal_age_ms=%d ignored; backend data age %dms is authoritative (AUD-E1)",
+		decision.Symbol, decision.SignalAgeMs, backendMs)
 }
 
 // validateHunterV7SnapshotBudget is the U10 freshness gate: an open on a
@@ -70,7 +82,8 @@ func (at *AutoTrader) validateHunterV7SnapshotBudget(candidate *kernel.Candidate
 	if budget <= 0 {
 		return nil
 	}
-	ageMs := hunterV7SignalAgeMs(candidate, decision)
+	ageMs := hunterV7BackendDataAgeMs(candidate)
+	logHunterV7EchoedAgeMismatch(candidate, decision, ageMs)
 	if ageMs <= 0 || float64(ageMs) <= budget*1000 {
 		return nil
 	}
