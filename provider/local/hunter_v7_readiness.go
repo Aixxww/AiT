@@ -93,7 +93,7 @@ func v7MissingRequiredConfirmationCodes(sig *V7SignalOutput) []string {
 		return nil
 	}
 	if sig.ConfirmSummary == nil {
-		return append([]string{}, sig.RequiredConfirms...)
+		return V7MachineConfirms(sig.RequiredConfirms) // #133: checklist codes never block
 	}
 	required := make(map[string]struct{}, len(sig.RequiredConfirms))
 	for _, code := range sig.RequiredConfirms {

@@ -60,13 +60,14 @@
    ],
    "confirmation_summary": {
     "passed_hard": true,
-    "passed_review": true,
-    "context_checks": [
+    "passed_review": false,
+    "missing_review": [
      {
       "code": "5m_price_holds_ema20_or_trailing_support",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.02832434712103769,
+      "severity": "review_wait",
+      "reason": "5m close is below EMA20"
      }
     ],
     "entry_zone_position": 45.299784091309995,
@@ -427,14 +428,6 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 64.30601676847981,
     "stop_distance_pct": 0.7019614476821179,
     "reward_pct": 4.399999999999997,
@@ -468,16 +461,17 @@
     "stale_threshold_ms": 54796
    },
    "execution_readiness": {
-    "tier": "WATCH",
-    "reason": "confirmation_missing_5m_price_holds_ema20_or_trailing_support",
+    "tier": "EXECUTABLE",
+    "reason": "readiness_ready",
     "ready_score": 91.1,
     "window_health": 100,
     "entry_zone_position": 64.30601676847981,
     "price_deviation_pct": 0,
     "data_quality": "complete",
-    "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_price_holds_ema20_or_trailing_support"
+     "5m_price_holds_ema20_or_trailing_support",
+     "taker_flow_not_flipping_against_direction",
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -867,23 +861,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.3312277946122749,
     "reward_pct": 3.837095196709877,
-    "rr": 11.584460178535025
+    "rr": 11.584460178535025,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -923,9 +906,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -1072,23 +1053,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.22676581459771034,
     "reward_pct": 3.215226745895039,
-    "rr": 14.1786219038304
+    "rr": 14.1786219038304,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -1128,9 +1098,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -1275,23 +1243,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.11465807180876615,
     "reward_pct": 1.1894809767193544,
-    "rr": 10.374158207572552
+    "rr": 10.374158207572552,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -1331,9 +1288,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -1475,18 +1430,13 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "no_immediate_loss_of_trigger_level",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 59.99999999999625,
     "stop_distance_pct": 0.15636228661766263,
     "reward_pct": 3.529433307092724,
-    "rr": 22.572152041514343
+    "rr": 22.572152041514343,
+    "checklist": [
+     "no_immediate_loss_of_trigger_level"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -1525,8 +1475,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_above_trigger",
-     "no_immediate_loss_of_trigger_level"
+     "5m_or_15m_close_above_trigger"
     ]
    },
    "execution_context": {
@@ -1678,36 +1627,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.499999999999694,
     "stop_distance_pct": 1.9999999999999938,
     "reward_pct": 8.732574535511974,
-    "rr": 1.9308486753480072
+    "rr": 1.9308486753480072,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -1739,7 +1666,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 61.12769047409893,
     "window_health": 100,
     "entry_zone_position": 37.499999999999694,
@@ -1748,6 +1675,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -1908,38 +1836,24 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_close_below_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.01201,
+      "threshold": 0.011900409060616877,
+      "severity": "review_wait",
+      "reason": "15m close is not below VWAP20"
      }
     ],
     "entry_zone_position": 37.4999999999997,
     "stop_distance_pct": 2.1017050872158447,
     "reward_pct": 8.742714404662786,
-    "rr": 2.7049335378110135
+    "rr": 2.7049335378110135,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -1978,10 +1892,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_close_below_vwap",
-     "funding_remains_positive_or_lsr_crowded_long",
-     "oi_flush_or_failed_oi_rebuild",
-     "no_new_high_after_crowding_signal"
+     "15m_close_below_vwap"
     ]
    },
    "execution_context": {
@@ -2340,36 +2251,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.50000000000033,
     "stop_distance_pct": 1.6150423317334752,
     "reward_pct": 5.8774862043755824,
-    "rr": 3.6392149536211185
+    "rr": 3.6392149536211185,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -2400,7 +2289,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 69.8406479419014,
     "window_health": 100,
     "entry_zone_position": 37.50000000000033,
@@ -2409,6 +2298,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -2560,23 +2450,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.1758321019469692,
     "reward_pct": 5.388199999024708,
-    "rr": 30.644006068071597
+    "rr": 30.644006068071597,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -2616,9 +2495,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -2774,38 +2651,24 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_close_below_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.6295,
+      "threshold": 0.6252650846374619,
+      "severity": "review_wait",
+      "reason": "15m close is not below VWAP20"
      }
     ],
     "entry_zone_position": 37.50000000000056,
     "stop_distance_pct": 0.9442771942539196,
     "reward_pct": 5.845909451945981,
-    "rr": 6.190882812292079
+    "rr": 6.190882812292079,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "LOW",
@@ -2845,10 +2708,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_close_below_vwap",
-     "funding_remains_positive_or_lsr_crowded_long",
-     "oi_flush_or_failed_oi_rebuild",
-     "no_new_high_after_crowding_signal"
+     "15m_close_below_vwap"
     ]
    },
    "execution_context": {
@@ -3004,23 +2864,19 @@
       "threshold": 0.3886276090748451,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.6801453105897218,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
-    "reward_pct": 4.898501158697798
+    "reward_pct": 4.898501158697798,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -3213,21 +3069,10 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
-    "reward_pct": 4.269791814724427
+    "reward_pct": 4.269791814724427,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -3412,23 +3257,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.11465807180876615,
     "reward_pct": 1.1894809767193544,
-    "rr": 10.374158207572552
+    "rr": 10.374158207572552,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -3468,9 +3302,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -3812,38 +3644,24 @@
       "threshold": 35,
       "severity": "review_wait",
       "reason": "long price is above allowed entry-zone position"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_reclaim_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_negative_or_lsr_crowded_short",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_stabilizes_or_short_covering_starts",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_low_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.1249,
+      "threshold": 0.12570231077738914,
+      "severity": "review_wait",
+      "reason": "15m close has not reclaimed VWAP20"
      }
     ],
     "entry_zone_position": 62.5000000000004,
     "stop_distance_pct": 1.2061210713091295,
     "reward_pct": 18.975180144115303,
-    "rr": 6.109103398643445
+    "rr": 6.109103398643445,
+    "checklist": [
+     "funding_remains_negative_or_lsr_crowded_short",
+     "oi_stabilizes_or_short_covering_starts"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -3882,10 +3700,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_reclaim_vwap",
-     "funding_remains_negative_or_lsr_crowded_short",
-     "oi_stabilizes_or_short_covering_starts",
-     "no_new_low_after_crowding_signal"
+     "15m_reclaim_vwap"
     ]
    },
    "execution_context": {
@@ -4222,36 +4037,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.50000000000038,
     "stop_distance_pct": 1.9999999999999927,
     "reward_pct": 12.387482614742694,
-    "rr": 3.2622929550675615
+    "rr": 3.2622929550675615,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -4282,7 +4075,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 64.087,
     "window_health": 100,
     "entry_zone_position": 37.50000000000038,
@@ -4291,6 +4084,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -4448,23 +4242,19 @@
       "threshold": 0.04192101717482195,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.29700039960011626,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
-    "reward_pct": 7.5172716743230135
+    "reward_pct": 7.5172716743230135,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -4834,23 +4624,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.0856001159099402,
     "reward_pct": 3.155796926724873,
-    "rr": 36.866736606350905
+    "rr": 36.866736606350905,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -4890,9 +4669,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -5042,36 +4819,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.49999999999925,
     "stop_distance_pct": 2.000000000000004,
     "reward_pct": 8.86944881889764,
-    "rr": 3.5165753178594175
+    "rr": 3.5165753178594175,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -5102,7 +4857,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 67.9281090283032,
     "window_health": 100,
     "entry_zone_position": 37.49999999999925,
@@ -5111,6 +4866,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -5260,23 +5016,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.29326825976898113,
     "reward_pct": 3.006797106665547,
-    "rr": 10.252719162428686
+    "rr": 10.252719162428686,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -5316,9 +5061,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -5466,18 +5209,13 @@
       "reason": "short trigger has not cleared entry-zone lower bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "no_immediate_reclaim_of_trigger_level",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 31.034482758619887,
     "stop_distance_pct": 2.1999999999999975,
     "reward_pct": 11.983976555211791,
-    "rr": 2.369646625760459
+    "rr": 2.369646625760459,
+    "checklist": [
+     "no_immediate_reclaim_of_trigger_level"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -5516,8 +5254,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_below_trigger",
-     "no_immediate_reclaim_of_trigger_level"
+     "5m_or_15m_close_below_trigger"
     ]
    },
    "execution_context": {
@@ -5870,21 +5607,10 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
-    "reward_pct": 4.521790195959363
+    "reward_pct": 4.521790195959363,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -6067,14 +5793,6 @@
       "reason": "live price must be inside entry zone"
      }
     ],
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 2.1999999999999993,
     "reward_pct": 14.761539921674483,
@@ -6118,8 +5836,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "live_price_in_entry_zone",
-     "5m_price_holds_ema20_or_trailing_support"
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -6265,20 +5982,19 @@
     "passed_review": false,
     "missing_review": [
      {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": false,
+      "actual": -0.557329222895483,
+      "severity": "review_wait",
+      "reason": "5m close is below EMA20"
+     },
+     {
       "code": "taker_flow_not_flipping_against_direction",
       "passed": false,
       "actual": 0.4865417679582501,
       "threshold": 0.5,
       "severity": "review_wait",
       "reason": "15m taker buy is below required long threshold"
-     }
-    ],
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
      }
     ],
     "stop_distance_pct": 2.467280907421669,
@@ -6315,7 +6031,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_taker_flow_not_flipping_against_direction",
+    "reason": "confirmation_missing_5m_price_holds_ema20_or_trailing_support",
     "ready_score": 64.02679316884308,
     "window_health": 80,
     "entry_zone_position": 0,
@@ -6323,8 +6039,8 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "taker_flow_not_flipping_against_direction",
-     "5m_price_holds_ema20_or_trailing_support"
+     "5m_price_holds_ema20_or_trailing_support",
+     "taker_flow_not_flipping_against_direction"
     ]
    },
    "execution_context": {
@@ -6665,6 +6381,14 @@
       "reason": "long price is above allowed entry-zone position"
      },
      {
+      "code": "15m_reclaim_vwap",
+      "passed": false,
+      "actual": 0.003524,
+      "threshold": 0.0035359232041631693,
+      "severity": "review_wait",
+      "reason": "15m close has not reclaimed VWAP20"
+     },
+     {
       "code": "taker_buy_15m_gt_0_52",
       "passed": false,
       "actual": 0.5087780605083363,
@@ -6673,36 +6397,14 @@
       "reason": "15m taker buy is below required long threshold"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_reclaim_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_negative_or_lsr_crowded_short",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_stabilizes_or_short_covering_starts",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_low_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 62.5,
     "stop_distance_pct": 0.9157547313725365,
     "reward_pct": 8.56980703745744,
-    "rr": 7.52961683328909
+    "rr": 7.52961683328909,
+    "checklist": [
+     "funding_remains_negative_or_lsr_crowded_short",
+     "oi_stabilizes_or_short_covering_starts"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -6733,7 +6435,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_taker_buy_15m_gt_0_52",
+    "reason": "confirmation_missing_15m_reclaim_vwap",
     "ready_score": 48.478510178300105,
     "window_health": 90,
     "entry_zone_position": 62.5,
@@ -6741,11 +6443,8 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "taker_buy_15m_gt_0_52",
      "15m_reclaim_vwap",
-     "funding_remains_negative_or_lsr_crowded_short",
-     "oi_stabilizes_or_short_covering_starts",
-     "no_new_low_after_crowding_signal"
+     "taker_buy_15m_gt_0_52"
     ]
    },
    "execution_context": {
@@ -7074,25 +6773,21 @@
       "threshold": 0.019656655851881612,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.13049033982482072,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.2631337801420625,
     "reward_pct": 7.209477491384946,
-    "rr": 27.398525143722107
+    "rr": 27.398525143722107,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -7132,8 +6827,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -7277,25 +6971,21 @@
       "threshold": 0.017882982618705297,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.012029208097408182,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.5695348424236145,
     "reward_pct": 5.083851971462802,
-    "rr": 8.926323014460076
+    "rr": 8.926323014460076,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -7335,8 +7025,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -7482,23 +7171,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.22676581459771034,
     "reward_pct": 3.215226745895039,
-    "rr": 14.1786219038304
+    "rr": 14.1786219038304,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -7538,9 +7216,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -7864,25 +7540,21 @@
       "threshold": 1.9266449437130873,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.20403625247308144,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.36673996818661614,
     "reward_pct": 6.197015624791927,
-    "rr": 16.89757365534418
+    "rr": 16.89757365534418,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -7923,8 +7595,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -8080,38 +7751,24 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_close_below_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.01201,
+      "threshold": 0.011900409060616877,
+      "severity": "review_wait",
+      "reason": "15m close is not below VWAP20"
      }
     ],
     "entry_zone_position": 37.4999999999997,
     "stop_distance_pct": 2.1017050872158447,
     "reward_pct": 8.742714404662786,
-    "rr": 2.7049335378110135
+    "rr": 2.7049335378110135,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -8150,10 +7807,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_close_below_vwap",
-     "funding_remains_positive_or_lsr_crowded_long",
-     "oi_flush_or_failed_oi_rebuild",
-     "no_new_high_after_crowding_signal"
+     "15m_close_below_vwap"
     ]
    },
    "execution_context": {
@@ -8287,13 +7941,14 @@
    ],
    "confirmation_summary": {
     "passed_hard": true,
-    "passed_review": true,
-    "context_checks": [
+    "passed_review": false,
+    "missing_review": [
      {
       "code": "5m_price_holds_ema20_or_trailing_support",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.03671380607895195,
+      "severity": "review_wait",
+      "reason": "5m close is below EMA20"
      }
     ],
     "entry_zone_position": 75.39309758681797,
@@ -8482,23 +8137,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.08870151028382764,
     "reward_pct": 2.587189669807694,
-    "rr": 29.167368870374233
+    "rr": 29.167368870374233,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -8538,9 +8182,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -8684,18 +8326,13 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "no_immediate_loss_of_trigger_level",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 59.99999999999625,
     "stop_distance_pct": 0.15636228661766263,
     "reward_pct": 3.529433307092724,
-    "rr": 22.572152041514343
+    "rr": 22.572152041514343,
+    "checklist": [
+     "no_immediate_loss_of_trigger_level"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -8734,8 +8371,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_above_trigger",
-     "no_immediate_loss_of_trigger_level"
+     "5m_or_15m_close_above_trigger"
     ]
    },
    "execution_context": {
@@ -9060,23 +8696,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.14358344626213002,
     "reward_pct": 6.099682936823781,
-    "rr": 42.48179783683438
+    "rr": 42.48179783683438,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -9115,9 +8740,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -9259,14 +8882,6 @@
       "reason": "live price must be inside entry zone"
      }
     ],
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 2.1999999999999953,
     "reward_pct": 22.115550313757787,
@@ -9310,8 +8925,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "live_price_in_entry_zone",
-     "5m_price_holds_ema20_or_trailing_support"
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -9444,13 +9058,14 @@
    ],
    "confirmation_summary": {
     "passed_hard": true,
-    "passed_review": true,
-    "context_checks": [
+    "passed_review": false,
+    "missing_review": [
      {
       "code": "5m_price_holds_ema20_or_trailing_support",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.02832434712103769,
+      "severity": "review_wait",
+      "reason": "5m close is below EMA20"
      }
     ],
     "entry_zone_position": 45.299784091309995,
@@ -9641,25 +9256,21 @@
       "threshold": 0.03386692057763376,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.7981218870477659,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.2314881534236308,
     "reward_pct": 9.865053359413576,
-    "rr": 27.453438710424763
+    "rr": 27.453438710424763,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -9700,8 +9311,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -9857,36 +9467,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.50000000000033,
     "stop_distance_pct": 1.6150423317334752,
     "reward_pct": 5.8774862043755824,
-    "rr": 3.6392149536211185
+    "rr": 3.6392149536211185,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -9917,7 +9505,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 69.8406479419014,
     "window_health": 100,
     "entry_zone_position": 37.50000000000033,
@@ -9926,6 +9514,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -10074,23 +9663,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.3312277946122749,
     "reward_pct": 3.837095196709877,
-    "rr": 11.584460178535025
+    "rr": 11.584460178535025,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -10130,9 +9708,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -10287,21 +9863,10 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
-    "reward_pct": 3.0052363749393174
+    "reward_pct": 3.0052363749393174,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -10496,23 +10061,19 @@
       "threshold": 0.15943467026993305,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.2747699017386333,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
-    "reward_pct": 4.072083068545773
+    "reward_pct": 4.072083068545773,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -10688,14 +10249,6 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 64.30601676847981,
     "stop_distance_pct": 0.7019614476821179,
     "reward_pct": 4.399999999999997,
@@ -10729,16 +10282,17 @@
     "stale_threshold_ms": 54796
    },
    "execution_readiness": {
-    "tier": "WATCH",
-    "reason": "confirmation_missing_5m_price_holds_ema20_or_trailing_support",
+    "tier": "EXECUTABLE",
+    "reason": "readiness_ready",
     "ready_score": 91.1,
     "window_health": 100,
     "entry_zone_position": 64.30601676847981,
     "price_deviation_pct": 0,
     "data_quality": "complete",
-    "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_price_holds_ema20_or_trailing_support"
+     "5m_price_holds_ema20_or_trailing_support",
+     "taker_flow_not_flipping_against_direction",
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -10881,25 +10435,21 @@
       "threshold": 0.16551179760067933,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.29617170431799783,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.23369619498414934,
     "reward_pct": 2.881595648530617,
-    "rr": 12.33052018123814
+    "rr": 12.33052018123814,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -10940,8 +10490,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -11094,38 +10643,24 @@
       "threshold": 35,
       "severity": "review_wait",
       "reason": "long price is above allowed entry-zone position"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_reclaim_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_negative_or_lsr_crowded_short",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_stabilizes_or_short_covering_starts",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_low_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.33541,
+      "threshold": 0.34449747275875786,
+      "severity": "review_wait",
+      "reason": "15m close has not reclaimed VWAP20"
      }
     ],
     "entry_zone_position": 62.5,
     "stop_distance_pct": 1.9999999999999976,
     "reward_pct": 64.40369707811568,
-    "rr": 3.7783225270577456
+    "rr": 3.7783225270577456,
+    "checklist": [
+     "funding_remains_negative_or_lsr_crowded_short",
+     "oi_stabilizes_or_short_covering_starts"
+    ]
    },
    "confidence": "C",
    "risk_level": "LOW",
@@ -11165,10 +10700,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_reclaim_vwap",
-     "funding_remains_negative_or_lsr_crowded_short",
-     "oi_stabilizes_or_short_covering_starts",
-     "no_new_low_after_crowding_signal"
+     "15m_reclaim_vwap"
     ]
    },
    "execution_context": {
@@ -11312,23 +10844,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 1.7320826641198095,
     "reward_pct": 21.40923351161695,
-    "rr": 3.9404084115238205
+    "rr": 3.9404084115238205,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -11368,9 +10889,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -11524,36 +11043,14 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
-    "context_checks": [
-     {
-      "code": "15m_close_below_vwap",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 37.499999999999694,
     "stop_distance_pct": 1.9999999999999938,
     "reward_pct": 8.732574535511974,
-    "rr": 1.9308486753480072
+    "rr": 1.9308486753480072,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -11585,7 +11082,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_15m_close_below_vwap",
+    "reason": "needs_confirmation",
     "ready_score": 61.12769047409893,
     "window_health": 100,
     "entry_zone_position": 37.499999999999694,
@@ -11594,6 +11091,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "15m_close_below_vwap",
+     "taker_buy_15m_lt_0_45",
      "funding_remains_positive_or_lsr_crowded_long",
      "oi_flush_or_failed_oi_rebuild",
      "no_new_high_after_crowding_signal"
@@ -11732,14 +11230,6 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 62.36795565160427,
     "stop_distance_pct": 1.3399339515943898,
     "reward_pct": 4.399999999999996,
@@ -11773,16 +11263,17 @@
     "stale_threshold_ms": 54796
    },
    "execution_readiness": {
-    "tier": "WATCH",
-    "reason": "confirmation_missing_5m_price_holds_ema20_or_trailing_support",
+    "tier": "EXECUTABLE",
+    "reason": "readiness_ready",
     "ready_score": 84.63867454040857,
     "window_health": 100,
     "entry_zone_position": 62.36795565160427,
     "price_deviation_pct": 0,
     "data_quality": "complete",
-    "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_price_holds_ema20_or_trailing_support"
+     "5m_price_holds_ema20_or_trailing_support",
+     "taker_flow_not_flipping_against_direction",
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -11927,23 +11418,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 1.2671687694322002,
     "reward_pct": 13.251145950591148,
-    "rr": 4.441547040184085
+    "rr": 4.441547040184085,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -11983,9 +11463,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -12129,14 +11607,6 @@
       "reason": "live price must be inside entry zone"
      }
     ],
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 1.6972365249847159,
     "reward_pct": 5.38300426435736,
@@ -12180,8 +11650,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "live_price_in_entry_zone",
-     "5m_price_holds_ema20_or_trailing_support"
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -12325,25 +11794,21 @@
       "threshold": 0.336304786673888,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.012880018981619657,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.10405314193862099,
     "reward_pct": 5.4281217888211675,
-    "rr": 52.16682252635019
+    "rr": 52.16682252635019,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -12384,8 +11849,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -12528,25 +11992,21 @@
       "threshold": 0.0321528254675687,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.9325130445745541,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.21922934688044016,
     "reward_pct": 5.85901082314438,
-    "rr": 26.725485919271904
+    "rr": 26.725485919271904,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -12586,8 +12046,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -12741,21 +12200,10 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
-    "reward_pct": 2.687396179415165
+    "reward_pct": 2.687396179415165,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -12939,23 +12387,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.14438694488825035,
     "reward_pct": 2.9322328255285472,
-    "rr": 20.308157553980916
+    "rr": 20.308157553980916,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -12995,9 +12432,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {
@@ -13151,23 +12586,19 @@
       "threshold": 0.012787430488446445,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.23368661258124931,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
-    "reward_pct": 3.0563658521263504
+    "reward_pct": 3.0563658521263504,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -13344,14 +12775,6 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "5m_price_holds_ema20_or_trailing_support",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 88.0065742140006,
     "stop_distance_pct": 1.2698147873973706,
     "reward_pct": 4.98722146886374,
@@ -13385,16 +12808,17 @@
     "stale_threshold_ms": 54796
    },
    "execution_readiness": {
-    "tier": "WATCH",
-    "reason": "confirmation_missing_5m_price_holds_ema20_or_trailing_support",
+    "tier": "EXECUTABLE",
+    "reason": "readiness_ready",
     "ready_score": 85.74269372693726,
     "window_health": 95,
     "entry_zone_position": 88.0065742140006,
     "price_deviation_pct": 0,
     "data_quality": "complete",
-    "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_price_holds_ema20_or_trailing_support"
+     "5m_price_holds_ema20_or_trailing_support",
+     "taker_flow_not_flipping_against_direction",
+     "live_price_in_entry_zone"
     ]
    },
    "execution_context": {
@@ -13539,25 +12963,21 @@
       "threshold": 0.0012584161081071682,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.4148980609240394,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
     "stop_distance_pct": 0.057126375506369086,
     "reward_pct": 8.239220350008702,
-    "rr": 99.7142003796973
+    "rr": 99.7142003796973,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -13597,8 +13017,7 @@
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
      "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "oi_or_volume_expands_with_price"
     ]
    },
    "execution_context": {
@@ -13752,23 +13171,19 @@
       "threshold": 0.15168717426496114,
       "severity": "review_wait",
       "reason": "long trigger has not cleared entry-zone upper bound"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "oi_or_volume_expands_with_price",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": -0.08554176113665252,
+      "severity": "review_wait",
+      "reason": "OI or short-term volume expansion is not yet confirmed"
      }
     ],
-    "reward_pct": 5.3125147781207565
+    "reward_pct": 5.3125147781207565,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -13959,38 +13374,24 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_close_below_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.06163,
+      "threshold": 0.0611943361769469,
+      "severity": "review_wait",
+      "reason": "15m close is not below VWAP20"
      }
     ],
     "entry_zone_position": 37.50000000000021,
     "stop_distance_pct": 1.9999999999999893,
     "reward_pct": 22.28086970631186,
-    "rr": 3.650801212391374
+    "rr": 3.650801212391374,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -14029,10 +13430,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_close_below_vwap",
-     "funding_remains_positive_or_lsr_crowded_long",
-     "oi_flush_or_failed_oi_rebuild",
-     "no_new_high_after_crowding_signal"
+     "15m_close_below_vwap"
     ]
    },
    "execution_context": {
@@ -14164,24 +13562,13 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 0.4085882666687943,
     "reward_pct": 2.02708547277521,
-    "rr": 4.961193548953244
+    "rr": 4.961193548953244,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -14213,7 +13600,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_oi_or_volume_expands_with_price",
+    "reason": "needs_confirmation",
     "ready_score": 74.07170027495545,
     "window_health": 95,
     "entry_zone_position": 100,
@@ -14221,6 +13608,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
+     "5m_or_15m_close_through_breakout_level",
      "oi_or_volume_expands_with_price",
      "no_failed_breakout_back_inside_range"
     ]
@@ -14562,38 +13950,24 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
-     }
-    ],
-    "context_checks": [
+     },
      {
       "code": "15m_close_below_vwap",
       "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "funding_remains_positive_or_lsr_crowded_long",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "oi_flush_or_failed_oi_rebuild",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_new_high_after_crowding_signal",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
+      "actual": 0.11732,
+      "threshold": 0.1163516430421296,
+      "severity": "review_wait",
+      "reason": "15m close is not below VWAP20"
      }
     ],
     "entry_zone_position": 37.5,
     "stop_distance_pct": 2.0000000000000036,
     "reward_pct": 30.995653285604707,
-    "rr": 3.9844708225595644
+    "rr": 3.9844708225595644,
+    "checklist": [
+     "funding_remains_positive_or_lsr_crowded_long",
+     "oi_flush_or_failed_oi_rebuild"
+    ]
    },
    "confidence": "C",
    "risk_level": "MEDIUM",
@@ -14632,10 +14006,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "15m_close_below_vwap",
-     "funding_remains_positive_or_lsr_crowded_long",
-     "oi_flush_or_failed_oi_rebuild",
-     "no_new_high_after_crowding_signal"
+     "15m_close_below_vwap"
     ]
    },
    "execution_context": {
@@ -14765,24 +14136,13 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 0.26889791412363645,
     "reward_pct": 1.7009293438951067,
-    "rr": 6.325557970349436
+    "rr": 6.325557970349436,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -14814,7 +14174,7 @@
    },
    "execution_readiness": {
     "tier": "WATCH",
-    "reason": "confirmation_missing_oi_or_volume_expands_with_price",
+    "reason": "needs_confirmation",
     "ready_score": 57.96935620969994,
     "window_health": 85,
     "entry_zone_position": 100,
@@ -14822,6 +14182,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
+     "5m_or_15m_close_through_breakout_level",
      "oi_or_volume_expands_with_price",
      "no_failed_breakout_back_inside_range"
     ]
@@ -15025,23 +14386,12 @@
       "reason": "long trigger has not cleared entry-zone upper bound"
      }
     ],
-    "context_checks": [
-     {
-      "code": "oi_or_volume_expands_with_price",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     },
-     {
-      "code": "no_failed_breakout_back_inside_range",
-      "passed": false,
-      "severity": "context",
-      "reason": "confirmation requires candle pattern or unavailable field; leave to LLM/live market review"
-     }
-    ],
     "stop_distance_pct": 0.5627507513898168,
     "reward_pct": 7.988991399863216,
-    "rr": 14.196322937166991
+    "rr": 14.196322937166991,
+    "checklist": [
+     "no_failed_breakout_back_inside_range"
+    ]
    },
    "confidence": "B",
    "risk_level": "LOW",
@@ -15081,9 +14431,7 @@
     "data_quality": "complete",
     "blocked_gate": "confirmation_missing",
     "next_confirmations": [
-     "5m_or_15m_close_through_breakout_level",
-     "oi_or_volume_expands_with_price",
-     "no_failed_breakout_back_inside_range"
+     "5m_or_15m_close_through_breakout_level"
     ]
    },
    "execution_context": {

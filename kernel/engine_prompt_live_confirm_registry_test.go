@@ -15,5 +15,9 @@ func TestHunterV7LiveConfirmVerifiersAreRegistered(t *testing.T) {
 		if !local.V7ConfirmKnown(code) {
 			t.Errorf("%s: kernel verifier exists for an unregistered confirmation code", code)
 		}
+		// #133: a live verifier only makes sense for a machine-verified code.
+		if !local.V7ConfirmMachineVerifiable(code) {
+			t.Errorf("%s: kernel verifier exists for an LLM-checklist code", code)
+		}
 	}
 }

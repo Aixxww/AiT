@@ -85,6 +85,11 @@ func scanEmittedTags(t *testing.T) map[string]bool {
 			}
 		}
 	}
+	// #133: the line scan misses multi-line slices and codes built by
+	// helper functions; the AST census of required confirmations adds them.
+	for code := range scanEmittedConfirmCodes(t) {
+		emitted[code] = true
+	}
 	return emitted
 }
 
