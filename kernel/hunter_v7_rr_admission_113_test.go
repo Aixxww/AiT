@@ -8,8 +8,9 @@ import (
 	"github.com/Aixxww/AiT/store"
 )
 
-// #113: a candidate whose backend RR is below its configured floor never
-// reaches the LLM as EXECUTABLE/REVIEWABLE, whatever tier rule promoted it.
+// #113: a candidate whose backend RR is below its configured floor, or
+// cannot be computed, never reaches the LLM as EXECUTABLE/REVIEWABLE,
+// whatever tier rule promoted it.
 
 // rrAdmissionCoin is a leader_momentum_long late-pullback candidate: the
 // rule that promotes it (hunterV7LeaderMomentumLatePullbackReviewable)
@@ -58,11 +59,73 @@ func TestRRAdmission113_BelowFloorStaysWatch(t *testing.T) {
 			t.Fatalf("RR %.2f >= floor must be unaffected, got %s %s", rr, tier, reason)
 		}
 	}
-	// Incomplete geometry (no target) is not judged by the gate.
-	noTarget := rrAdmissionCoin("RRNOTGTUSDT", 1.0)
+}
+
+// #113 owner decision: unknown RR fails closed. A row a rule promotes to
+// REVIEWABLE (or EXECUTABLE) with incomplete geometry (no target, no stop,
+// no reference price, or a stop already beyond the price) ends in WATCH
+// rr_unknown, distinct from rr_below_floor.
+func TestRRAdmission113_UnknownRRFailsClosed(t *testing.T) {
+	g := rrAdmissionGeometry(1.2)
+	cases := map[string]func(*CandidateCoin){
+		"no target":         func(c *CandidateCoin) { c.V7Targets = nil },
+		"no stop":           func(c *CandidateCoin) { c.V7Invalidation.Price = 0 },
+		"stop beyond price": func(c *CandidateCoin) { c.V7Invalidation.Price = 101 },
+		"no price": func(c *CandidateCoin) {
+			c.V7PriceContext = &local.V7PriceContext{Change1h: -0.5}
+			c.V7EntryZone = local.V7PriceZone{}
+		},
+	}
+	gated := 0
+	for name, mutate := range cases {
+		coin := rrAdmissionCoin("RRUNKUSDT", 1.5)
+		mutate(&coin)
+		if _, _, ok := hunterV7BackendCappedRR(coin, g); ok {
+			t.Fatalf("%s: RR must be unknown", name)
+		}
+		pre, _ := hunterV7TierRulesEval(coin, g)
+		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, g)
+		if pre != "EXECUTABLE" && pre != "REVIEWABLE" {
+			// The rules already keep it out (e.g. no price: zone gates fail).
+			if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+				t.Fatalf("%s: got %s %s", name, tier, reason)
+			}
+			continue
+		}
+		gated++
+		if tier != "WATCH" || reason != hunterV7RRUnknownReason {
+			t.Fatalf("%s: rules promote to %s; got %s %s, want WATCH %s", name, pre, tier, reason, hunterV7RRUnknownReason)
+		}
+	}
+	if gated < 3 {
+		t.Fatalf("only %d cases exercised the gate", gated)
+	}
+	// The promoting rule really fires for the no-target fixture (pre-gate
+	// verdict REVIEWABLE), so the WATCH comes from the gate.
+	noTarget := rrAdmissionCoin("RRUNKUSDT", 1.5)
 	noTarget.V7Targets = nil
-	if _, _, ok := hunterV7BackendCappedRR(noTarget, g); ok {
-		t.Fatal("no target: RR must be unknown")
+	if tier, _ := hunterV7TierRulesEval(noTarget, g); tier != "REVIEWABLE" {
+		t.Fatalf("fixture must be promoted by the rules, got %s", tier)
+	}
+	// EXECUTABLE is gated the same way.
+	exec := hunterV7PromptReadyLeaderCandidate("RRUNKEXECUSDT", 100)
+	if tier, _ := classifyHunterV7CandidateTierWithGeometry(exec, HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)); tier != "EXECUTABLE" {
+		t.Fatalf("fixture: complete geometry must stay EXECUTABLE, got %s", tier)
+	}
+	exec.V7Targets = nil
+	if tier, reason := classifyHunterV7CandidateTierWithGeometry(exec, HunterV7EffectiveExecutionGeometry(0, 0, 0, 0, true)); tier != "WATCH" || reason != hunterV7RRUnknownReason {
+		t.Fatalf("EXECUTABLE with no target: got %s %s", tier, reason)
+	}
+	// Prompt readiness treats it like rr_below_floor.
+	ready := hunterV7PromptExecutionReadiness(noTarget, hunterV7PromptTestMarketData("RRUNKUSDT", 100.5), "WATCH", hunterV7RRUnknownReason)
+	if ready.Tier != local.V7ReadinessWatch || ready.BlockedGate != "execution_geometry" || ready.Reason != hunterV7RRUnknownReason {
+		t.Fatalf("readiness %+v", ready)
+	}
+	// A shadow_only class keeps its own reason.
+	shadow := noTarget
+	shadow.V7ClassAdmission = store.V7AdmissionShadowOnly
+	if tier, reason := classifyHunterV7CandidateTierWithGeometry(shadow, g); tier != "WATCH" || reason != "class_shadow_only" {
+		t.Fatalf("shadow_only: got %s %s", tier, reason)
 	}
 }
 

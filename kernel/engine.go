@@ -810,19 +810,26 @@ const hunterV7T2MaxTier = "REVIEWABLE"
 // a shadow_only class never rises above WATCH.
 func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	tier, reason := classifyHunterV7CandidateTierRules(coin, geometry)
-	// #113: RR admission. Whatever rule promoted the row, an EXECUTABLE or
-	// REVIEWABLE candidate whose backend RR is below its configured floor
-	// is kept in WATCH, so it never reaches the LLM as open-review.
-	if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
-		if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); ok && rr < floor {
-			return "WATCH", hunterV7RRBelowFloorReason
-		}
-	}
 	if coin.V7Stack == local.V7StackT2 && tier == "EXECUTABLE" {
 		tier, reason = hunterV7T2MaxTier, "t2_tier_cap_reviewable"
 	}
 	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly && (tier == "EXECUTABLE" || tier == "REVIEWABLE") {
 		return "WATCH", "class_shadow_only"
+	}
+	// #113: RR admission, fail closed (after the class caps, so a
+	// shadow_only row keeps class_shadow_only). Whatever rule promoted the row, an
+	// EXECUTABLE or REVIEWABLE candidate is kept in WATCH when its backend
+	// RR is below its configured floor (rr_below_floor) or cannot be
+	// computed because the geometry is incomplete (rr_unknown), so it never
+	// reaches the LLM as open-review.
+	if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+		rr, floor, ok := hunterV7BackendCappedRR(coin, geometry)
+		if !ok {
+			return "WATCH", hunterV7RRUnknownReason
+		}
+		if rr < floor {
+			return "WATCH", hunterV7RRBelowFloorReason
+		}
 	}
 	return tier, reason
 }
@@ -2132,6 +2139,11 @@ const (
 // rule promoted to EXECUTABLE/REVIEWABLE but whose backend RR is below its
 // configured floor (#113).
 const hunterV7RRBelowFloorReason = "rr_below_floor"
+
+// hunterV7RRUnknownReason is the WATCH tier reason of a promoted candidate
+// whose backend RR cannot be computed (no reference price, stop or target;
+// #113 owner decision: fail closed). Kept distinct from rr_below_floor.
+const hunterV7RRUnknownReason = "rr_unknown"
 
 func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7ExecutionGeometry) string {
 	if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); ok && rr < floor {

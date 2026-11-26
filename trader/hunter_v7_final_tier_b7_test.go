@@ -88,6 +88,7 @@ func b7Trader() *AutoTrader {
 func TestB7_AISkipReadsPromptFinalTier(t *testing.T) {
 	at := b7Trader()
 	up := b7LeaderCandidate("LIVEINUSDT", 104)
+	up.V7Invalidation.Price = 98 // #113: stop below the live price 100, so the backend RR is computable
 	up.V7ExecutionTier, up.V7TierReason = "WATCH", "backend_rr_infeasible"
 	ctx := &kernel.Context{
 		CandidateCoins: []kernel.CandidateCoin{up},

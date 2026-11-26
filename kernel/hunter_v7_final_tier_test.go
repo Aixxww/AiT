@@ -34,6 +34,7 @@ func finalTierEngine() *StrategyEngine {
 
 func TestFinalizeHunterV7Tiers_PromotionAndDemotionReachTheGate(t *testing.T) {
 	up := hunterV7PromptReadyLeaderCandidate("LIVEINUSDT", 104) // assembled WATCH, live price promotes
+	up.V7Invalidation.Price = 98                                // #113: stop below the live price 100, so the backend RR is computable
 	up.V7ExecutionTier, up.V7TierReason = "WATCH", "backend_rr_infeasible"
 	down := hunterV7PromptReadyLeaderCandidate("LIVEOUTUSDT", 100) // assembled EXECUTABLE, live price demotes
 	down.V7ExecutionTier, down.V7TierReason = "EXECUTABLE", "cached_from_scoring"
@@ -71,6 +72,7 @@ func TestFinalizeHunterV7Tiers_PromotionAndDemotionReachTheGate(t *testing.T) {
 func TestFinalizeHunterV7Tiers_PromptIdenticalAndIdempotent(t *testing.T) {
 	mk := func() *Context {
 		up := hunterV7PromptReadyLeaderCandidate("LIVEINUSDT", 104)
+		up.V7Invalidation.Price = 98 // #113: stop below the live price 100, so the backend RR is computable
 		up.V7ExecutionTier, up.V7TierReason = "WATCH", "backend_rr_infeasible"
 		return &Context{
 			CurrentTime:    "2026-11-25 00:00:00",
