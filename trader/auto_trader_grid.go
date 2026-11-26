@@ -233,10 +233,19 @@ func (at *AutoTrader) emergencyExit(reason string) error {
 		for _, pos := range positions {
 			if sym, ok := pos["symbol"].(string); ok && sym == gridConfig.Symbol {
 				if size, ok := pos["positionAmt"].(float64); ok && size != 0 {
+					// #128: a failed emergency close leaves a live position after
+					// every grid order was cancelled; it is never silent.
+					side, qty := "long", size
+					var cerr error
 					if size > 0 {
-						at.trader.CloseLong(gridConfig.Symbol, size)
+						_, cerr = at.trader.CloseLong(gridConfig.Symbol, size)
 					} else {
-						at.trader.CloseShort(gridConfig.Symbol, -size)
+						side, qty = "short", -size
+						_, cerr = at.trader.CloseShort(gridConfig.Symbol, qty)
+					}
+					if cerr != nil {
+						logger.Errorf("[Grid] 🚨 CRITICAL: emergency close of %s %s %.8f FAILED, position may be unprotected: %v", gridConfig.Symbol, side, qty, cerr)
+						at.raiseNakedPositionAlert(gridConfig.Symbol, side, fmt.Sprintf("grid emergency exit (%s): close failed: %v", reason, cerr))
 					}
 				}
 			}
