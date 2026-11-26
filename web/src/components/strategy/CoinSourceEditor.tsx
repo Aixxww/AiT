@@ -382,7 +382,7 @@ export function CoinSourceEditor({
                       v7_min_ai_priority:
                         config.hunter_config?.v7_min_ai_priority ?? 55,
                       v7_aggressive:
-                        config.hunter_config?.v7_aggressive ?? true,
+                        config.hunter_config?.v7_aggressive ?? false,
                       include_non_crypto_futures:
                         config.hunter_config?.include_non_crypto_futures ??
                         false,

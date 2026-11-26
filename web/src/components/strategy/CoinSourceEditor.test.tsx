@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { CoinSourceEditor } from './CoinSourceEditor'
 import type { CoinSourceConfig } from '../../types'
 
@@ -39,5 +39,31 @@ describe('CoinSourceEditor v7_aggressive switch', () => {
       'aria-checked',
       'false'
     )
+  })
+})
+
+// #110 owner decision: selecting the hunter_v7 source writes an unset
+// v7_aggressive as OFF (new strategies default OFF); an explicit value is kept.
+describe('CoinSourceEditor selecting hunter_v7', () => {
+  const select = (config: CoinSourceConfig) => {
+    const onChange = vi.fn()
+    render(
+      <CoinSourceEditor config={config} onChange={onChange} language="en" />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Hunter v7/ }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    return onChange.mock.calls[0][0] as CoinSourceConfig
+  }
+  it('writes v7_aggressive false when unset', () => {
+    const next = select({ source_type: 'static' } as CoinSourceConfig)
+    expect(next.source_type).toBe('hunter_v7')
+    expect(next.hunter_config?.v7_aggressive).toBe(false)
+  })
+  it('keeps an explicit v7_aggressive', () => {
+    const next = select({
+      source_type: 'static',
+      hunter_config: { v7_aggressive: true },
+    } as CoinSourceConfig)
+    expect(next.hunter_config?.v7_aggressive).toBe(true)
   })
 })
