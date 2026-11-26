@@ -27,6 +27,11 @@ package local
 type V7ConfirmSpec struct {
 	RefreshSatisfiable bool
 	LiveReviewable     bool
+	// Checklist (#133) marks an LLM-checklist-only code: the prompt shows it
+	// in required_confirmations for the LLM to verify on the bars, but no
+	// backend layer checks or enforces it (it never blocks a tier or an
+	// open). Every other registered code is machine-verified.
+	Checklist bool
 }
 
 // v7ConfirmVocab is the single home for every settleable confirmation code
@@ -80,6 +85,79 @@ var v7ConfirmVocab = []struct {
 		tagDef("no_new_high_after_rejection", "required_confirmation", "confirmation", "bearish", V7TagActionRequiredConfirm, "Short rejection remains valid only if price does not make a new high after rejection.")},
 }
 
+// v7ConfirmCodes registers the remaining emitted codes (#133 / naming
+// F-02). Machine rows are evaluated by evaluateV7KnownConfirmation; their
+// catalog definitions live in the tag catalog (def nil) unless given here.
+// Checklist rows are LLM-only (see V7ConfirmSpec.Checklist).
+var v7ConfirmCodes = []struct {
+	code string
+	spec V7ConfirmSpec
+	def  *HunterV7TagDefinition
+}{
+	// Machine-verified (evaluator cases in hunter_v7_confirmation.go).
+	{"5m_close_above_ema20_or_entry_zone_mid", V7ConfirmSpec{}, nil},
+	{"5m_close_below_ema20_or_entry_zone_mid", V7ConfirmSpec{}, nil},
+	{"5m_or_15m_close_above_entry_zone", V7ConfirmSpec{}, nil},
+	{"5m_or_15m_reclaim_from_range_bottom", V7ConfirmSpec{}, nil},
+	{"5m_or_15m_rejection_at_resistance_or_entry_zone", V7ConfirmSpec{}, nil},
+	{"5m_or_15m_rejection_at_support_or_entry_zone", V7ConfirmSpec{}, nil},
+	{"5m_or_15m_rejection_from_range_top", V7ConfirmSpec{}, nil},
+	{"15m_rejection_at_resistance_or_entry_zone", V7ConfirmSpec{}, nil},
+	{"15m_close_below_vwap_or_ema20", V7ConfirmSpec{}, nil},
+	{"15m_close_below_vwap", V7ConfirmSpec{}, nil},
+	{"15m_reclaim_vwap", V7ConfirmSpec{}, nil},
+	{"price_holds_vwap_or_trailing_support", V7ConfirmSpec{}, nil},
+	{"no_new_high_after_crowding_signal", V7ConfirmSpec{}, nil},
+	{"no_new_low_after_crowding_signal", V7ConfirmSpec{}, nil},
+	{"oi_or_volume_expands_with_price", V7ConfirmSpec{}, nil},
+	{"risk_level_not_extreme", V7ConfirmSpec{}, nil},
+	{"taker_buy_15m_stays_above_0_52", V7ConfirmSpec{}, nil},
+	{"lsr_turning_up", V7ConfirmSpec{}, nil},
+	{"oi_stabilize", V7ConfirmSpec{}, nil},
+	{"15m_close_above_vwap_or_ema20", V7ConfirmSpec{}, v7ConfirmDef("15m_close_above_vwap_or_ema20", "bullish", "Long needs a 15m close above VWAP20 or EMA20.")},
+	{"bb_width_expansion_starts", V7ConfirmSpec{}, v7ConfirmDef("bb_width_expansion_starts", "neutral", "Bollinger band width must start expanding before entry.")},
+	{"no_new_high_after_reversal_signal", V7ConfirmSpec{}, v7ConfirmDef("no_new_high_after_reversal_signal", "bearish", "Short reversal remains valid only if 5m/15m make no new high after the reversal signal.")},
+	{"no_new_low_after_rejection", V7ConfirmSpec{}, v7ConfirmDef("no_new_low_after_rejection", "bullish", "Long rejection remains valid only if 5m/15m make no new low after the rejection.")},
+	{"no_new_low_after_reversal_signal", V7ConfirmSpec{}, v7ConfirmDef("no_new_low_after_reversal_signal", "bullish", "Long reversal remains valid only if 5m/15m make no new low after the reversal signal.")},
+	{"oi_1h_remains_positive_after_breakout", V7ConfirmSpec{}, v7ConfirmDef("oi_1h_remains_positive_after_breakout", "bullish", "1h open interest change must stay positive after the breakout.")},
+	{"oi_continues_inflow", V7ConfirmSpec{}, v7ConfirmDef("oi_continues_inflow", "bullish", "Open interest (or short-term volume) must keep expanding.")},
+
+	// LLM checklist only: no backend check. Entry/stop placement
+	// instructions, time-based conditions, crowding and OI-state judgements
+	// with no machine definition, and the WATCH-only conflict / pre-move
+	// rows (which never open).
+	{"enter_only_near_range_bottom", v7Checklist, v7ChecklistDef("enter_only_near_range_bottom", "bullish", "Range long: enter only near the range bottom.")},
+	{"enter_only_near_range_top", v7Checklist, v7ChecklistDef("enter_only_near_range_top", "bearish", "Range short: enter only near the range top.")},
+	{"stop_below_range_low", v7Checklist, v7ChecklistDef("stop_below_range_low", "bullish", "Range long: place the stop below the range low.")},
+	{"stop_above_range_high", v7Checklist, v7ChecklistDef("stop_above_range_high", "bearish", "Range short: place the stop above the range high.")},
+	{"no_failed_breakout_back_inside_range", v7Checklist, nil},
+	{"no_immediate_loss_of_trigger_level", v7Checklist, nil},
+	{"no_immediate_reclaim_of_trigger_level", v7Checklist, nil},
+	{"funding_remains_negative_or_lsr_crowded_short", v7Checklist, nil},
+	{"funding_remains_positive_or_lsr_crowded_long", v7Checklist, nil},
+	{"oi_flush_or_failed_oi_rebuild", v7Checklist, nil},
+	{"oi_stabilizes_or_short_covering_starts", v7Checklist, nil},
+	{"oi_stops_building_or_short_covering_starts", v7Checklist, v7ChecklistDef("oi_stops_building_or_short_covering_starts", "bearish", "Open interest must stop building, or short covering must start, before entry.")},
+	{"15m_close_above_bb_upper_or_entry_zone", v7Checklist, v7ChecklistDef("15m_close_above_bb_upper_or_entry_zone", "bullish", "Watch setup: a 15m close above the upper Bollinger band or the entry zone.")},
+	{"15m_close_above_bb_upper_or_4h_resistance", v7Checklist, v7ChecklistDef("15m_close_above_bb_upper_or_4h_resistance", "bullish", "Watch setup: a 15m close above the upper Bollinger band or 4h resistance.")},
+	{"5m_close_above_trigger", v7Checklist, v7ChecklistDef("5m_close_above_trigger", "bullish", "Watch setup: a 5m close above the trigger.")},
+	{"15m_breakout_close", v7Checklist, v7ChecklistDef("15m_breakout_close", "bullish", "Watch setup: a 15m close through the breakout level.")},
+	{"wait_for_directional_break", v7Checklist, nil},
+	{"long_trigger: break_high_with_oi_increase", v7Checklist, nil},
+	{"short_trigger: lose_vwap_with_taker_sell", v7Checklist, nil},
+}
+
+var v7Checklist = V7ConfirmSpec{Checklist: true}
+
+func v7ConfirmDef(code, direction, def string) *HunterV7TagDefinition {
+	d := tagDef(code, "required_confirmation", "confirmation", direction, V7TagActionRequiredConfirm, def)
+	return &d
+}
+
+func v7ChecklistDef(code, direction, def string) *HunterV7TagDefinition {
+	return v7ConfirmDef(code, direction, def+" LLM checklist: verify it on the bars; the backend does not check it.")
+}
+
 // v7ConfirmRegistry is derived from v7ConfirmVocab. Codes absent from it are
 // context-only: no layer may claim to satisfy them automatically.
 var v7ConfirmRegistry = map[string]V7ConfirmSpec{}
@@ -89,6 +167,33 @@ func init() {
 		v7ConfirmRegistry[entry.code] = entry.spec
 		hunterV7TagCatalog[entry.code] = entry.def
 	}
+	for _, entry := range v7ConfirmCodes {
+		v7ConfirmRegistry[entry.code] = entry.spec
+		if entry.def != nil {
+			hunterV7TagCatalog[entry.code] = *entry.def
+		}
+	}
+}
+
+// V7ConfirmMachineVerifiable reports whether a backend layer checks this
+// code (#133): registered and not checklist-only. Only these codes can
+// keep a candidate in WATCH or block an open; any other code (checklist
+// or unregistered) is an LLM checklist item and never blocks.
+func V7ConfirmMachineVerifiable(code string) bool {
+	spec, ok := v7ConfirmRegistry[code]
+	return ok && !spec.Checklist
+}
+
+// V7MachineConfirms returns the machine-verifiable codes of a list, in
+// order.
+func V7MachineConfirms(codes []string) []string {
+	var out []string
+	for _, c := range codes {
+		if c != "" && V7ConfirmMachineVerifiable(c) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // V7ConfirmRefreshSatisfiable reports whether the trader's decision-time

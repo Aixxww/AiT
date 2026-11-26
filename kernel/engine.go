@@ -1035,17 +1035,18 @@ func hunterV7TierRulesEval(coin CandidateCoin, geometry HunterV7ExecutionGeometr
 }
 
 func hunterV7RequiredConfirmationWaitReason(coin CandidateCoin) string {
-	if len(coin.V7RequiredConfirms) == 0 {
+	// #133: only machine-verified codes can make a candidate wait; LLM
+	// checklist codes are for the prompt only.
+	machine := local.V7MachineConfirms(coin.V7RequiredConfirms)
+	if len(machine) == 0 {
 		return ""
 	}
 	if coin.V7ConfirmSummary == nil {
 		return "confirmation_missing_summary"
 	}
-	required := make(map[string]struct{}, len(coin.V7RequiredConfirms))
-	for _, code := range coin.V7RequiredConfirms {
-		if code != "" {
-			required[code] = struct{}{}
-		}
+	required := make(map[string]struct{}, len(machine))
+	for _, code := range machine {
+		required[code] = struct{}{}
 	}
 	if len(required) == 0 {
 		return ""

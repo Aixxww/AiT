@@ -1812,7 +1812,9 @@ func hunterV7OpenNeedsGuardRefresh(candidate *kernel.CandidateCoin) bool {
 }
 
 func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
-	if candidate == nil || decision == nil || len(candidate.V7RequiredConfirms) == 0 {
+	// #133: only machine-verified codes are enforced; an LLM checklist code
+	// (or one never registered) can never block an open on its own.
+	if candidate == nil || decision == nil || len(local.V7MachineConfirms(candidate.V7RequiredConfirms)) == 0 {
 		return nil
 	}
 	summary := candidate.V7ConfirmSummary
@@ -1824,13 +1826,8 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 			candidate.V7SetupType, decision.Symbol)
 	}
 	required := map[string]struct{}{}
-	for _, code := range candidate.V7RequiredConfirms {
-		if code != "" {
-			required[code] = struct{}{}
-		}
-	}
-	if len(required) == 0 {
-		return nil
+	for _, code := range local.V7MachineConfirms(candidate.V7RequiredConfirms) {
+		required[code] = struct{}{}
 	}
 	for _, check := range summary.MissingHard {
 		if _, ok := required[check.Code]; ok {
@@ -1874,10 +1871,7 @@ func hunterV7RequiredConfirmationsCanBeSatisfiedByRefresh(candidate *kernel.Cand
 	if candidate == nil || len(candidate.V7RequiredConfirms) == 0 {
 		return false
 	}
-	for _, code := range candidate.V7RequiredConfirms {
-		if code == "" {
-			continue
-		}
+	for _, code := range local.V7MachineConfirms(candidate.V7RequiredConfirms) {
 		if !hunterV7ConfirmationCanBeSatisfiedByRefresh(code) {
 			return false
 		}

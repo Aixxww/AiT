@@ -37,6 +37,10 @@ type V7ConfirmationSummary struct {
 	StopDistancePct   float64               `json:"stop_distance_pct,omitempty"`
 	RewardPct         float64               `json:"reward_pct,omitempty"`
 	RR                float64               `json:"rr,omitempty"`
+	// Checklist (#133) lists the required_confirmations codes no backend
+	// layer checks (V7ConfirmMachineVerifiable false): LLM checklist items,
+	// never a reason to wait or block.
+	Checklist []string `json:"checklist,omitempty"`
 }
 
 // EvaluateV7Confirmations evaluates confirmations that can be measured from the
@@ -107,6 +111,9 @@ func EvaluateV7Confirmations(sig *V7SignalOutput, ctx *V7SymbolContext, cfg V7Co
 	for _, code := range sig.RequiredConfirms {
 		if check, ok := evaluateV7KnownConfirmation(code, sig, ctx); ok {
 			summary.addCheck(check)
+		} else if !V7ConfirmMachineVerifiable(code) {
+			// #133: a checklist (or unregistered) code is for the LLM only.
+			summary.Checklist = appendIfMissing(summary.Checklist, code)
 		} else {
 			summary.addCheck(V7ConfirmationCheck{
 				Code:     code,
@@ -161,6 +168,20 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 		return v7Directional15mCloseCheck(code, sig, ctx, true, v7EntryZoneMid(sig)), true
 	case "directional_15m_close_short":
 		return v7Directional15mCloseCheck(code, sig, ctx, false, v7EntryZoneMid(sig)), true
+	case "15m_close_above_vwap_or_ema20":
+		return v7Directional15mCloseCheck(code, sig, ctx, true, 0), true
+	case "15m_close_below_vwap_or_ema20":
+		return v7Directional15mCloseCheck(code, sig, ctx, false, 0), true
+	case "price_holds_vwap_or_trailing_support":
+		// #133: the direction's side of 15m VWAP20/EMA20 (the trailing
+		// support/resistance the displacement repair names).
+		return v7Directional15mCloseCheck(code, sig, ctx, sig.Direction != V7DirShort, 0), true
+	case "15m_close_below_vwap":
+		return v7VWAP15mCloseCheck(code, ctx, false), true
+	case "15m_reclaim_vwap":
+		return v7VWAP15mCloseCheck(code, ctx, true), true
+	case "5m_price_holds_ema20_or_trailing_support":
+		return v7EMA20CloseCheck(code, ctx, "5m", sig.Direction != V7DirShort), true
 	case "taker_buy_15m_gt_0_52", "taker_buy_15m_stays_above_0_52":
 		return v7TakerConfirmationCheck(code, ctx.TakerBuy15m, 0.52, true), true
 	case "taker_buy_15m_lt_0_48":
@@ -234,11 +255,11 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Severity:  V7ConfirmReviewWait,
 			Reason:    "short trigger has not cleared entry-zone lower bound",
 		}, true
-	case "no_new_low_after_reclaim":
+	case "no_new_low_after_reclaim", "no_new_low_after_rejection", "no_new_low_after_reversal_signal", "no_new_low_after_crowding_signal":
 		return v7NoNewExtremeCheck(code, ctx, true), true
-	case "no_new_high_after_rejection":
+	case "no_new_high_after_rejection", "no_new_high_after_reversal_signal", "no_new_high_after_crowding_signal":
 		return v7NoNewExtremeCheck(code, ctx, false), true
-	case "5m_or_15m_rejection_at_resistance_or_entry_zone", "5m_or_15m_rejection_from_range_top":
+	case "5m_or_15m_rejection_at_resistance_or_entry_zone", "5m_or_15m_rejection_from_range_top", "15m_rejection_at_resistance_or_entry_zone":
 		check := v7NoNewExtremeCheck(code, ctx, false)
 		if check.Passed && sig.EntryZone.Upper > 0 && price > sig.EntryZone.Upper {
 			check.Passed = false
@@ -256,7 +277,19 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			check.Reason = "long reclaim needs price back at or above entry-zone support"
 		}
 		return check, true
-	case "oi_continues_inflow", "oi_delta_1h_positive_or_quote_volume_expands":
+	case "oi_1h_remains_positive_after_breakout":
+		oiDelta := 0.0
+		if ctx.Snapshot != nil {
+			oiDelta = ctx.Snapshot.OIDelta1h
+		}
+		return V7ConfirmationCheck{
+			Code:     code,
+			Passed:   oiDelta > 0,
+			Actual:   oiDelta,
+			Severity: V7ConfirmReviewWait,
+			Reason:   "1h OI change is not positive after the breakout",
+		}, true
+	case "oi_continues_inflow", "oi_delta_1h_positive_or_quote_volume_expands", "oi_or_volume_expands_with_price":
 		oiDelta := 0.0
 		if ctx.Snapshot != nil {
 			oiDelta = ctx.Snapshot.OIDelta1h
@@ -365,6 +398,44 @@ func v7Directional15mCloseCheck(code string, sig *V7SignalOutput, ctx *V7SymbolC
 	}
 	check.Passed = passed
 	check.Reason = "15m close is not below VWAP/EMA20 or the required short zone threshold"
+	return check
+}
+
+// v7VWAP15mCloseCheck: the latest 15m close above (reclaim) or below
+// VWAP20 (#133).
+func v7VWAP15mCloseCheck(code string, ctx *V7SymbolContext, above bool) V7ConfirmationCheck {
+	check := V7ConfirmationCheck{Code: code, Severity: V7ConfirmReviewWait, Reason: "15m VWAP20 is unavailable"}
+	tf, ok := v7ExecutionTimeframe(ctx, "15m")
+	if !ok || !tf.HasVWAP20 || tf.LastClose <= 0 {
+		return check
+	}
+	check.Actual, check.Threshold = tf.LastClose, tf.VWAP20
+	if above {
+		check.Passed = tf.CloseVsVWAP20Pct >= 0
+		check.Reason = "15m close has not reclaimed VWAP20"
+	} else {
+		check.Passed = tf.CloseVsVWAP20Pct <= 0
+		check.Reason = "15m close is not below VWAP20"
+	}
+	return check
+}
+
+// v7EMA20CloseCheck: the latest close of a timeframe holds EMA20 on the
+// direction's side (#133; the kernel live verifier uses the same rule).
+func v7EMA20CloseCheck(code string, ctx *V7SymbolContext, timeframe string, long bool) V7ConfirmationCheck {
+	check := V7ConfirmationCheck{Code: code, Severity: V7ConfirmReviewWait, Reason: timeframe + " EMA20 is unavailable"}
+	tf, ok := v7ExecutionTimeframe(ctx, timeframe)
+	if !ok || !tf.HasEMA20 || tf.LastClose <= 0 {
+		return check
+	}
+	check.Actual = tf.CloseVsEMA20Pct
+	if long {
+		check.Passed = tf.CloseVsEMA20Pct >= 0
+		check.Reason = timeframe + " close is below EMA20"
+	} else {
+		check.Passed = tf.CloseVsEMA20Pct <= 0
+		check.Reason = timeframe + " close is above EMA20"
+	}
 	return check
 }
 
