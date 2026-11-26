@@ -112,6 +112,8 @@ From config or the backend constant (rendered, never typed):
 
 Prose thresholds kept unchanged that have no single config or constant source (no silent tuning; owner decision Q3): panic taker ≥ 0.52; funding SHORT taker < 0.48; compression funding taker < 0.45; breakdown taker ≤ 0.50; range_expansion zone > 60%, 15m close > 10% below EMA20, live rebound > 0.30%; whale MFE ≈ 0.8%; stop-repair floor min + 0.10%; ladder stages 5% → 15% → 30%; mms EMA7/25/99 structure. Several of these equal literals inside the tier table or `engine.go` guards (for example 0.52, 0.48, 0.45, 60, 0.30), but there is no named constant to render from.
 
+#111 S1 (prompt hard rules) adds two prose numbers, both the existing Position Sizing band boundaries in `BuildSystemPrompt` ("High confidence (≥85)", the medium band ending at 84): the high band (≥85) needs every confirmation visible and no shown level before take_profit, and a counter-trend setup against the 1h/4h direction opens only in that band. The 1h/4h and 5m/15m timeframe names in the HTF rule are prose as well.
+
 ## 7. Non-numeric behaviour changes for review
 
 These are prompt-level rule changes. No backend gate changed.
