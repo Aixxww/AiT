@@ -14,6 +14,18 @@ const (
 	V7PayloadVersionHybridV2 = "hybrid_v2"
 )
 
+// ValidV7PayloadVersion reports whether v is a payload version the code
+// knows ("" reads as legacy). #111 S2: an unknown value is rejected at save
+// (ValidateTradingConfig) and fails a round closed in the kernel; it no
+// longer runs silently as legacy.
+func ValidV7PayloadVersion(v string) bool {
+	switch v {
+	case "", V7PayloadVersionLegacy, V7PayloadVersionHybridV2:
+		return true
+	}
+	return false
+}
+
 // V7DoctrineVersionHybridV2 is the doctrine version of the hybrid_v2
 // payload. The legacy doctrine keeps V7DoctrineVersionNone ("none"), the
 // value every pre-U11 record already carries, so records of the same
@@ -47,7 +59,9 @@ func DefaultV7LLMRoles() map[string]string {
 // V7PromptConfig is HunterConfig.V7Prompt (json v7_prompt).
 type V7PromptConfig struct {
 	// PayloadVersion selects the candidate payload and doctrine:
-	// "" / "legacy" (default) or "hybrid_v2". Unknown values read as legacy.
+	// "" / "legacy" (default) or "hybrid_v2". An unknown value is rejected at
+	// save and fails the round closed (#111 S2); EffectiveV7Prompt still
+	// reads it as legacy for display and offline tools.
 	PayloadVersion string `json:"payload_version,omitempty"`
 	// BarsPerTimeframe is the number of closed bars per timeframe in the
 	// hybrid payload (the unfinished bar is printed separately).

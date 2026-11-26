@@ -169,12 +169,7 @@ func (at *AutoTrader) runCycle() error {
 	// Save chain of thought, decisions, and input prompt even if there's an error (for debugging)
 	applyAIDecisionToRecord(record, aiDecision)
 
-	// Record AI charge (track cost regardless of decision outcome)
-	if aiDecision != nil && at.store != nil {
-		if chargeErr := at.store.AICharge().Record(at.id, at.aiModel, at.config.AIModel); chargeErr != nil {
-			at.logWarnf("⚠️ Failed to record AI charge: %v", chargeErr)
-		}
-	}
+	at.recordAICharge(aiDecision)
 
 	if err != nil {
 		// #94 / AUD-B1, B3: a reply without a structured decision, or with
@@ -224,16 +219,7 @@ func (at *AutoTrader) runCycle() error {
 		return fmt.Errorf("failed to get AI decision: %w", err)
 	}
 
-	// AI succeeded — reset failure counter and deactivate safe mode
-	if at.consecutiveAIFailures > 0 {
-		at.logInfof("✅ AI recovered after %d consecutive failures", at.consecutiveAIFailures)
-	}
-	at.consecutiveAIFailures = 0
-	if at.safeMode {
-		at.logInfof("🛡️ SAFE MODE DEACTIVATED — AI is working again. Resuming normal trading.")
-		at.safeMode = false
-		at.safeModeReason = ""
-	}
+	at.noteAISuccess(aiDecision)
 
 	// // 5. Print system prompt
 	// logger.Infof("\n" + strings.Repeat("=", 70))
@@ -1208,6 +1194,38 @@ func (at *AutoTrader) checkClaw402Balance() {
 // record, also when the reply was rejected (for debugging). #94 / AUD-B8:
 // the X2 instrumentation (chosen_rank, E+R count) is recorded here on every
 // record.
+// recordAICharge books one AI charge for a round that called the AI,
+// whatever the decision outcome. A round the backend decided without an AI
+// call (kernel.FullDecision.AINotCalled, e.g. a #111 S2 prompt-contract
+// stop) books none.
+func (at *AutoTrader) recordAICharge(aiDecision *kernel.FullDecision) {
+	if aiDecision == nil || aiDecision.AINotCalled || at.store == nil {
+		return
+	}
+	if chargeErr := at.store.AICharge().Record(at.id, at.aiModel, at.config.AIModel); chargeErr != nil {
+		at.logWarnf("⚠️ Failed to record AI charge: %v", chargeErr)
+	}
+}
+
+// noteAISuccess resets the AI failure counter and leaves safe mode after a
+// round in which the AI answered. A round decided without an AI call
+// (kernel.FullDecision.AINotCalled, #111 S2) is not evidence that the AI
+// recovered, so it changes neither.
+func (at *AutoTrader) noteAISuccess(aiDecision *kernel.FullDecision) {
+	if aiDecision != nil && aiDecision.AINotCalled {
+		return
+	}
+	if at.consecutiveAIFailures > 0 {
+		at.logInfof("✅ AI recovered after %d consecutive failures", at.consecutiveAIFailures)
+	}
+	at.consecutiveAIFailures = 0
+	if at.safeMode {
+		at.logInfof("🛡️ SAFE MODE DEACTIVATED — AI is working again. Resuming normal trading.")
+		at.safeMode = false
+		at.safeModeReason = ""
+	}
+}
+
 func applyAIDecisionToRecord(record *store.DecisionRecord, aiDecision *kernel.FullDecision) {
 	if record == nil || aiDecision == nil {
 		return

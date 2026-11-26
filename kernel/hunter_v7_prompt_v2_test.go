@@ -290,7 +290,9 @@ func TestU11HybridBarsBlock(t *testing.T) {
 }
 
 // D3 (b): default off. No v7_prompt block, an empty block and an unknown
-// version all read as legacy.
+// version all read as legacy in EffectiveV7Prompt. Since #111 S2 an unknown
+// version is rejected at save (ValidateTradingConfig) and fails the round
+// closed before the AI call (TestS2ContractFailsClosed).
 func TestU11DefaultIsLegacy(t *testing.T) {
 	for _, c := range []*store.V7PromptConfig{nil, {}, {PayloadVersion: "hybrid_v3"}} {
 		pc := store.EffectiveV7Prompt(c)

@@ -165,6 +165,7 @@ func BuildHunterV7SignalDBRecordsWithAudit(cycleNum int, records []local.V7Signa
 			ProfileVersion:           rec.Tags.ProfileVersion,
 			CalibrationVersion:       rec.Tags.CalibrationVersion,
 			DoctrineVersion:          rec.Tags.DoctrineVersion,
+			PayloadVersion:           rec.Tags.PayloadVersion,
 			LifecycleStateAtDecision: rec.Tags.LifecycleState,
 			TriggerPrice:             triggerPrice,
 			T2EventID:                rec.Tags.T2EventID,

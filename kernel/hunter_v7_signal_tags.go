@@ -16,6 +16,9 @@ type HunterV7RecordTagOptions struct {
 	// DoctrineVersion is the prompt doctrine version (U11): "" reads as
 	// store.V7DoctrineVersionNone, the legacy doctrine's value.
 	DoctrineVersion string
+	// PayloadVersion is the prompt payload version (#111 S2): "" reads as
+	// store.V7PayloadVersionLegacy.
+	PayloadVersion string
 }
 
 // DefaultHunterV7RecordTagOptions is the option set with every default.
@@ -38,6 +41,7 @@ func HunterV7RecordTagOptionsFromConfig(cfg *store.StrategyConfig) HunterV7Recor
 		Classes:         cfg.CoinSource.Hunter.EffectiveV7SignalClasses(),
 		ProfileVersion:  store.V7EffectiveProfileVersion(cfg.RiskControl, cfg.CoinSource.Hunter),
 		DoctrineVersion: store.EffectiveV7Prompt(cfg.CoinSource.Hunter.V7Prompt).DoctrineVersion(),
+		PayloadVersion:  store.EffectiveV7Prompt(cfg.CoinSource.Hunter.V7Prompt).PayloadVersion,
 	}
 }
 
@@ -55,6 +59,7 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 		ProfileVersion:     opts.ProfileVersion,
 		CalibrationVersion: store.V7CalibrationVersionNone,
 		DoctrineVersion:    store.V7DoctrineVersionNone,
+		PayloadVersion:     store.V7PayloadVersionLegacy,
 		LifecycleState:     sig.LifecycleState,
 		TriggerPrice:       sig.TriggerPrice,
 		T2EventID:          sig.T2EventID,
@@ -66,6 +71,9 @@ func hunterV7SignalTags(sig local.V7SignalOutput, cc *CandidateCoin, tier string
 	}
 	if opts.DoctrineVersion != "" {
 		tags.DoctrineVersion = opts.DoctrineVersion
+	}
+	if opts.PayloadVersion != "" {
+		tags.PayloadVersion = opts.PayloadVersion
 	}
 	if tags.ProfileVersion == "" {
 		tags.ProfileVersion = store.V7EffectiveProfileVersion(store.RiskControlConfig{}, nil)

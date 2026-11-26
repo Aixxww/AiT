@@ -512,6 +512,10 @@ func ValidateTradingConfig(cfg *StrategyConfig) error {
 	if rc.MinPositionSize < 0 {
 		add("risk_control.min_position_size must be >= 0")
 	}
+	// #111 S2: an unknown prompt payload version is rejected, not run as legacy.
+	if h := cfg.CoinSource.Hunter; h != nil && h.V7Prompt != nil && !ValidV7PayloadVersion(h.V7Prompt.PayloadVersion) {
+		add("coin_source.hunter_config.v7_prompt.payload_version %q must be %q or %q", h.V7Prompt.PayloadVersion, V7PayloadVersionLegacy, V7PayloadVersionHybridV2)
+	}
 	switch strings.ToLower(strings.TrimSpace(rc.GeometryRepair)) {
 	case "", "repair", "reject":
 	default:

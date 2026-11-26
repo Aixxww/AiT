@@ -490,8 +490,8 @@ func (e *StrategyEngine) writeHunterV7HybridV2CandidatePrompt(sb *strings.Builde
 
 	positionLimitReached := e.config.RiskControl.MaxPositions > 0 && len(ctx.Positions) >= e.config.RiskControl.MaxPositions
 	sb.WriteString(fmt.Sprintf("## Hunter v7 Candidate Tiers (%d total)\n\n", len(items)))
-	sb.WriteString(fmt.Sprintf("payload_version=%s | doctrine_version=%s | prompt_time_utc=%s\n",
-		pc.PayloadVersion, pc.DoctrineVersion(), promptTime.UTC().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("%s | prompt_time_utc=%s\n",
+		hunterV7PromptHeader(pc), promptTime.UTC().Format(time.RFC3339)))
 	sb.WriteString(fmt.Sprintf("Tier Summary: EXECUTABLE=%d | REVIEWABLE=%d | WATCH=%d | REJECTED=%d\n\n", execCount, reviewableCount, watchCount, rejectedCount))
 	switch {
 	case positionLimitReached && zh:
