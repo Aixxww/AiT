@@ -810,6 +810,14 @@ const hunterV7T2MaxTier = "REVIEWABLE"
 // a shadow_only class never rises above WATCH.
 func classifyHunterV7CandidateTierWithGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
 	tier, reason := classifyHunterV7CandidateTierRules(coin, geometry)
+	// #113: RR admission. Whatever rule promoted the row, an EXECUTABLE or
+	// REVIEWABLE candidate whose backend RR is below its configured floor
+	// is kept in WATCH, so it never reaches the LLM as open-review.
+	if tier == "EXECUTABLE" || tier == "REVIEWABLE" {
+		if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); ok && rr < floor {
+			return "WATCH", hunterV7RRBelowFloorReason
+		}
+	}
 	if coin.V7Stack == local.V7StackT2 && tier == "EXECUTABLE" {
 		tier, reason = hunterV7T2MaxTier, "t2_tier_cap_reviewable"
 	}
@@ -2120,10 +2128,33 @@ const (
 	hunterV7BackendStopRepairBuffer = 0.10
 )
 
+// hunterV7RRBelowFloorReason is the WATCH tier reason of a candidate that a
+// rule promoted to EXECUTABLE/REVIEWABLE but whose backend RR is below its
+// configured floor (#113).
+const hunterV7RRBelowFloorReason = "rr_below_floor"
+
 func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7ExecutionGeometry) string {
+	if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); ok && rr < floor {
+		return "backend_rr_infeasible"
+	}
+	return ""
+}
+
+// hunterV7BackendCappedRR is the candidate's RR as the backend would execute
+// it, and the floor it must reach. The geometry is the prompt-assembly
+// reference: entry at hunterV7ReferencePrice (V7RRReferencePrice, else the
+// live price, else the entry-zone edge), the stop at the invalidation
+// widened to the minimum stop distance plus the repair buffer, and the best
+// target capped at the TP distance cap. The floor and caps are the
+// candidate's own values (hunterV7CandidateRisk: the strategy's configured
+// RR floor, or the T2 / class-profile / per-setup value derived from the
+// strategy), i.e. the values the validator receives through the candidate
+// stamps. ok is false when the geometry is incomplete (no price, stop or
+// target).
+func hunterV7BackendCappedRR(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (rr, floor float64, ok bool) {
 	price := hunterV7ReferencePrice(coin)
 	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
-		return ""
+		return 0, 0, false
 	}
 	// U6: the candidate's own values (class profile over the stack values,
 	// then the per-setup relaxation) — the same values the validator and the
@@ -2146,10 +2177,10 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 	case strings.EqualFold(coin.Direction, "LONG"):
 		riskPct = (price - coin.V7Invalidation.Price) / price * 100
 	default:
-		return ""
+		return 0, 0, false
 	}
 	if riskPct <= 0 {
-		return ""
+		return 0, 0, false
 	}
 
 	effectiveRiskPct := riskPct
@@ -2171,13 +2202,9 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 		}
 	}
 	if bestRewardPct <= 0 {
-		return ""
+		return 0, 0, false
 	}
-
-	if bestRewardPct/effectiveRiskPct < geometry.MinRR {
-		return "backend_rr_infeasible"
-	}
-	return ""
+	return bestRewardPct / effectiveRiskPct, geometry.MinRR, true
 }
 
 func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) HunterV7ExecutionGeometry {
