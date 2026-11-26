@@ -274,6 +274,16 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 		tpWasCapped = tpWasCapped || finalTPCapped
 	}
 
+	// #129 / Audit R2 H4: the refresh may move the price and widen the stop;
+	// the loss limit, minimum size and validation run again on that state.
+	if size, reduced, err := at.recheckRiskAfterPreflight(decision, executionPrice, equity, "long"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced || reduced, "long")
+		return err
+	} else {
+		actualPositionSize = size
+		positionWasReduced = positionWasReduced || reduced
+	}
+
 	// Calculate quantity with adjusted position size
 	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
@@ -412,6 +422,16 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	} else {
 		executionPrice = finalExecutionPrice
 		tpWasCapped = tpWasCapped || finalTPCapped
+	}
+
+	// #129 / Audit R2 H4: the refresh may move the price and widen the stop;
+	// the loss limit, minimum size and validation run again on that state.
+	if size, reduced, err := at.recheckRiskAfterPreflight(decision, executionPrice, equity, "short"); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced || reduced, "short")
+		return err
+	} else {
+		actualPositionSize = size
+		positionWasReduced = positionWasReduced || reduced
 	}
 
 	// Calculate quantity with adjusted position size
