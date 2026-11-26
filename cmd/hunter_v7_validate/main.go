@@ -320,7 +320,7 @@ func main() {
 	maxOutput := flag.Int("max-output", 30, "max Hunter v7 signals to output")
 	watchOutput := flag.Int("watch-output", 5, "max Hunter v7 pre-move watch signals to append")
 	minPriority := flag.Float64("min-priority", 45, "minimum AI priority")
-	aggressive := flag.Bool("aggressive", true, "use aggressive AI priority weighting")
+	aggressive := flag.Bool("aggressive", defaultV7Aggressive, "use aggressive AI priority weighting (default off, owner decision)")
 	strategyID := flag.String("strategy-id", "", "strategy ID to load from data/data.db for prompt simulation")
 	dbPath := flag.String("db", "data/data.db", "SQLite database path")
 	outDir := flag.String("out-dir", "reports", "output directory")
@@ -1662,6 +1662,11 @@ func buildPrompt(candidates []kernel.CandidateCoin, signals []local.V7SignalOutp
 
 // promptStrategyConfig is the strategy config the prompt is built with
 // (fix 15: shared with the effective-settings record).
+// defaultV7Aggressive is the validation CLI's default for aggressive AI
+// priority weighting: OFF, matching the owner default and the shipped
+// templates (#138, round-1 residual #1).
+const defaultV7Aggressive = false
+
 func promptStrategyConfig(candidateCount int, strategyCfg *store.StrategyConfig) store.StrategyConfig {
 	cfg := store.GetDefaultStrategyConfig("zh")
 	if strategyCfg != nil {
@@ -1669,7 +1674,7 @@ func promptStrategyConfig(candidateCount int, strategyCfg *store.StrategyConfig)
 	} else {
 		cfg.CoinSource.SourceType = "hunter_v7"
 		cfg.CoinSource.HunterLimit = candidateCount
-		cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: candidateCount, V7MinAIPriority: 45, V7Aggressive: true}
+		cfg.CoinSource.Hunter = &store.HunterConfig{V7MaxOutput: candidateCount, V7MinAIPriority: 45, V7Aggressive: defaultV7Aggressive}
 	}
 	if cfg.CoinSource.HunterLimit <= 0 || cfg.CoinSource.HunterLimit > candidateCount {
 		cfg.CoinSource.HunterLimit = candidateCount

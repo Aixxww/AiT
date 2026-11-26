@@ -32,7 +32,7 @@
         "enable_cooldown": false,
         "v7_max_output": 18,
         "v7_min_ai_priority": 50,
-        "v7_aggressive": true,
+        "v7_aggressive": false,
         "v7_t2_enabled": true
       }
     },
