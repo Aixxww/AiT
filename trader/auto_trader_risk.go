@@ -1613,11 +1613,11 @@ func (at *AutoTrader) validateHunterV7LiveOpenGuard(ctx *kernel.Context, decisio
 		}
 	}
 	if candidate.V7Readiness != nil && candidate.V7Readiness.EntryZonePos > 80 {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: entry_zone_position %.1f%% exceeds 80%% late-short limit (rebound_risk_wait)",
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: entry_zone_position %.1f%% exceeds 80%% rebound-risk limit: price has rebounded into the zone top (rebound_risk_wait)",
 			decision.Symbol, candidate.V7Readiness.EntryZonePos)
 	}
 	if candidate.V7ConfirmSummary != nil && candidate.V7ConfirmSummary.EntryZonePosition > 80 {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: confirmation entry_zone_position %.1f%% exceeds 80%% late-short limit (rebound_risk_wait)",
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] range_expansion_event %s SHORT blocked: confirmation entry_zone_position %.1f%% exceeds 80%% rebound-risk limit: price has rebounded into the zone top (rebound_risk_wait)",
 			decision.Symbol, candidate.V7ConfirmSummary.EntryZonePosition)
 	}
 	if tf, ok := hunterV7CandidateExecutionTimeframe(candidate, "15m"); ok && tf.HasEMA20 && tf.CloseVsEMA20Pct <= -10 {
@@ -2275,11 +2275,14 @@ func hunterV7FundingReversalOIState(candidate *kernel.CandidateCoin) string {
 	return "neutral"
 }
 
+// hunterV7EntryZonePositionPct is the trader's reader of the canonical
+// zone_position (#134): local.V7ZonePositionPctClamped at the live price —
+// from the lower edge for both directions, clamped to [0,100].
 func hunterV7EntryZonePositionPct(candidate *kernel.CandidateCoin, price float64) (float64, bool) {
 	if candidate == nil {
 		return 0, false
 	}
-	return local.V7ZonePositionPct(candidate.V7EntryZone, price)
+	return local.V7ZonePositionPctClamped(candidate.V7EntryZone, price)
 }
 
 // validateOpenDecision enforces non-negotiable safety checks before any open order.

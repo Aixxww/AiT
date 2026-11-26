@@ -555,7 +555,7 @@
    "liquidity_score": 0,
    "timing_score": 0,
    "regime_fit_score": 0,
-   "ai_priority": 73.57750000000001,
+   "ai_priority": 71.70250000000001,
    "reason_codes": [
     "directional_conflict"
    ],
@@ -6123,9 +6123,9 @@
    "setup_score": 70.4,
    "risk_score": 45,
    "liquidity_score": 70,
-   "timing_score": 73,
+   "timing_score": 58,
    "regime_fit_score": 73.7,
-   "ai_priority": 65.965,
+   "ai_priority": 56.215,
    "reason_codes": [
     "range_expansion_event",
     "amplitude_24h_event",
@@ -6133,7 +6133,8 @@
     "event_directional_followthrough",
     "flow_taker_sell_aligned",
     "range_expansion_needs_retest",
-    "entry_open_now"
+    "chase_low_protection",
+    "entry_trigger_near"
    ],
    "risk_tags": [
     "velocity_decelerating",
@@ -6142,8 +6143,8 @@
     "regime_against_direction"
    ],
    "entry_mode": "fast_confirm",
-   "entry_signal": "entry_open_now",
-   "execution_quality": "ready",
+   "entry_signal": "entry_trigger_near",
+   "execution_quality": "near_confirm",
    "entry_zone": {
     "lower": 0.004265413834257577,
     "upper": 0.004310724030930299
@@ -6212,9 +6213,9 @@
     "stale_threshold_ms": 54796
    },
    "execution_readiness": {
-    "tier": "EXECUTABLE",
-    "reason": "readiness_ready",
-    "ready_score": 71.68080069349587,
+    "tier": "REVIEWABLE",
+    "reason": "readiness_reviewable",
+    "ready_score": 68.68080069349588,
     "window_health": 100,
     "entry_zone_position": 27.777777777777246,
     "price_deviation_pct": 0,
@@ -14267,7 +14268,7 @@
    "liquidity_score": 0,
    "timing_score": 0,
    "regime_fit_score": 0,
-   "ai_priority": 73.57750000000001,
+   "ai_priority": 71.70250000000001,
    "reason_codes": [
     "directional_conflict"
    ],

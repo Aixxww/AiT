@@ -1109,10 +1109,12 @@ func hunterV7PromptExecutionReadiness(coin CandidateCoin, data *market.Data, tie
 	if price <= 0 && coin.V7PriceContext != nil {
 		price = coin.V7PriceContext.Last
 	}
-	if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok {
-		readiness.EntryZonePos = pos
+	// #134: entry_zone_position is emitted clamped (canonical measure); the
+	// raw value only drives the outside-zone window-health falloff.
+	if rawPos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok {
+		readiness.EntryZonePos, _ = local.V7ZonePositionPctClamped(coin.V7EntryZone, price)
 		readiness.PriceDeviation = hunterV7EntryZoneDeviationPct(price, coin.V7EntryZone)
-		readiness.WindowHealth = hunterV7PromptWindowHealth(coin, pos)
+		readiness.WindowHealth = hunterV7PromptWindowHealth(coin, rawPos)
 	}
 
 	missing := hunterV7CompactMissingFieldGroups(data, &coin)
@@ -1419,8 +1421,8 @@ func buildHunterV7ExecutionGeometry(coin CandidateCoin) *hunterV7ExecutionGeomet
 		EntryZoneUpper:  upper,
 		InsideEntryZone: price >= lower && price <= upper,
 	}
-	if upper > lower {
-		geo.EntryZonePositionPct = (price - lower) / (upper - lower) * 100
+	if pos, ok := local.V7ZonePositionPctClamped(coin.V7EntryZone, price); ok {
+		geo.EntryZonePositionPct = pos
 	}
 	if !geo.InsideEntryZone {
 		if price < lower {
@@ -1845,12 +1847,15 @@ func (e *StrategyEngine) formatHunterV7ExecutionCompact(data *market.Data, coin 
 		fmt.Sprintf("timing=%.0f", p.TimingScore),
 		fmt.Sprintf("risk=%.0f", p.RiskScore),
 	}
-	if pos, ok := local.V7ZonePositionPct(p.EntryZone, price); ok {
+	if rawPos, ok := local.V7ZonePositionPct(p.EntryZone, price); ok {
+		// #134: entry_zone_pos is the clamped canonical measure; the raw value
+		// only classifies below_zone / above_zone.
+		pos, _ := local.V7ZonePositionPctClamped(p.EntryZone, price)
 		parts = append(parts,
 			fmt.Sprintf("entry_zone_pos=%.1f%%", pos),
 			fmt.Sprintf("dist_zone_upper=%+.2f%%", pctMove(price, p.EntryZone.Upper)),
 			fmt.Sprintf("dist_zone_lower=%+.2f%%", pctMove(price, p.EntryZone.Lower)),
-			fmt.Sprintf("zone_location=%s", entryZoneLocation(pos)),
+			fmt.Sprintf("zone_location=%s", entryZoneLocation(rawPos)),
 		)
 	}
 	if p.Invalidation.Price > 0 {
@@ -2212,7 +2217,7 @@ func hunterV7ExecutionWarning(price float64, coin *CandidateCoin) string {
 		if strings.EqualFold(coin.V7Confidence, "C") && coin.V7AIPriority < 60 {
 			warnings = append(warnings, "C_conf_ai_lt_60")
 		}
-		if pos, ok := local.V7ZonePositionPct(coin.V7EntryZone, price); ok && pos <= 45 {
+		if pos, ok := local.V7ZonePositionPctClamped(coin.V7EntryZone, price); ok && pos <= 45 {
 			warnings = append(warnings, "short_near_zone_lower")
 		}
 		if coin.V7DerivativesCtx != nil && fundingReversalOIState(coin.V7DerivativesCtx.OIChange1h, coin.V7DerivativesCtx.OIChange4h) == "mixed" {
