@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/trader/traderutil"
 	"io"
 	"math"
 	"net/http"
@@ -34,17 +35,22 @@ const (
 	kucoinRecentFillsPath  = "/api/v1/recentFills"
 )
 
-// API channel configuration
-const (
-	kcPartnerID  = "AiTFutures"
-	kcPartnerKey = "d7c05b0c-c81b-4630-8fa8-ca6d049d3aae"
-)
+// PartnerKeyEnv names the environment variable holding the KuCoin partner
+// (broker) secret. #127 / Audit R2 H1: partner attribution is opt-in, like
+// every other exchange's OD-19 referral id. The partner id comes from the
+// exchange account's referral_id; the secret from this variable, never from
+// source code. Headers are sent only when both are set.
+const PartnerKeyEnv = "KUCOIN_PARTNER_KEY"
 
 // KuCoinTrader implements types.Trader interface for KuCoin Futures
 type KuCoinTrader struct {
 	apiKey     string
 	secretKey  string
 	passphrase string
+
+	// Optional partner attribution (#127); both empty = no partner headers.
+	partnerID  string
+	partnerKey string
 
 	// HTTP client
 	httpClient *http.Client
@@ -184,12 +190,42 @@ func (t *KuCoinTrader) signPassphrase(passphrase string) string {
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
+// SetPartner configures optional KuCoin partner attribution (#127). id is the
+// exchange account's referral_id (OD-19), key the partner secret from
+// configuration (PartnerKeyEnv). Partner headers are sent only when both are
+// set; an id without a key is ignored with a warning, so a request is never
+// sent with a half-configured partner signature.
+func (t *KuCoinTrader) SetPartner(id, key string) {
+	t.partnerID, t.partnerKey = "", ""
+	id = traderutil.NormalizeReferralID("KuCoin", id, 32)
+	key = strings.TrimSpace(key)
+	if id == "" {
+		return
+	}
+	if key == "" {
+		logger.Warnf("⚠ [KuCoin] referral_id is set but %s is empty: partner attribution disabled", PartnerKeyEnv)
+		return
+	}
+	t.partnerID, t.partnerKey = id, key
+}
+
 // signPartner generates partner signature: base64(HMAC-SHA256(timestamp + partner + apiKey, partnerKey))
 func (t *KuCoinTrader) signPartner(timestamp string) string {
-	preHash := timestamp + kcPartnerID + t.apiKey
-	h := hmac.New(sha256.New, []byte(kcPartnerKey))
+	preHash := timestamp + t.partnerID + t.apiKey
+	h := hmac.New(sha256.New, []byte(t.partnerKey))
 	h.Write([]byte(preHash))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
+// setPartnerHeaders adds the KC-API-PARTNER* headers only when partner
+// attribution is configured (SetPartner).
+func (t *KuCoinTrader) setPartnerHeaders(req *http.Request, timestamp string) {
+	if t.partnerID == "" || t.partnerKey == "" {
+		return
+	}
+	req.Header.Set("KC-API-PARTNER", t.partnerID)
+	req.Header.Set("KC-API-PARTNER-SIGN", t.signPartner(timestamp))
+	req.Header.Set("KC-API-PARTNER-VERIFY", "true")
 }
 
 // doRequest executes HTTP request
@@ -221,10 +257,7 @@ func (t *KuCoinTrader) doRequest(method, path string, body interface{}) ([]byte,
 	req.Header.Set("KC-API-KEY-VERSION", "3")
 	req.Header.Set("Content-Type", "application/json")
 
-	// Partner headers
-	req.Header.Set("KC-API-PARTNER", kcPartnerID)
-	req.Header.Set("KC-API-PARTNER-SIGN", t.signPartner(timestamp))
-	req.Header.Set("KC-API-PARTNER-VERIFY", "true")
+	t.setPartnerHeaders(req, timestamp)
 
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
