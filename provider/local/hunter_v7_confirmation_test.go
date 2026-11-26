@@ -1,6 +1,12 @@
 package local
 
-import "testing"
+import (
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/Aixxww/AiT/store"
+)
 
 func TestEvaluateV7ConfirmationsCapturesGeometryAndLiveChecks(t *testing.T) {
 	sig := &V7SignalOutput{
@@ -65,7 +71,7 @@ func TestEvaluateV7ConfirmationsMarksInvalidRRHardBlock(t *testing.T) {
 	if summary.PassedHard {
 		t.Fatalf("hard confirmations should fail when RR is below floor: %+v", summary)
 	}
-	if !hasV7MissingConfirmation(summary.MissingHard, "risk_reward_min_1_2") {
+	if !hasV7MissingConfirmation(summary.MissingHard, V7ConfirmRiskRewardMinRR) {
 		t.Fatalf("missing hard RR check: %+v", summary.MissingHard)
 	}
 	if hasV7MissingConfirmation(summary.MissingReview, "taker_buy_15m_lt_0_48") {
@@ -198,4 +204,58 @@ func hasV7MissingConfirmation(checks []V7ConfirmationCheck, code string) bool {
 		}
 	}
 	return false
+}
+
+// #108: the confirmation RR gate reads the resolved strategy floor. With
+// MinRiskRewardRatio 2.0 the hard gate is 2.0 (RR 1.8 fails, RR 2.1 passes);
+// unset, it is store.DefaultMinRiskRewardRatio (1.2). The former fixed 1.5
+// review-wait check is gone, so RR between the floor and 1.5 passes review.
+func TestEvaluateV7ConfirmationsRRGateReadsConfiguredFloor(t *testing.T) {
+	// LONG, price 100, stop 99 (risk 1): the target sets the RR.
+	mk := func(rr float64) *V7SignalOutput {
+		return &V7SignalOutput{
+			Symbol: "RRTESTUSDT", Direction: V7DirLong, SetupType: V7SetupPullbackLong,
+			EntryZone:    V7PriceZone{Lower: 99.5, Upper: 100.5},
+			Invalidation: V7InvalidationRule{Price: 99},
+			Targets:      []V7Target{{Price: 100 + rr}},
+		}
+	}
+	ctx := &V7SymbolContext{CurrentPrice: 100}
+	rrCheck := func(s V7ConfirmationSummary) (V7ConfirmationCheck, bool) {
+		for _, c := range s.MissingHard {
+			if c.Code == V7ConfirmRiskRewardMinRR {
+				return c, true
+			}
+		}
+		return V7ConfirmationCheck{}, false
+	}
+	reviewRR := func(s V7ConfirmationSummary) bool {
+		for _, c := range s.MissingReview {
+			if strings.HasPrefix(c.Code, "risk_reward") {
+				return true
+			}
+		}
+		return false
+	}
+
+	cfg := DefaultV7Config()
+	cfg.MinRiskRewardRatio = 2.0
+	low := EvaluateV7Confirmations(mk(1.8), ctx, cfg)
+	if c, ok := rrCheck(low); !ok || low.PassedHard || c.Threshold != 2.0 || math.Abs(c.Actual-1.8) > 1e-9 {
+		t.Fatalf("floor 2.0: RR 1.8 must fail the hard gate at 2.0, got %+v", low)
+	}
+	high := EvaluateV7Confirmations(mk(2.1), ctx, cfg)
+	if _, ok := rrCheck(high); ok || reviewRR(high) {
+		t.Fatalf("floor 2.0: RR 2.1 must pass both RR gates, got %+v", high)
+	}
+
+	unset := DefaultV7Config()
+	unset.MinRiskRewardRatio = 0
+	if c, ok := rrCheck(EvaluateV7Confirmations(mk(1.1), ctx, unset)); !ok || c.Threshold != store.DefaultMinRiskRewardRatio {
+		t.Fatalf("unset: the hard gate must use the store default %.2f, got %+v ok=%v", store.DefaultMinRiskRewardRatio, c, ok)
+	}
+	mid := EvaluateV7Confirmations(mk(1.3), ctx, unset)
+	if _, ok := rrCheck(mid); ok || !mid.PassedHard || reviewRR(mid) {
+		t.Fatalf("unset: RR 1.3 passes the 1.2 floor and no fixed 1.5 review check remains, got %+v", mid)
+	}
 }

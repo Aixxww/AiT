@@ -2989,21 +2989,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -3203,21 +3196,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -4447,21 +4433,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -5874,21 +5853,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -10298,21 +10270,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -10516,21 +10481,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -12766,21 +12724,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -13185,21 +13136,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
@@ -13793,21 +13737,14 @@
     "passed_review": false,
     "missing_hard": [
      {
-      "code": "risk_reward_min_1_2",
+      "code": "risk_reward_min_rr",
       "passed": false,
       "threshold": 1.2,
       "severity": "hard_block",
-      "reason": "risk/reward below executable geometry floor"
+      "reason": "risk/reward below the configured RR floor"
      }
     ],
     "missing_review": [
-     {
-      "code": "risk_reward_min_1_5",
-      "passed": false,
-      "threshold": 1.5,
-      "severity": "review_wait",
-      "reason": "risk/reward below preferred review floor"
-     },
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
