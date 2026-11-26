@@ -137,7 +137,10 @@ func TestBuildPromptShowsRepricedPrice(t *testing.T) {
 	}
 	tierBefore := cands[0].V7ExecutionTier
 	oldPrompt, _ := buildPrompt(cands, signals, snap, nil)
-	got, _ := repriceForPrompt(snap, promptSymbols(signals, cands), map[string]float64{"KUSDT": 101.2345}, now, now, time.Minute)
+	// #130: the candidate is a non-conditional (market-entry) T2 row, so its
+	// prompt-final RR is measured from this live price. 99.8765 keeps the
+	// geometry feasible (101.2345 would correctly demote it to WATCH).
+	got, _ := repriceForPrompt(snap, promptSymbols(signals, cands), map[string]float64{"KUSDT": 99.8765}, now, now, time.Minute)
 	pc := append([]kernel.CandidateCoin(nil), cands...)
 	applyPromptFreshness(pc, got, snap, now, time.Minute)
 	newPrompt, final := buildPrompt(pc, signals, got, nil)
@@ -149,10 +152,10 @@ func TestBuildPromptShowsRepricedPrice(t *testing.T) {
 	if counts := parsePromptTierCounts(newPrompt); counts[final[0].Tier] != 1 {
 		t.Fatalf("prompt tier summary %v vs recorded %s", counts, final[0].Tier)
 	}
-	if !strings.Contains(newPrompt, "101.2345") {
+	if !strings.Contains(newPrompt, "99.8765") {
 		t.Fatal("repriced price not in the prompt")
 	}
-	if strings.Contains(oldPrompt, "101.2345") {
+	if strings.Contains(oldPrompt, "99.8765") {
 		t.Fatal("fixture leak")
 	}
 	if cands[0].V7ExecutionTier != tierBefore {

@@ -999,6 +999,20 @@ func hunterV7CandidateWithLiveMarketPrice(coin CandidateCoin, data *market.Data)
 	}
 	priceCtx.Last = data.CurrentPrice
 	coin.V7PriceContext = &priceCtx
+	// #130 / Audit R2 H7: the assembly-time entry-zone edge
+	// (V7RRReferencePrice) is the RR reference only while a Task-2 entry
+	// waits for its trigger. A conditional entry gates on its trigger price,
+	// the price it fills at (as decisionRREntryPrice validates it); any other
+	// Task-2 candidate opens at market, so the prompt-final gates measure it
+	// from the live price, like a native signal.
+	if coin.V7Stack == local.V7StackT2 {
+		switch {
+		case coin.V7ConditionalEntry && coin.V7TriggerPrice > 0:
+			coin.V7RRReferencePrice = coin.V7TriggerPrice
+		case !coin.V7ConditionalEntry:
+			coin.V7RRReferencePrice = 0
+		}
+	}
 	return coin
 }
 
