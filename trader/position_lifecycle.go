@@ -471,9 +471,19 @@ func (at *AutoTrader) reconcileIntentRow(rec *store.PositionLifecycle, positions
 	}
 	if !stopOpen && stop > 0 {
 		if err := at.trader.SetStopLoss(rec.Symbol, strings.ToUpper(side), qty, stop); err != nil {
-			fields["note"] = "reconciled at startup; stop not placed, position closed: " + err.Error()
+			fields["note"] = "reconciled at startup; stop not placed: " + err.Error()
 			at.updateLifecycle(rec, fields)
-			_ = at.closeUnprotectedPosition(rec.Symbol, side, qty, fmt.Errorf("reconcile: failed to place stop: %w", err))
+			closeErr := at.closeUnprotectedPosition(rec.Symbol, side, qty, fmt.Errorf("reconcile: failed to place stop: %w", err))
+			// #128 / Audit R2 H3: closeUnprotectedPosition always returns an
+			// error describing the protection failure; only the
+			// errNakedEmergencyCloseFailed marker means the position is still
+			// live. Then the row stays open (unprotected) so the protector,
+			// the naked-position alert and later reconciliations keep seeing it.
+			if errors.Is(closeErr, errNakedEmergencyCloseFailed) {
+				logger.Errorf("  🚨 [LIFECYCLE] CRITICAL reconcile: %s %s intent row %d is LIVE WITHOUT A STOP and the emergency close failed; row left open: %v", rec.Symbol, rec.Side, rec.ID, closeErr)
+				at.updateLifecycle(rec, map[string]interface{}{"note": "reconciled at startup; UNPROTECTED: stop not placed and emergency close failed: " + closeErr.Error()})
+				return
+			}
 			at.markLifecycleClosed(rec.Symbol, side, "closed at reconcile: no stop")
 			return
 		}
