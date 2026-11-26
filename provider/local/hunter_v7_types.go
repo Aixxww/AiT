@@ -376,6 +376,21 @@ type V7ExecutionTimeframeSummary struct {
 	NoNewHigh        bool    `json:"no_new_high,omitempty"`
 	NoNewLow         bool    `json:"no_new_low,omitempty"`
 	VolumeVsAvg5     float64 `json:"volume_vs_avg5,omitempty"`
+	// Anatomy (#111 S5) is the opt-in candle-anatomy sequence of the last N
+	// closed bars, oldest first (v7_prompt.anatomy_bars; nil = off).
+	Anatomy []V7CandleAnatomy `json:"anatomy,omitempty"`
+}
+
+// V7CandleAnatomy is one closed bar's shape (#111 S5): no raw OHLC and no
+// pattern label. Percentages are of the bar's high-low range.
+type V7CandleAnatomy struct {
+	BarsAgo      int     `json:"bars_ago"` // 0 = the latest closed bar
+	Dir          string  `json:"dir"`      // bull / bear / flat
+	BodyPct      float64 `json:"body_pct"`
+	UpperWickPct float64 `json:"upper_wick_pct"`
+	LowerWickPct float64 `json:"lower_wick_pct"`
+	ClosePosPct  float64 `json:"close_pos_pct"`       // 0 = closed at the low, 100 = at the high
+	RangeATR     float64 `json:"range_atr,omitempty"` // range / ATR14 of the closed bars; omitted without 15 closed bars
 }
 
 type V7ExecutionContext struct {

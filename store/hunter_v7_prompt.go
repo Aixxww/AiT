@@ -72,7 +72,17 @@ type V7PromptConfig struct {
 	Timeframes []string `json:"timeframes,omitempty"`
 	// LLMRoles overrides entries of DefaultV7LLMRoles (class -> role).
 	LLMRoles map[string]string `json:"llm_roles,omitempty"`
+	// AnatomyBars (#111 S5, review item D) adds a candle-anatomy sequence of
+	// the last N closed bars to each legacy candidate's execution_context
+	// timeframes. 0 (default) = off; the legacy prompt is then byte-identical.
+	// Opt-in experiment: adoption needs a separate evidence run. Capped at
+	// MaxV7PromptAnatomyBars; ignored by the hybrid_v2 payload, which already
+	// prints the closed bars.
+	AnatomyBars int `json:"anatomy_bars,omitempty"`
 }
+
+// MaxV7PromptAnatomyBars is the largest accepted v7_prompt.anatomy_bars.
+const MaxV7PromptAnatomyBars = 10
 
 // EffectiveV7Prompt returns the config with defaults filled in.
 func EffectiveV7Prompt(c *V7PromptConfig) V7PromptConfig {
@@ -82,6 +92,12 @@ func EffectiveV7Prompt(c *V7PromptConfig) V7PromptConfig {
 	}
 	if out.PayloadVersion != V7PayloadVersionHybridV2 {
 		out.PayloadVersion = V7PayloadVersionLegacy
+	}
+	if out.AnatomyBars < 0 {
+		out.AnatomyBars = 0
+	}
+	if out.AnatomyBars > MaxV7PromptAnatomyBars {
+		out.AnatomyBars = MaxV7PromptAnatomyBars
 	}
 	if out.BarsPerTimeframe <= 0 {
 		out.BarsPerTimeframe = DefaultV7PromptBarsPerTimeframe

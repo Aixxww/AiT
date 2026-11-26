@@ -1194,7 +1194,15 @@ func (e *StrategyEngine) writeHunterV7ExpandedCandidate(sb *strings.Builder, ite
 	}
 	sb.WriteString(fmt.Sprintf("#### %d. %s%s%s\n\n", index, pt(coin.Symbol), pt(directionTag), pt(sourceTags)))
 	sb.WriteString(fmt.Sprintf("execution_tier=%s tier_reason=%s\n", pt(item.Tier), pt(item.Reason)))
-	if signalJSON := e.formatHunterV7SignalJSON(coin); signalJSON != "" {
+	signalJSON := e.formatHunterV7SignalJSON(coin)
+	if n := e.hunterV7PromptConfig().AnatomyBars; n > 0 && signalJSON != "" {
+		// #111 S5: opt-in closed-bar anatomy on the payload's copy of the
+		// execution context.
+		p := buildHunterV7PromptPayload(coin)
+		p.ExecutionContext = hunterV7ExecutionContextWithAnatomy(p.ExecutionContext, item.Data, n, hunterV7PromptTime(ctx))
+		signalJSON = marshalHunterV7JSON(p)
+	}
+	if signalJSON != "" {
 		sb.WriteString(fmt.Sprintf("hunter_v7_signal_json: %s\n", signalJSON))
 	}
 	sb.WriteString("\n")
