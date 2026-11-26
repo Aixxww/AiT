@@ -417,25 +417,16 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
 		return false
 	}
 
-	execCount, reviewableCount, watchCount, rejectedCount := 0, 0, 0, 0
-	for _, coin := range ctx.CandidateCoins {
-		switch coin.V7ExecutionTier {
-		case "EXECUTABLE":
-			execCount++
-		case "REVIEWABLE":
-			reviewableCount++
-		case "REJECTED":
-			rejectedCount++
-		default:
-			watchCount++
-		}
-	}
+	execCount, reviewableCount, watchCount, rejectedCount, notShown := hunterV7SkipTierCounts(ctx)
 	if execCount+reviewableCount > 0 {
 		return false
 	}
 
 	topSummary := hunterV7TopCandidateSummary(ctx.CandidateCoins)
 	reason := fmt.Sprintf("no_open_review_candidates watch=%d rejected=%d", watchCount, rejectedCount)
+	if notShown > 0 {
+		reason += fmt.Sprintf(" not_shown=%d", notShown)
+	}
 	if topSummary != "" {
 		reason += " top=" + topSummary
 	}
@@ -474,6 +465,47 @@ func (at *AutoTrader) shouldSkipHunterV7NoExecutable(ctx *kernel.Context, record
 		InitialBalance:        at.initialBalance,
 	}
 	return true
+}
+
+// hunterV7SkipTierCounts counts the tiers the AI-skip decision reads
+// (#138 M3). Once the round's tiers are finalized, the count comes from the
+// prompt-final set (ctx.HunterV7PromptFinal): exactly the candidates the LLM
+// would be shown. A candidate missing from it (no market data this round, so
+// not shown) still carries its assembly tier on ctx.CandidateCoins and must
+// not trigger a paid AI call on an E+R=0 prompt; it is reported as
+// notShown. Before finalization the assembly tiers are all there is.
+func hunterV7SkipTierCounts(ctx *kernel.Context) (exec, reviewable, watch, rejected, notShown int) {
+	count := func(tier string) {
+		switch tier {
+		case "EXECUTABLE":
+			exec++
+		case "REVIEWABLE":
+			reviewable++
+		case "REJECTED":
+			rejected++
+		default:
+			watch++
+		}
+	}
+	if ctx.HunterV7TiersFinalized() {
+		for _, f := range ctx.HunterV7PromptFinal {
+			count(f.Tier)
+		}
+		shown := len(ctx.HunterV7PromptFinal)
+		for _, c := range ctx.CandidateCoins {
+			if c.V7SetupType != "" {
+				shown--
+			}
+		}
+		if shown < 0 {
+			notShown = -shown
+		}
+		return
+	}
+	for _, coin := range ctx.CandidateCoins {
+		count(coin.V7ExecutionTier)
+	}
+	return
 }
 
 func hunterV7TopCandidateSummary(coins []kernel.CandidateCoin) string {
