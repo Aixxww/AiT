@@ -44,7 +44,7 @@ Record for the redesign plan §6.3 U11 row and the "LLM payload" row of §6.2. T
 - **signal:**
   - Identity: `signal_id`, `symbol`, `direction`, `setup_type`, `class`, `lifecycle_state` (T2), `status`, `cell_status`.
   - Levels: `entry_zone_lower_price` / `entry_zone_upper_price`, `trigger_price`, `invalidation_price`.
-  - `zone_position_pct`: the single clamped version, LONG measured from the lower edge, SHORT from the upper edge, at `price_at_prompt_build`. It is absent for a single-price zone.
+  - `zone_position_pct`: the single clamped version, measured from the zone's lower edge for both LONG and SHORT (#134: the SHORT inversion is gone), at `price_at_prompt_build`. It is absent for a single-price zone.
   - `invalidation_distance_pct` (signed).
   - Three named RRs, `nearest_target_rr_ratio`, `tp1_rr_ratio` and `tp2_rr_ratio`, with `rr_basis` (entry `price_at_prompt_build`, stop `invalidation_price`, uncapped).
   - `tp1_price` / `tp2_price`.
@@ -59,7 +59,7 @@ Record for the redesign plan §6.3 U11 row and the "LLM payload" row of §6.2. T
 - T2 setup types are presented as `t2_<setup>` whatever the emission flag.
 - The validator compares setups in canonical form and strips `tier_` from `selected_hunter_v7_tier`, so copied values match.
 
-**Not presented** (hybrid spec B: "其余全删"):
+**Not presented** (hybrid spec B: "其余全删"; since #138 the doctrine §2 states this to the LLM too, so prompt and payload agree):
 - reason_codes, risk_tags and tag_semantics;
 - execution_quality, position_size_hint, suggested_trigger and the TP0 fields;
 - tp time windows and methods;

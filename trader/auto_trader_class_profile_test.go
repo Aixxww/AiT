@@ -5,6 +5,7 @@ import (
 
 	"github.com/Aixxww/AiT/kernel"
 	local "github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 // U6: a hydrated class-profile TP cap replaces the strategy cap in the TP1
@@ -32,6 +33,11 @@ func TestDecisionMaxTakeProfitUsesHydratedCap(t *testing.T) {
 // accepts it; before the fix the executor used the strategy 1.5 and rejected.
 func TestExecutorAcceptsSetupOverrideRR(t *testing.T) {
 	at := t2StopTrader() // hunter_v7, strategy RR 1.5, stop 2.0, TP cap 4.0
+	// #138 M9: the RR relaxation is an explicit opt-in, no longer a default.
+	at.config.StrategyConfig.RiskControl.SetupGeometryOverrides = map[string]store.V7SetupGeometryOverride{
+		"intraday_scalp_long":        {MinRRCap: 1.0, MaxTPFloorPct: 3},
+		"displacement_momentum_long": {MinRRCap: 1.35, MaxTPFloorPct: 12},
+	}
 	geom := kernel.HunterV7ExecutionGeometryForConfig(at.config.StrategyConfig)
 	sig := local.V7SignalOutput{
 		SignalID: "scalp", Symbol: "SOLUSDT", Direction: local.V7DirLong, SetupType: "intraday_scalp_long", Status: local.V7StatusCandidate,

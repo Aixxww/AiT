@@ -304,11 +304,15 @@ func fillAnchoredProtection(side string, planEntry, fillPrice, stop, tp float64)
 // ---- C7: book re-read before the order ------------------------------------
 
 // recheckOpenDriftBeforeOrder re-reads the book after the last pre-order
-// REST call and applies the entry drift check again.
+// REST call and applies the entry drift check again. It fails closed (#138
+// M1): when neither the order book nor the ticker yields a fresh executable
+// quote, no order is placed. Falling back to the planned price would compare
+// the plan with itself and always pass.
 func (at *AutoTrader) recheckOpenDriftBeforeOrder(decision *kernel.Decision, side string, plannedPrice float64) (float64, error) {
-	latest := at.resolveOpenExecutionPrice(decision.Symbol, side, plannedPrice)
-	if latest <= 0 {
-		return plannedPrice, nil
+	latest, ok := at.freshOpenExecutionPrice(decision.Symbol, side)
+	if !ok {
+		return plannedPrice, fmt.Errorf("❌ %s %s blocked: no fresh executable quote before the order (order book and ticker both unavailable; entry_quote_unavailable)",
+			decision.Symbol, decision.Action)
 	}
 	if err := at.checkEntryPriceDrift(decision, latest); err != nil {
 		return latest, fmt.Errorf("%w (book re-read before order)", err)

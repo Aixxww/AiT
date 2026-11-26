@@ -237,41 +237,81 @@ func appendUniqueHunterV7ContractValue(values []string, value string) []string {
 // hunterV7CompactPromptView is the compact-JSON mask over V7PromptPayload
 // (U4.2): the subset of payload fields the collapsed candidate list carries.
 // Tags mirror the payload's so both encodings stay aligned by construction.
+//
+// The collapsed list holds EXECUTABLE/REVIEWABLE candidates beyond the
+// open-review expansion limit, which the LLM may still open (#138, R1-#4).
+// The view therefore carries every decision-relevant pre-computed field the
+// doctrine tells the LLM to read before an open: the scores (the weakest-
+// score rule), reason_codes / risk_tags (the counter-trend boundary),
+// required_confirmations and confirmation_summary (REVIEWABLE opens need
+// every item visible), execution_geometry, the TP levels, the derivatives
+// context and the data freshness. Deliberately dropped, to stay compact:
+// tag_semantics (the tag policy block above the list defines the actions),
+// the TP time windows and methods, take_profit_plan, suggested_trigger and
+// position_size_hint (execution_contract.size_policy carries the sizing).
 type hunterV7CompactPromptView struct {
-	Symbol             string                      `json:"symbol"`
-	Direction          string                      `json:"direction"`
-	SetupType          string                      `json:"setup_type"`
-	ExecutionTier      string                      `json:"execution_tier"`
-	TierReason         string                      `json:"tier_reason"`
-	AIPriority         float64                     `json:"ai_priority"`
-	ExecutionQuality   string                      `json:"execution_quality,omitempty"`
-	RiskScore          float64                     `json:"risk_score"`
-	ExecutionContract  hunterV7ExecutionContract   `json:"execution_contract"`
-	EntryZone          local.V7PriceZone           `json:"entry_zone"`
-	Invalidation       local.V7InvalidationRule    `json:"invalidation"`
-	Targets            []local.V7Target            `json:"targets"`
-	PriceContext       *local.V7PriceContext       `json:"price_context,omitempty"`
-	ExecutionReadiness *local.V7ExecutionReadiness `json:"execution_readiness,omitempty"`
-	ExecutionContext   *local.V7ExecutionContext   `json:"execution_context,omitempty"`
+	Symbol                string                       `json:"symbol"`
+	Direction             string                       `json:"direction"`
+	SetupType             string                       `json:"setup_type"`
+	ExecutionTier         string                       `json:"execution_tier"`
+	TierReason            string                       `json:"tier_reason"`
+	AIPriority            float64                      `json:"ai_priority"`
+	ExecutionQuality      string                       `json:"execution_quality,omitempty"`
+	SetupScore            float64                      `json:"setup_score"`
+	TimingScore           float64                      `json:"timing_score"`
+	RegimeFitScore        float64                      `json:"regime_fit_score"`
+	LiquidityScore        float64                      `json:"liquidity_score"`
+	RiskScore             float64                      `json:"risk_score"`
+	ReasonCodes           []string                     `json:"reason_codes"`
+	RiskTags              []string                     `json:"risk_tags"`
+	RequiredConfirmations []string                     `json:"required_confirmations"`
+	ConfirmationSummary   *local.V7ConfirmationSummary `json:"confirmation_summary,omitempty"`
+	ExecutionGeometry     *hunterV7ExecutionGeometry   `json:"execution_geometry,omitempty"`
+	ExecutionContract     hunterV7ExecutionContract    `json:"execution_contract"`
+	EntryZone             local.V7PriceZone            `json:"entry_zone"`
+	Invalidation          local.V7InvalidationRule     `json:"invalidation"`
+	Targets               []local.V7Target             `json:"targets"`
+	TP0Price              float64                      `json:"tp0_price,omitempty"`
+	TP1Price              float64                      `json:"tp1_price,omitempty"`
+	TP2Price              float64                      `json:"tp2_price,omitempty"`
+	PriceContext          *local.V7PriceContext        `json:"price_context,omitempty"`
+	DerivativesContext    *local.V7DerivativesContext  `json:"derivatives_context,omitempty"`
+	DataFreshness         local.V7DataFreshness        `json:"data_freshness,omitempty"`
+	ExecutionReadiness    *local.V7ExecutionReadiness  `json:"execution_readiness,omitempty"`
+	ExecutionContext      *local.V7ExecutionContext    `json:"execution_context,omitempty"`
 }
 
 func (p V7PromptPayload) compactView() hunterV7CompactPromptView {
 	return hunterV7CompactPromptView{
-		Symbol:             p.Symbol,
-		Direction:          p.Direction,
-		SetupType:          p.SetupType,
-		ExecutionTier:      p.ExecutionTier,
-		TierReason:         p.TierReason,
-		AIPriority:         p.AIPriority,
-		ExecutionQuality:   p.ExecutionQuality,
-		RiskScore:          p.RiskScore,
-		ExecutionContract:  p.ExecutionContract,
-		EntryZone:          p.EntryZone,
-		Invalidation:       p.Invalidation,
-		Targets:            p.Targets,
-		PriceContext:       p.PriceContext,
-		ExecutionReadiness: p.ExecutionReadiness,
-		ExecutionContext:   p.ExecutionContext,
+		Symbol:                p.Symbol,
+		Direction:             p.Direction,
+		SetupType:             p.SetupType,
+		ExecutionTier:         p.ExecutionTier,
+		TierReason:            p.TierReason,
+		AIPriority:            p.AIPriority,
+		ExecutionQuality:      p.ExecutionQuality,
+		SetupScore:            p.SetupScore,
+		TimingScore:           p.TimingScore,
+		RegimeFitScore:        p.RegimeFitScore,
+		LiquidityScore:        p.LiquidityScore,
+		RiskScore:             p.RiskScore,
+		ReasonCodes:           p.ReasonCodes,
+		RiskTags:              p.RiskTags,
+		RequiredConfirmations: p.RequiredConfirmations,
+		ConfirmationSummary:   p.ConfirmationSummary,
+		ExecutionGeometry:     p.ExecutionGeometry,
+		ExecutionContract:     p.ExecutionContract,
+		EntryZone:             p.EntryZone,
+		Invalidation:          p.Invalidation,
+		Targets:               p.Targets,
+		TP0Price:              p.TP0Price,
+		TP1Price:              p.TP1Price,
+		TP2Price:              p.TP2Price,
+		PriceContext:          p.PriceContext,
+		DerivativesContext:    p.DerivativesContext,
+		DataFreshness:         p.DataFreshness,
+		ExecutionReadiness:    p.ExecutionReadiness,
+		ExecutionContext:      p.ExecutionContext,
 	}
 }
 

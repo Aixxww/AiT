@@ -136,18 +136,9 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	sig.Invalidation = displacementInvalidation(ctx)
 	sig.Targets = displacementTargets(ctx)
 
-	// RR check: reject only when no positive continuation target can carry
-	// minimum geometry. Backend and trader layers still recalculate live RR.
-	if rr, ok := displacementBestRR(sig, ctx); !ok || rr < 1.5 {
-		sig.ExecutionQuality = V7ExecInvalidRR
-		s.riskTag("displacement_rr_insufficient")
-	} else if rr >= 1.5 && len(sig.Targets) > 1 {
-		firstRR := displacementTargetRR(sig, ctx, sig.Targets[0].Price)
-		if firstRR > 0 && firstRR < 1.5 {
-			s.riskTag("displacement_rr_repaired")
-			s.reason("displacement_extension_rr_valid")
-		}
-	}
+	// The module-time RR gate needs the strategy floor, which Score does not
+	// see: it runs as the router's displacement_rr_floor pass
+	// (applyDisplacementRRFloor, #138 M9).
 
 	// No score floor: displacement ships every matched signal and lets the
 	// guardrails downgrade execution quality instead.
@@ -281,10 +272,30 @@ func displacementTargets(ctx *V7SymbolContext) []V7Target {
 	return targets
 }
 
-// displacementRRValid checks if the signal can achieve RR >= 1.5.
-func displacementRRValid(sig *V7SignalOutput, ctx *V7SymbolContext) bool {
+// displacementRRValid checks if the signal can achieve RR >= minRR.
+func displacementRRValid(sig *V7SignalOutput, ctx *V7SymbolContext, minRR float64) bool {
 	rr, ok := displacementBestRR(sig, ctx)
-	return ok && rr >= 1.5
+	return ok && rr >= minRR
+}
+
+// applyDisplacementRRFloor is the displacement module's RR check against the
+// strategy floor (V7Config.EffectiveMinRR, #138 M9; it was a hard-coded 1.5).
+// It rejects only when no positive continuation target can carry the floor;
+// backend and trader layers still recalculate live RR.
+func applyDisplacementRRFloor(sig *V7SignalOutput, ctx *V7SymbolContext, minRR float64) {
+	if sig == nil || ctx == nil || sig.SetupType != V7SetupDisplacementLong {
+		return
+	}
+	if rr, ok := displacementBestRR(sig, ctx); !ok || rr < minRR {
+		sig.ExecutionQuality = V7ExecInvalidRR
+		sig.RiskTags = appendIfMissing(sig.RiskTags, "displacement_rr_insufficient")
+	} else if len(sig.Targets) > 1 {
+		firstRR := displacementTargetRR(sig, ctx, sig.Targets[0].Price)
+		if firstRR > 0 && firstRR < minRR {
+			sig.RiskTags = appendIfMissing(sig.RiskTags, "displacement_rr_repaired")
+			sig.ReasonCodes = appendIfMissing(sig.ReasonCodes, "displacement_extension_rr_valid")
+		}
+	}
 }
 
 func displacementBestRR(sig *V7SignalOutput, ctx *V7SymbolContext) (float64, bool) {
