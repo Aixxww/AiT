@@ -1782,7 +1782,8 @@
     "low_liquidity",
     "regime_against_direction",
     "not_near_short_retest_zone",
-    "weak_4h_oi_flush"
+    "weak_4h_oi_flush",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",
@@ -2400,7 +2401,8 @@
     "entry_breakout_wait"
    ],
    "risk_tags": [
-    "crowding_extreme"
+    "crowding_extreme",
+    "htf_against_direction"
    ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
@@ -2597,7 +2599,8 @@
     "regime_against_direction",
     "execution_stop_tightened",
     "not_near_short_retest_zone",
-    "weak_4h_oi_flush"
+    "weak_4h_oi_flush",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",
@@ -6326,7 +6329,8 @@
     "fast_tracked_funding",
     "execution_stop_tightened",
     "not_near_long_reclaim_zone",
-    "funding_long_low_edge"
+    "funding_long_low_edge",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",
@@ -7494,7 +7498,9 @@
     "shape_trend_breakout",
     "entry_breakout_wait"
    ],
-   "risk_tags": null,
+   "risk_tags": [
+    "htf_against_direction"
+   ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
    "entry_signal": "entry_breakout_wait",
@@ -7698,7 +7704,8 @@
     "low_liquidity",
     "regime_against_direction",
     "not_near_short_retest_zone",
-    "weak_4h_oi_flush"
+    "weak_4h_oi_flush",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",
@@ -9805,7 +9812,8 @@
     "entry_rr_invalid"
    ],
    "risk_tags": [
-    "invalid_rr_context_only"
+    "invalid_rr_context_only",
+    "htf_against_direction"
    ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
@@ -10590,7 +10598,8 @@
    "risk_tags": [
     "execution_stop_tightened",
     "not_near_long_reclaim_zone",
-    "funding_long_low_edge"
+    "funding_long_low_edge",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",
@@ -11748,7 +11757,9 @@
     "shape_trend_breakout",
     "entry_breakout_wait"
    ],
-   "risk_tags": null,
+   "risk_tags": [
+    "htf_against_direction"
+   ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
    "entry_signal": "entry_breakout_wait",
@@ -12142,7 +12153,8 @@
     "entry_rr_invalid"
    ],
    "risk_tags": [
-    "invalid_rr_context_only"
+    "invalid_rr_context_only",
+    "htf_against_direction"
    ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
@@ -12530,7 +12542,8 @@
    ],
    "risk_tags": [
     "low_liquidity",
-    "invalid_rr_context_only"
+    "invalid_rr_context_only",
+    "htf_against_direction"
    ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
@@ -13115,7 +13128,8 @@
    ],
    "risk_tags": [
     "low_liquidity",
-    "invalid_rr_context_only"
+    "invalid_rr_context_only",
+    "htf_against_direction"
    ],
    "entry_mode": "breakout_or_pullback",
    "market_shape": "shape_trend_breakout",
@@ -13897,7 +13911,8 @@
     "regime_against_direction",
     "execution_stop_tightened",
     "not_near_short_retest_zone",
-    "weak_4h_oi_flush"
+    "weak_4h_oi_flush",
+    "htf_against_direction"
    ],
    "entry_mode": "wait_price_reversal",
    "market_shape": "shape_funding_crowding_reversal",

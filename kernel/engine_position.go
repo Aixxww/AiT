@@ -206,6 +206,18 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		if d.Confidence < minConfidenceHard {
 			return fmt.Errorf("confidence %d below absolute minimum %d", d.Confidence, minConfidenceHard)
 		}
+		// #122 (#111 Q2): an open against the selected candidate's 1h/4h
+		// direction. A trend family never opens; a counter-trend family needs
+		// the counter-trend confidence floor.
+		switch d.HunterV7HTFGate {
+		case store.V7HTFFamilyTrend:
+			return fmt.Errorf("open against the candidate's 1h/4h direction: trend-family setup never opens against the higher timeframe (htf_against_trend_family)")
+		case store.V7HTFFamilyCounterTrend:
+			if d.Confidence < store.V7CounterTrendMinConfidence {
+				return fmt.Errorf("confidence %d below the counter-trend floor %d for an open against the candidate's 1h/4h direction (htf_against_counter_trend)",
+					d.Confidence, store.V7CounterTrendMinConfidence)
+			}
+		}
 	}
 
 	return nil

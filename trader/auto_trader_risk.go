@@ -1711,6 +1711,20 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		}
 	}
 
+	// #122 (#111 Q2): the HTF direction gate, checked on the candidate
+	// itself (the kernel validator checks the hydrated copy; this is the
+	// execution-side backstop with the same family table and floor).
+	switch kernel.HunterV7HTFGate(*candidate) {
+	case store.V7HTFFamilyTrend:
+		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: trend-family setup against the candidate's 1h/4h direction (htf_against_trend_family)",
+			candidate.V7SetupType, decision.Symbol)
+	case store.V7HTFFamilyCounterTrend:
+		if decision.Confidence < store.V7CounterTrendMinConfidence {
+			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: confidence %d below the counter-trend floor %d against the candidate's 1h/4h direction (htf_against_counter_trend)",
+				candidate.V7SetupType, decision.Symbol, decision.Confidence, store.V7CounterTrendMinConfidence)
+		}
+	}
+
 	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
 		return err
 	}
