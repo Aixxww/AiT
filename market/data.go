@@ -447,12 +447,10 @@ func Format(data *Data) string {
 	sb.WriteString(fmt.Sprintf("In addition, here is the latest %s open interest and funding rate for perps:\n\n",
 		data.Symbol))
 
-	if data.OpenInterest != nil {
-		// Format OI data with dynamic precision
-		oiLatestStr := formatPriceWithDynamicPrecision(data.OpenInterest.Latest)
-		oiAverageStr := formatPriceWithDynamicPrecision(data.OpenInterest.Average)
-		sb.WriteString(fmt.Sprintf("Open Interest: Latest: %s Average: %s\n\n",
-			oiLatestStr, oiAverageStr))
+	if oiLatest, oiAvg, ok := data.OpenInterest.NotionalUSDT(data.CurrentPrice); ok {
+		// #135: OI is shown as USDT notional (contracts × price), labelled.
+		sb.WriteString(fmt.Sprintf("Open Interest (USDT notional): Latest: %.0f Average: %.0f\n\n",
+			oiLatest, oiAvg))
 	}
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))

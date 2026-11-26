@@ -47,10 +47,24 @@ type TimeframeSeriesData struct {
 	BOLLLower  []float64 `json:"boll_lower"`  // Lower band
 }
 
-// OIData Open Interest data
+// OIData is Binance open interest in RAW CONTRACT QUANTITY (base-asset
+// units, the openInterest endpoint's unit). It is never printed as-is: every
+// prompt surface and liquidity filter converts it with NotionalUSDT so the
+// value agrees with the data dictionary's OI unit (USDT, #135).
 type OIData struct {
-	Latest  float64
-	Average float64
+	Latest  float64 // contracts
+	Average float64 // contracts
+}
+
+// NotionalUSDT converts the contract quantities to USDT notional at price
+// (contracts × price), the unit the data dictionary declares for OI. ok is
+// false when the receiver is nil or price is not positive; callers must then
+// omit the OI figure rather than print contracts.
+func (o *OIData) NotionalUSDT(price float64) (latest, average float64, ok bool) {
+	if o == nil || price <= 0 {
+		return 0, 0, false
+	}
+	return o.Latest * price, o.Average * price, true
 }
 
 // IntradayData intraday data (3-minute interval)

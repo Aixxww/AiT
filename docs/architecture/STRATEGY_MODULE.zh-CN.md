@@ -392,7 +392,7 @@ Account: Equity 1000.00 | Balance 800.00 (80.0%) | PnL +5.5% | Margin 20.0% | Po
 
 current_price = 3500.00, current_ema20 = 3450.00, current_macd = 25.5, current_rsi7 = 58.0
 
-Open Interest: Latest: 8500000.00 Average: 8200000.00
+Open Interest (oi_notional_usdt): Latest: 8500000 Average: 8200000
 Funding Rate: 0.0050
 
 === 5M TIMEFRAME (oldest → latest) ===

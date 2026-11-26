@@ -204,8 +204,8 @@ var DataDictionary = map[string]map[string]BilingualFieldDef{
 			NameZH: "持仓量",
 			NameEN: "Open Interest",
 			Unit:   "USDT",
-			DescZH: "未平仓合约的总价值。持仓量增加=资金流入，减少=资金流出",
-			DescEN: "Total value of open contracts. Increasing OI = capital inflow, decreasing = outflow",
+			DescZH: "未平仓合约的 USDT 名义价值（合约张数 × 当前价），提示中以 oi_notional_usdt / oi_avg_notional_usdt、derivatives_context.oi_value 与 market.oi_notional_usdt 给出；从不显示原始合约张数。持仓量增加=资金流入，减少=资金流出",
+			DescEN: "USDT notional value of open contracts (contract quantity × current price), shown as oi_notional_usdt / oi_avg_notional_usdt, derivatives_context.oi_value and market.oi_notional_usdt; raw contract counts are never shown. Increasing OI = capital inflow, decreasing = outflow",
 		},
 		"OIChange": {
 			NameZH: "持仓量变化",
