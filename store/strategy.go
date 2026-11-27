@@ -374,14 +374,21 @@ type HunterConfig struct {
 	RSIOversoldThreshold float64 `json:"rsi_oversold_threshold,omitempty"`
 	// RSI overbought threshold (coins above get penalty, default 70)
 	RSIOverboughtThreshold float64 `json:"rsi_overbought_threshold,omitempty"`
-	// Enable funding rate as selection signal (default true)
-	EnableFundingRateSignal bool `json:"enable_funding_rate_signal"`
+	// Enable funding rate as selection signal. #155: off unless true (the
+	// field was serialized as false for every config; the comment's former
+	// "default true" never applied).
+	EnableFundingRateSignal bool `json:"enable_funding_rate_signal,omitempty"`
 	// Maximum 24h price change percentage (default 50, 0 = no limit)
 	Max24hChange float64 `json:"max_24h_change,omitempty"`
 	// Wash trade detection sensitivity: "low", "medium", "high" (default "medium")
 	WashTradeSensitivity string `json:"wash_trade_sensitivity,omitempty"`
-	// Enable smart cooldown system (default true)
-	EnableCooldown bool `json:"enable_cooldown"`
+	// Enable smart cooldown system. Legacy key: it was serialized as false
+	// for every config, so it cannot express "off" (#155). The cooldown is
+	// on unless DisableCooldown is true.
+	EnableCooldown bool `json:"enable_cooldown,omitempty"`
+	// DisableCooldown turns the smart cooldown off (#155; default false =
+	// cooldown on, the pre-#155 behavior).
+	DisableCooldown bool `json:"disable_cooldown,omitempty"`
 	// Minimum trade count filter (default 10000)
 	MinTradeCount int64 `json:"min_trade_count,omitempty"`
 	// Position score timeframes (default ["1h", "4h", "1d"])
