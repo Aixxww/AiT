@@ -1,0 +1,116 @@
+{
+  "name": "猎手v7 族清单版 (导入)",
+  "description": "strategy-07 的后继模板：绑定 hybrid_v2 payload 与教义（coin_source.hunter_config.v7_prompt.payload_version=hybrid_v2）。entry_standards 内置七个形态族的证据核验清单，只引用 hybrid_v2 附录可见字段；decision_process 步骤 3–4 为条件入场（conditional_on_trigger）候选的审验读法；funding_reversal 按 CONTEXT 类只作背景解读、禁止据此开仓。硬边界、RR 规程、HTF 规则与透传裁决以文末 hybrid_v2 框架为准，本模板不重复。",
+  "config": {
+    "language": "zh",
+    "prompt_compact_mode": "hunter_v7_only",
+    "coin_source": {
+      "source_type": "hunter_v7",
+      "excluded_coins": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "DOGEUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "TRXUSDT"
+      ],
+      "use_ai500": true,
+      "ai500_limit": 3,
+      "use_oi_top": false,
+      "oi_top_limit": 3,
+      "use_oi_low": false,
+      "oi_low_limit": 3,
+      "use_hyper_all": false,
+      "use_hyper_main": false,
+      "use_square_heat": false,
+      "use_hunter": true,
+      "hunter_limit": 10,
+      "hunter_direction": "BOTH",
+      "hunter_config": {
+        "enable_funding_rate_signal": false,
+        "enable_cooldown": false,
+        "v7_max_output": 18,
+        "v7_min_ai_priority": 50,
+        "v7_aggressive": false,
+        "v7_t2_enabled": true,
+        "v7_prompt": {
+          "payload_version": "hybrid_v2"
+        }
+      }
+    },
+    "indicators": {
+      "klines": {
+        "primary_timeframe": "5m",
+        "primary_count": 30,
+        "longer_timeframe": "4h",
+        "longer_count": 10,
+        "enable_multi_timeframe": true,
+        "selected_timeframes": [
+          "5m",
+          "15m",
+          "1h",
+          "4h"
+        ]
+      },
+      "enable_raw_klines": true,
+      "enable_ema": true,
+      "enable_macd": true,
+      "enable_rsi": true,
+      "enable_atr": true,
+      "enable_boll": true,
+      "enable_volume": true,
+      "enable_oi": true,
+      "enable_funding_rate": true,
+      "ema_periods": [
+        20,
+        50
+      ],
+      "rsi_periods": [
+        7,
+        14
+      ],
+      "atr_periods": [
+        14
+      ],
+      "boll_periods": [
+        20
+      ],
+      "enable_quant_data": true,
+      "enable_quant_oi": true,
+      "enable_quant_netflow": true,
+      "enable_oi_ranking": true,
+      "oi_ranking_duration": "1h",
+      "oi_ranking_limit": 10,
+      "enable_netflow_ranking": false,
+      "netflow_ranking_duration": "1h",
+      "netflow_ranking_limit": 10,
+      "enable_price_ranking": false,
+      "price_ranking_duration": "1h,4h,24h",
+      "price_ranking_limit": 10
+    },
+    "custom_prompt": "Hunter v7 补充纪律：\n- 量价陷阱：突破或破位时成交量萎缩或 OI 下降，视为诱多/诱空，wait（confirmation_missing）。\n- 不摊平：亏损持仓不加仓、不摊平；止损触发即离场，不改论题。\n- 无 open 时，用 trigger 对象给出下一轮最明确的触发条件，便于后续周期捕捉。",
+    "risk_control": {
+      "max_positions": 1,
+      "btc_eth_max_leverage": 20,
+      "altcoin_max_leverage": 20,
+      "btc_eth_max_position_value_ratio": 10,
+      "altcoin_max_position_value_ratio": 10,
+      "max_margin_usage": 0.75,
+      "min_position_size": 12,
+      "min_risk_reward_ratio": 1.2,
+      "min_confidence": 75,
+      "max_entry_price_deviation_pct": 0.5,
+      "max_single_trade_loss_pct": 6,
+      "max_take_profit_price_move_pct": 3.5
+    },
+    "prompt_sections": {
+      "role_definition": "# Hunter v7 执行审验员\n\n你是 Hunter v7 实盘执行审验员，只依据本轮输入决策。之前周期的信息只会以字段出现（持仓、冷却、候选的 lifecycle_state 与 execution 包络），不得凭记忆推断或补全缺失数据。\n\n目标是胜率，而不是交易次数。每笔开仓必须同时具备：明确的形态论题（setup_type + 触发证据）、明确的失效位（stop_loss）、通过后端 cap 的 RR；缺一即 wait。wait 是正常且常见的结果。\n\n各形态族的成立证据与证伪条件在本策略 entry_standards 的族清单中，逐族核验；清单只引用本附录可见的字段，清单之外的字段视为不存在。\n\n对透传候选（tier_reason=confirmation_passthrough_<code>），你的职责是裁决 <code> 对应的那一项确认是否实际成立：既不因代码已透传就盖章放行，也不一概拒绝——证据来源与裁决口径以文末框架 §3 的透传裁决为准，复核后决定。\n\n执行细则以文末「Hunter v7 策略执行框架」为准。",
+      "trading_frequency": "# 决策周期规则\n\n1. 每个决策周期独立判断，本轮输入就是全部事实；不按固定时间节奏交易。\n2. 有持仓先管理持仓；持仓数已达 Hard Constraints 上限时，本轮只管理持仓，不开新仓。\n3. 每轮最多选择一个最优候选开仓。\n4. 连续 wait 不得降低标准；上一轮的 wait 也不得否定本轮出现的新确认。\n5. 平仓后再开同一标的，需要本轮出现新的触发确认，并通过后端冷却；同一结构上论题已失败的，不重复进场。",
+      "entry_standards": "# 开仓标准：形态族证据清单（hybrid_v2）\n\n通用读法：证据只来自附录的已收盘 K 线（5m/15m/1h/4h）与 market / signal / execution 字段；涨跌幅、振幅用已收盘 K 线自算，OI、funding、taker 读 market 字段。不得把模块分数、机器内部量或 reason code 当作证据；清单标注「不可见」的机器变量一律以可见代理读数判断。证伪命中即 wait，blocked_reason_code 按各条标注（词表以框架 §5 为准）。数值均为与机器门同数量级的量级读数，临界处以已收盘口径为准。硬边界（execution.limits 校验、后端守卫）以框架 §2/§4 为准，本节不另列。\n\nfunding_reversal 为 CONTEXT 类（execution.llm_role=role_none），不进入开仓复核：只作拥挤背景解读，禁止据此开仓。\n\n## 族 1 趋势动量延续（LONG；leader_momentum_long、alt_ladder_momentum_long：IMPULSE；mms_trend_ride_long：未分类，按 role_full 审验）\n成立证据：(1) 多头排列：4h 收盘在 ema20 上方、ema20 在 ema50 上方，1h 同向不逆（4h/1h K 线）。(2) 动量幅度：近 24h 涨幅 +12%~+60% 量级、近 4h > +6% 量级（4h 收盘自算；alt_ladder 门更宽：24h +5%~+120%，按本候选 setup_type 的量级读）。(3) 回踩浅且守住：回落幅度相对 atr14(1h) 有限，低点不破 1h ema20，推进时 1h 收盘不转负量级（1h/15m K 线）。(4) taker 不背离：market.taker_buy_ratio_latest_15m_bar_frac ≥ 0.52；价格贴近 24h 高点 1% 内时该值不得低于 0.48。(5) OI 同向温和：oi_change_last_1h_pct > 0，oi_change_last_4x1h_sum_pct 为正但非爆炸（健康区 4h +5%~+60% 量级；alt_ladder 以 OI 1h > +0.5% 或 4h > +2% 为确认票之一）。(6) 量能不枯竭：15m/5m bar 量相对窗口前段不萎缩。\n证伪：1h 已收盘跌破 ema20 且 15m 连续收在其下 → confirmation_missing；创新高而 taker < 0.48（量价背离）→ confirmation_missing；近 1h 涨幅进入追价区（alt_ladder 口径 > +12%，极端 > +18%）且 taker 未同步放大 → confirmation_missing；OI 1h 与 4h 同时为负而价格仍冲高（回补型上涨）→ confirmation_missing；funding 显著为正且 rsi14(1h) 极端高位 → funding_crowded。\n口径差：mms_trend_ride 的 EMA7/25/99 扇形不可见，以「15m 收盘运行于 ema20 上方、回踩不破 ema20」近似，其回踩量缩门以 bar 量目测；alt_ladder 的阶段与 flow 票数为机器内部量，按涨幅量级与 OI/taker 自行判断。\n\n## 族 2 压缩与触发突破（LONG，TRIGGER；trend_breakout_long、accumulation_breakout_long、volatility_squeeze_breakout、intraday_scalp_long）\n成立证据：(1) 压缩可见：15m boll_upper − boll_lower 相对窗口早段明显收窄、收盘振幅收敛（带宽分位是机器长历史量、不可见，只能窗口内相对判断）。(2) 价格位置分型（按 signal.setup_type 认型）：trend_breakout 为 15m 已收盘贴近或站上 boll_upper；accumulation 为价格仍在带内中部、24h 收盘涨幅 ≤ +8% 量级；volatility_squeeze 为价格位于 15m 带宽上半部。(3) OI 先行或同步：accumulation 看 oi_change_last_4x1h_sum_pct +8%~+30% 量级且价格未动；volatility_squeeze 要求 oi_change_last_1h_pct > +3% 量级；trend_breakout 突破根 OI 1h 为正。(4) taker 中性偏多：accumulation 在 0.48–0.58 中性带；突破确认型 taker_buy_ratio_latest_15m_bar_frac ≥ 0.52；taker < 0.48 与论题冲突。(5) 量能状态分型：吸筹/挤压型要求突破前量能安静；intraday_scalp 相反，要求 5m 量能与实体速度已启动，且 1h 收盘涨跌幅不极端（|1h| ≤ 8% 量级）。(6) 触发几何（signal.trigger_price 存在时）：trigger 位于 entry zone 内，其上无紧邻的 4h/1h 已收盘摆动高点压制（对照 signal.target_candidates）。\n证伪：15m 已收盘跌回 boll_middle 下方 → confirmation_missing；突破根量能萎缩且 oi_change_last_1h_pct ≤ 0 → confirmation_missing；价格远离带宽上沿过度延伸、zone_position_pct 高位且按框架 §4 封顶后 RR 不足 → rr_insufficient；accumulation 型 24h 涨幅已 > +8% 量级 → confirmation_missing；intraday_scalp 型 5m 速度消退、量能回落至窗口均量以下，或 1h 涨跌幅进入极端区 → confirmation_missing。\n口径差：本族几何两种朝向并存（accumulation 的 zone 在 boll_upper 之上等突破；trend_breakout 的 zone 在 trigger 下方一档），均按 decision_process 步骤 3 的条件入场/触发读法审验，不按「现价已在 zone 内」读；intraday_scalp 的速度与量爆发机器量不可见，以 5m bar 实体与量近似，是七族中近似误差最大的一族；volatility_squeeze 的 ATR 压缩可用 atr14(1h) 与 market.price_at_prompt_build 自算近似。\n\n## 族 3 挤压与拥挤反转（双向；short_squeeze_long、long_squeeze_short：IMPULSE；mms_squeeze_engine_long：未分类，按 role_full 审验）\n成立证据：(1) short_squeeze_long 三联：近 1h 收盘涨幅 > +3%；oi_change_last_1h_pct < −3%（回补/强平）；taker_buy_ratio_latest_15m_bar_frac > 0.55。(2) long_squeeze_short 三联：24h 收盘涨幅为正；近 1h 收盘跌幅 > 3%；oi_change_last_1h_pct < −3%（多头平仓）；taker ≤ 0.54。(3) funding 佐证：short_squeeze 时 funding_rate_per_settlement_frac 不应显著为正（> +0.05%/结算即转弱）；long_squeeze 时 funding 为正与拥挤论题同向（佐证，非硬门）。(4) mms_squeeze_engine_long 单独套：oi_change_last_1h_pct ≥ +8% 量级、1h 收盘涨幅 ≥ +2.5%、taker ≥ 0.54 或 15m 量能放大——其 OI 方向与 short_squeeze 相反，是骑乘拥挤多头的挤压燃料，先认 setup_type 再套证据，不得与第 (1) 条混用。(5) 未耗尽：short_squeeze 的 24h 涨幅未达 +25% 量级透支区；long_squeeze 现价距下方 1h/4h 已收盘低点尚有目标空间。\n证伪：short_squeeze 中 oi_change_last_1h_pct 转正（回补结束）→ confirmation_missing；long_squeeze 中 taker 回升 > 0.54、short_squeeze 中 taker 跌回 ≤ 0.52 → confirmation_missing；funding 已达极端同向拥挤 → funding_crowded；long_squeeze 现价贴近 1h/4h 已收盘低点支撑带 → confirmation_missing；mms_squeeze_engine 型 rsi14(1h) ≥ 82 量级或 24h 涨幅 > +35% 量级 → confirmation_missing。\n口径差：本族机器门的核心变量多空比（LSR）不在附录内，只能以 funding + taker + OI 三字段组合间接推断拥挤，强度弱于机器门，是全清单最大的可见性缺口；short_squeeze 节奏极快、失效位在 1h 低点，已收盘 K 线核验天然滞后，临界候选以 wait 为稳健解。\n\n## 族 4 恐慌、派发与弱势反转（REVERSAL；panic_reversal_long、distribution_short、relative_weakness_short）\n成立证据：(1) panic 深度与冲洗：24h 收盘跌幅 −15%~−45% 量级（4h/1h 收盘自算）；oi_change_last_4x1h_sum_pct 显著为负（≤ −12% 量级起为有效冲洗）。(2) panic 收复：现价已离开 4h 已收盘低点 ≥ 0.5×atr14(4h) 量级，近 1h 不再收新低，taker 回升至中性以上。(3) distribution 过热与拥挤：24h 收盘涨幅 > +20%；现价贴近 4h 已收盘高点 1×atr14(4h) 内，或距 4h ema20 > 3×atr14(4h)；oi_change_last_4x1h_sum_pct > +15% 量级。(4) distribution 转弱确认（可见版）：taker_buy_ratio_latest_15m_bar_frac < 0.45，或 15m 已收盘跌破 boll_middle，至少一项成立。(5) relative_weakness 持续失血：4h 收盘跌幅 < −3% 量级、24h < −2% 量级、1h 收盘涨幅 ≤ +0.5%，taker ≤ 0.48；且 1h 跌幅不深于 −5% 量级（深于此属恐慌投降，归 panic 口径）。\n证伪：panic 价格仍贴 4h 低点无收复（距低点 < 0.2×atr14(4h)）→ confirmation_missing；panic OI 转正而价格继续跌（新空入场、非清洗）→ confirmation_missing；panic 24h 跌幅深于 −45% 量级（崩盘而非投降）→ confirmation_missing；distribution taker 回升 ≥ 0.50 且 15m 收盘站回 boll_middle 上方 → confirmation_missing；distribution 已收盘突破 4h 高点 → confirmation_missing；relative_weakness 15m 已收盘站上 ema20，或现价收复 1h 已收盘高点 → confirmation_missing；relative_weakness funding 显著为负（空头已拥挤）→ funding_crowded。\n口径差：distribution 机器转弱门含「价低于 15m VWAP」一项，VWAP 不在附录内，LLM 版以 taker 与 15m boll_middle 两条替代；机器可能仅凭 VWAP 放行而 LLM 两项皆不成立时，以 LLM 证据 wait。panic 的 OI 冲洗机器口径为真实 4h 变化率，附录的 oi_change_last_4x1h_sum_pct 是四个 1h 步长之和，量级相近但不等值，临界以可见字段为准。relative_weakness 名义属反转族、实为弱势延续做空，不得套用衰竭证据：RSI 超卖对它不是入场证据，而是跌速出界的警示。\n\n## 族 5 破位与位移（IMPULSE；breakdown_momentum_short、displacement_momentum_long、alt_ladder_breakdown_short）\n成立证据：(1) breakdown 下行动量：近 1h 收盘跌幅 ≤ −2.5% 量级，或 15m 连续收跌且实体放大（以 15m 收盘序列相对 atr14 近似速度）。(2) breakdown 结构破位（可见两项至少其一）：15m 已收盘低于 boll_middle，或 1h 已收盘低于 ema20。(3) breakdown 流量确认：taker_buy_ratio_latest_15m_bar_frac ≤ 0.50，且量能或 OI 至少一项确认（15m bar 量相对窗口放大，或 oi_change_last_1h_pct > +0.5% 新空入场，或 < −2% 平仓延续）。(4) displacement 振幅事件：近 1h 已收盘振幅显著大于窗口内此前 1h 振幅（以 30 根 1h 窗口相对比较），1h 收盘涨幅为正，现价贴近或突破 4h/1h 已收盘高点。(5) displacement 确认组：oi_change_last_1h_pct ≥ +1% 量级；funding_rate_per_settlement_frac ≤ +0.1%/结算量级；taker ≥ 0.48（OI 字段缺失时按框架 §2 点名并降档，不适用机器的缺失例外通道）。(6) alt_ladder_breakdown 分阶段 flow：先按 24h/4h 收盘跌幅认阶段（24h ≤ −10% 或 4h ≤ −8% 为 mid，24h ≤ −20% 或 4h ≤ −15% 为 late）；flow 四选二：taker ≤ 0.48、OI 异动（1h > +0.5% 或 < −2%）、15m 量放大、4h 跌幅 ≤ −5%。\n证伪：breakdown 15m 已收盘收回 boll_middle 上方，或 1h 收回 ema20 上方 → confirmation_missing；breakdown 现价贴近下方已收盘低点支撑带（以 4h/1h 低点近似）→ confirmation_missing；breakdown 1h 跌幅深于 −12% 量级（已耗尽）→ confirmation_missing；displacement oi_change_last_1h_pct ≤ 0 且量能不扩 → oi_too_low；displacement 1h 涨幅 > +12% 量级，或现价远离 15m ema20 进入追价区且无回踩 → confirmation_missing；displacement funding > +0.1%/结算 → funding_crowded；alt_ladder_breakdown 在 late 阶段且 oi_change_last_1h_pct ≥ 0（晚期追空）→ confirmation_missing。\n口径差：breakdown 结构门机器三选一含 VWAP（不可见），机器仅凭 VWAP 放行而 LLM 两项皆不成立时以 LLM 证据 wait；displacement 的振幅扩张机器基准为 20h 中位、LLM 窗口为 30 根 1h，中位口径不同，其追价门含 VWAP 项，以距 15m ema20 的延伸度近似；displacement 的 RR 地板由后端后处理执行、目标口径从 entry zone 中点起算，与框架 §4 自算不一致时以 execution.limits 与 §4 为准；alt_ladder 的阶段与 flow 票数为机器内部量，不在附录内。\n\n## 族 6 区间、底部唤醒与扩张事件（range_reversion：REVERSAL；mms_bottom_wake_long：REVERSAL；range_expansion_event：IMPULSE；双向者以 signal.direction 为准）\n成立证据：(1) range_reversion 区间结构：1h 已收盘序列在明确上下沿之间往返至少两次，ema20/ema50（1h）缠绕走平；15m 带宽在窗口内既非最窄也非爆开。(2) range_reversion 边缘与振荡：价格距 1h 已收盘低点（多）或高点（空）< 0.8×atr14(1h)；rsi14(1h) 在对应极值区（多 < 35 / 空 > 65）；taker 开始回收（多 ≥ 0.48 / 空 ≤ 0.52）。(3) range_reversion OI 中性：|oi_change_last_1h_pct| < 10% 量级。(4) mms_bottom_wake 底部吸筹：价格窄幅横盘（4h 涨跌在 −2.5%~+6% 量级），oi_change_last_4x1h_sum_pct 在 +12%~+45% 量级，15m 量能开始放大，taker ≥ 0.48。(5) range_expansion_event 事件量级：24h 已收盘振幅 ≥ 20% 量级（以 4h/1h 收盘高低推算），1h 振幅扩张或 15m 方向速度明确；taker 与 signal.direction 一致（多 ≥ 0.52 / 空 ≤ 0.48）。\n证伪：range_reversion 1h 已收盘有效突破区间沿并站稳 → confirmation_missing；range_reversion OI 单向爆量（|oi_change_last_1h_pct| > 10% 量级）→ confirmation_missing；range_reversion 价格回到区间中部（边缘优势消失）→ entry_not_in_zone；mms_bottom_wake 4h 收盘涨幅 ≥ +6% 或跌幅 ≤ −2.5% 量级 → confirmation_missing；mms_bottom_wake 4h OI 量级超出 +45% → confirmation_missing；range_expansion_event 5m 收盘方向与 signal.direction 背离且 15m 动能减弱 → confirmation_missing；range_expansion_event 24h 振幅 ≥ 45% 量级且 1h 冲量已极端 → confirmation_missing；range_expansion_event taker 与方向不一致且量能跟随不足 → confirmation_missing。\n口径差：range_reversion 的机器硬门 ADX(1h) 不在附录内，是本族最大单点缺口——机器按 ADX 放行的候选，若 1h bar 上呈明确趋势结构（ema20/ema50 单向发散、收盘阶梯推进），以 bar 证据 wait；mms_bottom_wake 的小市值代理与波动率比机器量不可见，其入场区锚定 15m boll_upper、属触发型几何，按 decision_process 步骤 3 读法审验；range_expansion_event 的振幅/速度机器量以收盘高低与实体近似，其子型标签不在附录内，不得猜测子型，只按方向与跟随质量审验；其 exhaustion 子型追加的 fresh_micro_confirmed 确认项，以最近 5m/15m 已收盘结构是否仍同向近似核验。\n\n## 族 7 资金流背离（whale_flow_reversal：REVERSAL，方向以 signal.direction 为准，多数为 long）\n成立证据：(1) OI 增长达标：oi_change_last_1h_pct ≥ +5% 量级。(2) 资金中性：|funding_rate_per_settlement_frac| ≤ 0.05%/结算（< 0.02% 更佳）。(3) 背离形态：OI 增而价格平或跌——近 1h 收盘涨跌与 oi_change_last_1h_pct 反向，或价格横盘（背离度量 OIΔ1h − 2×价格Δ1h > 5 量级）；long 方向要求价格未破位（1h 收盘跌幅不深于 −3% 量级，深于此以 signal.direction 的模块解读为准）。(4) taker 转暖：long 时 taker_buy_ratio_latest_15m_bar_frac > 0.53；short 时 taker < 0.48 且价格 1h 跌 > 3% 量级。\n证伪：oi_change_last_1h_pct < +5% 量级 → oi_too_low；|funding| 超出中性区 → funding_crowded；价格与 OI 同步单边急行（价格 1h 涨 > +2% 且 OI 增只是趋势跟随，无背离）→ confirmation_missing；taker 与 signal.direction 反向持续（long 时 taker < 0.50）→ confirmation_missing。\n口径差：本族是纯资金流族，无 K 线形态门，证据全部落在 market 命名空间，bar 只用于排除破位与确认背离的价格腿；机器的流动性硬门与多空比改善加分不在附录内，流动性只能以 bar 量与 oi_notional_usdt 量级粗判。\n\n## 条件入场候选的审验口径（补充）\n条件入场候选（execution.entry_permission=conditional_on_trigger）：批准 = 注册一笔挂起入场，不是市价单；它在触发前被审验、触发时才可能成交。比较这类候选与同 tier 普通候选时，口径用「从 trigger 起算的 RR」与「触发前结构完整度」，不用现价 RR。族清单中描述触发前结构与资金流的证据照常要求成立；描述触发动作本身的证据（如 close through trigger level）不在本轮要求成立，但其所依赖的结构若已被当前数据证伪，仍按证伪处理。注：条件入场由后端配置开关控制，未开启时本节不产生效力。",
+      "decision_process": "# 单个候选的审验顺序\n\n按顺序检查，第一项不通过即停止，并以括号内的 code 作为 blocked_reason_code：\n1. 后端硬边界：execution.limits 校验与后端开仓守卫未通过的候选不进入审验（backend_guard_risk）。\n2. 按 entry_standards 中该 setup_type 所属形态族的证据清单核验成立证据；关键证据不成立或命中证伪即止（按清单标注的 blocked_reason_code，未标注时为 confirmation_missing）。\n3. 入场几何分两读。（a）普通候选：现价须在 entry zone / 触发容差 / 回踩确认区内，否则 entry_not_in_zone。（b）条件入场候选（entry_permission=conditional_on_trigger）：本步不要求现价已进入 entry zone，改为核验触发几何——(i) signal.trigger_price 存在且位于 entry zone 内（zone 是 trigger 必须落入的范围）；(ii) 现价尚未穿越 trigger（已穿越的候选应已转 role_full，按 (a) 读）；(iii) invalidation_price 位于 trigger 的论题反方向一侧，且从 trigger 起算的止损距离满足 execution.limits.min_stop_distance_pct 并含漂移缓冲；(iv) 现价到 trigger 的路径上不存在先触及 invalidation 的结构（现价已在 invalidation 之外 = 论题已死）。(i)–(iii) 不成立 → entry_not_in_zone；(iv) 不成立 → confirmation_missing。\n4. required_confirmations 逐条在已收盘 K 线上可见（confirmation_missing），#173 透传裁决照教义 §3 适用、不因候选类型豁免或加严。条件入场候选的确认分两类读：描述触发前结构与资金流状态的项（EMA 结构、OI/taker 状态、压缩形态等）必须现在成立；描述触发瞬间或触发后状态的项（收盘穿越触发位一类）现在不要求成立——它由后端以 1m 已收盘穿越把关、触发时守卫复验——但该项所依赖的结构现在已被证伪的，仍按 confirmation_missing 阻断。#162 的 t2_awaiting_trigger 透传行与 U9 原生条件行同读：它们进入复核的唯一原因就是触发未到，不得以「确认尚未发生」为由一律 wait；审的是触发前结构值不值得预先批准。批准条件入场候选时，price 设为 signal.trigger_price 并带 trigger 对象，stop_loss / take_profit 从 trigger 起算，RR 以 trigger 为入场参考价（与后端 RR 参考价口径一致）。\n5. taker、OI、成交量至少两项同向（OI 不足用 oi_too_low，拥挤用 funding_crowded，其余 confirmation_missing）。\n6. 按框架 §4 计算 capped TP、effective_rr 与止损缓冲（rr_insufficient / backend_guard_risk）。\n7. 冷却与账户约束（account_risk）。\n\n按框架 §3 漏斗顺序审完后，输出唯一最佳 open；若没有，输出最佳被阻断候选的 wait。输出保持简短，不写长篇解释。"
+    }
+  },
+  "exported_at": "2026-11-27T13:45:00.000Z",
+  "version": "1.0"
+}
