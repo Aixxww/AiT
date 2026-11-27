@@ -21,60 +21,72 @@ func (m *squeezeShortModule) SetupType() V7SetupType { return V7SetupLongSqueeze
 func (m *squeezeShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *squeezeShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *squeezeShortModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	snap := ctx.Snapshot
 	if snap == nil {
-		return false
+		return false, "snapshot_missing"
 	}
 
 	// Must have been positive recently (prior rally)
 	if ctx.Change24h <= 0 {
-		return false
+		return false, "no_prior_rally"
 	}
 
 	// 1h drop < -3% — the selloff trigger
 	if ctx.Change1h >= -3 {
-		return false
+		return false, "no_selloff_trigger"
 	}
 
 	// OI declining (1h < -3%) — longs getting liquidated
 	if snap.OIDelta1h >= -3 {
-		return false
+		return false, "oi_not_flushing"
 	}
 
 	// Crowded long book
 	if snap.LSR <= 2.0 {
-		return false
+		return false, "longs_not_crowded"
 	}
 
 	// === Forbid conditions — already too late ===
 
 	// Already deep into flush: 24h drop >20% AND OI already flushed
 	if ctx.Change24h > 20 && snap.OIDelta4h < -15 {
-		return false // Already crashed and OI flushed, squeeze is over
+		return false, "squeeze_already_flushed" // Already crashed and OI flushed, squeeze is over
 	}
 
 	// TakerBuy recovering — selling exhaustion, bounce incoming
 	if ctx.TakerBuy15m > 0.54 {
-		return false
+		return false, "taker_buy_recovering"
 	}
 
 	// Price at daily support — bad R:R for shorts
 	if ctx.ATR1d > 0 && ctx.Low1d > 0 {
 		distToDailyLow := (ctx.CurrentPrice - ctx.Low1d) / ctx.ATR1d
 		if distToDailyLow < 0.5 {
-			return false
+			return false, "at_daily_support"
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 func (m *squeezeShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *squeezeShortModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -151,5 +163,9 @@ func (m *squeezeShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 		s.target(ctx.Low1d, "daily_low_target")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

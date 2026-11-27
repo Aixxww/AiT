@@ -18,31 +18,43 @@ func (m *panicReversalLongModule) SetupType() V7SetupType { return V7SetupPanicR
 func (m *panicReversalLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *panicReversalLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *panicReversalLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	// Must have price data
 	if ctx.CurrentPrice <= 0 || ctx.ATR4h <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// 24h drop between -15% and -45%
 	if ctx.Change24h > -15 || ctx.Change24h < -45 {
-		return false
+		return false, "change24h_out_of_range"
 	}
 	// Forbid: 24h drop > 50% (extreme crash, too dangerous)
 	if ctx.Change24h < -50 {
-		return false
+		return false, "crash_too_deep"
 	}
 	// OI must have dropped (leveraged positions flushed out)
 	snap := ctx.Snapshot
 	if snap != nil {
 		if snap.OIDelta4h >= 0 {
-			return false
+			return false, "oi_not_flushed"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *panicReversalLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *panicReversalLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -133,5 +145,9 @@ func (m *panicReversalLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		s.target(ctx.EMA20_4h, "ema20_reclaim")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

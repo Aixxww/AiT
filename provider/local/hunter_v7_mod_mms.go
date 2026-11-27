@@ -11,33 +11,45 @@ func (m *mmsBottomWakeLongModule) SetupType() V7SetupType { return V7SetupMMSBot
 func (m *mmsBottomWakeLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *mmsBottomWakeLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *mmsBottomWakeLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.Snapshot == nil {
-		return false
+		return false, "price_data_missing"
 	}
 	if !mmsSmallCapProxyOK(ctx) {
-		return false
+		return false, "not_small_cap_proxy"
 	}
 	if ctx.StdRatio1h72 <= 0 || ctx.StdRatio1h72 >= 0.025 {
-		return false
+		return false, "std_ratio_out_of_range"
 	}
 	if ctx.VolumeBurst1h < 2.5 {
-		return false
+		return false, "volume_burst_too_low"
 	}
 	if ctx.Snapshot.OIDelta4h < 12 || ctx.Snapshot.OIDelta4h > 45 {
-		return false
+		return false, "oi_delta4h_out_of_range"
 	}
 	if ctx.Change4h <= -2.5 || ctx.Change4h >= 6 {
-		return false
+		return false, "change4h_out_of_range"
 	}
 	if ctx.TakerBuy15m > 0 && ctx.TakerBuy15m < 0.48 {
-		return false
+		return false, "taker_buy_too_low"
 	}
-	return true
+	return true, ""
 }
 
 func (m *mmsBottomWakeLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *mmsBottomWakeLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	s := newV7Signal(ctx, regime, V7SetupMMSBottomWakeLong, V7DirLong, V7EntryBreakout, "B")
 	s.sig.Status = V7StatusWaitConfirm
@@ -90,7 +102,11 @@ func (m *mmsBottomWakeLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		target = maxFloat(target, ctx.CurrentPrice+ctx.ATR4h*1.2)
 	}
 	s.sig.Targets = []V7Target{{Price: target, Reason: "mms_bottom_wake_expansion_target"}}
-	return s.finishWithTiming(0, timing)
+	out := s.finishWithTiming(0, timing)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 type mmsTrendRideLongModule struct{}
@@ -100,39 +116,51 @@ func (m *mmsTrendRideLongModule) SetupType() V7SetupType { return V7SetupMMSTren
 func (m *mmsTrendRideLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *mmsTrendRideLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *mmsTrendRideLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.Snapshot == nil {
-		return false
+		return false, "price_data_missing"
 	}
 	if !mmsSmallCapProxyOK(ctx) {
-		return false
+		return false, "not_small_cap_proxy"
 	}
 	if ctx.EMA7_15m <= 0 || ctx.EMA25_15m <= 0 || ctx.EMA99_15m <= 0 {
-		return false
+		return false, "ema_data_missing"
 	}
 	if !(ctx.EMA7_15m > ctx.EMA25_15m && ctx.EMA25_15m > ctx.EMA99_15m) {
-		return false
+		return false, "ema_fan_not_aligned"
 	}
 	if ctx.Last15mLow <= 0 || ctx.Last15mClose <= 0 {
-		return false
+		return false, "candle_data_missing"
 	}
 	if !(ctx.Last15mLow <= ctx.EMA25_15m*1.006 && ctx.Last15mClose > ctx.EMA25_15m) {
-		return false
+		return false, "no_ema25_pullback"
 	}
 	if ctx.VolumeBurst15m <= 0 || ctx.VolumeBurst15m > 0.85 {
-		return false
+		return false, "volume_burst_out_of_range"
 	}
 	if ctx.RSI1h >= 78 {
-		return false
+		return false, "rsi_too_high"
 	}
 	if ctx.TakerBuy15m > 0 && ctx.TakerBuy15m < 0.50 {
-		return false
+		return false, "taker_buy_too_low"
 	}
-	return true
+	return true, ""
 }
 
 func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *mmsTrendRideLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	s := newV7Signal(ctx, regime, V7SetupMMSTrendRideLong, V7DirLong, V7EntryMomentumTrailing, "A")
 	s.reason("mms_trend_ride", "mms_ema_fan_bullish", "mms_ema25_retest_hold", "mms_low_volume_retest")
@@ -173,7 +201,11 @@ func (m *mmsTrendRideLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 		targetDist = ctx.CurrentPrice * 0.075
 	}
 	s.sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_trend_ride_continuation_target"}}
-	return s.finishWithTiming(0, 68)
+	out := s.finishWithTiming(0, 68)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 type mmsSqueezeEngineLongModule struct{}
@@ -183,27 +215,39 @@ func (m *mmsSqueezeEngineLongModule) SetupType() V7SetupType { return V7SetupMMS
 func (m *mmsSqueezeEngineLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *mmsSqueezeEngineLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *mmsSqueezeEngineLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.Snapshot == nil {
-		return false
+		return false, "price_data_missing"
 	}
 	if ctx.Snapshot.QuoteVolume24h < 5_000_000 {
-		return false
+		return false, "volume_too_low"
 	}
 	if ctx.Snapshot.LSR < 1.55 {
-		return false
+		return false, "lsr_too_low"
 	}
 	if ctx.Snapshot.OIDelta1h < 8 || ctx.Change1h < 2.5 {
-		return false
+		return false, "oi_or_change_too_low"
 	}
 	if ctx.TakerBuy15m < 0.54 && ctx.VolumeBurst15m < 1.3 {
-		return false
+		return false, "flow_too_weak"
 	}
-	return true
+	return true, ""
 }
 
 func (m *mmsSqueezeEngineLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *mmsSqueezeEngineLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	s := newV7Signal(ctx, regime, V7SetupMMSSqueezeLong, V7DirLong, V7EntryFastConfirm, "A")
 	s.reason("mms_squeeze_engine", "mms_top_trader_long_lock", "mms_oi_price_squeeze_fuel", "mms_short_ban_active")
@@ -239,7 +283,11 @@ func (m *mmsSqueezeEngineLongModule) Score(ctx *V7SymbolContext, regime V7Market
 		targetDist = ctx.CurrentPrice * 0.075
 	}
 	s.sig.Targets = []V7Target{{Price: ctx.CurrentPrice + targetDist, Reason: "mms_squeeze_continuation_target"}}
-	return s.finishWithTiming(0, 72)
+	out := s.finishWithTiming(0, 72)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 func mmsSmallCapProxyOK(ctx *V7SymbolContext) bool {

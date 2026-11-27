@@ -20,34 +20,46 @@ func (m *leaderMomentumLongModule) SetupType() V7SetupType { return V7SetupLeade
 func (m *leaderMomentumLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *leaderMomentumLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *leaderMomentumLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// 24h gain between 12% and 60% — strong but not blow-off
 	if ctx.Change24h < 12 || ctx.Change24h > 60 {
-		return false
+		return false, "change24h_out_of_range"
 	}
 	// 4h gain > 6% — trend still running
 	if ctx.Change4h <= 6 {
-		return false
+		return false, "change4h_too_low"
 	}
 	// Exclude blow-off top: 24h >80% AND OI explosion >80%
 	snap := ctx.Snapshot
 	if snap != nil {
 		if ctx.Change24h > 80 && snap.OIDelta4h > 80 {
-			return false
+			return false, "blowoff_top"
 		}
 		// Exclude taker divergence: price near 24h high but taker buy declining
 		if snap.HighPrice24h > 0 && ctx.CurrentPrice >= snap.HighPrice24h*0.99 && ctx.TakerBuy15m < 0.48 {
-			return false
+			return false, "taker_divergence"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *leaderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *leaderMomentumLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	s := newV7Signal(ctx, regime, V7SetupLeaderMomentumLong, V7DirLong, V7EntryMomentumTrailing, "A")
@@ -129,7 +141,11 @@ func (m *leaderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRe
 
 	// Timing score: leader momentum has its own confirmation codes, so the
 	// generic pullback/reversal timing model would otherwise leave it WATCH-only.
-	return s.finishWithTiming(30, calcLeaderMomentumTimingScore(s.sig, ctx))
+	out := s.finishWithTiming(30, calcLeaderMomentumTimingScore(s.sig, ctx))
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 func calcLeaderMomentumTimingScore(sig *V7SignalOutput, ctx *V7SymbolContext) float64 {

@@ -11,38 +11,50 @@ func (m *altLadderMomentumLongModule) SetupType() V7SetupType { return V7SetupAl
 func (m *altLadderMomentumLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *altLadderMomentumLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *altLadderMomentumLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.Snapshot == nil || coreLiquiditySymbols[ctx.Symbol] {
-		return false
+		return false, "core_symbol_or_no_data"
 	}
 	if ctx.Snapshot.QuoteVolume24h < 5_000_000 || ctx.Change24h < 5 || ctx.Change24h > 120 {
-		return false
+		return false, "volume_or_change24h_out_of_range"
 	}
 	extreme := altLadderExtremeLong(ctx)
 	if !(ctx.Change1h >= 1.2 || ctx.Change4h >= 4 || ctx.Velocity15m >= 0.8 || (extreme && ctx.Change4h >= 10)) {
-		return false
+		return false, "no_momentum_leg"
 	}
 	minVotes := 2
 	if extreme && altLadderExtremeLongTrendOK(ctx) {
 		minVotes = 1
 	}
 	if !altLadderLongStructureOK(ctx) || altLadderLongFlowVotes(ctx) < minVotes {
-		return false
+		return false, "structure_or_flow_votes"
 	}
 	if ctx.Change1h > 12 && !extreme {
-		return false
+		return false, "change1h_chase"
 	}
 	if ctx.Change1h > 18 {
-		return false
+		return false, "change1h_extreme"
 	}
 	if ctx.RSI1h >= 86 && ctx.Snapshot.FundingRate > 0.0008 {
-		return false
+		return false, "overheated_rsi_funding"
 	}
-	return true
+	return true, ""
 }
 
 func (m *altLadderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *altLadderMomentumLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	stage := altLadderLongStage(ctx)
 	s := newV7Signal(ctx, regime, V7SetupAltLadderLong, V7DirLong, V7EntryMomentumTrailing, "B")
@@ -85,7 +97,11 @@ func (m *altLadderMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Marke
 	if stage == "alt_ladder_stage_extreme" {
 		s.riskTag("alt_ladder_extreme_continuation_watch")
 	}
-	return s.finishWithTiming(0, altLadderLongTimingScore(ctx))
+	out := s.finishWithTiming(0, altLadderLongTimingScore(ctx))
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 type altLadderBreakdownShortModule struct{}
@@ -95,33 +111,45 @@ func (m *altLadderBreakdownShortModule) SetupType() V7SetupType { return V7Setup
 func (m *altLadderBreakdownShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *altLadderBreakdownShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *altLadderBreakdownShortModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 || ctx.Snapshot == nil || coreLiquiditySymbols[ctx.Symbol] {
-		return false
+		return false, "core_symbol_or_no_data"
 	}
 	if ctx.Snapshot.QuoteVolume24h < 5_000_000 {
-		return false
+		return false, "volume_too_low"
 	}
 	if !(ctx.Change1h <= -1.8 || ctx.Change4h <= -4 || ctx.Velocity15m <= -0.8) {
-		return false
+		return false, "no_breakdown_momentum"
 	}
 	if !altLadderShortStructureOK(ctx) || altLadderShortFlowVotes(ctx) < 2 {
-		return false
+		return false, "structure_or_flow_votes"
 	}
 	if ctx.Change1h <= -14 {
-		return false
+		return false, "crash_too_deep_1h"
 	}
 	if ctx.ATR1d > 0 && ctx.Low1d > 0 {
 		distToLowATR := (ctx.CurrentPrice - ctx.Low1d) / ctx.ATR1d
 		if distToLowATR >= 0 && distToLowATR < 0.30 && ctx.Snapshot.OIDelta4h < -10 {
-			return false
+			return false, "at_daily_support_oi_flushed"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *altLadderBreakdownShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *altLadderBreakdownShortModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	stage := altLadderShortStage(ctx)
 	s := newV7Signal(ctx, regime, V7SetupAltLadderShort, V7DirShort, V7EntryFastConfirm, "B")
@@ -148,7 +176,11 @@ func (m *altLadderBreakdownShortModule) Score(ctx *V7SymbolContext, regime V7Mar
 	if stage == "alt_ladder_downshift_late" && ctx.Snapshot.OIDelta1h >= 0 {
 		s.riskTag("alt_ladder_late_short_risk")
 	}
-	return s.finishWithTiming(0, altLadderShortTimingScore(ctx))
+	out := s.finishWithTiming(0, altLadderShortTimingScore(ctx))
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 func altLadderLongStructureOK(ctx *V7SymbolContext) bool {

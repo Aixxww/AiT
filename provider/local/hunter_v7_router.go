@@ -212,6 +212,11 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 		}
 	}
 
+	// #163: per-module evaluation outcomes per symbol, attached to the
+	// module_no_match synthetic signals below. Only modules actually
+	// evaluated (past the weight gate and the breaker skip) are recorded.
+	moduleOutcomes := make(map[string][]V7ModuleOutcome)
+
 	for i := range universe {
 		ctx := &universe[i]
 		for _, mod := range r.modules {
@@ -225,15 +230,19 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 			}
 
 			// Fast pre-filter
-			if !mod.Match(ctx, regime) {
+			matched, failCode := v7MatchExplained(mod, ctx, regime)
+			if !matched {
+				moduleOutcomes[ctx.Symbol] = append(moduleOutcomes[ctx.Symbol], V7ModuleOutcome{Module: string(mod.SetupType()), Stage: V7ModuleStageMatch, Code: failCode})
 				continue
 			}
 
 			// Full scoring
-			sig := mod.Score(ctx, regime)
+			sig, nilCode := v7ScoreExplained(mod, ctx, regime)
 			if sig == nil {
+				moduleOutcomes[ctx.Symbol] = append(moduleOutcomes[ctx.Symbol], V7ModuleOutcome{Module: string(mod.SetupType()), Stage: V7ModuleStageScore, Code: nilCode})
 				continue
 			}
+			moduleOutcomes[ctx.Symbol] = append(moduleOutcomes[ctx.Symbol], V7ModuleOutcome{Module: string(mod.SetupType()), Stage: V7ModuleStageMatched})
 			for i := range passes {
 				passes[i].apply(sig, ctx)
 			}
@@ -266,7 +275,7 @@ func (r *V7Router) RouteDetailed(universe []V7SymbolContext, regime V7MarketRegi
 	out := appendV7WatchSignals(confirmed, watches, cfg)
 	raw := append([]V7SignalOutput{}, allSignals...)
 	raw = append(raw, watches...)
-	raw = append(raw, buildV7ModuleNoMatchSignals(universe, raw, regime)...)
+	raw = append(raw, buildV7ModuleNoMatchSignals(universe, raw, regime, moduleOutcomes)...)
 	potentialPool := BuildV7PotentialPool(universe, raw, defaultV7PotentialPoolLimit)
 	logV7RouteDiagnostics(allSignals, confirmed, watches, out, cfg)
 	return V7RouteResult{
@@ -329,7 +338,7 @@ func refreshV7ExecutionReadiness(sig *V7SignalOutput, ctx *V7SymbolContext) {
 	sig.ExecutionReadiness = &readiness
 }
 
-func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7SignalOutput, regime V7MarketRegime) []V7SignalOutput {
+func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7SignalOutput, regime V7MarketRegime, outcomes map[string][]V7ModuleOutcome) []V7SignalOutput {
 	if len(universe) == 0 {
 		return nil
 	}
@@ -360,6 +369,12 @@ func buildV7ModuleNoMatchSignals(universe []V7SymbolContext, existing []V7Signal
 		}
 		noMatchReason := classifyV7ModuleNoMatchReason(ctx)
 		sig.ReasonCodes = []string{"no_setup_matched", noMatchReason, string(V7ShapeNoiseNoTrade), string(V7EntrySignalNoTrade)}
+		// #163: attach the per-module outcomes recorded during routing so
+		// the persisted record shows which module rejected the symbol and
+		// on which condition.
+		if oc := outcomes[ctx.Symbol]; len(oc) > 0 {
+			sig.ModuleOutcomes = oc
+		}
 		sig.RiskTags = []string{"module_no_match"}
 		if ctx.Snapshot != nil {
 			sig.QuoteVolume24h = ctx.Snapshot.QuoteVolume24h

@@ -22,13 +22,19 @@ func (m *distributionShortModule) SetupType() V7SetupType { return V7SetupDistri
 func (m *distributionShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *distributionShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *distributionShortModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	// Must have price data
 	if ctx.CurrentPrice <= 0 || ctx.ATR4h <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// 24h gain > 20%
 	if ctx.Change24h < 20 {
-		return false
+		return false, "rally_too_small"
 	}
 	// Must be near resistance OR far from EMA20
 	nearResistance := false
@@ -46,21 +52,27 @@ func (m *distributionShortModule) Match(ctx *V7SymbolContext, regime V7MarketReg
 		}
 	}
 	if !nearResistance && !farFromEMA {
-		return false
+		return false, "no_resistance_proximity"
 	}
 	// OI 4h must be surging (>+15%)
 	snap := ctx.Snapshot
 	if snap != nil {
 		if snap.OIDelta4h <= 15 {
-			return false
+			return false, "oi_not_surging"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *distributionShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *distributionShortModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -75,7 +87,7 @@ func (m *distributionShortModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		hasWeakeningConfirm = true
 	}
 	if !hasWeakeningConfirm {
-		return nil
+		return nil, "no_weakening_confirm"
 	}
 
 	s := newV7Signal(ctx, regime, V7SetupDistributionShort, V7DirShort, V7EntryWaitReject, "B")
@@ -168,5 +180,9 @@ func (m *distributionShortModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		s.target(ctx.CurrentPrice-ctx.ATR4h*2, "atr_reversion_target")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

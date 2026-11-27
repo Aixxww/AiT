@@ -21,27 +21,39 @@ func (m *relativeWeaknessShortModule) SetupType() V7SetupType { return V7SetupRe
 func (m *relativeWeaknessShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *relativeWeaknessShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *relativeWeaknessShortModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 || ctx.ATR15m <= 0 || ctx.Symbol == "BTCUSDT" || ctx.Symbol == "ETHUSDT" {
-		return false
+		return false, "core_symbol_or_no_data"
 	}
 	// Persistent bleed: down on 4h and 24h, still leaking on 1h.
 	if ctx.Change4h > -3 || ctx.Change24h > -2 || ctx.Change1h > 0.5 {
-		return false
+		return false, "no_persistent_bleed"
 	}
 	// Grind, not capitulation: fast crashes belong to panic/breakdown modules.
 	if ctx.Change1h < -5 {
-		return false
+		return false, "capitulation_speed"
 	}
 	// Sell flow must dominate; missing taker data does not qualify.
 	if ctx.TakerBuy15m <= 0 || ctx.TakerBuy15m > 0.48 {
-		return false
+		return false, "taker_sell_not_dominant"
 	}
-	return true
+	return true, ""
 }
 
 func (m *relativeWeaknessShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *relativeWeaknessShortModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	snap := ctx.Snapshot
 
@@ -115,5 +127,9 @@ func (m *relativeWeaknessShortModule) Score(ctx *V7SymbolContext, regime V7Marke
 		"15m_close_below_vwap_or_ema20_or_entry_zone_lower",
 		"taker_buy_15m_lt_0_48",
 	}
-	return s.finish(40)
+	out := s.finish(40)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

@@ -15,24 +15,38 @@ func (m *rangeExpansionEventModule) SetupType() V7SetupType { return V7SetupRang
 func (m *rangeExpansionEventModule) Direction() V7Direction { return V7DirLong }
 
 func (m *rangeExpansionEventModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *rangeExpansionEventModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.Snapshot == nil || ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	if ctx.Amplitude24h < 20 && !(ctx.Amplitude24h >= 15 && ctx.RangeExpansion1h >= 2.2 && math.Abs(ctx.Velocity15m) >= 1.5) {
-		return false
+		return false, "amplitude_too_low"
 	}
 	if ctx.RangeExpansion1h < 1.6 && math.Abs(ctx.Velocity15m) < 2.0 && math.Abs(ctx.Change1h) < 3.0 {
-		return false
+		return false, "expansion_too_weak"
 	}
 	if ctx.VolumeBurst15m > 0 && ctx.VolumeBurst15m < 0.8 && math.Abs(ctx.Change1h) < 3.5 {
-		return false
+		return false, "volume_too_quiet"
 	}
-	return true
+	return true, ""
 }
 
 func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163). This module's Score
+// never returns nil once Match passes; the only nil path is the Match
+// recheck above.
+func (m *rangeExpansionEventModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 	dir := rangeExpansionEventDirection(ctx)
 	s := newV7Signal(ctx, regime, V7SetupRangeExpansion, dir, V7EntryFastConfirm, "B")
@@ -105,7 +119,7 @@ func (m *rangeExpansionEventModule) Score(ctx *V7SymbolContext, regime V7MarketR
 	sig.DerivativesCtx = buildDerivCtx(ctx)
 	rangeExpansionApplySubtypeTags(ctx, sig)
 	rangeExpansionApplyQualityDowngrade(ctx, sig)
-	return sig
+	return sig, ""
 }
 
 func rangeExpansionApplySubtypeTags(ctx *V7SymbolContext, sig *V7SignalOutput) {

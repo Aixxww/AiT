@@ -20,12 +20,18 @@ func (m *fundingReversalModule) SetupType() V7SetupType { return V7SetupFundingR
 func (m *fundingReversalModule) Direction() V7Direction { return V7DirShort } // default, Score() can override
 
 func (m *fundingReversalModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *fundingReversalModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	snap := ctx.Snapshot
 	if snap == nil {
-		return false
+		return false, "snapshot_missing"
 	}
 
 	// Must have extreme funding OR extreme LSR
@@ -33,15 +39,21 @@ func (m *fundingReversalModule) Match(ctx *V7SymbolContext, regime V7MarketRegim
 	hasLSR := snap.LSR > 2.2 || snap.LSR < 0.8
 
 	if !hasFunding && !hasLSR {
-		return false
+		return false, "no_crowding_extreme"
 	}
 
-	return true
+	return true, ""
 }
 
 func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *fundingReversalModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -61,7 +73,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	}
 
 	if !isShortCandidate && !isLongCandidate {
-		return nil
+		return nil, "no_side_candidate"
 	}
 
 	// Short candidate refinements
@@ -105,7 +117,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	}
 
 	if !isShortCandidate && !isLongCandidate {
-		return nil
+		return nil, "side_killed"
 	}
 
 	// Determine direction
@@ -265,7 +277,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 	}
 
 	if sig.SetupScore < 30 {
-		return nil
+		return nil, v7CodeScoreBelowFloor
 	}
 
 	sig.PriceCtx = buildPriceCtx(ctx)
@@ -379,7 +391,7 @@ func (m *fundingReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegim
 		sig.Status = V7StatusCandidate
 	}
 
-	return sig
+	return sig, ""
 }
 
 func fundingReversalConfirmations(dir V7Direction) []string {

@@ -20,37 +20,49 @@ func (m *rangeReversionModule) SetupType() V7SetupType { return V7SetupRangeReve
 func (m *rangeReversionModule) Direction() V7Direction { return V7DirLong }
 
 func (m *rangeReversionModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *rangeReversionModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 
 	// Low ADX — must be ranging, not trending
 	if ctx.ADX1h >= 20 {
-		return false
+		return false, "adx_trending"
 	}
 
 	// BB Width moderate — defined range (not too tight, not too wide)
 	if ctx.BBWidth15m <= 0 {
-		return false
+		return false, "bb_width_missing"
 	}
 	if ctx.BBWidthPercentile < 20 || ctx.BBWidthPercentile > 75 {
-		return false
+		return false, "bb_width_pct_out_of_range"
 	}
 
 	// OI should not have strong directional trend
 	snap := ctx.Snapshot
 	if snap != nil {
 		if snap.OIDelta1h > 10 || snap.OIDelta1h < -10 {
-			return false // OI exploding one way = directional flow
+			return false, "oi_directional_flow" // OI exploding one way = directional flow
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *rangeReversionModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -90,7 +102,7 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 	}
 
 	if !isLongCandidate && !isShortCandidate {
-		return nil
+		return nil, "no_side_candidate"
 	}
 
 	// Build output
@@ -234,5 +246,9 @@ func (m *rangeReversionModule) Score(ctx *V7SymbolContext, regime V7MarketRegime
 		}
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

@@ -17,37 +17,49 @@ func (m *whaleFlowReversalModule) SetupType() V7SetupType { return V7SetupWhaleF
 func (m *whaleFlowReversalModule) Direction() V7Direction { return V7DirLong }
 
 func (m *whaleFlowReversalModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *whaleFlowReversalModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.Snapshot == nil {
-		return false
+		return false, "snapshot_missing"
 	}
 	price := ctx.CurrentPrice
 	if price <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	snap := ctx.Snapshot
 
 	// OI must be growing meaningfully
 	oiDelta := snap.OIDelta1h
 	if oiDelta < 5 {
-		return false
+		return false, "oi_growth_too_low"
 	}
 
 	// Funding must be neutral (whales aren't crowded)
 	if math.Abs(snap.FundingRate) > 0.0005 {
-		return false
+		return false, "funding_not_neutral"
 	}
 
 	// Must have sufficient liquidity
 	if snap.QuoteVolume24h < 30_000_000 {
-		return false
+		return false, "liquidity_too_low"
 	}
 
-	return true
+	return true, ""
 }
 
 func (m *whaleFlowReversalModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *whaleFlowReversalModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	price := ctx.CurrentPrice
@@ -133,7 +145,10 @@ func (m *whaleFlowReversalModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 	}
 
 	sig := s.finishWithTiming(0, 45+takerBuy*50+math.Min(oiDelta, 20))
+	if sig == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
 	ApplyV7OIAccumulationEvidence(sig, ctx)
 
-	return sig
+	return sig, ""
 }
