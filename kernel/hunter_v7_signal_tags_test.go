@@ -71,16 +71,19 @@ func TestT2RecordCarriesAllTags(t *testing.T) {
 	if db[1].OutcomeSource != "shadow" || db[1].DecisionPath != "none" || db[1].TrackStatus != "" {
 		t.Errorf("shadow row = %q/%q/%q", db[1].OutcomeSource, db[1].DecisionPath, db[1].TrackStatus)
 	}
-	// TRIGGER class before the trigger: WATCH, watch_audit.
-	if db[2].OutcomeSource != "watch_audit" || db[2].LifecycleStateAtDecision != "WATCH" || db[2].TrackStatus != "" {
+	// TRIGGER class before the trigger: since #162 the sole-reason
+	// awaiting-trigger row advances flagged to open review (its lifecycle
+	// state at decision stays WATCH; the row is tracked as an LLM row).
+	if db[2].OutcomeSource != "prompt_open_review" || db[2].LifecycleStateAtDecision != "WATCH" || db[2].TrackStatus != "ACTIVE" {
 		t.Errorf("watch row = %q/%q/%q", db[2].OutcomeSource, db[2].LifecycleStateAtDecision, db[2].TrackStatus)
 	}
-	// With watch_audit on, WATCH rows of both audit buckets are tracked.
+	// With watch_audit on, the shadow row is tracked too; the #162 row is
+	// an open-review row and is tracked regardless of the audit switch.
 	audit := BuildHunterV7SignalDBRecordsWithAudit(1, recs, time.Now(), "ACTIVE", true)
 	if audit[1].TrackStatus != "ACTIVE" || audit[2].TrackStatus != "ACTIVE" {
 		t.Errorf("audit tracking = %q/%q", audit[1].TrackStatus, audit[2].TrackStatus)
 	}
-	if !HunterV7ShouldTrackRecord(recs[2], true) || HunterV7ShouldTrackRecord(recs[2], false) {
+	if !HunterV7ShouldTrackRecord(recs[2], true) || !HunterV7ShouldTrackRecord(recs[2], false) {
 		t.Errorf("HunterV7ShouldTrackRecord audit switch")
 	}
 }

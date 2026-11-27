@@ -37,8 +37,12 @@ func TestU9ConditionalTierRule(t *testing.T) {
 		sigs[i].SignalID = sigs[i].Symbol
 	}
 	off := AssembleHunterV7CandidateCoins(sigs, "BOTH", condGeometry(false))
-	if off[0].V7ExecutionTier != "WATCH" || off[0].V7TierReason != "t2_awaiting_trigger" || off[0].V7ConditionalEntry {
-		t.Fatalf("disabled: %s/%s", off[0].V7ExecutionTier, off[0].V7TierReason)
+	// U9 with conditional entry disabled: no t2_trigger_conditional_*
+	// verdict. Since #162 the sole-reason pre-trigger row still advances
+	// — flagged t2_awaiting_trigger_passthrough_* and stamped conditional,
+	// so an approved open fails closed at registration (never at market).
+	if off[0].V7ExecutionTier != "REVIEWABLE" || off[0].V7TierReason != "t2_awaiting_trigger_passthrough_trigger_watch" || !off[0].V7ConditionalEntry {
+		t.Fatalf("disabled: %s/%s cond=%v", off[0].V7ExecutionTier, off[0].V7TierReason, off[0].V7ConditionalEntry)
 	}
 	on := AssembleHunterV7CandidateCoins(sigs, "BOTH", condGeometry(true))
 	want := []struct {
