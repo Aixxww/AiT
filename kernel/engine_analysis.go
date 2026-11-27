@@ -344,7 +344,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 
 	// 1. First fetch data for position coins (must fetch)
 	for _, pos := range ctx.Positions {
-		data, err := market.GetWithTimeframes(pos.Symbol, timeframes, primaryTimeframe, klineCount)
+		data, err := market.GetWithTimeframes(pos.Symbol, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 		if err != nil {
 			logger.Infof("⚠️  Failed to fetch market data for position %s: %v", pos.Symbol, err)
 			continue
@@ -397,7 +397,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 
 		// Try Hunter pre-fetched klines first (avoids duplicate Binance API calls)
 		if data == nil && coin.PreFetchedData != nil && len(coin.PreFetchedData.TimeframeKlines) > 0 {
-			data, err = market.BuildDataFromPreFetched(coin.Symbol, coin.PreFetchedData, timeframes, primaryTimeframe, klineCount)
+			data, err = market.BuildDataFromPreFetched(coin.Symbol, coin.PreFetchedData, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 			if err != nil {
 				logger.Infof("⚠️  Pre-fetched data failed for %s, falling back to Binance: %v", coin.Symbol, err)
 				data = nil
@@ -417,7 +417,7 @@ func fetchMarketDataWithStrategy(ctx *Context, engine *StrategyEngine) error {
 
 		// Fallback: fetch from Binance/CoinAnk
 		if data == nil {
-			data, err = market.GetWithTimeframes(coin.Symbol, timeframes, primaryTimeframe, klineCount)
+			data, err = market.GetWithTimeframes(coin.Symbol, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 			if err != nil {
 				logger.Infof("⚠️  Failed to fetch market data for %s: %v", coin.Symbol, err)
 				continue
@@ -523,7 +523,7 @@ func buildMarketDataFromSnapshot(engine *StrategyEngine, symbol string, timefram
 		return nil, fmt.Errorf("%s not found in snapshot", normalized)
 	}
 
-	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount)
+	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 }
 
 // ============================================================================

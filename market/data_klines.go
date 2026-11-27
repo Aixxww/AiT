@@ -253,7 +253,7 @@ func getKlinesFromHyperliquid(symbol, interval string, limit int) ([]Kline, erro
 }
 
 // calculateTimeframeSeries calculates series data for a single timeframe
-func calculateTimeframeSeries(klines []Kline, timeframe string, count int) *TimeframeSeriesData {
+func calculateTimeframeSeries(klines []Kline, timeframe string, count int, periods ...IndicatorPeriods) *TimeframeSeriesData {
 	if count <= 0 {
 		count = 10 // default
 	}
@@ -333,6 +333,13 @@ func calculateTimeframeSeries(klines []Kline, timeframe string, count int) *Time
 
 	// Calculate ATR14
 	data.ATR14 = calculateATR(klines, 14)
+
+	// #156: the configured per-period series (default periods when none).
+	p := DefaultIndicatorPeriods()
+	if len(periods) > 0 {
+		p = periods[0].Effective()
+	}
+	fillPeriodSeries(data, klines, start, p)
 
 	return data
 }

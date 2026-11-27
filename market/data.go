@@ -144,8 +144,9 @@ func GetWithExchange(symbol, exchange string) (*Data, error) {
 // timeframes: list of timeframes, e.g. ["5m", "15m", "1h", "4h"]
 // primaryTimeframe: primary timeframe (used for calculating current indicators), defaults to timeframes[0]
 // count: number of K-lines for each timeframe
-func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe string, count int) (*Data, error) {
+func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe string, count int, opts ...DataOption) (*Data, error) {
 	symbol = Normalize(symbol)
+	opt := resolveDataOptions(opts)
 
 	if len(timeframes) == 0 {
 		return nil, fmt.Errorf("at least one timeframe is required")
@@ -227,7 +228,7 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 		}
 
 		// Calculate series data for this timeframe (use count from config)
-		seriesData := calculateTimeframeSeries(klines, tf, count)
+		seriesData := calculateTimeframeSeries(klines, tf, count, opt.periods)
 		timeframeData[tf] = seriesData
 	}
 
@@ -247,6 +248,7 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 	currentEMA20 := calculateEMA(primaryKlines, 20)
 	currentMACD := calculateMACD(primaryKlines)
 	currentRSI7 := calculateRSI(primaryKlines, 7)
+	currentEMAs, currentRSIs := currentIndicatorValues(primaryKlines, opt.periods)
 
 	// Calculate price changes
 	priceChange1h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60)  // 1 hour
@@ -262,24 +264,28 @@ func GetWithTimeframes(symbol string, timeframes []string, primaryTimeframe stri
 	fundingRate, _ := getFundingRate(symbol)
 
 	return &Data{
-		Symbol:        symbol,
-		CurrentPrice:  currentPrice,
-		PriceChange1h: priceChange1h,
-		PriceChange4h: priceChange4h,
-		CurrentEMA20:  currentEMA20,
-		CurrentMACD:   currentMACD,
-		CurrentRSI7:   currentRSI7,
-		OpenInterest:  oiData,
-		FundingRate:   fundingRate,
-		TimeframeData: timeframeData,
+		Symbol:           symbol,
+		CurrentPrice:     currentPrice,
+		PriceChange1h:    priceChange1h,
+		PriceChange4h:    priceChange4h,
+		CurrentEMA20:     currentEMA20,
+		CurrentMACD:      currentMACD,
+		CurrentRSI7:      currentRSI7,
+		CurrentEMAs:      currentEMAs,
+		CurrentRSIs:      currentRSIs,
+		IndicatorPeriods: opt.periods,
+		OpenInterest:     oiData,
+		FundingRate:      fundingRate,
+		TimeframeData:    timeframeData,
 	}, nil
 }
 
 // BuildDataFromPreFetched constructs market.Data from pre-fetched klines (e.g. from Hunter).
 // This avoids duplicate Binance API calls when the coin selection phase already fetched kline data.
 // OI and FundingRate are NOT fetched here — the caller should set them after calling this function.
-func BuildDataFromPreFetched(symbol string, pre *PreFetchedData, timeframes []string, primaryTimeframe string, count int) (*Data, error) {
+func BuildDataFromPreFetched(symbol string, pre *PreFetchedData, timeframes []string, primaryTimeframe string, count int, opts ...DataOption) (*Data, error) {
 	symbol = Normalize(symbol)
+	opt := resolveDataOptions(opts)
 
 	if pre == nil || len(pre.TimeframeKlines) == 0 {
 		return nil, fmt.Errorf("no pre-fetched klines available for %s", symbol)
@@ -303,7 +309,7 @@ func BuildDataFromPreFetched(symbol string, pre *PreFetchedData, timeframes []st
 			primaryKlines = klines
 		}
 
-		seriesData := calculateTimeframeSeries(klines, tf, count)
+		seriesData := calculateTimeframeSeries(klines, tf, count, opt.periods)
 		timeframeData[tf] = seriesData
 	}
 
@@ -320,20 +326,24 @@ func BuildDataFromPreFetched(symbol string, pre *PreFetchedData, timeframes []st
 	currentEMA20 := calculateEMA(primaryKlines, 20)
 	currentMACD := calculateMACD(primaryKlines)
 	currentRSI7 := calculateRSI(primaryKlines, 7)
+	currentEMAs, currentRSIs := currentIndicatorValues(primaryKlines, opt.periods)
 	priceChange1h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60)
 	priceChange4h := calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 240)
 
 	data := &Data{
-		Symbol:        symbol,
-		CurrentPrice:  currentPrice,
-		PriceChange1h: priceChange1h,
-		PriceChange4h: priceChange4h,
-		CurrentEMA20:  currentEMA20,
-		CurrentMACD:   currentMACD,
-		CurrentRSI7:   currentRSI7,
-		OpenInterest:  &OIData{Latest: 0, Average: 0},
-		FundingRate:   0,
-		TimeframeData: timeframeData,
+		Symbol:           symbol,
+		CurrentPrice:     currentPrice,
+		PriceChange1h:    priceChange1h,
+		PriceChange4h:    priceChange4h,
+		CurrentEMA20:     currentEMA20,
+		CurrentMACD:      currentMACD,
+		CurrentRSI7:      currentRSI7,
+		CurrentEMAs:      currentEMAs,
+		CurrentRSIs:      currentRSIs,
+		IndicatorPeriods: opt.periods,
+		OpenInterest:     &OIData{Latest: 0, Average: 0},
+		FundingRate:      0,
+		TimeframeData:    timeframeData,
 	}
 
 	return data, nil

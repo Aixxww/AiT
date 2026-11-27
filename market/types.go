@@ -4,13 +4,18 @@ import "time"
 
 // Data market data structure
 type Data struct {
-	Symbol            string
-	CurrentPrice      float64
-	PriceChange1h     float64 // 1-hour price change percentage
-	PriceChange4h     float64 // 4-hour price change percentage
-	CurrentEMA20      float64
-	CurrentMACD       float64
-	CurrentRSI7       float64
+	Symbol        string
+	CurrentPrice  float64
+	PriceChange1h float64 // 1-hour price change percentage
+	PriceChange4h float64 // 4-hour price change percentage
+	CurrentEMA20  float64 // fixed EMA20 (internal consumers)
+	CurrentMACD   float64
+	CurrentRSI7   float64 // fixed RSI7 (internal consumers)
+	// #156: the latest EMA / RSI per configured period on the primary
+	// timeframe, and the effective periods the build used.
+	CurrentEMAs       map[int]float64  `json:"current_emas,omitempty"`
+	CurrentRSIs       map[int]float64  `json:"current_rsis,omitempty"`
+	IndicatorPeriods  IndicatorPeriods `json:"-"`
 	OpenInterest      *OIData
 	FundingRate       float64
 	IntradaySeries    *IntradayData
@@ -45,6 +50,15 @@ type TimeframeSeriesData struct {
 	BOLLUpper  []float64 `json:"boll_upper"`  // Upper band
 	BOLLMiddle []float64 `json:"boll_middle"` // Middle band (SMA)
 	BOLLLower  []float64 `json:"boll_lower"`  // Lower band
+	// #156: the series of the configured periods (Periods). The fixed
+	// fields above stay for internal consumers whose semantics name the
+	// period (execution facts, confirmation codes, the hybrid_v2 bar
+	// columns); the legacy prompt prints these per-period series.
+	Periods    IndicatorPeriods  `json:"-"`
+	EMASeries  map[int][]float64 `json:"ema_series,omitempty"`
+	RSISeries  map[int][]float64 `json:"rsi_series,omitempty"`
+	ATRValues  map[int]float64   `json:"atr_values,omitempty"`
+	BOLLSeries map[int]BOLLBands `json:"boll_series,omitempty"`
 }
 
 // OIData is Binance open interest in RAW CONTRACT QUANTITY (base-asset
