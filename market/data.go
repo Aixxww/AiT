@@ -702,6 +702,12 @@ func parseFloat(v interface{}) (float64, error) {
 
 // BuildDataFromKlines constructs market data snapshot from preloaded K-line series.
 func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data, error) {
+	return BuildDataFromKlinesWithLongerCount(symbol, primary, longer, DefaultLongerCount)
+}
+
+// BuildDataFromKlinesWithLongerCount is BuildDataFromKlines with the number
+// of longer-timeframe series points (indicators.klines.longer_count, #157).
+func BuildDataFromKlinesWithLongerCount(symbol string, primary []Kline, longer []Kline, longerCount int) (*Data, error) {
 	if len(primary) == 0 {
 		return nil, fmt.Errorf("primary series is empty")
 	}
@@ -725,7 +731,7 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 	}
 
 	if len(longer) > 0 {
-		data.LongerTermContext = calculateLongerTermData(longer)
+		data.LongerTermContext = calculateLongerTermDataN(longer, longerCount)
 	}
 
 	return data, nil

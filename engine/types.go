@@ -104,6 +104,11 @@ type HubConfig struct {
 	TechWeight   float64 // default 40
 	QuantWeight  float64 // default 40
 	SocialWeight float64 // default 20
+	// SocialEnabled includes the social component in scoring (default
+	// true; #157 indicator_hub.social_enabled). When false the social
+	// indicators and sub-scores are zero, like the other per-component
+	// switches (weights are not renormalised).
+	SocialEnabled bool
 
 	// Individual indicator enable/disable
 	RSIEnabled  bool // default true
@@ -147,6 +152,8 @@ func DefaultHubConfig() HubConfig {
 		TechWeight:   40,
 		QuantWeight:  40,
 		SocialWeight: 20,
+
+		SocialEnabled: true,
 
 		RSIEnabled:  true,
 		MACDEnabled: true,

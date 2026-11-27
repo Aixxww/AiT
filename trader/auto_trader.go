@@ -396,54 +396,8 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 		coinSrc.SourceType == "hunter" || coinSrc.SourceType == "hunter_sniff" ||
 		coinSrc.SourceType == "hunter_v7" || coinSrc.SourceType == "ai500"
 	if needSnapshot {
-		hubCfg := engine.DefaultHubConfig()
 		ihCfg := coinSrc.IndicatorHub // may be nil for Hunter/AI500-only mode
-		// Override defaults with user config (only when IndicatorHub config exists)
-		if ihCfg != nil && ihCfg.TechWeight > 0 {
-			hubCfg.TechWeight = ihCfg.TechWeight
-		}
-		if ihCfg != nil && ihCfg.QuantWeight > 0 {
-			hubCfg.QuantWeight = ihCfg.QuantWeight
-		}
-		if ihCfg != nil && ihCfg.SocialWeight > 0 {
-			hubCfg.SocialWeight = ihCfg.SocialWeight
-		}
-		if ihCfg != nil && ihCfg.DirectionMargin > 0 {
-			hubCfg.DirectionMargin = ihCfg.DirectionMargin
-		}
-		if ihCfg != nil && ihCfg.GradeSThreshold > 0 {
-			hubCfg.GradeSThreshold = ihCfg.GradeSThreshold
-		}
-		if ihCfg != nil && ihCfg.GradeAThreshold > 0 {
-			hubCfg.GradeAThreshold = ihCfg.GradeAThreshold
-		}
-		if ihCfg != nil && ihCfg.GradeBThreshold > 0 {
-			hubCfg.GradeBThreshold = ihCfg.GradeBThreshold
-		}
-		if ihCfg != nil && ihCfg.StopLossATR > 0 {
-			hubCfg.StopLossATR = ihCfg.StopLossATR
-		}
-		if ihCfg != nil && ihCfg.TP1ATR > 0 {
-			hubCfg.TP1ATR = ihCfg.TP1ATR
-		}
-		if ihCfg != nil && ihCfg.TP2ATR > 0 {
-			hubCfg.TP2ATR = ihCfg.TP2ATR
-		}
-		if ihCfg != nil && ihCfg.TP3ATR > 0 {
-			hubCfg.TP3ATR = ihCfg.TP3ATR
-		}
-		if ihCfg != nil && ihCfg.MaxSignalsPerCycle > 0 {
-			hubCfg.MaxSignalsPerCycle = ihCfg.MaxSignalsPerCycle
-		}
-		if ihCfg != nil && ihCfg.MinScore > 0 {
-			hubCfg.MinScore = ihCfg.MinScore
-		}
-		if ihCfg != nil && ihCfg.CooldownMinutes > 0 {
-			hubCfg.CooldownMinutes = ihCfg.CooldownMinutes
-		}
-		if ihCfg != nil && ihCfg.TopNForScoring > 0 {
-			hubCfg.TopNForScoring = ihCfg.TopNForScoring
-		}
+		hubCfg := hubConfigFromIndicatorHub(ihCfg)
 
 		var dataCfg datafetch.CollectorConfig
 		if ihCfg != nil {
@@ -1116,4 +1070,61 @@ func newTraderAIClient(provider, apiKey, customURL, customModelName string) mcp.
 		client.SetAPIKey(apiKey, customURL, customModelName)
 	}
 	return client
+}
+
+// hubConfigFromIndicatorHub overrides the IndicatorHub defaults with the
+// strategy's coin_source.indicator_hub settings (nil = defaults).
+func hubConfigFromIndicatorHub(ihCfg *store.IndicatorHubCfg) engine.HubConfig {
+	hubCfg := engine.DefaultHubConfig()
+	// Override defaults with user config (only when IndicatorHub config exists)
+	if ihCfg != nil && ihCfg.TechWeight > 0 {
+		hubCfg.TechWeight = ihCfg.TechWeight
+	}
+	if ihCfg != nil && ihCfg.QuantWeight > 0 {
+		hubCfg.QuantWeight = ihCfg.QuantWeight
+	}
+	if ihCfg != nil && ihCfg.SocialWeight > 0 {
+		hubCfg.SocialWeight = ihCfg.SocialWeight
+	}
+	// #157: nil keeps the default (social on).
+	if ihCfg != nil && ihCfg.SocialEnabled != nil {
+		hubCfg.SocialEnabled = *ihCfg.SocialEnabled
+	}
+	if ihCfg != nil && ihCfg.DirectionMargin > 0 {
+		hubCfg.DirectionMargin = ihCfg.DirectionMargin
+	}
+	if ihCfg != nil && ihCfg.GradeSThreshold > 0 {
+		hubCfg.GradeSThreshold = ihCfg.GradeSThreshold
+	}
+	if ihCfg != nil && ihCfg.GradeAThreshold > 0 {
+		hubCfg.GradeAThreshold = ihCfg.GradeAThreshold
+	}
+	if ihCfg != nil && ihCfg.GradeBThreshold > 0 {
+		hubCfg.GradeBThreshold = ihCfg.GradeBThreshold
+	}
+	if ihCfg != nil && ihCfg.StopLossATR > 0 {
+		hubCfg.StopLossATR = ihCfg.StopLossATR
+	}
+	if ihCfg != nil && ihCfg.TP1ATR > 0 {
+		hubCfg.TP1ATR = ihCfg.TP1ATR
+	}
+	if ihCfg != nil && ihCfg.TP2ATR > 0 {
+		hubCfg.TP2ATR = ihCfg.TP2ATR
+	}
+	if ihCfg != nil && ihCfg.TP3ATR > 0 {
+		hubCfg.TP3ATR = ihCfg.TP3ATR
+	}
+	if ihCfg != nil && ihCfg.MaxSignalsPerCycle > 0 {
+		hubCfg.MaxSignalsPerCycle = ihCfg.MaxSignalsPerCycle
+	}
+	if ihCfg != nil && ihCfg.MinScore > 0 {
+		hubCfg.MinScore = ihCfg.MinScore
+	}
+	if ihCfg != nil && ihCfg.CooldownMinutes > 0 {
+		hubCfg.CooldownMinutes = ihCfg.CooldownMinutes
+	}
+	if ihCfg != nil && ihCfg.TopNForScoring > 0 {
+		hubCfg.TopNForScoring = ihCfg.TopNForScoring
+	}
+	return hubCfg
 }
