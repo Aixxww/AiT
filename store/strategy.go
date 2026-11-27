@@ -362,7 +362,11 @@ type IndicatorHubCfg struct {
 	CooldownMinutes    int     `json:"cooldown_minutes,omitempty"`      // default 60
 	TopNForScoring     int     `json:"top_n_for_scoring,omitempty"`     // default 100
 
-	SocialEnabled    bool   `json:"social_enabled,omitempty"` // default true
+	// SocialEnabled includes the social (LunarCrush) component in hub
+	// scoring (#157). nil = true, the pre-#157 behavior: the field was
+	// omitempty, so a stored false was never written and every existing
+	// config reads as unset.
+	SocialEnabled    *bool  `json:"social_enabled,omitempty"`
 	LunarCrushAPIKey string `json:"lunarcrush_api_key,omitempty"`
 }
 
@@ -482,7 +486,11 @@ type SnifferConfig struct {
 	MinLongScore float64 `json:"min_long_score,omitempty"`
 	// Minimum SHORT score to qualify for Short Distribution pool (default 20.0)
 	MinShortScore float64 `json:"min_short_score,omitempty"`
-	// Strict squeeze: require bb_squeeze_15m (default true)
+	// Strict squeeze: require bb_squeeze_15m on every sniff candidate
+	// (#157). Opt-in, default false: the sniffer's Gate 2 was redesigned
+	// from the rigid bb_squeeze_15m requirement to elastic compression
+	// scoring, and no filter required the squeeze before #157 (the former
+	// comment said "default true", which never applied).
 	StrictSqueeze bool `json:"strict_squeeze,omitempty"`
 }
 

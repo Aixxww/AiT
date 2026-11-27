@@ -454,11 +454,25 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 	return data
 }
 
+// DefaultLongerCount is the number of longer-timeframe series points
+// (MACD / RSI14) the longer-term context carries when the strategy leaves
+// indicators.klines.longer_count unset (#157; the pre-#157 fixed value).
+const DefaultLongerCount = 10
+
 // calculateLongerTermData calculates longer-term data
 func calculateLongerTermData(klines []Kline) *LongerTermData {
+	return calculateLongerTermDataN(klines, DefaultLongerCount)
+}
+
+// calculateLongerTermDataN is calculateLongerTermData with the number of
+// series points (longer_count); n <= 0 means DefaultLongerCount.
+func calculateLongerTermDataN(klines []Kline, n int) *LongerTermData {
+	if n <= 0 {
+		n = DefaultLongerCount
+	}
 	data := &LongerTermData{
-		MACDValues:  make([]float64, 0, 10),
-		RSI14Values: make([]float64, 0, 10),
+		MACDValues:  make([]float64, 0, n),
+		RSI14Values: make([]float64, 0, n),
 	}
 
 	// Calculate EMA
@@ -481,7 +495,7 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 	}
 
 	// Calculate MACD and RSI series
-	start := len(klines) - 10
+	start := len(klines) - n
 	if start < 0 {
 		start = 0
 	}
