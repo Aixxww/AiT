@@ -7,8 +7,9 @@ import (
 
 // BuildDataFromSymbolSnapshot constructs market.Data from the shared
 // datafetch snapshot without making network calls.
-func BuildDataFromSymbolSnapshot(symbol string, ss *datafetch.SymbolSnapshot, timeframes []string, primaryTimeframe string, count int) (*Data, error) {
+func BuildDataFromSymbolSnapshot(symbol string, ss *datafetch.SymbolSnapshot, timeframes []string, primaryTimeframe string, count int, opts ...DataOption) (*Data, error) {
 	symbol = Normalize(symbol)
+	opt := resolveDataOptions(opts)
 	if ss == nil {
 		return nil, fmt.Errorf("snapshot is nil for %s", symbol)
 	}
@@ -40,7 +41,7 @@ func BuildDataFromSymbolSnapshot(symbol string, ss *datafetch.SymbolSnapshot, ti
 		if tf == primaryTimeframe {
 			primaryKlines = klines
 		}
-		timeframeData[tf] = calculateTimeframeSeries(klines, tf, count)
+		timeframeData[tf] = calculateTimeframeSeries(klines, tf, count, opt.periods)
 	}
 
 	if len(primaryKlines) == 0 {
@@ -58,18 +59,22 @@ func BuildDataFromSymbolSnapshot(symbol string, ss *datafetch.SymbolSnapshot, ti
 	// existing contract-quantity semantics. Existing liquidity filters multiply
 	// OI by price to estimate notional value.
 	oiLatest := ss.OI
+	currentEMAs, currentRSIs := currentIndicatorValues(primaryKlines, opt.periods)
 
 	return &Data{
-		Symbol:        symbol,
-		CurrentPrice:  currentPrice,
-		PriceChange1h: calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60),
-		PriceChange4h: calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 240),
-		CurrentEMA20:  calculateEMA(primaryKlines, 20),
-		CurrentMACD:   calculateMACD(primaryKlines),
-		CurrentRSI7:   calculateRSI(primaryKlines, 7),
-		OpenInterest:  &OIData{Latest: oiLatest, Average: oiLatest},
-		FundingRate:   ss.FundingRate,
-		TimeframeData: timeframeData,
+		Symbol:           symbol,
+		CurrentPrice:     currentPrice,
+		PriceChange1h:    calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 60),
+		PriceChange4h:    calculatePriceChangeByBars(primaryKlines, primaryTimeframe, 240),
+		CurrentEMA20:     calculateEMA(primaryKlines, 20),
+		CurrentMACD:      calculateMACD(primaryKlines),
+		CurrentRSI7:      calculateRSI(primaryKlines, 7),
+		CurrentEMAs:      currentEMAs,
+		CurrentRSIs:      currentRSIs,
+		IndicatorPeriods: opt.periods,
+		OpenInterest:     &OIData{Latest: oiLatest, Average: oiLatest},
+		FundingRate:      ss.FundingRate,
+		TimeframeData:    timeframeData,
 	}, nil
 }
 

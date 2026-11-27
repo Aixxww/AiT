@@ -253,7 +253,7 @@ func getKlinesFromHyperliquid(symbol, interval string, limit int) ([]Kline, erro
 }
 
 // calculateTimeframeSeries calculates series data for a single timeframe
-func calculateTimeframeSeries(klines []Kline, timeframe string, count int) *TimeframeSeriesData {
+func calculateTimeframeSeries(klines []Kline, timeframe string, count int, periods ...IndicatorPeriods) *TimeframeSeriesData {
 	if count <= 0 {
 		count = 10 // default
 	}
@@ -334,6 +334,13 @@ func calculateTimeframeSeries(klines []Kline, timeframe string, count int) *Time
 	// Calculate ATR14
 	data.ATR14 = calculateATR(klines, 14)
 
+	// #156: the configured per-period series (default periods when none).
+	p := DefaultIndicatorPeriods()
+	if len(periods) > 0 {
+		p = periods[0].Effective()
+	}
+	fillPeriodSeries(data, klines, start, p)
+
 	return data
 }
 
@@ -404,8 +411,35 @@ func parseTimeframeToMinutes(tf string) int {
 	}
 }
 
-// calculateIntradaySeries calculates intraday series data
-func calculateIntradaySeries(klines []Kline) *IntradayData {
+// resolveBuilderPeriods resolves the optional periods argument the series
+// builders take, the same way calculateTimeframeSeries does (#156): the
+// first argument wins and Effective() fills any empty list with the
+// defaults, so a build without the argument computes the pre-#156 series.
+func resolveBuilderPeriods(periods []IndicatorPeriods) IndicatorPeriods {
+	p := DefaultIndicatorPeriods()
+	if len(periods) > 0 {
+		p = periods[0].Effective()
+	}
+	return p
+}
+
+// calculateIntradaySeries calculates intraday series data.
+//
+// #156: IntradayData has no per-period maps, so the configured periods map
+// onto its fixed slots positionally: EMA20Values carries the FIRST
+// configured EMA period (the one the prompt labels this series with),
+// RSI7Values / RSI14Values the first / second RSI periods, and ATR14 the
+// first ATR period. With the defaults (EMA 20, RSI 7/14, ATR 14) the
+// result is exactly the pre-#156 series.
+func calculateIntradaySeries(klines []Kline, periods ...IndicatorPeriods) *IntradayData {
+	p := resolveBuilderPeriods(periods)
+	emaPrimary := p.EMA[0]
+	rsiPrimary := p.RSI[0]
+	rsiSecondary, hasRSISecondary := 0, len(p.RSI) > 1
+	if hasRSISecondary {
+		rsiSecondary = p.RSI[1]
+	}
+
 	data := &IntradayData{
 		MidPrices:   make([]float64, 0, 10),
 		EMA20Values: make([]float64, 0, 10),
@@ -425,10 +459,10 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 		data.MidPrices = append(data.MidPrices, klines[i].Close)
 		data.Volume = append(data.Volume, klines[i].Volume)
 
-		// Calculate EMA20 for each point
-		if i >= 19 {
-			ema20 := calculateEMA(klines[:i+1], 20)
-			data.EMA20Values = append(data.EMA20Values, ema20)
+		// Calculate the primary EMA for each point
+		if i >= emaPrimary-1 {
+			ema := calculateEMA(klines[:i+1], emaPrimary)
+			data.EMA20Values = append(data.EMA20Values, ema)
 		}
 
 		// Calculate MACD for each point
@@ -438,18 +472,18 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 		}
 
 		// Calculate RSI for each point
-		if i >= 7 {
-			rsi7 := calculateRSI(klines[:i+1], 7)
-			data.RSI7Values = append(data.RSI7Values, rsi7)
+		if i >= rsiPrimary {
+			rsi := calculateRSI(klines[:i+1], rsiPrimary)
+			data.RSI7Values = append(data.RSI7Values, rsi)
 		}
-		if i >= 14 {
-			rsi14 := calculateRSI(klines[:i+1], 14)
-			data.RSI14Values = append(data.RSI14Values, rsi14)
+		if hasRSISecondary && i >= rsiSecondary {
+			rsi := calculateRSI(klines[:i+1], rsiSecondary)
+			data.RSI14Values = append(data.RSI14Values, rsi)
 		}
 	}
 
-	// Calculate 3m ATR14
-	data.ATR14 = calculateATR(klines, 14)
+	// Calculate 3m ATR (first configured ATR period)
+	data.ATR14 = calculateATR(klines, p.ATR[0])
 
 	return data
 }
@@ -459,16 +493,28 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 // indicators.klines.longer_count unset (#157; the pre-#157 fixed value).
 const DefaultLongerCount = 10
 
-// calculateLongerTermData calculates longer-term data
-func calculateLongerTermData(klines []Kline) *LongerTermData {
-	return calculateLongerTermDataN(klines, DefaultLongerCount)
+// calculateLongerTermData calculates longer-term data.
+//
+// #156: like calculateIntradaySeries, the configured periods map onto the
+// fixed slots positionally: EMA20 / EMA50 take the first / second EMA
+// periods (EMA50 stays 0 when only one EMA period is configured),
+// RSI14Values the second RSI period, and ATR14 the first ATR period.
+// ATR3 and the MACD series have no configuration counterpart and stay
+// fixed. With the defaults the result is exactly the pre-#156 data.
+func calculateLongerTermData(klines []Kline, periods ...IndicatorPeriods) *LongerTermData {
+	return calculateLongerTermDataN(klines, DefaultLongerCount, periods...)
 }
 
 // calculateLongerTermDataN is calculateLongerTermData with the number of
-// series points (longer_count); n <= 0 means DefaultLongerCount.
-func calculateLongerTermDataN(klines []Kline, n int) *LongerTermData {
+// series points (longer_count, #157); n <= 0 means DefaultLongerCount.
+func calculateLongerTermDataN(klines []Kline, n int, periods ...IndicatorPeriods) *LongerTermData {
 	if n <= 0 {
 		n = DefaultLongerCount
+	}
+	p := resolveBuilderPeriods(periods)
+	rsiSecondary, hasRSISecondary := 0, len(p.RSI) > 1
+	if hasRSISecondary {
+		rsiSecondary = p.RSI[1]
 	}
 	data := &LongerTermData{
 		MACDValues:  make([]float64, 0, n),
@@ -476,12 +522,15 @@ func calculateLongerTermDataN(klines []Kline, n int) *LongerTermData {
 	}
 
 	// Calculate EMA
-	data.EMA20 = calculateEMA(klines, 20)
-	data.EMA50 = calculateEMA(klines, 50)
+	data.EMA20 = calculateEMA(klines, p.EMA[0])
+	if len(p.EMA) > 1 {
+		data.EMA50 = calculateEMA(klines, p.EMA[1])
+	}
 
-	// Calculate ATR
+	// Calculate ATR (ATR3 is a fixed fast-ATR context metric: no
+	// atr_periods slot governs it, like the MACD 12/26 periods)
 	data.ATR3 = calculateATR(klines, 3)
-	data.ATR14 = calculateATR(klines, 14)
+	data.ATR14 = calculateATR(klines, p.ATR[0])
 
 	// Calculate volume
 	if len(klines) > 0 {
@@ -505,9 +554,9 @@ func calculateLongerTermDataN(klines []Kline, n int) *LongerTermData {
 			macd := calculateMACD(klines[:i+1])
 			data.MACDValues = append(data.MACDValues, macd)
 		}
-		if i >= 14 {
-			rsi14 := calculateRSI(klines[:i+1], 14)
-			data.RSI14Values = append(data.RSI14Values, rsi14)
+		if hasRSISecondary && i >= rsiSecondary {
+			rsi := calculateRSI(klines[:i+1], rsiSecondary)
+			data.RSI14Values = append(data.RSI14Values, rsi)
 		}
 	}
 
