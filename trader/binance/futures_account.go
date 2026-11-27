@@ -39,6 +39,10 @@ func (t *FuturesTrader) GetBalance() (map[string]interface{}, error) {
 	result["totalWalletBalance"], _ = strconv.ParseFloat(account.TotalWalletBalance, 64)
 	result["availableBalance"], _ = strconv.ParseFloat(account.AvailableBalance, 64)
 	result["totalUnrealizedProfit"], _ = strconv.ParseFloat(account.TotalUnrealizedProfit, 64)
+	// Account-level initial margin in use (positions + open orders), from
+	// the same account response; the trader's max_margin_usage gate (#159)
+	// reads it.
+	result["totalInitialMargin"], _ = strconv.ParseFloat(account.TotalInitialMargin, 64)
 
 	logger.Infof("✓ Binance API returned: total balance=%s, available=%s, unrealized PnL=%s",
 		account.TotalWalletBalance,

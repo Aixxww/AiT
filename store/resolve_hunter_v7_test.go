@@ -67,9 +67,10 @@ func TestResolveHunterV7Sources(t *testing.T) {
 			t.Fatalf("%s must be a safety_limit", k)
 		}
 	}
-	// max_margin_usage is visibly not enforced
-	if v := mustValue(t, r, "max_margin_usage"); v.Enforced == nil || *v.Enforced {
-		t.Fatalf("max_margin_usage must be marked not enforced: %+v", v)
+	// max_margin_usage is enforced by the trader's pre-open margin gate
+	// (#159); it must not be marked not-enforced.
+	if v := mustValue(t, r, "max_margin_usage"); v.Enforced != nil && !*v.Enforced {
+		t.Fatalf("max_margin_usage must not be marked not enforced: %+v", v)
 	}
 }
 

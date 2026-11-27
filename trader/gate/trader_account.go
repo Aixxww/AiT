@@ -29,6 +29,11 @@ func (t *GateTrader) GetBalance() (map[string]interface{}, error) {
 		"totalWalletBalance":    total,
 		"availableBalance":      available,
 		"totalUnrealizedProfit": unrealizedPnl,
+		// #159: Gate's futures "total" already includes unrealised PnL, so
+		// it IS the account equity. Expose it under the canonical key so
+		// consumers do not derive equity as totalWalletBalance + uPnL and
+		// double-count the PnL.
+		"totalEquity": total,
 	}
 
 	t.balanceCache.Set(result)

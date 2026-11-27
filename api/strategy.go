@@ -51,10 +51,6 @@ func validateStrategyConfig(config *store.StrategyConfig) []string {
 		warnings = append(warnings, fmt.Sprintf("hunter_config.v7_max_output %d: at most %d candidates reach the LLM (safety_limit).",
 			h.V7MaxOutput, store.MaxCandidateCoins))
 	}
-	if config.RiskControl.MaxMarginUsage > 0 {
-		warnings = append(warnings, "risk_control.max_margin_usage is shown to the AI but not enforced in execution (owner decision pending).")
-	}
-
 	return warnings
 }
 

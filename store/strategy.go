@@ -594,7 +594,9 @@ type RiskControlConfig struct {
 	// Altcoin single position max value = equity × this ratio (CODE ENFORCED, default: 1)
 	AltcoinMaxPositionValueRatio float64 `json:"altcoin_max_position_value_ratio"`
 
-	// Max margin utilization (e.g. 0.9 = 90%) (CODE ENFORCED)
+	// Max margin utilization (e.g. 0.9 = 90%) (CODE ENFORCED: the trader
+	// rejects an open whose projected margin usage would exceed it;
+	// 0 or negative disables the gate)
 	MaxMarginUsage float64 `json:"max_margin_usage"`
 	// Min position size in USDT (CODE ENFORCED)
 	MinPositionSize float64 `json:"min_position_size"`
