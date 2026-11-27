@@ -158,7 +158,8 @@ export interface HunterConfig {
   enable_funding_rate_signal?: boolean
   max_24h_change?: number
   wash_trade_sensitivity?: 'low' | 'medium' | 'high'
-  enable_cooldown?: boolean
+  enable_cooldown?: boolean // legacy key; cannot express "off" (#155)
+  disable_cooldown?: boolean // #155: true turns the smart cooldown off (default false = on)
   min_trade_count?: number
   position_timeframes?: string[]
   // Breakout mode fields
@@ -250,9 +251,10 @@ export interface RiskControlConfig {
   // Max number of coins held simultaneously (CODE ENFORCED)
   max_positions: number
 
-  // Trading Leverage - exchange leverage for opening positions (AI guided)
-  btc_eth_max_leverage: number // BTC/ETH max exchange leverage
-  altcoin_max_leverage: number // Altcoin max exchange leverage
+  // Trading Leverage - exchange leverage for opening positions (CODE ENFORCED:
+  // an open above the max is rejected, trader validateOpenDecision)
+  btc_eth_max_leverage: number // BTC/ETH max exchange leverage (CODE ENFORCED)
+  altcoin_max_leverage: number // Altcoin max exchange leverage (CODE ENFORCED)
 
   // Position Value Ratio - single position notional value / account equity (CODE ENFORCED)
   // Max position value = equity × this ratio
@@ -263,7 +265,7 @@ export interface RiskControlConfig {
   max_margin_usage: number // Max margin utilization, e.g. 0.9 = 90% (CODE ENFORCED)
   min_position_size: number // Min position size in USDT (CODE ENFORCED)
   min_risk_reward_ratio: number // Min take_profit / stop_loss ratio (AI guided)
-  min_confidence: number // Min AI confidence to open position (AI guided)
+  min_confidence: number // Min AI confidence to open position (CODE ENFORCED: a lower-confidence open is rejected)
   max_entry_price_deviation_pct?: number // Max decision price vs execution price drift, percent (CODE ENFORCED)
   max_single_trade_loss_pct?: number // Max estimated stop-loss loss vs equity, percent (CODE ENFORCED)
   max_take_profit_price_move_pct?: number // Max TP1 price distance from executable entry, percent (CODE ENFORCED)
