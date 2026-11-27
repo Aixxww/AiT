@@ -228,6 +228,41 @@ export const coinSource = {
   forLong: { zh: '适合做多', en: 'For long' },
   oiDecreaseLabel: { zh: 'OI 减少', en: 'OI Decrease' },
   forShort: { zh: '适合做空', en: 'For short' },
+  // #158: square heat URL and IndicatorHub parameters
+  squareHeatURL: { zh: '广场热度 API 地址', en: 'Square heat API URL' },
+  squareHeatURLHint: {
+    zh: '留空 = 默认地址；内网/元数据地址会被后端拒绝',
+    en: 'Empty = default endpoint; internal/metadata addresses are rejected by the backend',
+  },
+  squareHeatConfig: { zh: '广场热度配置', en: 'Square Heat Settings' },
+  indicatorHubConfig: { zh: '指标中心参数', en: 'IndicatorHub Parameters' },
+  indicatorHubConfigDesc: {
+    zh: '留空的字段使用默认值',
+    en: 'Empty fields use the defaults',
+  },
+  hubWeightsGroup: { zh: '评分权重', en: 'Scoring weights' },
+  hubTechWeight: { zh: '技术面权重', en: 'Tech weight' },
+  hubQuantWeight: { zh: '量化面权重', en: 'Quant weight' },
+  hubSocialWeight: { zh: '社交面权重', en: 'Social weight' },
+  hubGradesGroup: { zh: '方向与评级', en: 'Direction and grades' },
+  hubDirectionMargin: { zh: '方向差阈值', en: 'Direction margin' },
+  hubGradeS: { zh: 'S 级阈值', en: 'Grade S threshold' },
+  hubGradeA: { zh: 'A 级阈值', en: 'Grade A threshold' },
+  hubGradeB: { zh: 'B 级阈值', en: 'Grade B threshold' },
+  hubAtrGroup: {
+    zh: '止损止盈（ATR 倍数）',
+    en: 'Stop / targets (ATR multiples)',
+  },
+  hubStopLossATR: { zh: '止损 ATR', en: 'Stop-loss ATR' },
+  hubTP1ATR: { zh: 'TP1 ATR', en: 'TP1 ATR' },
+  hubTP2ATR: { zh: 'TP2 ATR', en: 'TP2 ATR' },
+  hubTP3ATR: { zh: 'TP3 ATR', en: 'TP3 ATR' },
+  hubSignalsGroup: { zh: '信号输出', en: 'Signal output' },
+  hubMaxSignals: { zh: '每轮最多信号', en: 'Max signals per cycle' },
+  hubMinScore: { zh: '最低分数', en: 'Min score' },
+  hubCooldownMinutes: { zh: '冷却分钟', en: 'Cooldown (minutes)' },
+  hubTopN: { zh: '参与评分的币种数', en: 'Top N for scoring' },
+  hubLunarCrushKey: { zh: 'LunarCrush API Key', en: 'LunarCrush API key' },
 }
 
 // ============================================================================

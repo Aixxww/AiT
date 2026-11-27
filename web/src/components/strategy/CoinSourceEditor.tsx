@@ -15,7 +15,7 @@ import {
   Activity,
   Check,
 } from 'lucide-react'
-import type { CoinSourceConfig } from '../../types'
+import type { CoinSourceConfig, IndicatorHubConfig } from '../../types'
 import { coinSource, riskControl, ts } from '../../i18n/strategy-translations'
 import { AiTSelect } from '../ui/select'
 import { Button } from '../ui/Button'
@@ -70,6 +70,7 @@ function RouterNumber({
   placeholder,
   min,
   max,
+  step = 1,
   disabled,
   onChange,
 }: {
@@ -79,6 +80,7 @@ function RouterNumber({
   placeholder: number
   min?: number
   max?: number
+  step?: number
   disabled?: boolean
   onChange: (v: number | undefined) => void
 }) {
@@ -89,12 +91,12 @@ function RouterNumber({
         type="number"
         name={name}
         autoComplete="off"
-        inputMode="numeric"
+        inputMode={step < 1 ? 'decimal' : 'numeric'}
         value={value ?? ''}
         placeholder={String(placeholder)}
         min={min}
         max={max}
-        step={1}
+        step={step}
         disabled={disabled}
         onChange={(e) => {
           const raw = e.target.value.trim()
@@ -117,6 +119,185 @@ function FieldRow({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex items-center justify-between gap-3 min-h-[40px]">
       <span className="t-caption text-muted-foreground">{label}</span>
       {children}
+    </div>
+  )
+}
+
+// #158: coin_source.square_heat_url (backend: kernel NewStrategyEngine,
+// SSRF-validated; empty = the default endpoint).
+function SquareHeatURLField({
+  config,
+  onChange,
+  disabled,
+  language,
+}: {
+  config: CoinSourceConfig
+  onChange: (config: CoinSourceConfig) => void
+  disabled?: boolean
+  language: string
+}) {
+  return (
+    <label className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+      <span className="text-xs text-muted-foreground">
+        {ts(coinSource.squareHeatURL, language)}
+      </span>
+      <input
+        type="url"
+        name="square_heat_url"
+        autoComplete="off"
+        spellCheck={false}
+        value={config.square_heat_url ?? ''}
+        placeholder="https://"
+        disabled={disabled}
+        onChange={(e) => {
+          const v = e.target.value.trim()
+          onChange({ ...config, square_heat_url: v === '' ? undefined : v })
+        }}
+        className="w-full px-3 py-1.5 rounded-control text-sm"
+        style={{
+          background: 'var(--color-input)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-foreground)',
+        }}
+      />
+      <span className="text-[11px] text-muted-foreground">
+        {ts(coinSource.squareHeatURLHint, language)}
+      </span>
+    </label>
+  )
+}
+
+type HubNumberKey = Exclude<
+  keyof IndicatorHubConfig,
+  'social_enabled' | 'lunarcrush_api_key'
+>
+
+// #158: the IndicatorHub parameters the backend honors
+// (trader hubConfigFromIndicatorHub). Placeholders are the defaults; an
+// empty field is unset and keeps the default. social_enabled is not here
+// (separate issue).
+const HUB_GROUPS: {
+  title: keyof typeof coinSource
+  fields: {
+    key: HubNumberKey
+    label: keyof typeof coinSource
+    placeholder: number
+    step?: number
+  }[]
+}[] = [
+  {
+    title: 'hubWeightsGroup',
+    fields: [
+      { key: 'tech_weight', label: 'hubTechWeight', placeholder: 40 },
+      { key: 'quant_weight', label: 'hubQuantWeight', placeholder: 40 },
+      { key: 'social_weight', label: 'hubSocialWeight', placeholder: 20 },
+    ],
+  },
+  {
+    title: 'hubGradesGroup',
+    fields: [
+      { key: 'direction_margin', label: 'hubDirectionMargin', placeholder: 15 },
+      { key: 'grade_s_threshold', label: 'hubGradeS', placeholder: 80 },
+      { key: 'grade_a_threshold', label: 'hubGradeA', placeholder: 65 },
+      { key: 'grade_b_threshold', label: 'hubGradeB', placeholder: 50 },
+    ],
+  },
+  {
+    title: 'hubAtrGroup',
+    fields: [
+      {
+        key: 'stop_loss_atr',
+        label: 'hubStopLossATR',
+        placeholder: 2.0,
+        step: 0.1,
+      },
+      { key: 'tp1_atr', label: 'hubTP1ATR', placeholder: 1.5, step: 0.1 },
+      { key: 'tp2_atr', label: 'hubTP2ATR', placeholder: 3.0, step: 0.1 },
+      { key: 'tp3_atr', label: 'hubTP3ATR', placeholder: 5.0, step: 0.1 },
+    ],
+  },
+  {
+    title: 'hubSignalsGroup',
+    fields: [
+      { key: 'max_signals_per_cycle', label: 'hubMaxSignals', placeholder: 5 },
+      { key: 'min_score', label: 'hubMinScore', placeholder: 50 },
+      { key: 'cooldown_minutes', label: 'hubCooldownMinutes', placeholder: 60 },
+      { key: 'top_n_for_scoring', label: 'hubTopN', placeholder: 100 },
+    ],
+  },
+]
+
+function IndicatorHubSection({
+  config,
+  onChange,
+  disabled,
+  language,
+}: {
+  config: CoinSourceConfig
+  onChange: (config: CoinSourceConfig) => void
+  disabled?: boolean
+  language: string
+}) {
+  const hub = config.indicator_hub || {}
+  const set = (patch: Partial<IndicatorHubConfig>) =>
+    onChange({ ...config, indicator_hub: { ...hub, ...patch } })
+  return (
+    <div
+      className="sm:ait-card-inset sm:p-4 space-y-5"
+      data-testid="indicator-hub-section"
+    >
+      <SectionHeader
+        icon={<Activity className="w-4 h-4" />}
+        title={ts(coinSource.indicatorHubConfig, language)}
+        summary={ts(coinSource.indicatorHubConfigDesc, language)}
+      />
+      {HUB_GROUPS.map((group) => (
+        <div key={group.title}>
+          <SectionHeader
+            level="group"
+            title={ts(coinSource[group.title], language)}
+            className="mb-3"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+            {group.fields.map((f) => (
+              <RouterNumber
+                key={f.key}
+                name={`indicator_hub.${f.key}`}
+                label={ts(coinSource[f.label], language)}
+                value={hub[f.key]}
+                placeholder={f.placeholder}
+                min={0}
+                step={f.step}
+                disabled={disabled}
+                onChange={(v) => set({ [f.key]: v })}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+      <label className="flex items-center justify-between gap-3 min-h-[40px]">
+        <span className="t-caption text-muted-foreground">
+          {ts(coinSource.hubLunarCrushKey, language)}
+        </span>
+        <input
+          type="password"
+          name="indicator_hub.lunarcrush_api_key"
+          autoComplete="new-password"
+          spellCheck={false}
+          value={hub.lunarcrush_api_key ?? ''}
+          disabled={disabled}
+          onChange={(e) => {
+            const v = e.target.value.trim()
+            set({ lunarcrush_api_key: v === '' ? undefined : v })
+          }}
+          className="w-56 px-3 py-1.5 rounded-control text-sm"
+          style={{
+            background: 'var(--color-input)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-foreground)',
+          }}
+        />
+      </label>
     </div>
   )
 }
@@ -1069,14 +1250,17 @@ export function CoinSourceEditor({
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={config.hunter_config?.enable_cooldown !== false}
+                      checked={config.hunter_config?.disable_cooldown !== true}
                       onChange={(e) =>
                         !disabled &&
                         onChange({
                           ...config,
                           hunter_config: {
                             ...(config.hunter_config || {}),
-                            enable_cooldown: e.target.checked,
+                            // #155: the cooldown is off only via disable_cooldown
+                            disable_cooldown: e.target.checked
+                              ? undefined
+                              : true,
                           },
                         })
                       }
@@ -1511,6 +1695,37 @@ export function CoinSourceEditor({
         </div>
       )}
 
+      {/* #158: Square heat source settings */}
+      {config.source_type === 'square_heat' && (
+        <div
+          className="p-4 rounded-lg bg-warning/5 border border-warning/20 space-y-3"
+          data-testid="square-heat-section"
+        >
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-warning" />
+            <span className="text-sm font-medium text-foreground">
+              {ts(coinSource.squareHeatConfig, language)}
+            </span>
+          </div>
+          <SquareHeatURLField
+            config={config}
+            onChange={onChange}
+            disabled={disabled}
+            language={language}
+          />
+        </div>
+      )}
+
+      {/* #158: IndicatorHub parameters */}
+      {(config.source_type === 'indicator_hub' || config.use_indicator_hub) && (
+        <IndicatorHubSection
+          config={config}
+          onChange={onChange}
+          disabled={disabled}
+          language={language}
+        />
+      )}
+
       {/* Mixed Mode - Unified Card Selector */}
       {config.source_type === 'mixed' && (
         <div className="p-4 rounded-lg bg-info/5 border border-info/20">
@@ -1757,6 +1972,16 @@ export function CoinSourceEditor({
                       label: String(n),
                     }))}
                     className="px-2 py-1 rounded text-xs bg-background border border-primary/20 text-foreground"
+                  />
+                </div>
+              )}
+              {config.use_square_heat && (
+                <div className="mt-2 pl-6">
+                  <SquareHeatURLField
+                    config={config}
+                    onChange={onChange}
+                    disabled={disabled}
+                    language={language}
                   />
                 </div>
               )}
@@ -2074,7 +2299,7 @@ export function CoinSourceEditor({
                       <input
                         type="checkbox"
                         checked={
-                          config.hunter_config?.enable_cooldown !== false
+                          config.hunter_config?.disable_cooldown !== true
                         }
                         onChange={(e) =>
                           !disabled &&
@@ -2082,7 +2307,10 @@ export function CoinSourceEditor({
                             ...config,
                             hunter_config: {
                               ...(config.hunter_config || {}),
-                              enable_cooldown: e.target.checked,
+                              // #155: the cooldown is off only via disable_cooldown
+                              disable_cooldown: e.target.checked
+                                ? undefined
+                                : true,
                             },
                           })
                         }
