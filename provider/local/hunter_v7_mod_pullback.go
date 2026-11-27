@@ -20,32 +20,44 @@ func (m *pullbackLongModule) SetupType() V7SetupType { return V7SetupPullbackLon
 func (m *pullbackLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *pullbackLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *pullbackLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	// Must have price data
 	if ctx.CurrentPrice <= 0 || ctx.ATR4h <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// 24h drop between -3% and -18%
 	if ctx.Change24h > -3 || ctx.Change24h < -18 {
-		return false
+		return false, "change24h_out_of_range"
 	}
 	// Near 4h support (within 1.5 ATR)
 	distToLow := ctx.CurrentPrice - ctx.Low4h
 	if distToLow > 1.5*ctx.ATR4h {
-		return false
+		return false, "far_from_4h_low"
 	}
 	// Trend not destroyed: EMA20 > EMA60 or price above EMA60
 	if ctx.EMA20_4h > 0 && ctx.EMA60_4h > 0 {
 		trendOK := ctx.EMA20_4h > ctx.EMA60_4h || ctx.CurrentPrice > ctx.EMA60_4h
 		if !trendOK {
-			return false
+			return false, "trend_broken"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *pullbackLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	s := newV7Signal(ctx, regime, V7SetupPullbackLong, V7DirLong, V7EntryWaitConfirm, "B")
@@ -155,7 +167,11 @@ func (m *pullbackLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) 
 		s.target(ctx.CurrentPrice+ctx.ATR4h*2, "atr_target")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 // helper: build price context

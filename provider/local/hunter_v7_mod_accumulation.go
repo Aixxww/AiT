@@ -18,32 +18,44 @@ func (m *accumulationBreakoutLongModule) SetupType() V7SetupType { return V7Setu
 func (m *accumulationBreakoutLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *accumulationBreakoutLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *accumulationBreakoutLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	// Must have price data
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// BBWidthPercentile < 25 (compressed volatility)
 	if ctx.BBWidthPercentile >= 25 || ctx.BBWidthPercentile <= 0 {
-		return false
+		return false, "bb_not_compressed"
 	}
 	// OI must be accumulating: 8% to 30% over 4h
 	snap := ctx.Snapshot
 	if snap == nil {
-		return false
+		return false, "snapshot_missing"
 	}
 	if snap.OIDelta4h < 8 || snap.OIDelta4h > 30 {
-		return false
+		return false, "oi_delta4h_out_of_range"
 	}
 	// Price must not have surged (accumulation, not breakout yet)
 	if ctx.Change24h > 8 {
-		return false
+		return false, "price_already_surged"
 	}
-	return true
+	return true, ""
 }
 
 func (m *accumulationBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *accumulationBreakoutLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -147,8 +159,9 @@ func (m *accumulationBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 	}
 
 	out := s.finish(30)
-	if out != nil {
-		ApplyV7OIAccumulationEvidence(out, ctx)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
 	}
-	return out
+	ApplyV7OIAccumulationEvidence(out, ctx)
+	return out, ""
 }

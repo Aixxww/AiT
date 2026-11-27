@@ -19,16 +19,22 @@ func (m *breakdownMomentumShortModule) SetupType() V7SetupType { return V7SetupB
 func (m *breakdownMomentumShortModule) Direction() V7Direction { return V7DirShort }
 
 func (m *breakdownMomentumShortModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *breakdownMomentumShortModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil || ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	if ctx.ATR1h <= 0 && ctx.ATR15m <= 0 {
-		return false
+		return false, "atr_missing"
 	}
 
 	downImpulse := ctx.Change1h <= -2.5 || ctx.Velocity15m <= -1.0 || (ctx.Change4h <= -4 && ctx.CurrentPrice < ctx.VWAP15m)
 	if !downImpulse {
-		return false
+		return false, "no_down_impulse"
 	}
 
 	structureBreak := false
@@ -42,11 +48,11 @@ func (m *breakdownMomentumShortModule) Match(ctx *V7SymbolContext, regime V7Mark
 		structureBreak = true
 	}
 	if !structureBreak {
-		return false
+		return false, "no_structure_break"
 	}
 
 	if ctx.TakerBuy15m > 0 && ctx.TakerBuy15m > 0.50 {
-		return false
+		return false, "taker_buy_too_high"
 	}
 
 	confirm := ctx.VolumeBurst15m >= 1.1
@@ -54,27 +60,33 @@ func (m *breakdownMomentumShortModule) Match(ctx *V7SymbolContext, regime V7Mark
 		confirm = confirm || ctx.Snapshot.OIDelta1h > 0.5 || ctx.Snapshot.OIDelta1h < -2.0
 	}
 	if !confirm {
-		return false
+		return false, "no_volume_oi_confirm"
 	}
 
 	if ctx.Change1h <= -12 {
-		return false
+		return false, "crash_too_deep_1h"
 	}
 	if ctx.Change24h <= -25 && ctx.Snapshot != nil && ctx.Snapshot.OIDelta4h < -12 {
-		return false
+		return false, "crash_flushed_24h"
 	}
 	if ctx.ATR1d > 0 && ctx.Low1d > 0 {
 		distToDailyLow := (ctx.CurrentPrice - ctx.Low1d) / ctx.ATR1d
 		if distToDailyLow >= 0 && distToDailyLow < 0.35 {
-			return false
+			return false, "at_daily_support"
 		}
 	}
-	return true
+	return true, ""
 }
 
 func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *breakdownMomentumShortModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	s := newV7Signal(ctx, regime, V7SetupBreakdownShort, V7DirShort, V7EntryFastConfirm, "B")
@@ -171,7 +183,11 @@ func (m *breakdownMomentumShortModule) Score(ctx *V7SymbolContext, regime V7Mark
 		s.sig.Targets = append(s.sig.Targets, V7Target{Price: ctx.CurrentPrice - ctx.ATR4h*0.8, Reason: "breakdown_momentum_target_2"})
 	}
 
-	return s.finishWithTiming(45, calcBreakdownMomentumShortTimingScore(ctx))
+	out := s.finishWithTiming(45, calcBreakdownMomentumShortTimingScore(ctx))
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 func calcBreakdownMomentumShortTimingScore(ctx *V7SymbolContext) float64 {

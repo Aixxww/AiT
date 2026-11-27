@@ -17,31 +17,45 @@ func (m *volatilitySqueezeBreakoutModule) SetupType() V7SetupType { return V7Set
 func (m *volatilitySqueezeBreakoutModule) Direction() V7Direction { return V7DirLong }
 
 func (m *volatilitySqueezeBreakoutModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *volatilitySqueezeBreakoutModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil {
-		return false
+		return false, "ctx_missing"
 	}
 	price := ctx.CurrentPrice
 	if price <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// BB width at extreme low percentile
 	if ctx.BBWidthPercentile >= 15 {
-		return false
+		return false, "bb_not_compressed"
 	}
 	// 1h ATR confirms compression
 	if ctx.ATR1h > 0 && ctx.ATR1h/price >= 0.02 {
-		return false
+		return false, "atr_not_compressed"
 	}
 	// OI must be building
 	if ctx.Snapshot != nil && ctx.Snapshot.OIDelta1h <= 3 {
-		return false
+		return false, "oi_not_building"
 	}
-	return true
+	return true, ""
 }
 
 func (m *volatilitySqueezeBreakoutModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163). This module's Score
+// never returns nil once Match passes; the only nil path is the Match
+// recheck above.
+func (m *volatilitySqueezeBreakoutModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	price := ctx.CurrentPrice
@@ -151,5 +165,5 @@ func (m *volatilitySqueezeBreakoutModule) Score(ctx *V7SymbolContext, regime V7M
 	}
 	ApplyV7OIAccumulationEvidence(s.sig, ctx)
 
-	return s.sig
+	return s.sig, ""
 }

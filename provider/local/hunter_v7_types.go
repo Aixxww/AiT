@@ -518,6 +518,13 @@ type V7SignalOutput struct {
 
 	// Resonance scoring (Phase 2 prep)
 	ResonanceBonus float64 `json:"resonance_bonus,omitempty"`
+
+	// ModuleOutcomes (#163) is funnel instrumentation set ONLY on the
+	// router's module_no_match synthetic signals: the per-module
+	// evaluation outcomes that explain why no setup matched the symbol.
+	// It is recorded data only — nothing reads it for scoring, tiers or
+	// the LLM payload — and it persists via the record's RawJSON snapshot.
+	ModuleOutcomes []V7ModuleOutcome `json:"module_outcomes,omitempty"`
 }
 
 // V7SignalModule is the interface that every trading setup module must implement.

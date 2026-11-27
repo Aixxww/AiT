@@ -16,28 +16,40 @@ func (m *trendBreakoutLongModule) SetupType() V7SetupType { return V7SetupTrendB
 func (m *trendBreakoutLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *trendBreakoutLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *trendBreakoutLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// BB width must be compressed — volatility squeeze in progress
 	if ctx.BBWidthPercentile >= 25 {
-		return false
+		return false, "bb_not_compressed"
 	}
 	// Price must be near or above upper BB band (breakout signal)
 	if ctx.BBUpper15m <= 0 {
-		return false
+		return false, "bb_upper_missing"
 	}
 	// Allow price within 1% below the upper band (approaching breakout)
 	approachThreshold := ctx.BBUpper15m * 0.99
 	if ctx.CurrentPrice < approachThreshold {
-		return false
+		return false, "price_below_breakout"
 	}
-	return true
+	return true, ""
 }
 
 func (m *trendBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *trendBreakoutLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -140,5 +152,9 @@ func (m *trendBreakoutLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		s.target(ctx.CurrentPrice+ctx.ATR4h*2, "atr_extension")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }

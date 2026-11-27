@@ -17,34 +17,48 @@ func (m *intradayScalpLongModule) SetupType() V7SetupType { return V7SetupIntrad
 func (m *intradayScalpLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *intradayScalpLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *intradayScalpLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx == nil {
-		return false
+		return false, "ctx_missing"
 	}
 	price := ctx.CurrentPrice
 	if price <= 0 || ctx.ATR5m <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	// 5m must have velocity and volume burst
 	if ctx.Velocity5m <= 0.5 {
-		return false
+		return false, "velocity_too_low"
 	}
 	if ctx.VolumeBurst5m <= 1.5 {
-		return false
+		return false, "volume_burst_too_low"
 	}
 	// Reject extreme 1h moves (this is a scalper, not a trend-follower)
 	if math.Abs(ctx.Change1h) > 8 {
-		return false
+		return false, "change1h_too_extreme"
 	}
 	// ATR5m must provide enough room (> 0.3% of price)
 	if ctx.ATR5m/price < 0.003 {
-		return false
+		return false, "atr_room_too_small"
 	}
-	return true
+	return true, ""
 }
 
 func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163). This module's Score
+// never returns nil once Match passes; the only nil path is the Match
+// recheck above.
+func (m *intradayScalpLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	price := ctx.CurrentPrice
@@ -144,5 +158,5 @@ func (m *intradayScalpLongModule) Score(ctx *V7SymbolContext, regime V7MarketReg
 		s.reason("flow_taker_buy_strong")
 	}
 
-	return s.sig
+	return s.sig, ""
 }

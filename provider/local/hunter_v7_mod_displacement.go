@@ -20,37 +20,49 @@ func (m *displacementMomentumLongModule) SetupType() V7SetupType { return V7Setu
 func (m *displacementMomentumLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *displacementMomentumLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *displacementMomentumLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 || ctx.Snapshot == nil {
-		return false
+		return false, "price_data_missing"
 	}
 	// Must have displacement: range expansion >= 2.0
 	if ctx.RangeExpansion1h < 2.0 {
-		return false
+		return false, "no_range_expansion"
 	}
 	// Need positive 1h change (upward displacement)
 	if ctx.Change1h <= 0 {
-		return false
+		return false, "change1h_not_positive"
 	}
 	// OI delta must confirm direction (longs entering)
 	snap := ctx.Snapshot
 	oiDeltaMissing := snap.OI <= 0 || (snap.OIDelta1h == 0 && snap.OIDelta4h == 0)
 	if snap.OIDelta1h < 1 && !(oiDeltaMissing && ctx.Amplitude24h >= 12 && ctx.TakerBuy15m >= 0.52) {
-		return false
+		return false, "oi_not_confirming"
 	}
 	// Funding must not be extreme (crowded longs already)
 	if snap.FundingRate > 0.001 {
-		return false
+		return false, "funding_too_high"
 	}
 	// Taker flow must be aligned (buy side dominant)
 	if ctx.TakerBuy15m > 0 && ctx.TakerBuy15m < 0.48 {
-		return false
+		return false, "taker_buy_too_low"
 	}
-	return true
+	return true, ""
 }
 
 func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *displacementMomentumLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -142,7 +154,11 @@ func (m *displacementMomentumLongModule) Score(ctx *V7SymbolContext, regime V7Ma
 
 	// No score floor: displacement ships every matched signal and lets the
 	// guardrails downgrade execution quality instead.
-	return s.finishWithTiming(0, timing)
+	out := s.finishWithTiming(0, timing)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
 
 // calcDisplacementTiming scores how early/fresh the displacement is.

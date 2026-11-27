@@ -16,31 +16,43 @@ func (m *shortSqueezeLongModule) SetupType() V7SetupType { return V7SetupShortSq
 func (m *shortSqueezeLongModule) Direction() V7Direction { return V7DirLong }
 
 func (m *shortSqueezeLongModule) Match(ctx *V7SymbolContext, regime V7MarketRegime) bool {
+	ok, _ := m.ExplainMatch(ctx, regime)
+	return ok
+}
+
+// ExplainMatch is Match with the first failing condition's code (#163).
+func (m *shortSqueezeLongModule) ExplainMatch(ctx *V7SymbolContext, regime V7MarketRegime) (bool, string) {
 	if ctx.CurrentPrice <= 0 {
-		return false
+		return false, "price_data_missing"
 	}
 	snap := ctx.Snapshot
 	if snap == nil {
-		return false
+		return false, "snapshot_missing"
 	}
 	// Price surging on 1h
 	if ctx.Change1h <= 3 {
-		return false
+		return false, "change1h_too_low"
 	}
 	// OI dropping on 1h → forced covering / short liquidations
 	if snap.OIDelta1h >= -3 {
-		return false
+		return false, "oi_not_dropping"
 	}
 	// Taker buy dominant — buyers stepping into the squeeze
 	if ctx.TakerBuy15m <= 0.55 {
-		return false
+		return false, "taker_buy_too_low"
 	}
-	return true
+	return true, ""
 }
 
 func (m *shortSqueezeLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegime) *V7SignalOutput {
-	if !m.Match(ctx, regime) {
-		return nil
+	sig, _ := m.ExplainScore(ctx, regime)
+	return sig
+}
+
+// ExplainScore is Score with the nil reason (#163).
+func (m *shortSqueezeLongModule) ExplainScore(ctx *V7SymbolContext, regime V7MarketRegime) (*V7SignalOutput, string) {
+	if ok, code := m.ExplainMatch(ctx, regime); !ok {
+		return nil, code
 	}
 
 	snap := ctx.Snapshot
@@ -127,5 +139,9 @@ func (m *shortSqueezeLongModule) Score(ctx *V7SymbolContext, regime V7MarketRegi
 		s.target(ctx.CurrentPrice+ctx.ATR4h*1.0, "squeeze_extension")
 	}
 
-	return s.finish(30)
+	out := s.finish(30)
+	if out == nil {
+		return nil, v7CodeScoreBelowFloor
+	}
+	return out, ""
 }
