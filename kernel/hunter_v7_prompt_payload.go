@@ -190,13 +190,7 @@ func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContrac
 		contract.EntryPermission = "no_direct_open"
 	}
 
-	for _, tag := range append(append([]string{}, coin.V7ReasonCodes...), coin.V7RiskTags...) {
-		action, ok := local.HunterV7TagLLMAction(tag)
-		if !ok || (action != local.V7TagActionWaitOnly && action != local.V7TagActionRejectOnly) {
-			continue
-		}
-		contract.HardBlocks = appendUniqueHunterV7ContractValue(contract.HardBlocks, tag)
-	}
+	contract.HardBlocks = hunterV7HardBlockEntries(coin)
 	if coin.V7ExecutionTier == "WATCH" || coin.V7ExecutionTier == "REJECTED" {
 		contract.HardBlocks = appendUniqueHunterV7ContractValue(contract.HardBlocks, "execution_tier_"+strings.ToLower(coin.V7ExecutionTier))
 	}
@@ -223,6 +217,23 @@ func buildHunterV7ExecutionContract(coin CandidateCoin) hunterV7ExecutionContrac
 		contract.ExitPolicy = "mfe_fast_protect_then_partial_tp0_then_breakeven_runner_to_tp1_tp2"
 	}
 	return contract
+}
+
+// hunterV7HardBlockEntries returns the candidate-carried entries that
+// land in execution_contract.hard_blocks: reason codes and risk tags
+// whose catalog LLM action is wait_only or reject_only, reason codes
+// first, de-duplicated. The #161 pass-through exclusion uses this same
+// set, so the contract and the exclusion can never drift apart.
+func hunterV7HardBlockEntries(coin CandidateCoin) []string {
+	var blocks []string
+	for _, tag := range append(append([]string{}, coin.V7ReasonCodes...), coin.V7RiskTags...) {
+		action, ok := local.HunterV7TagLLMAction(tag)
+		if !ok || (action != local.V7TagActionWaitOnly && action != local.V7TagActionRejectOnly) {
+			continue
+		}
+		blocks = appendUniqueHunterV7ContractValue(blocks, tag)
+	}
+	return blocks
 }
 
 func appendUniqueHunterV7ContractValue(values []string, value string) []string {

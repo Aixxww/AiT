@@ -106,6 +106,11 @@ type CandidateCoin struct {
 	// evaluates to find the demotion target of a row with missing taker or
 	// liquidity data (#103 / AUD-A3). It is never set on a live candidate.
 	v7AssumeMissingDataPasses bool
+	// v7AssumeConfirmationsPass is set only on the copy the tier classifier
+	// evaluates for the single-missing-confirmation pass-through (#161), to
+	// ask whether anything besides the missing confirmation would still
+	// block the candidate. It is never set on a live candidate.
+	v7AssumeConfirmationsPass bool
 	V7DataFreshness           local.V7DataFreshness       `json:"-"`
 	V7Readiness               *local.V7ExecutionReadiness `json:"-"`
 	V7ExecutionContext        *local.V7ExecutionContext   `json:"-"`
@@ -960,6 +965,13 @@ func hunterV7TierRulesEval(coin CandidateCoin, geometry HunterV7ExecutionGeometr
 			if ok, reviewReason := hunterV7LiveConfirmableReviewableReason(coin, reason); ok {
 				return "REVIEWABLE", reviewReason
 			}
+			// #161: exactly one missing required confirmation and no
+			// other blocker — pass through to REVIEWABLE, flagged with
+			// the missing code, and let the LLM adjudicate (the funnel
+			// recalls; it does not decide).
+			if ok, passReason := hunterV7SingleMissingConfirmationPassThrough(coin, geometry); ok {
+				return "REVIEWABLE", passReason
+			}
 			return "WATCH", reason
 		}
 	}
@@ -1056,6 +1068,11 @@ func hunterV7TierRulesEval(coin CandidateCoin, geometry HunterV7ExecutionGeometr
 }
 
 func hunterV7RequiredConfirmationWaitReason(coin CandidateCoin) string {
+	if coin.v7AssumeConfirmationsPass {
+		// #161 pass-through probe copy: required confirmations are
+		// assumed present so the rest of the rules can be evaluated.
+		return ""
+	}
 	// #133: only machine-verified codes can make a candidate wait; LLM
 	// checklist codes are for the prompt only.
 	machine := local.V7MachineConfirms(coin.V7RequiredConfirms)
@@ -1088,6 +1105,210 @@ func hunterV7RequiredConfirmationWaitReason(coin CandidateCoin) string {
 		}
 	}
 	return ""
+}
+
+// hunterV7MissingRequiredConfirmations returns the machine-verified
+// required confirmation codes the candidate is still missing, in the
+// deterministic scan order of hunterV7RequiredConfirmationWaitReason
+// (missing hard, then missing review, then failed context checks),
+// de-duplicated. A nil summary counts nothing: without the summary the
+// wait reason is confirmation_missing_summary, which names no code and
+// can never pass through (#161).
+func hunterV7MissingRequiredConfirmations(coin CandidateCoin) []string {
+	machine := local.V7MachineConfirms(coin.V7RequiredConfirms)
+	if len(machine) == 0 || coin.V7ConfirmSummary == nil {
+		return nil
+	}
+	required := make(map[string]struct{}, len(machine))
+	for _, code := range machine {
+		required[code] = struct{}{}
+	}
+	var missing []string
+	seen := make(map[string]struct{})
+	add := func(code string) {
+		if _, ok := required[code]; !ok {
+			return
+		}
+		if _, dup := seen[code]; dup {
+			return
+		}
+		seen[code] = struct{}{}
+		missing = append(missing, code)
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingHard {
+		add(check.Code)
+	}
+	for _, check := range coin.V7ConfirmSummary.MissingReview {
+		add(check.Code)
+	}
+	for _, check := range coin.V7ConfirmSummary.ContextChecks {
+		if !check.Passed {
+			add(check.Code)
+		}
+	}
+	return missing
+}
+
+// hunterV7SingleMissingConfirmationPassThrough implements #161: a
+// candidate whose only remaining blocker is exactly one missing required
+// confirmation advances to REVIEWABLE, flagged
+// "confirmation_passthrough_<code>" so the missing confirmation travels
+// with it into the LLM payload (tier_reason, next to the confirmation
+// summary that names the same code). Two or more missing confirmations
+// stay in WATCH. "Only remaining blocker" is proven the #103 way: the
+// rules are re-evaluated on a copy whose required confirmations are
+// assumed present, and the pass-through fires only when that verdict is
+// EXECUTABLE or REVIEWABLE — any other gate that would still hold the
+// candidate (a later wait reason, a fall-through to needs_confirmation)
+// keeps it in WATCH with its original confirmation_missing reason.
+//
+// Exclusions (each keeps the pre-#161 outcome byte-identical):
+//   - The probe does not run inside the #103 missing-data optimistic
+//     evaluation (v7AssumeMissingDataPasses): a row that also lacks
+//     taker or liquidity data has a second blocker at this layer.
+//   - Shadow-only rows never pass through, so their class_shadow_only
+//     outcome stays byte-identical.
+//   - Rows an outer cap in classifyHunterV7CandidateTierWithGeometry
+//     would demote straight back to WATCH (correlation-floor context
+//     tag; backend-capped RR below its floor or not computable):
+//     promoting them only to be capped would rewrite their WATCH
+//     reason to the cap's reason.
+//   - Rows whose single missing code the decision-time refresh can
+//     never satisfy (local.V7ConfirmRefreshSatisfiable false — which
+//     is also what an unregistered code reports): REVIEWABLE would be
+//     a trap, since the trader's refresh recheck rejects the open
+//     unconditionally.
+//   - Rows carrying an execution-contract hard block (a reason code or
+//     risk tag whose catalog action is wait_only or reject_only, the
+//     hunterV7HardBlockEntries set): hard_blocks is prompt-only
+//     metadata — hybrid_v2 strips it and no post-LLM validator or
+//     execution guard reads it — so promotion must not rely on the
+//     LLM enforcing it.
+func hunterV7SingleMissingConfirmationPassThrough(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (bool, string) {
+	if coin.v7AssumeMissingDataPasses || coin.v7AssumeConfirmationsPass {
+		return false, ""
+	}
+	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly {
+		return false, ""
+	}
+	if containsStringValue(coin.V7RiskTags, local.V7CorrelationFloorContextTag) {
+		return false, ""
+	}
+	if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); !ok || rr < floor {
+		return false, ""
+	}
+	missing := hunterV7MissingRequiredConfirmations(coin)
+	if len(missing) != 1 {
+		return false, ""
+	}
+	if !local.V7ConfirmRefreshSatisfiable(missing[0]) {
+		return false, ""
+	}
+	if len(hunterV7HardBlockEntries(coin)) > 0 {
+		return false, ""
+	}
+	optimistic := coin
+	optimistic.v7AssumeConfirmationsPass = true
+	optimistic.V7ConfirmSummary = hunterV7ProbeConfirmSummary(coin.V7ConfirmSummary, missing[0])
+	optimistic.V7Readiness = hunterV7ProbeReadiness(coin, missing[0])
+	if tier, _ := hunterV7TierRulesEval(optimistic, geometry); tier != "EXECUTABLE" && tier != "REVIEWABLE" {
+		return false, ""
+	}
+	return true, "confirmation_passthrough_" + missing[0]
+}
+
+// hunterV7ProbeConfirmSummary returns a copy of the candidate's
+// confirmation summary presenting the single missing code as present,
+// for the #161 probe: several tier rules read PassedHard / PassedReview
+// (and the check lists) directly, so silencing only the wait reason
+// would leave the probe evaluating a summary that still says the
+// confirmation failed. The failed check for the code leaves the missing
+// lists (a passed hard/review check is recorded nowhere, mirroring
+// EvaluateV7Confirmations' addCheck) or flips to passed in the context
+// checks, and the two flags are recomputed from the remaining lists
+// with the producer's semantics: a remaining failed hard check clears
+// both flags, a remaining failed review check clears PassedReview,
+// context checks clear neither. A missing code that was the only
+// failure therefore raises both flags; any other failure — required or
+// not — keeps its flag down exactly as a real re-evaluation would.
+func hunterV7ProbeConfirmSummary(summary *local.V7ConfirmationSummary, code string) *local.V7ConfirmationSummary {
+	if summary == nil {
+		return nil
+	}
+	probe := *summary
+	probe.MissingHard = removeHunterV7ConfirmCheck(probe.MissingHard, code)
+	probe.MissingReview = removeHunterV7ConfirmCheck(probe.MissingReview, code)
+	if len(probe.ContextChecks) > 0 {
+		checks := append([]local.V7ConfirmationCheck{}, probe.ContextChecks...)
+		for i := range checks {
+			if checks[i].Code == code {
+				checks[i].Passed = true
+			}
+		}
+		probe.ContextChecks = checks
+	}
+	probe.PassedHard = len(probe.MissingHard) == 0
+	probe.PassedReview = probe.PassedHard && len(probe.MissingReview) == 0
+	return &probe
+}
+
+func removeHunterV7ConfirmCheck(checks []local.V7ConfirmationCheck, code string) []local.V7ConfirmationCheck {
+	var out []local.V7ConfirmationCheck
+	for _, check := range checks {
+		if check.Code != code {
+			out = append(out, check)
+		}
+	}
+	return out
+}
+
+// hunterV7ProbeReadiness returns the readiness the #161 probe copy
+// carries. CalculateV7ExecutionReadiness cannot be re-run in the
+// kernel — it consumes the provider-side signal and symbol context,
+// which the candidate does not retain — so the adjustment is
+// deliberately narrow: it applies only when the stamped readiness is
+// exactly the confirmation-missing verdict for the probe's single
+// missing code (Tier WATCH, BlockedGate "confirmation_missing", Reason
+// "confirmation_missing_<code>"), the one case where the missing
+// confirmation is provably the sole reason readiness stopped at WATCH.
+// The tier is then re-derived from the remaining readiness cascade
+// inputs the candidate does carry, in the cascade's own order:
+// risk_score_gte_65 still rejects (the stamped readiness is returned
+// untouched, so that blocker is never masked), missing execution
+// fields still cap at REVIEWABLE, and chase_risk / needs_confirmation
+// outcomes stay WATCH. A readiness stamped for any other reason —
+// including the needs_confirmation fall-through, which shares the
+// BlockedGate value but not the Reason — is returned unchanged.
+//
+// Boundary: ReadyScore and WindowHealth keep their stamped values.
+// With the confirmation actually present, WindowHealth would gain the
+// PassedReview bonus (+10) and ReadyScore up to ~1.5 points, so a
+// candidate sitting exactly on a score threshold can still
+// under-promote in the probe; it can never over-promote.
+func hunterV7ProbeReadiness(coin CandidateCoin, code string) *local.V7ExecutionReadiness {
+	r := coin.V7Readiness
+	if r == nil || r.Tier != local.V7ReadinessWatch || r.BlockedGate != "confirmation_missing" ||
+		r.Reason != "confirmation_missing_"+code {
+		return r
+	}
+	if coin.V7RiskScore >= 65 {
+		return r
+	}
+	adjusted := *r
+	switch {
+	case len(adjusted.MissingExecution) > 0:
+		adjusted.Tier = local.V7ReadinessReviewable
+		adjusted.Reason = adjusted.MissingExecution[0] + "_missing"
+	case coin.V7ExecutionQuality == "ready" && adjusted.ReadyScore >= 70 && adjusted.WindowHealth >= 60:
+		adjusted.Tier = local.V7ReadinessExecutable
+		adjusted.Reason = "readiness_ready"
+	case (coin.V7ExecutionQuality == "ready" || coin.V7ExecutionQuality == "near_confirm") && adjusted.ReadyScore >= 55:
+		adjusted.Tier = local.V7ReadinessReviewable
+		adjusted.Reason = "readiness_reviewable"
+	default:
+		return r
+	}
+	return &adjusted
 }
 
 func hunterV7LiveConfirmableReviewableReason(coin CandidateCoin, waitReason string) (bool, string) {
