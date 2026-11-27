@@ -123,7 +123,7 @@ func refreshHunterV7Finalists(ctx *Context, engine *StrategyEngine, timeframes [
 	for _, r := range results {
 		out := HunterV7FinalistRefresh{Symbol: r.Symbol}
 		if r.Snap != nil && r.Err == nil {
-			data, berr := market.BuildDataFromSymbolSnapshot(market.Normalize(r.Symbol), r.Snap, timeframes, primaryTimeframe, klineCount)
+			data, berr := market.BuildDataFromSymbolSnapshot(market.Normalize(r.Symbol), r.Snap, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 			if berr == nil && data != nil {
 				ctx.MarketDataMap[r.Symbol] = data
 				out.Refreshed = true

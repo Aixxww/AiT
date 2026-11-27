@@ -839,7 +839,7 @@ func fetchTestRunMarketData(engine *kernel.StrategyEngine, candidates []kernel.C
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				data, err := market.GetWithTimeframes(j.symbol, timeframes, primaryTimeframe, klineCount)
+				data, err := market.GetWithTimeframes(j.symbol, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 				if err != nil {
 					fmt.Printf("⚠️  Failed to get market data for %s: %v\n", j.symbol, err)
 					continue
@@ -874,7 +874,7 @@ func buildTestRunMarketDataFromSnapshot(engine *kernel.StrategyEngine, symbol st
 	if ss == nil {
 		return nil, fmt.Errorf("%s not found in snapshot", normalized)
 	}
-	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount)
+	return market.BuildDataFromSymbolSnapshot(normalized, ss, timeframes, primaryTimeframe, klineCount, engine.IndicatorPeriodsOption())
 }
 
 // runRealAITest Execute real AI test call

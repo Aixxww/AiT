@@ -326,7 +326,8 @@ func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
 	if indicators.EnableEMA {
 		sb.WriteString("- EMA indicators")
 		if len(indicators.EMAPeriods) > 0 {
-			sb.WriteString(fmt.Sprintf(" (periods: %v)", indicators.EMAPeriods))
+			// #156: the effective periods, exactly the series computed.
+			sb.WriteString(fmt.Sprintf(" (periods: %v)", IndicatorPeriodsFor(indicators).EMA))
 		}
 		sb.WriteString("\n")
 	}
@@ -338,7 +339,8 @@ func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
 	if indicators.EnableRSI {
 		sb.WriteString("- RSI indicators")
 		if len(indicators.RSIPeriods) > 0 {
-			sb.WriteString(fmt.Sprintf(" (periods: %v)", indicators.RSIPeriods))
+			// #156: the effective periods, exactly the series computed.
+			sb.WriteString(fmt.Sprintf(" (periods: %v)", IndicatorPeriodsFor(indicators).RSI))
 		}
 		sb.WriteString("\n")
 	}
@@ -346,7 +348,8 @@ func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
 	if indicators.EnableATR {
 		sb.WriteString("- ATR indicators")
 		if len(indicators.ATRPeriods) > 0 {
-			sb.WriteString(fmt.Sprintf(" (periods: %v)", indicators.ATRPeriods))
+			// #156: the effective periods, exactly the series computed.
+			sb.WriteString(fmt.Sprintf(" (periods: %v)", IndicatorPeriodsFor(indicators).ATR))
 		}
 		sb.WriteString("\n")
 	}
@@ -354,7 +357,8 @@ func (e *StrategyEngine) writeAvailableIndicators(sb *strings.Builder) {
 	if indicators.EnableBOLL {
 		sb.WriteString("- Bollinger Bands (BOLL) - Upper/Middle/Lower bands")
 		if len(indicators.BOLLPeriods) > 0 {
-			sb.WriteString(fmt.Sprintf(" (periods: %v)", indicators.BOLLPeriods))
+			// #156: the effective periods, exactly the series computed.
+			sb.WriteString(fmt.Sprintf(" (periods: %v)", IndicatorPeriodsFor(indicators).BOLL))
 		}
 		sb.WriteString("\n")
 	}
@@ -1683,7 +1687,8 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 	sb.WriteString(fmt.Sprintf("current_price = %.4f", data.CurrentPrice))
 
 	if indicators.EnableEMA {
-		sb.WriteString(fmt.Sprintf(", current_ema20 = %.3f", data.CurrentEMA20))
+		p, v := promptCurrentEMA(data)
+		sb.WriteString(fmt.Sprintf(", current_ema%d = %.3f", p, v))
 	}
 
 	if indicators.EnableMACD {
@@ -1691,7 +1696,8 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 	}
 
 	if indicators.EnableRSI {
-		sb.WriteString(fmt.Sprintf(", current_rsi7 = %.3f", data.CurrentRSI7))
+		p, v := promptCurrentRSI(data)
+		sb.WriteString(fmt.Sprintf(", current_rsi%d = %.3f", p, v))
 	}
 
 	sb.WriteString("\n\n")
@@ -1721,7 +1727,16 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 		}
 	} else {
-		// Compatible with old data format
+		// Compatible with old data format. #156: the legacy series carry
+		// the configured periods in their fixed slots (see
+		// market.calculateIntradaySeries / calculateLongerTermData), so
+		// the labels below name the engine's effective periods; with the
+		// defaults they reproduce the pre-#156 strings exactly.
+		periods := e.IndicatorPeriods()
+		rsiSecondaryLabel := 14
+		if len(periods.RSI) > 1 {
+			rsiSecondaryLabel = periods.RSI[1]
+		}
 		if data.IntradaySeries != nil {
 			klineConfig := indicators.Klines
 			sb.WriteString(fmt.Sprintf("Intraday series (%s intervals, oldest → latest):\n\n", klineConfig.PrimaryTimeframe))
@@ -1731,7 +1746,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableEMA && len(data.IntradaySeries.EMA20Values) > 0 {
-				sb.WriteString(fmt.Sprintf("EMA indicators (20-period): %s\n\n", formatFloatSlice(data.IntradaySeries.EMA20Values)))
+				sb.WriteString(fmt.Sprintf("EMA indicators (%d-period): %s\n\n", periods.EMA[0], formatFloatSlice(data.IntradaySeries.EMA20Values)))
 			}
 
 			if indicators.EnableMACD && len(data.IntradaySeries.MACDValues) > 0 {
@@ -1740,10 +1755,10 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 
 			if indicators.EnableRSI {
 				if len(data.IntradaySeries.RSI7Values) > 0 {
-					sb.WriteString(fmt.Sprintf("RSI indicators (7-Period): %s\n\n", formatFloatSlice(data.IntradaySeries.RSI7Values)))
+					sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", periods.RSI[0], formatFloatSlice(data.IntradaySeries.RSI7Values)))
 				}
 				if len(data.IntradaySeries.RSI14Values) > 0 {
-					sb.WriteString(fmt.Sprintf("RSI indicators (14-Period): %s\n\n", formatFloatSlice(data.IntradaySeries.RSI14Values)))
+					sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", rsiSecondaryLabel, formatFloatSlice(data.IntradaySeries.RSI14Values)))
 				}
 			}
 
@@ -1752,7 +1767,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableATR {
-				sb.WriteString(fmt.Sprintf("3m ATR (14-period): %.3f\n\n", data.IntradaySeries.ATR14))
+				sb.WriteString(fmt.Sprintf("3m ATR (%d-period): %.3f\n\n", periods.ATR[0], data.IntradaySeries.ATR14))
 			}
 		}
 
@@ -1760,13 +1775,20 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			sb.WriteString(fmt.Sprintf("Longer-term context (%s timeframe):\n\n", indicators.Klines.LongerTimeframe))
 
 			if indicators.EnableEMA {
-				sb.WriteString(fmt.Sprintf("20-Period EMA: %.3f vs. 50-Period EMA: %.3f\n\n",
-					data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
+				if len(periods.EMA) > 1 {
+					sb.WriteString(fmt.Sprintf("%d-Period EMA: %.3f vs. %d-Period EMA: %.3f\n\n",
+						periods.EMA[0], data.LongerTermContext.EMA20, periods.EMA[1], data.LongerTermContext.EMA50))
+				} else {
+					// Only one EMA period configured: EMA50 carries no
+					// series, so there is no pair to print.
+					sb.WriteString(fmt.Sprintf("%d-Period EMA: %.3f\n\n",
+						periods.EMA[0], data.LongerTermContext.EMA20))
+				}
 			}
 
 			if indicators.EnableATR {
-				sb.WriteString(fmt.Sprintf("3-Period ATR: %.3f vs. 14-Period ATR: %.3f\n\n",
-					data.LongerTermContext.ATR3, data.LongerTermContext.ATR14))
+				sb.WriteString(fmt.Sprintf("3-Period ATR: %.3f vs. %d-Period ATR: %.3f\n\n",
+					data.LongerTermContext.ATR3, periods.ATR[0], data.LongerTermContext.ATR14))
 			}
 
 			if indicators.EnableVolume {
@@ -1779,7 +1801,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableRSI && len(data.LongerTermContext.RSI14Values) > 0 {
-				sb.WriteString(fmt.Sprintf("RSI indicators (14-Period): %s\n\n", formatFloatSlice(data.LongerTermContext.RSI14Values)))
+				sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", rsiSecondaryLabel, formatFloatSlice(data.LongerTermContext.RSI14Values)))
 			}
 		}
 	}
@@ -1793,14 +1815,14 @@ func (e *StrategyEngine) formatCompactMarketData(data *market.Data, coin *Candid
 
 	sb.WriteString(fmt.Sprintf("=== %s compact market data ===\n", data.Symbol))
 	parts := []string{fmt.Sprintf("price=%.6f", data.CurrentPrice)}
-	if indicators.EnableEMA && data.CurrentEMA20 > 0 {
-		parts = append(parts, fmt.Sprintf("ema20=%.6f", data.CurrentEMA20))
+	if p, v := promptCurrentEMA(data); indicators.EnableEMA && v > 0 {
+		parts = append(parts, fmt.Sprintf("ema%d=%.6f", p, v))
 	}
 	if indicators.EnableMACD {
 		parts = append(parts, fmt.Sprintf("macd=%.4f", data.CurrentMACD))
 	}
-	if indicators.EnableRSI && data.CurrentRSI7 > 0 {
-		parts = append(parts, fmt.Sprintf("rsi7=%.1f", data.CurrentRSI7))
+	if p, v := promptCurrentRSI(data); indicators.EnableRSI && v > 0 {
+		parts = append(parts, fmt.Sprintf("rsi%d=%.1f", p, v))
 	}
 	if indicators.EnableOI {
 		// #135: USDT notional (contracts × price), named like hybrid
@@ -2382,11 +2404,10 @@ func compactTimeframeSummary(data *market.TimeframeSeriesData, indicators store.
 		parts = append(parts, fmt.Sprintf("last=%.6f", last))
 	}
 	if indicators.EnableEMA {
-		if v, ok := lastFloat(data.EMA20Values); ok {
-			parts = append(parts, fmt.Sprintf("ema20=%.6f", v))
-		}
-		if v, ok := lastFloat(data.EMA50Values); ok {
-			parts = append(parts, fmt.Sprintf("ema50=%.6f", v))
+		for _, ps := range promptEMASeries(data) {
+			if v, ok := lastFloat(ps.values); ok {
+				parts = append(parts, fmt.Sprintf("ema%d=%.6f", ps.period, v))
+			}
 		}
 	}
 	if indicators.EnableMACD {
@@ -2395,21 +2416,26 @@ func compactTimeframeSummary(data *market.TimeframeSeriesData, indicators store.
 		}
 	}
 	if indicators.EnableRSI {
-		if v, ok := lastFloat(data.RSI7Values); ok {
-			parts = append(parts, fmt.Sprintf("rsi7=%.1f", v))
-		}
-		if v, ok := lastFloat(data.RSI14Values); ok {
-			parts = append(parts, fmt.Sprintf("rsi14=%.1f", v))
+		for _, ps := range promptRSISeries(data) {
+			if v, ok := lastFloat(ps.values); ok {
+				parts = append(parts, fmt.Sprintf("rsi%d=%.1f", ps.period, v))
+			}
 		}
 	}
-	if indicators.EnableATR && data.ATR14 > 0 {
-		parts = append(parts, fmt.Sprintf("atr14=%.6f", data.ATR14))
+	if indicators.EnableATR {
+		for _, pv := range promptATRValues(data) {
+			if pv.value > 0 {
+				parts = append(parts, fmt.Sprintf("atr%d=%.6f", pv.period, pv.value))
+			}
+		}
 	}
 	if indicators.EnableBOLL {
-		if upper, ok := lastFloat(data.BOLLUpper); ok {
-			mid, _ := lastFloat(data.BOLLMiddle)
-			lower, _ := lastFloat(data.BOLLLower)
-			parts = append(parts, fmt.Sprintf("boll=%.6f/%.6f/%.6f", upper, mid, lower))
+		for _, pb := range promptBOLLBands(data) {
+			if upper, ok := lastFloat(pb.bands.Upper); ok {
+				mid, _ := lastFloat(pb.bands.Middle)
+				lower, _ := lastFloat(pb.bands.Lower)
+				parts = append(parts, fmt.Sprintf("boll%s=%.6f/%.6f/%.6f", pb.label, upper, mid, lower))
+			}
 		}
 	}
 	return strings.Join(parts, " | ")
@@ -2444,11 +2470,10 @@ func (e *StrategyEngine) formatTimeframeSeriesData(sb *strings.Builder, data *ma
 	}
 
 	if indicators.EnableEMA {
-		if len(data.EMA20Values) > 0 {
-			sb.WriteString(fmt.Sprintf("EMA20: %s\n", formatFloatSlice(data.EMA20Values)))
-		}
-		if len(data.EMA50Values) > 0 {
-			sb.WriteString(fmt.Sprintf("EMA50: %s\n", formatFloatSlice(data.EMA50Values)))
+		for _, ps := range promptEMASeries(data) {
+			if len(ps.values) > 0 {
+				sb.WriteString(fmt.Sprintf("EMA%d: %s\n", ps.period, formatFloatSlice(ps.values)))
+			}
 		}
 	}
 
@@ -2457,22 +2482,29 @@ func (e *StrategyEngine) formatTimeframeSeriesData(sb *strings.Builder, data *ma
 	}
 
 	if indicators.EnableRSI {
-		if len(data.RSI7Values) > 0 {
-			sb.WriteString(fmt.Sprintf("RSI7: %s\n", formatFloatSlice(data.RSI7Values)))
-		}
-		if len(data.RSI14Values) > 0 {
-			sb.WriteString(fmt.Sprintf("RSI14: %s\n", formatFloatSlice(data.RSI14Values)))
+		for _, ps := range promptRSISeries(data) {
+			if len(ps.values) > 0 {
+				sb.WriteString(fmt.Sprintf("RSI%d: %s\n", ps.period, formatFloatSlice(ps.values)))
+			}
 		}
 	}
 
-	if indicators.EnableATR && data.ATR14 > 0 {
-		sb.WriteString(fmt.Sprintf("ATR14: %.4f\n", data.ATR14))
+	if indicators.EnableATR {
+		for _, pv := range promptATRValues(data) {
+			if pv.value > 0 {
+				sb.WriteString(fmt.Sprintf("ATR%d: %.4f\n", pv.period, pv.value))
+			}
+		}
 	}
 
-	if indicators.EnableBOLL && len(data.BOLLUpper) > 0 {
-		sb.WriteString(fmt.Sprintf("BOLL Upper: %s\n", formatFloatSlice(data.BOLLUpper)))
-		sb.WriteString(fmt.Sprintf("BOLL Middle: %s\n", formatFloatSlice(data.BOLLMiddle)))
-		sb.WriteString(fmt.Sprintf("BOLL Lower: %s\n", formatFloatSlice(data.BOLLLower)))
+	if indicators.EnableBOLL {
+		for _, pb := range promptBOLLBands(data) {
+			if len(pb.bands.Upper) > 0 {
+				sb.WriteString(fmt.Sprintf("BOLL%s Upper: %s\n", pb.label, formatFloatSlice(pb.bands.Upper)))
+				sb.WriteString(fmt.Sprintf("BOLL%s Middle: %s\n", pb.label, formatFloatSlice(pb.bands.Middle)))
+				sb.WriteString(fmt.Sprintf("BOLL%s Lower: %s\n", pb.label, formatFloatSlice(pb.bands.Lower)))
+			}
+		}
 	}
 
 	sb.WriteString("\n")
