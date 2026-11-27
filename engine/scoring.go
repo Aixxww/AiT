@@ -164,8 +164,12 @@ func scoreSymbol(snap *datafetch.SymbolSnapshot, cfg HubConfig) *IndicatorSet {
 	// Step 2: Compute quant indicators
 	quantSet := computeQuantIndicators(snap)
 
-	// Step 3: Compute social indicators
-	socialSet := computeSocialIndicators(snap)
+	// Step 3: Compute social indicators (#157: skipped when the social
+	// component is disabled, so its sub-scores and signals are zero)
+	socialSet := &IndicatorSet{Symbol: snap.Symbol}
+	if cfg.SocialEnabled {
+		socialSet = computeSocialIndicators(snap)
+	}
 
 	// Merge all into one IndicatorSet
 	set := &IndicatorSet{
@@ -204,8 +208,10 @@ func scoreSymbol(snap *datafetch.SymbolSnapshot, cfg HubConfig) *IndicatorSet {
 	set.TechBearScore = scoreTechBear(set, cfg)
 	set.QuantBullScore = scoreQuantBull(set, cfg)
 	set.QuantBearScore = scoreQuantBear(set, cfg)
-	set.SocialBullScore = scoreSocialBull(set)
-	set.SocialBearScore = scoreSocialBear(set)
+	if cfg.SocialEnabled {
+		set.SocialBullScore = scoreSocialBull(set)
+		set.SocialBearScore = scoreSocialBear(set)
+	}
 
 	// Step 5: Final score and direction
 	// P1-1: a neutral-band direction keeps the dominant side and downgrades

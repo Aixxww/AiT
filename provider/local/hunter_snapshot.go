@@ -32,6 +32,9 @@ func computePercentileOI(sortedOI []float64, percentile float64) float64 {
 type HunterSnapshotConfig struct {
 	MinOIValue float64 // default 500_000 (lowered from 2M — 100% filter rate in tests)
 	MaxSymbols int     // default 50
+	// Params are the Hunter advanced-filter settings (#155); nil = the
+	// pre-#155 behavior (ResolveHunterParams(nil)).
+	Params *HunterParams
 }
 
 // ScoreHunterFromSnapshot computes Hunter 4-pillar scores from a datafetch.Snapshot.
@@ -40,11 +43,18 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 	if snap == nil || len(snap.Symbols) == 0 {
 		return nil
 	}
+	params := ResolveHunterParams(nil)
+	if cfg.Params != nil {
+		params = *cfg.Params
+	}
 
 	type candidate struct {
-		symbol string
-		ss     *datafetch.SymbolSnapshot
-		score  HunterCoinScore
+		symbol      string
+		ss          *datafetch.SymbolSnapshot
+		score       HunterCoinScore
+		bbPct       float64
+		bbPctOK     bool
+		loneBreaker bool
 	}
 
 	var pool []candidate
@@ -59,8 +69,18 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 		if ss.OI <= 0 {
 			continue
 		}
+		if !params.tradeCountOK(ss.TradeCount24h) {
+			continue // #155 min_trade_count
+		}
 
 		c := candidate{symbol: sym, ss: ss}
+		if params.Breakout {
+			pct, ok, pass, lone := params.breakoutFunnel(sym, closesOfSnapKlines(ss.Klines["5m"]), ss.OIDelta1h)
+			if !pass {
+				continue // #155 breakout Phase 1: BB-width funnel
+			}
+			c.bbPct, c.bbPctOK, c.loneBreaker = pct, ok, lone
+		}
 		c.score.Symbol = sym
 		c.score.Ticker = binanceTicker{
 			Symbol:             sym,
@@ -114,14 +134,21 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 			c.symbol, ss.OI, ss.Price, ss.PriceChange24h)
 
 		// --- LONG direction ---
-		longPos, longPosTags := snapPositionScore(ss, "long")
+		longPos, longPosTags := snapPositionScore(ss, "long", params)
 		longOI, longOITags := snapOISmartScore(ss, "long", oiThreshold)
 		longSM, longSMTags := snapSmartMoneyScore(ss)
-		longSq, longSqTags := snapSqueezeExplosion(ss)
+		longSq, longSqTags := snapSqueezeExplosion(ss, params, c.bbPct, c.bbPctOK)
 
 		longBase50 := longPos*0.65 + longOI*0.35
 		longBase25 := (longSM) * 0.80
 		longComposite := clampScore(longBase50+longBase25, 0, 75)
+
+		// #155 RSI and funding signals (off unless configured).
+		rsi, rsiOK := hunterRSI(closesOfSnapKlines(ss.Klines["1h"]))
+		rsiLong, rsiShort, rsiLongTags, rsiShortTags := params.rsiAdjust(rsi, rsiOK)
+		fundLong, fundShort, fundLongTags, fundShortTags := params.fundingAdjust(ss.FundingRate)
+		longComposite = clampScore(longComposite+rsiLong+fundLong, 0, 75)
+		longSMTags = append(append(longSMTags, rsiLongTags...), fundLongTags...)
 
 		// Confirm filter
 		for _, t := range longPosTags {
@@ -151,23 +178,25 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 		}
 
 		// Wash multiplier
-		washMod := snapWashMultiplier(ss)
+		washMod := snapWashMultiplier(ss, params.Wash)
 
 		// Cooldown
-		cdMod := globalCooldown.getCooldownMultiplier(c.symbol)
+		cdMod := params.cooldownMultiplier(c.symbol)
 
 		longFinal := longComposite * washMod * cdMod
 		longFinal += longSq
 
 		// --- SHORT direction ---
-		shortPos, shortPosTags := snapPositionScore(ss, "short")
+		shortPos, shortPosTags := snapPositionScore(ss, "short", params)
 		shortOI, shortOITags := snapOISmartScore(ss, "short", oiThreshold)
 		shortSM, shortSMTags := snapSmartMoneyScoreShort(ss)
-		shortSq, shortSqTags := snapSqueezeExplosion(ss)
+		shortSq, shortSqTags := snapSqueezeExplosion(ss, params, c.bbPct, c.bbPctOK)
 
 		shortBase50 := shortPos*0.65 + shortOI*0.35
 		shortBase25 := (shortSM) * 0.80
 		shortComposite := clampScore(shortBase50+shortBase25, 0, 75)
+		shortComposite = clampScore(shortComposite+rsiShort+fundShort, 0, 75)
+		shortSMTags = append(append(shortSMTags, rsiShortTags...), fundShortTags...)
 
 		// ELP for short
 		if pct24h > 20 {
@@ -214,9 +243,18 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 	// Filter by score threshold (≥15.0)
 	var passed []candidate
 	for _, c := range pool {
-		if c.score.FinalScore >= 15.0 {
-			passed = append(passed, c)
+		if c.score.FinalScore < 15.0 {
+			continue
 		}
+		if c.loneBreaker {
+			// #155 breakout: a lone-breaker entry must show a squeeze and
+			// a wash multiplier above 0.20.
+			if !loneBreakerKeeps(c.score.Tags, c.score.FinalScore, c.score.WashMod) {
+				continue
+			}
+			c.score.Tags = append(c.score.Tags, "lone_breaker_pass")
+		}
+		passed = append(passed, c)
 	}
 
 	// Sort by FinalScore descending
@@ -239,7 +277,7 @@ func ScoreHunterFromSnapshot(snap *datafetch.Snapshot, cfg HunterSnapshotConfig)
 
 // --- Position Score (Pillar A) ---
 
-func snapPositionScore(ss *datafetch.SymbolSnapshot, direction string) (float64, []string) {
+func snapPositionScore(ss *datafetch.SymbolSnapshot, direction string, params HunterParams) (float64, []string) {
 	currentPrice := ss.Price
 	if currentPrice <= 0 {
 		return 0, nil
@@ -262,6 +300,9 @@ func snapPositionScore(ss *datafetch.SymbolSnapshot, direction string) (float64,
 	}
 
 	for _, tf := range tfs {
+		if !params.positionTF(tf.name) {
+			continue // #155 position_timeframes
+		}
 		klines, ok := ss.Klines[tf.name]
 		if !ok || len(klines) < 15 {
 			continue
@@ -289,7 +330,7 @@ func snapPositionScore(ss *datafetch.SymbolSnapshot, direction string) (float64,
 
 	// Chase penalty
 	pct24h := math.Abs(ss.PriceChange24h)
-	if pct24h > 50 {
+	if pct24h > params.ChasePct { // #155 max_24h_change (default 50)
 		score -= 20
 		tags = append(tags, "chase_penalty")
 	}
@@ -465,7 +506,7 @@ func snapSmartMoneyScoreShort(ss *datafetch.SymbolSnapshot) (float64, []string) 
 
 // --- Squeeze Explosion (Pillar E) ---
 
-func snapSqueezeExplosion(ss *datafetch.SymbolSnapshot) (float64, []string) {
+func snapSqueezeExplosion(ss *datafetch.SymbolSnapshot, params HunterParams, bbPct float64, bbPctOK bool) (float64, []string) {
 	bbScore, bbTags := snapBBWidthSqueeze(ss)
 	oiScore, oiTags := snapOISpike(ss)
 
@@ -476,9 +517,14 @@ func snapSqueezeExplosion(ss *datafetch.SymbolSnapshot) (float64, []string) {
 		totalScore += 5
 		allTags = append(allTags, "squeeze_explosion_synergy")
 	}
+	if params.Breakout { // #155 breakout Phase 2
+		bonus, tags := breakoutSqueezeBonus(bbPct, bbPctOK)
+		totalScore += bonus
+		allTags = append(allTags, tags...)
+	}
 
-	if totalScore > 25 {
-		totalScore = 25
+	if cap := params.squeezePillarCap(); totalScore > cap {
+		totalScore = cap
 	}
 	return totalScore, allTags
 }
@@ -552,7 +598,7 @@ func snapOISpike(ss *datafetch.SymbolSnapshot) (float64, []string) {
 
 // --- Wash Multiplier ---
 
-func snapWashMultiplier(ss *datafetch.SymbolSnapshot) float64 {
+func snapWashMultiplier(ss *datafetch.SymbolSnapshot, w HunterWashThresholds) float64 {
 	mult := 1.0
 
 	// High trade count with low average order size
@@ -560,14 +606,14 @@ func snapWashMultiplier(ss *datafetch.SymbolSnapshot) float64 {
 	if ss.TradeCount24h > 0 {
 		avgOrderSize = ss.QuoteVolume24h / float64(ss.TradeCount24h)
 	}
-	if ss.TradeCount24h > 1_000_000 && avgOrderSize < 5 {
+	if ss.TradeCount24h > w.TradeCount && avgOrderSize < w.AvgOrderUSD {
 		mult *= 0.20
 	}
 
 	// OI/Vol ratio check
 	if ss.Volume24h > 0 && ss.OI > 0 {
 		oiVolRatio := ss.OI / ss.Volume24h
-		if oiVolRatio < 0.01 {
+		if oiVolRatio < w.OIVolRatio {
 			mult *= 0.30
 		}
 	}
@@ -581,7 +627,7 @@ func snapWashMultiplier(ss *datafetch.SymbolSnapshot) float64 {
 				avgVol += k.Volume
 			}
 			avgVol /= 20
-			if avgVol > 0 && ss.Volume24h > avgVol*24*10 {
+			if avgVol > 0 && ss.Volume24h > avgVol*24*w.SpikeMult {
 				mult *= 0.40
 			}
 		}
@@ -708,3 +754,11 @@ func ftoa(f float64) string {
 
 // excludedTokenizedAssets lists tokenized stocks/forex/commodities to exclude.
 // (Reuses the set defined in hunter.go via the isUSDTPerp filter)
+
+func closesOfSnapKlines(klines []datafetch.Kline) []float64 {
+	out := make([]float64, len(klines))
+	for i, k := range klines {
+		out[i] = k.Close
+	}
+	return out
+}

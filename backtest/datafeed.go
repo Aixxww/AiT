@@ -26,6 +26,9 @@ type DataFeed struct {
 	decisionTimes []int64
 	primaryTF     string
 	longerTF      string
+	// longerCount is the strategy's indicators.klines.longer_count (#157):
+	// the longer-timeframe series points of each decision's market data.
+	longerCount int
 }
 
 func NewDataFeed(cfg BacktestConfig) (*DataFeed, error) {
@@ -36,6 +39,7 @@ func NewDataFeed(cfg BacktestConfig) (*DataFeed, error) {
 		symbolSeries: make(map[string]*symbolSeries),
 		primaryTF:    cfg.DecisionTimeframe,
 	}
+	df.longerCount = backtestLongerCount(cfg)
 	copy(df.symbols, cfg.Symbols)
 
 	if err := df.loadAll(); err != nil {
@@ -165,7 +169,7 @@ func (df *DataFeed) BuildMarketData(ts int64) (map[string]*market.Data, map[stri
 			if df.longerTF != "" && df.longerTF != tf {
 				longer = df.sliceUpTo(symbol, df.longerTF, ts)
 			}
-			data, err := market.BuildDataFromKlines(symbol, series, longer)
+			data, err := market.BuildDataFromKlinesWithLongerCount(symbol, series, longer, df.longerCount)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -203,4 +207,13 @@ func (df *DataFeed) decisionBarSnapshot(symbol string, ts int64) (*market.Kline,
 		next = &series.klines[idx+1]
 	}
 	return curr, next
+}
+
+// backtestLongerCount is the strategy's indicators.klines.longer_count for
+// a backtest (#157); 0 = market.DefaultLongerCount.
+func backtestLongerCount(cfg BacktestConfig) int {
+	if sc := cfg.ToStrategyConfig(); sc != nil {
+		return sc.Indicators.Klines.LongerCount
+	}
+	return 0
 }

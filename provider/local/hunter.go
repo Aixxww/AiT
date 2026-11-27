@@ -254,7 +254,7 @@ func (c *Client) computeOISpike(symbol string, sc *SymbolCache) (float64, []stri
 // Also includes range_compression detection (volume accumulation + price contraction).
 // Synergy bonus: if both BB squeeze + OI spike fire, extra +5 points.
 // Returns: (score [0-25], tags).
-func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache) (float64, []string) {
+func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache, params HunterParams, bbPct float64, bbPctOK bool) (float64, []string) {
 	bbScore, bbTags := c.computeBBWidthSqueeze(symbol, sc)
 	oiScore, oiTags := c.computeOISpike(symbol, sc)
 
@@ -275,9 +275,14 @@ func (c *Client) computeSqueezeExplosionPillar(symbol string, sc *SymbolCache) (
 		totalScore += rcScore
 		allTags = append(allTags, rcTags...)
 	}
+	if params.Breakout { // #155 breakout Phase 2
+		bonus, tags := breakoutSqueezeBonus(bbPct, bbPctOK)
+		totalScore += bonus
+		allTags = append(allTags, tags...)
+	}
 
-	if totalScore > 25 {
-		totalScore = 25
+	if cap := params.squeezePillarCap(); totalScore > cap {
+		totalScore = cap
 	}
 	return totalScore, allTags
 }
@@ -372,7 +377,10 @@ func findHighLow(klines []klineBar) (high, low float64) {
 // Near 4h support (within 1.5×ATR) → +25; near resistance → -15;
 // near 1d support (within 2×ATR) → +15; near 1h support (within 1×ATR) → +10;
 // already moved >50% in 24h → -20 (chase penalty).
-func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *SymbolCache) (float64, []string) {
+// params carries the #155 settings (position_timeframes, max_24h_change);
+// exemptSRPenalty is the breakout-mode squeeze exemption of the 4h
+// opposite-side penalty.
+func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *SymbolCache, params HunterParams, exemptSRPenalty bool) (float64, []string) {
 	score := 0.0
 	var tags []string
 
@@ -396,13 +404,19 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 	// --- 4h support/resistance (existing) ---
 	high4h, low4h := findHighLow(klines4h)
 
-	if currentPrice-low4h <= 1.5*atr4h {
-		score += 25
-		tags = append(tags, "near_support_4h")
-	}
-	if high4h-currentPrice <= 2*atr4h {
-		score -= 25 // v6: -15→-25, R5验证75%方向正确
-		tags = append(tags, "near_resistance_4h")
+	if params.positionTF("4h") {
+		if currentPrice-low4h <= 1.5*atr4h {
+			score += 25
+			tags = append(tags, "near_support_4h")
+		}
+		if high4h-currentPrice <= 2*atr4h {
+			if exemptSRPenalty {
+				tags = append(tags, "near_resistance_exempt") // #155 breakout
+			} else {
+				score -= 25 // v6: -15→-25, R5验证75%方向正确
+				tags = append(tags, "near_resistance_4h")
+			}
+		}
 	}
 
 	// --- 1d support (wider threshold: 2×ATR derived from daily bars) ---
@@ -412,7 +426,7 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 	} else {
 		klines1d, _ = c.fetchKlines(symbol, "1d", 20)
 	}
-	if len(klines1d) >= 15 {
+	if params.positionTF("1d") && len(klines1d) >= 15 {
 		atr1d := computeATR(klines1d, 14)
 		if atr1d > 0 {
 			_, low1d := findHighLow(klines1d)
@@ -430,7 +444,7 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 	} else {
 		klines1h, _ = c.fetchKlines(symbol, "1h", 20)
 	}
-	if len(klines1h) >= 15 {
+	if params.positionTF("1h") && len(klines1h) >= 15 {
 		atr1h := computeATR(klines1h, 14)
 		if atr1h > 0 {
 			_, low1h := findHighLow(klines1h)
@@ -448,7 +462,7 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 	} else {
 		klines15m, _ = c.fetchKlines(symbol, "15m", 20)
 	}
-	if len(klines15m) >= 15 {
+	if params.positionTF("15m") && len(klines15m) >= 15 {
 		atr15m := computeATR(klines15m, 14)
 		if atr15m > 0 {
 			_, low15m := findHighLow(klines15m)
@@ -466,7 +480,7 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 	} else {
 		klines5m, _ = c.fetchKlines(symbol, "5m", 20)
 	}
-	if len(klines5m) >= 15 {
+	if params.positionTF("5m") && len(klines5m) >= 15 {
 		atr5m := computeATR(klines5m, 14)
 		if atr5m > 0 {
 			_, low5m := findHighLow(klines5m)
@@ -479,7 +493,7 @@ func (c *Client) computePositionScore(symbol string, ticker binanceTicker, sc *S
 
 	// Chase penalty: >50% move in 24h
 	pct24h := math.Abs(parseFloat(ticker.PriceChangePercent))
-	if pct24h > 50 {
+	if pct24h > params.ChasePct { // #155 max_24h_change (default 50)
 		score -= 20
 		tags = append(tags, "chase_penalty")
 	}
@@ -501,7 +515,7 @@ func (c *Client) fetchCurrentOI(symbol string, price float64) (float64, error) {
 }
 
 // computeOISmartScore replaces 15M hard threshold with OI change rate analysis.
-func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64) (float64, []string) {
+func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64, params HunterParams) (float64, []string) {
 	score := 0.0
 	var tags []string
 
@@ -520,7 +534,7 @@ func (c *Client) computeOISmartScore(symbol string, ticker binanceTicker, curren
 	oiValue := currentOIValue
 
 	// Dynamic OI threshold with cooldown reduction
-	threshold := oiThreshold * globalCooldown.getOIThresholdReduction(symbol)
+	threshold := oiThreshold * params.oiThresholdReduction(symbol) // #155 cooldown
 
 	if oiValue < threshold {
 		globalCooldown.recordOIFilter(symbol)
@@ -653,7 +667,7 @@ func (c *Client) computeSmartMoneyScore(symbol string, klines []klineBar, sc *Sy
 }
 
 // computeWashMultiplier applies triple wash trade detection.
-func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klines []klineBar, currentPrice float64, currentOIValue float64) (float64, []string) {
+func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klines []klineBar, currentPrice float64, currentOIValue float64, w HunterWashThresholds) (float64, []string) {
 	multiplier := 1.0
 	var tags []string
 
@@ -661,9 +675,9 @@ func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klin
 	qv := parseFloat(ticker.QuoteVolume)
 
 	// Check 1: trades > 1M AND avg_trade_size < $5
-	if trades > 1_000_000 && qv > 0 {
+	if trades > w.TradeCount && qv > 0 {
 		avgTradeSize := qv / float64(trades)
-		if avgTradeSize < 5 {
+		if avgTradeSize < w.AvgOrderUSD {
 			multiplier *= 0.20
 			tags = append(tags, "wash_micro_trades")
 		}
@@ -672,7 +686,7 @@ func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klin
 	// Check 2: OI/Volume ratio < 0.01
 	if qv > 0 && currentOIValue > 0 {
 		oiVolRatio := currentOIValue / qv
-		if oiVolRatio < 0.01 {
+		if oiVolRatio < w.OIVolRatio {
 			multiplier *= 0.30
 			tags = append(tags, "wash_fake_volume")
 		}
@@ -688,7 +702,7 @@ func (c *Client) computeWashMultiplier(symbol string, ticker binanceTicker, klin
 		spikes := 0
 		if avgVol > 0 {
 			for _, k := range klines[15:] {
-				if k.Volume > avgVol*10 {
+				if k.Volume > avgVol*w.SpikeMult {
 					spikes++
 				}
 			}
@@ -807,7 +821,10 @@ func computeTakerSignal15m(klines15m []klineBar) (buyScore, sellScore float64, b
 // near 1d resistance → +15; near 1h resistance → +10;
 // near 15m resistance → +8; near 5m resistance → +5 (swing entry timing);
 // chase penalty same as long.
-func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, sc *SymbolCache) (float64, []string) {
+// params carries the #155 settings (position_timeframes, max_24h_change);
+// exemptSRPenalty is the breakout-mode squeeze exemption of the 4h
+// opposite-side penalty.
+func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, sc *SymbolCache, params HunterParams, exemptSRPenalty bool) (float64, []string) {
 	score := 0.0
 	var tags []string
 
@@ -831,13 +848,19 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 	// --- 4h resistance/support (mirrored) ---
 	high4h, low4h := findHighLow(klines4h)
 
-	if high4h-currentPrice <= 2*atr4h {
-		score += 25 // Near resistance = short opportunity
-		tags = append(tags, "near_resistance_4h")
-	}
-	if currentPrice-low4h <= 1.5*atr4h {
-		score -= 25 // Near support = risk for short (mirror penalty)
-		tags = append(tags, "near_support_4h_penalize")
+	if params.positionTF("4h") {
+		if high4h-currentPrice <= 2*atr4h {
+			score += 25 // Near resistance = short opportunity
+			tags = append(tags, "near_resistance_4h")
+		}
+		if currentPrice-low4h <= 1.5*atr4h {
+			if exemptSRPenalty {
+				tags = append(tags, "near_support_exempt") // #155 breakout
+			} else {
+				score -= 25 // Near support = risk for short (mirror penalty)
+				tags = append(tags, "near_support_4h_penalize")
+			}
+		}
 	}
 
 	// --- 1d resistance ---
@@ -847,7 +870,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 	} else {
 		klines1d, _ = c.fetchKlines(symbol, "1d", 20)
 	}
-	if len(klines1d) >= 15 {
+	if params.positionTF("1d") && len(klines1d) >= 15 {
 		atr1d := computeATR(klines1d, 14)
 		if atr1d > 0 {
 			high1d, _ := findHighLow(klines1d)
@@ -865,7 +888,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 	} else {
 		klines1h, _ = c.fetchKlines(symbol, "1h", 20)
 	}
-	if len(klines1h) >= 15 {
+	if params.positionTF("1h") && len(klines1h) >= 15 {
 		atr1h := computeATR(klines1h, 14)
 		if atr1h > 0 {
 			high1h, _ := findHighLow(klines1h)
@@ -883,7 +906,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 	} else {
 		klines15m, _ = c.fetchKlines(symbol, "15m", 20)
 	}
-	if len(klines15m) >= 15 {
+	if params.positionTF("15m") && len(klines15m) >= 15 {
 		atr15m := computeATR(klines15m, 14)
 		if atr15m > 0 {
 			high15m, _ := findHighLow(klines15m)
@@ -901,7 +924,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 	} else {
 		klines5m, _ = c.fetchKlines(symbol, "5m", 20)
 	}
-	if len(klines5m) >= 15 {
+	if params.positionTF("5m") && len(klines5m) >= 15 {
 		atr5m := computeATR(klines5m, 14)
 		if atr5m > 0 {
 			high5m, _ := findHighLow(klines5m)
@@ -914,7 +937,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 
 	// Chase penalty: >50% move in 24h (same as long)
 	pct24h := math.Abs(parseFloat(ticker.PriceChangePercent))
-	if pct24h > 50 {
+	if pct24h > params.ChasePct { // #155 max_24h_change (default 50)
 		score -= 20
 		tags = append(tags, "chase_penalty")
 	}
@@ -925,7 +948,7 @@ func (c *Client) computeShortPositionScore(symbol string, ticker binanceTicker, 
 // computeShortOISmartScore mirrors computeOISmartScore for SHORT direction.
 // OI↑ + Price↑ = smart money building shorts (distribution) → +40
 // OI↓ + Price↓ = long liquidation cascade → +45
-func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64) (float64, []string) {
+func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, currentOIValue float64, sc *SymbolCache, oiThreshold float64, params HunterParams) (float64, []string) {
 	score := 0.0
 	var tags []string
 
@@ -943,7 +966,7 @@ func (c *Client) computeShortOISmartScore(symbol string, ticker binanceTicker, c
 
 	oiValue := currentOIValue
 	// Dynamic OI threshold with cooldown reduction
-	threshold := oiThreshold * globalCooldown.getOIThresholdReduction(symbol)
+	threshold := oiThreshold * params.oiThresholdReduction(symbol) // #155 cooldown
 
 	if oiValue < threshold {
 		globalCooldown.recordOIFilter(symbol)
@@ -1084,7 +1107,10 @@ func (c *Client) computeShortSmartMoneyScore(symbol string, klines []klineBar, s
 // GetHunterList fetches all USDT perps, computes 4-pillar hunter scores,
 // and returns top 30 as []aitos.CoinData.
 func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
-	const cacheKey = "hunter_list_v2" // v2: includes short-direction scoring
+	// #155: the advanced-filter settings, and the cache key carries them so
+	// a changed setting takes effect at once.
+	params := ResolveHunterParams(c.HunterCfg)
+	cacheKey := "hunter_list_v2|" + params.Key() // v2: includes short-direction scoring
 	if hit, ok := c.cache.Get(cacheKey); ok {
 		return hit.([]aitos.CoinData), nil
 	}
@@ -1122,13 +1148,19 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 
 	// --- Build candidate pool (shared path) ---
 	type candidate struct {
-		ticker binanceTicker
-		score  HunterCoinScore
+		ticker      binanceTicker
+		score       HunterCoinScore
+		bbPct       float64
+		bbPctOK     bool
+		loneBreaker bool
 	}
 	var pool []candidate
 	for _, t := range tickers {
 		if !isUSDTPerp(t.Symbol) || excludedTokenizedAssets[t.Symbol] {
 			continue
+		}
+		if !params.tradeCountOK(t.Count) {
+			continue // #155 min_trade_count
 		}
 		pool = append(pool, candidate{ticker: t})
 	}
@@ -1150,6 +1182,26 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 	rl := NewBinanceRateLimiter(15)
 	symbolCaches := BuildSymbolCaches(c, poolSymbols, tickerMap, rl)
 	log.Printf("🎯 Hunter: built %d/%d symbol caches", len(symbolCaches), len(poolSymbols))
+
+	// #155 breakout Phase 1: BB-width funnel (kline path only; the
+	// CoinGecko fallback has no klines and is not funnelled).
+	if params.Breakout && !usingFallback {
+		kept := pool[:0]
+		for _, p := range pool {
+			sc := symbolCaches[p.ticker.Symbol]
+			if sc == nil {
+				continue
+			}
+			pct, ok, pass, lone := params.breakoutFunnel(p.ticker.Symbol, closesOfKlineBars(sc.Klines["5m"]), sc.OIDelta1h)
+			if !pass {
+				continue
+			}
+			p.bbPct, p.bbPctOK, p.loneBreaker = pct, ok, lone
+			kept = append(kept, p)
+		}
+		log.Printf("🔥 Hunter/breakout: BB-width funnel kept %d/%d", len(kept), len(pool))
+		pool = kept
+	}
 
 	// --- Dynamic OI threshold: P10 of pool OI values, floor $100K ---
 	var oiValues []float64
@@ -1190,19 +1242,19 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 
 		if usingFallback {
 			// CoinGecko fallback: only compute OI Smart Score; skip kline-dependent pillars
-			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
+			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold, params)
 			p.score.OISmartScore = oiScore
 			qv := parseFloat(p.ticker.QuoteVolume)
 			baseScore := clamp(oiScore+math.Log10(math.Max(qv, 1))*2, 0, 75)
 			composite := baseScore
 
 			// Short OI scoring (CoinGecko fallback)
-			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
+			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold, params)
 			p.score.ShortOISmartScore = shortOIScore
 			shortBaseScore := clamp(shortOIScore+math.Log10(math.Max(qv, 1))*2, 0, 75)
 			shortComposite := shortBaseScore
 
-			p.score.CooldownMod = globalCooldown.getCooldownMultiplier(sym)
+			p.score.CooldownMod = params.cooldownMultiplier(sym) // #155 cooldown
 			if p.score.CooldownMod == 0 {
 				composite = 0
 				shortComposite = 0
@@ -1229,9 +1281,22 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 			klines4h := lastN(sc.Klines["4h"], 20)
 			klines15mForTaker := lastN(sc.Klines["15m"], 50) // 15m Taker signal data
 
+			// #155 breakout: the squeeze signal is known before the position
+			// pillar, so the 4h opposite-side penalty can be exempted.
+			exemptSR := false
+			if params.Breakout {
+				_, bbTags := c.computeBBWidthSqueeze(sym, sc)
+				_, pctTags := breakoutSqueezeBonus(p.bbPct, p.bbPctOK)
+				exemptSR = hasBreakoutSqueezeTag(append(bbTags, pctTags...))
+			}
+			// #155 RSI and funding signals (off unless configured).
+			rsi, rsiOK := hunterRSI(closesOfKlineBars(sc.Klines["1h"]))
+			rsiLong, rsiShort, rsiLongTags, rsiShortTags := params.rsiAdjust(rsi, rsiOK)
+			fundLong, fundShort, fundLongTags, fundShortTags := params.fundingAdjust(sc.FundingRate)
+
 			// ===== LONG DIRECTION =====
-			posScore, posTags := c.computePositionScore(sym, p.ticker, sc)
-			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
+			posScore, posTags := c.computePositionScore(sym, p.ticker, sc, params, exemptSR)
+			oiScore, oiTags := c.computeOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold, params)
 			p.score.PositionScore = posScore
 			p.score.OISmartScore = oiScore
 			baseScore50 := clamp(math.Max(posScore, oiScore)*0.65+math.Min(posScore, oiScore)*0.35, -35, 50)
@@ -1249,6 +1314,8 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 			baseScore25 := smScore * 0.80
 
 			composite := clamp(baseScore50+baseScore25, 0, 75)
+			composite = clamp(composite+rsiLong+fundLong, 0, 75)
+			smTags = append(append(smTags, rsiLongTags...), fundLongTags...)
 
 			// Long Signal Confirmation Filter
 			allTags := append(append(append([]string{}, posTags...), oiTags...), smTags...)
@@ -1294,19 +1361,19 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 			}
 
 			// Pillar C/D (shared)
-			p.score.CooldownMod = globalCooldown.getCooldownMultiplier(sym)
+			p.score.CooldownMod = params.cooldownMultiplier(sym) // #155 cooldown
 			if p.score.CooldownMod == 0 {
 				composite = 0
 			}
-			washMod, washTags := c.computeWashMultiplier(sym, p.ticker, klines4h, currentPrice, currentOI)
+			washMod, washTags := c.computeWashMultiplier(sym, p.ticker, klines4h, currentPrice, currentOI, params.Wash)
 			p.score.WashMod = washMod
 
 			p.score.FinalScore = composite * p.score.CooldownMod * p.score.WashMod
 			p.score.Tags = append(append(append(append(posTags, oiTags...), smTags...), longELPTags...), washTags...)
 
 			// ===== SHORT DIRECTION =====
-			shortPosScore, shortPosTags := c.computeShortPositionScore(sym, p.ticker, sc)
-			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold)
+			shortPosScore, shortPosTags := c.computeShortPositionScore(sym, p.ticker, sc, params, exemptSR)
+			shortOIScore, shortOITags := c.computeShortOISmartScore(sym, p.ticker, currentOI, sc, dynamicOIThreshold, params)
 			p.score.ShortPositionScore = shortPosScore
 			p.score.ShortOISmartScore = shortOIScore
 			shortBase50 := clamp(math.Max(shortPosScore, shortOIScore)*0.65+math.Min(shortPosScore, shortOIScore)*0.35, -35, 50)
@@ -1324,6 +1391,8 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 			shortBase25 := shortSMScore * 0.80
 
 			shortComposite := clamp(shortBase50+shortBase25, 0, 75)
+			shortComposite = clamp(shortComposite+rsiShort+fundShort, 0, 75)
+			shortSMTags = append(append(shortSMTags, rsiShortTags...), fundShortTags...)
 
 			// Short Signal Confirmation Filter: near_resistance without confirmation → 0.5x
 			allShortTags := append(append(append([]string{}, shortPosTags...), shortOITags...), shortSMTags...)
@@ -1370,7 +1439,7 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 			p.score.ShortTags = append(append(append(append(shortPosTags, shortOITags...), shortSMTags...), shortELPTags...), washTags...)
 
 			// ===== PILLAR E': Squeeze & Explosion Potential (direction-agnostic) =====
-			squeezeScore, squeezeTags := c.computeSqueezeExplosionPillar(sym, sc)
+			squeezeScore, squeezeTags := c.computeSqueezeExplosionPillar(sym, sc, params, p.bbPct, p.bbPctOK)
 			p.score.FinalScore += squeezeScore
 			p.score.Tags = append(p.score.Tags, squeezeTags...)
 			p.score.ShortFinalScore += squeezeScore
@@ -1404,6 +1473,14 @@ func (c *Client) GetHunterList() ([]aitos.CoinData, error) {
 	var thresholdFiltered []candidate
 	for _, p := range filtered {
 		if p.score.FinalScore >= minHunterScore {
+			if p.loneBreaker {
+				// #155 breakout: a lone-breaker entry must show a squeeze
+				// and a wash multiplier above 0.20.
+				if !loneBreakerKeeps(p.score.Tags, p.score.FinalScore, p.score.WashMod) {
+					continue
+				}
+				p.score.Tags = append(p.score.Tags, "lone_breaker_pass")
+			}
 			thresholdFiltered = append(thresholdFiltered, p)
 		} else {
 			log.Printf("🔽 Hunter: %s score %.1f < %.1f threshold, dropped", p.score.Symbol, p.score.FinalScore, minHunterScore)
