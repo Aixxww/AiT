@@ -21,6 +21,7 @@ import {
 } from '../../utils/indicators'
 import { Settings, BarChart2, AlertTriangle } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { cssVar } from '../../utils/chartTheme'
 
 // Order marker interface
 interface OrderMarker {
@@ -466,18 +467,18 @@ export function AdvancedChart({
       width: chartContainerRef.current.clientWidth || 800,
       height: chartContainerRef.current.clientHeight || height,
       layout: {
-        background: { color: 'var(--chart-bg)' },
-        textColor: 'var(--chart-text)',
+        background: { color: cssVar('--chart-bg', '#0b0e11') },
+        textColor: cssVar('--chart-text', '#8b95a5'),
         fontSize: 12,
       },
       grid: {
         vertLines: {
-          color: 'var(--chart-grid)',
+          color: cssVar('--chart-grid', 'rgba(43, 49, 57, 0.2)'),
           style: 1,
           visible: true,
         },
         horzLines: {
-          color: 'var(--chart-grid)',
+          color: cssVar('--chart-grid', 'rgba(43, 49, 57, 0.2)'),
           style: 1,
           visible: true,
         },
@@ -485,20 +486,20 @@ export function AdvancedChart({
       crosshair: {
         mode: 1,
         vertLine: {
-          color: 'color-mix(in srgb, var(--color-primary) 50%, transparent)',
+          color: cssVar('--color-primary', '#f0b90b'),
           width: 1,
           style: 2,
-          labelBackgroundColor: 'var(--color-primary)',
+          labelBackgroundColor: cssVar('--color-primary', '#f0b90b'),
         },
         horzLine: {
-          color: 'color-mix(in srgb, var(--color-primary) 50%, transparent)',
+          color: cssVar('--color-primary', '#f0b90b'),
           width: 1,
           style: 2,
-          labelBackgroundColor: 'var(--color-primary)',
+          labelBackgroundColor: cssVar('--color-primary', '#f0b90b'),
         },
       },
       rightPriceScale: {
-        borderColor: 'var(--color-border)',
+        borderColor: cssVar('--color-border', 'rgba(255, 255, 255, 0.075)'),
         scaleMargins: {
           top: 0.1,
           bottom: 0.25,
@@ -507,7 +508,7 @@ export function AdvancedChart({
         entireTextOnly: false,
       },
       timeScale: {
-        borderColor: 'var(--color-border)',
+        borderColor: cssVar('--color-border', 'rgba(255, 255, 255, 0.075)'),
         timeVisible: true,
         secondsVisible: false,
         borderVisible: true,
@@ -543,18 +544,18 @@ export function AdvancedChart({
 
     // Create candlestick series
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: 'var(--color-profit)',
-      downColor: 'var(--color-loss)',
-      borderUpColor: 'var(--color-profit)',
-      borderDownColor: 'var(--color-loss)',
-      wickUpColor: 'var(--color-profit)',
-      wickDownColor: 'var(--color-loss)',
+      upColor: cssVar('--color-profit', '#0ecb81'),
+      downColor: cssVar('--color-loss', '#f6465d'),
+      borderUpColor: cssVar('--color-profit', '#0ecb81'),
+      borderDownColor: cssVar('--color-loss', '#f6465d'),
+      wickUpColor: cssVar('--color-profit', '#0ecb81'),
+      wickDownColor: cssVar('--color-loss', '#f6465d'),
     })
     candlestickSeriesRef.current = candlestickSeries as any
 
     // Create volume series
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      color: 'var(--color-profit)',
+      color: cssVar('--color-profit', '#0ecb81'),
       priceFormat: {
         type: 'volume',
       },
@@ -703,8 +704,8 @@ export function AdvancedChart({
               value: k.volume || 0,
               color:
                 k.close >= k.open
-                  ? 'var(--color-profit-border)'
-                  : 'var(--color-loss-border)',
+                  ? cssVar('--color-profit-border', 'rgba(14, 203, 129, 0.25)')
+                  : cssVar('--color-loss-border', 'rgba(246, 70, 93, 0.25)'),
             }))
             volumeSeriesRef.current.setData(volumeData)
           } else {
@@ -814,7 +815,7 @@ export function AdvancedChart({
                 markers.push({
                   time: candleTime as Time,
                   position: 'belowBar' as const,
-                  color: 'var(--color-profit)',
+                  color: cssVar('--color-profit', '#0ecb81'),
                   shape: 'circle' as const,
                   text: counts.buys > 1 ? `B${counts.buys}` : 'B',
                   size: 1,
@@ -825,7 +826,7 @@ export function AdvancedChart({
                 markers.push({
                   time: candleTime as Time,
                   position: 'aboveBar' as const,
-                  color: 'var(--color-loss)',
+                  color: cssVar('--color-loss', '#f6465d'),
                   shape: 'circle' as const,
                   text: counts.sells > 1 ? `S${counts.sells}` : 'S',
                   size: 1,
@@ -952,18 +953,18 @@ export function AdvancedChart({
             const isLimit = order.type === 'LIMIT'
 
             // Set price line style
-            let lineColor = 'var(--color-primary)' // Default yellow
+            let lineColor = cssVar('--color-primary', '#f0b90b') // Default yellow
             const lineStyle = 2 // dashed
             let title = ''
 
             if (isStopLoss) {
-              lineColor = 'var(--color-loss)' // red - stop loss
+              lineColor = cssVar('--color-loss', '#f6465d') // red - stop loss
               title = `SL ${order.quantity}`
             } else if (isTakeProfit) {
-              lineColor = 'var(--color-profit)' // green - take profit
+              lineColor = cssVar('--color-profit', '#0ecb81') // green - take profit
               title = `TP ${order.quantity}`
             } else if (isLimit) {
-              lineColor = 'var(--color-primary)' // yellow - limit order
+              lineColor = cssVar('--color-primary', '#f0b90b') // yellow - limit order
               title = `Limit ${order.side} ${order.quantity}`
             } else {
               title = `${order.type} ${order.quantity}`

@@ -12,6 +12,7 @@ import {
 import { useLanguage } from '../../contexts/LanguageContext'
 import { httpClient } from '../../lib/httpClient'
 import { t } from '../../i18n/translations'
+import { cssVar, CHART_COLOR_FALLBACK } from '../../utils/chartTheme'
 
 // Order marker interface
 interface OrderMarker {
@@ -251,21 +252,33 @@ export function ChartWithOrders({
         width: chartContainerRef.current.clientWidth,
         height: height,
         layout: {
-          background: { color: 'var(--color-background)' },
-          textColor: 'var(--color-foreground)',
+          background: {
+            color: cssVar(
+              '--color-background',
+              CHART_COLOR_FALLBACK.background
+            ),
+          },
+          textColor: cssVar(
+            '--color-foreground',
+            CHART_COLOR_FALLBACK.foreground
+          ),
         },
         grid: {
-          vertLines: { color: 'var(--chart-grid)' },
-          horzLines: { color: 'var(--chart-grid)' },
+          vertLines: {
+            color: cssVar('--chart-grid', CHART_COLOR_FALLBACK.chartGrid),
+          },
+          horzLines: {
+            color: cssVar('--chart-grid', CHART_COLOR_FALLBACK.chartGrid),
+          },
         },
         crosshair: {
           mode: 1, // Normal crosshair
         },
         rightPriceScale: {
-          borderColor: 'var(--color-border)',
+          borderColor: cssVar('--color-border', CHART_COLOR_FALLBACK.border),
         },
         timeScale: {
-          borderColor: 'var(--color-border)',
+          borderColor: cssVar('--color-border', CHART_COLOR_FALLBACK.border),
           timeVisible: true,
           secondsVisible: false,
         },
@@ -287,12 +300,12 @@ export function ChartWithOrders({
 
       // Create candlestick series (using v5 API)
       const candlestickSeries = chart.addSeries(CandlestickSeries, {
-        upColor: 'var(--color-profit)',
-        downColor: 'var(--color-loss)',
-        borderUpColor: 'var(--color-profit)',
-        borderDownColor: 'var(--color-loss)',
-        wickUpColor: 'var(--color-profit)',
-        wickDownColor: 'var(--color-loss)',
+        upColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+        downColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
+        borderUpColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+        borderDownColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
+        wickUpColor: cssVar('--color-profit', CHART_COLOR_FALLBACK.profit),
+        wickDownColor: cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
       })
 
       candlestickSeriesRef.current = candlestickSeries as any
@@ -467,7 +480,9 @@ export function ChartWithOrders({
             markers.push({
               time: alignedTime as Time,
               position: 'belowBar' as const,
-              color: isBuy ? 'var(--color-profit)' : 'var(--color-loss)',
+              color: isBuy
+                ? cssVar('--color-profit', CHART_COLOR_FALLBACK.profit)
+                : cssVar('--color-loss', CHART_COLOR_FALLBACK.loss),
               shape: 'circle' as const,
               text: isBuy ? 'B' : 'S',
               price: order.price,
