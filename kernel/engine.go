@@ -596,6 +596,8 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		if coinSource.Hunter != nil && coinSource.Hunter.MinOIValue > 0 {
 			cfg.MinOIValue = coinSource.Hunter.MinOIValue
 		}
+		params := local.ResolveHunterParams(coinSource.Hunter) // #155
+		cfg.Params = &params
 		scores := local.ScoreHunterFromSnapshot(snap, cfg)
 		candidates = e.hunterScoresToCandidateCoins(scores, coinSource.HunterDirection)
 		if coinSource.SourceType == "hunter_sniff" {
