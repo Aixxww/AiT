@@ -3146,7 +3146,7 @@ func (e *StrategyEngine) getHyperMainCoins(limit int) ([]CandidateCoin, error) {
 
 // FetchMarketData fetches market data based on strategy configuration
 func (e *StrategyEngine) FetchMarketData(symbol string) (*market.Data, error) {
-	return market.Get(symbol)
+	return market.GetWithExchange(symbol, "binance", e.IndicatorPeriodsOption())
 }
 
 // FetchExternalData fetches external data sources

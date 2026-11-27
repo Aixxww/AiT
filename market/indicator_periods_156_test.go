@@ -71,6 +71,114 @@ func TestIndicatorPeriods156NonDefaultChangesSeries(t *testing.T) {
 	}
 }
 
+// #156 fix-up: the intraday series maps the configured periods onto its
+// fixed slots; with the defaults it reproduces the pre-#156 fixed series
+// exactly (EMA 20, RSI 7/14, ATR 14).
+func TestIndicatorPeriods156IntradayDefaultsReproduceFixedSeries(t *testing.T) {
+	kl := fx156Klines(120)
+	def := calculateIntradaySeries(kl)
+	if explicit := calculateIntradaySeries(kl, DefaultIndicatorPeriods()); !reflect.DeepEqual(def, explicit) {
+		t.Fatal("default intraday build differs from the explicit-default build")
+	}
+	if got, want := def.EMA20Values[len(def.EMA20Values)-1], calculateEMA(kl, 20); got != want {
+		t.Errorf("intraday EMA last = %v, want fixed EMA20 %v", got, want)
+	}
+	if got, want := def.RSI7Values[len(def.RSI7Values)-1], calculateRSI(kl, 7); got != want {
+		t.Errorf("intraday RSI7 last = %v, want %v", got, want)
+	}
+	if got, want := def.RSI14Values[len(def.RSI14Values)-1], calculateRSI(kl, 14); got != want {
+		t.Errorf("intraday RSI14 last = %v, want %v", got, want)
+	}
+	if def.ATR14 != calculateATR(kl, 14) || def.ATR14 == 0 {
+		t.Errorf("intraday ATR14 = %v, want %v", def.ATR14, calculateATR(kl, 14))
+	}
+}
+
+func TestIndicatorPeriods156IntradayConfiguredPeriods(t *testing.T) {
+	kl := fx156Klines(120)
+	p := IndicatorPeriods{EMA: []int{9}, RSI: []int{21}, ATR: []int{7}, BOLL: []int{10}}
+	d := calculateIntradaySeries(kl, p)
+	if got, want := d.EMA20Values[len(d.EMA20Values)-1], calculateEMA(kl, 9); got != want || got == calculateEMA(kl, 20) {
+		t.Errorf("intraday EMA slot last = %v, want EMA9 %v", got, want)
+	}
+	if got, want := d.RSI7Values[len(d.RSI7Values)-1], calculateRSI(kl, 21); got != want {
+		t.Errorf("intraday RSI slot last = %v, want RSI21 %v", got, want)
+	}
+	if len(d.RSI14Values) != 0 {
+		t.Errorf("a single RSI period must leave the secondary slot empty, got %d values", len(d.RSI14Values))
+	}
+	if d.ATR14 != calculateATR(kl, 7) {
+		t.Errorf("intraday ATR slot = %v, want ATR7 %v", d.ATR14, calculateATR(kl, 7))
+	}
+}
+
+// #156 fix-up: same for the longer-term builder (EMA 20/50, RSI 14,
+// ATR 14 by default; ATR3 stays fixed under any configuration).
+func TestIndicatorPeriods156LongerTermDefaultsReproduceFixedData(t *testing.T) {
+	kl := fx156Klines(120)
+	def := calculateLongerTermData(kl)
+	if explicit := calculateLongerTermData(kl, DefaultIndicatorPeriods()); !reflect.DeepEqual(def, explicit) {
+		t.Fatal("default longer-term build differs from the explicit-default build")
+	}
+	if def.EMA20 != calculateEMA(kl, 20) || def.EMA50 != calculateEMA(kl, 50) {
+		t.Errorf("longer-term EMA = %v/%v, want fixed 20/50", def.EMA20, def.EMA50)
+	}
+	if def.ATR14 != calculateATR(kl, 14) || def.ATR3 != calculateATR(kl, 3) {
+		t.Errorf("longer-term ATR = %v/%v, want fixed 14/3", def.ATR14, def.ATR3)
+	}
+	if got, want := def.RSI14Values[len(def.RSI14Values)-1], calculateRSI(kl, 14); got != want {
+		t.Errorf("longer-term RSI14 last = %v, want %v", got, want)
+	}
+}
+
+func TestIndicatorPeriods156LongerTermConfiguredPeriods(t *testing.T) {
+	kl := fx156Klines(120)
+	p := IndicatorPeriods{EMA: []int{9, 21}, RSI: []int{7, 21}, ATR: []int{7}}
+	d := calculateLongerTermData(kl, p)
+	if d.EMA20 != calculateEMA(kl, 9) || d.EMA50 != calculateEMA(kl, 21) {
+		t.Errorf("longer-term EMA slots = %v/%v, want EMA9/EMA21", d.EMA20, d.EMA50)
+	}
+	if d.ATR14 != calculateATR(kl, 7) {
+		t.Errorf("longer-term ATR slot = %v, want ATR7 %v", d.ATR14, calculateATR(kl, 7))
+	}
+	// ATR3 has no configuration counterpart and stays fixed.
+	if d.ATR3 != calculateATR(kl, 3) {
+		t.Errorf("longer-term ATR3 = %v, want fixed ATR3 %v", d.ATR3, calculateATR(kl, 3))
+	}
+	if got, want := d.RSI14Values[len(d.RSI14Values)-1], calculateRSI(kl, 21); got != want {
+		t.Errorf("longer-term RSI slot last = %v, want RSI21 %v", got, want)
+	}
+	// A single configured EMA period leaves EMA50 unset.
+	if single := calculateLongerTermData(kl, IndicatorPeriods{EMA: []int{9}}); single.EMA50 != 0 || single.EMA20 != calculateEMA(kl, 9) {
+		t.Errorf("single-EMA longer-term = %v/%v, want EMA9/0", single.EMA20, single.EMA50)
+	}
+}
+
+// BuildDataFromKlines threads the option into both legacy builders, and
+// without it reproduces the no-period builds.
+func TestIndicatorPeriods156BuildDataFromKlinesThreadsOption(t *testing.T) {
+	kl := fx156Klines(120)
+	p := IndicatorPeriods{EMA: []int{9}, RSI: []int{21}, ATR: []int{7}}
+	d, err := BuildDataFromKlines("PERUSDT", kl, kl, WithIndicatorPeriods(p))
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if got := d.IntradaySeries.EMA20Values[len(d.IntradaySeries.EMA20Values)-1]; got != calculateEMA(kl, 9) {
+		t.Errorf("intraday EMA not threaded: %v", got)
+	}
+	if d.LongerTermContext == nil || d.LongerTermContext.ATR14 != calculateATR(kl, 7) {
+		t.Errorf("longer-term ATR not threaded: %+v", d.LongerTermContext)
+	}
+	def, err := BuildDataFromKlines("PERUSDT", kl, kl)
+	if err != nil {
+		t.Fatalf("default build: %v", err)
+	}
+	if !reflect.DeepEqual(def.IntradaySeries, calculateIntradaySeries(kl)) ||
+		!reflect.DeepEqual(def.LongerTermContext, calculateLongerTermData(kl)) {
+		t.Error("default BuildDataFromKlines differs from the no-period builder output")
+	}
+}
+
 func TestIndicatorPeriods156Effective(t *testing.T) {
 	got := IndicatorPeriods{EMA: []int{0, 9, 9, -1, 21}, RSI: nil}.Effective()
 	want := IndicatorPeriods{EMA: []int{9, 21}, RSI: []int{7, 14}, ATR: []int{14}, BOLL: []int{20}}

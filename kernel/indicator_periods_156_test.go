@@ -59,6 +59,70 @@ func TestIndicatorPeriods156DefaultPromptUnchanged(t *testing.T) {
 	}
 }
 
+// fx156LegacyData builds old-format data (intraday + longer-term, no
+// timeframe map) with the engine's periods threaded through.
+func fx156LegacyData(t *testing.T, e *StrategyEngine) *market.Data {
+	t.Helper()
+	kl := make([]market.Kline, 120)
+	for i := range kl {
+		c := 100 + 5*math.Sin(float64(i)/4) + float64(i)*0.1
+		kl[i] = market.Kline{OpenTime: int64(i) * 180_000, Open: c - 0.3, High: c + 1, Low: c - 1, Close: c, Volume: 1000 + float64(i)}
+	}
+	d, err := market.BuildDataFromKlines("PERUSDT", kl, kl, e.IndicatorPeriodsOption())
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	return d
+}
+
+func fx156LegacyEngine(ind func(*store.IndicatorConfig)) *StrategyEngine {
+	return fx156Engine(func(c *store.IndicatorConfig) {
+		c.EnableMACD, c.EnableVolume, c.Klines.EnableMultiTimeframe = true, true, true
+		if ind != nil {
+			ind(c)
+		}
+	})
+}
+
+// #156 fix-up: with the default periods the legacy intraday / longer-term
+// block keeps the pre-#156 labels verbatim.
+func TestIndicatorPeriods156LegacyPromptDefaults(t *testing.T) {
+	e := fx156LegacyEngine(nil)
+	out := e.formatMarketData(fx156LegacyData(t, e))
+	for _, want := range []string{
+		"EMA indicators (20-period):", "RSI indicators (7-Period):", "RSI indicators (14-Period):",
+		"3m ATR (14-period):", "20-Period EMA:", "vs. 50-Period EMA:", "3-Period ATR:", "vs. 14-Period ATR:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("default legacy block lacks %q", want)
+		}
+	}
+}
+
+// #156 fix-up: with configured periods the legacy labels name the periods
+// the series were computed with, not the old fixed ones.
+func TestIndicatorPeriods156LegacyPromptConfigured(t *testing.T) {
+	e := fx156LegacyEngine(func(ind *store.IndicatorConfig) {
+		ind.EMAPeriods, ind.RSIPeriods, ind.ATRPeriods = []int{9}, []int{21}, []int{7}
+	})
+	out := e.formatMarketData(fx156LegacyData(t, e))
+	for _, want := range []string{
+		"EMA indicators (9-period):", "RSI indicators (21-Period):", "3m ATR (7-period):",
+		"9-Period EMA:", "vs. 7-Period ATR:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("configured legacy block lacks %q:\n%s", want, out)
+		}
+	}
+	for _, gone := range []string{
+		"EMA indicators (20-period)", "50-Period EMA", "RSI indicators (14-Period)", "3m ATR (14-period)",
+	} {
+		if strings.Contains(out, gone) {
+			t.Errorf("configured legacy block still prints %q", gone)
+		}
+	}
+}
+
 // A non-default configuration changes both the series and the prompt, and
 // the system prompt's indicator list names exactly the computed periods.
 func TestIndicatorPeriods156ConfiguredPromptMatchesSeries(t *testing.T) {

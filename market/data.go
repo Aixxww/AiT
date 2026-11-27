@@ -29,8 +29,11 @@ func Get(symbol string) (*Data, error) {
 	return GetWithExchange(symbol, "binance")
 }
 
-// GetWithExchange retrieves market data for the specified token using exchange-specific data
-func GetWithExchange(symbol, exchange string) (*Data, error) {
+// GetWithExchange retrieves market data for the specified token using exchange-specific data.
+// The optional DataOptions carry the indicator periods (#156) for the
+// intraday and longer-term series; without them the defaults apply.
+func GetWithExchange(symbol, exchange string, opts ...DataOption) (*Data, error) {
+	opt := resolveDataOptions(opts)
 	var klines3m, klines4h []Kline
 	var err error
 	// Normalize symbol
@@ -120,10 +123,10 @@ func GetWithExchange(symbol, exchange string) (*Data, error) {
 	fundingRate, _ := getFundingRate(symbol)
 
 	// Calculate intraday series data
-	intradayData := calculateIntradaySeries(klines3m)
+	intradayData := calculateIntradaySeries(klines3m, opt.periods)
 
 	// Calculate longer-term data
-	longerTermData := calculateLongerTermData(klines4h)
+	longerTermData := calculateLongerTermData(klines4h, opt.periods)
 
 	return &Data{
 		Symbol:            symbol,
@@ -711,7 +714,10 @@ func parseFloat(v interface{}) (float64, error) {
 }
 
 // BuildDataFromKlines constructs market data snapshot from preloaded K-line series.
-func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data, error) {
+// The optional DataOptions carry the indicator periods (#156) for the
+// intraday and longer-term series; without them the defaults apply.
+func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline, opts ...DataOption) (*Data, error) {
+	opt := resolveDataOptions(opts)
 	if len(primary) == 0 {
 		return nil, fmt.Errorf("primary series is empty")
 	}
@@ -730,12 +736,12 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 		PriceChange4h:     priceChangeFromSeries(primary, 4*time.Hour),
 		OpenInterest:      &OIData{Latest: 0, Average: 0},
 		FundingRate:       0,
-		IntradaySeries:    calculateIntradaySeries(primary),
+		IntradaySeries:    calculateIntradaySeries(primary, opt.periods),
 		LongerTermContext: nil,
 	}
 
 	if len(longer) > 0 {
-		data.LongerTermContext = calculateLongerTermData(longer)
+		data.LongerTermContext = calculateLongerTermData(longer, opt.periods)
 	}
 
 	return data, nil

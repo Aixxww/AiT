@@ -1724,7 +1724,16 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 		}
 	} else {
-		// Compatible with old data format
+		// Compatible with old data format. #156: the legacy series carry
+		// the configured periods in their fixed slots (see
+		// market.calculateIntradaySeries / calculateLongerTermData), so
+		// the labels below name the engine's effective periods; with the
+		// defaults they reproduce the pre-#156 strings exactly.
+		periods := e.IndicatorPeriods()
+		rsiSecondaryLabel := 14
+		if len(periods.RSI) > 1 {
+			rsiSecondaryLabel = periods.RSI[1]
+		}
 		if data.IntradaySeries != nil {
 			klineConfig := indicators.Klines
 			sb.WriteString(fmt.Sprintf("Intraday series (%s intervals, oldest → latest):\n\n", klineConfig.PrimaryTimeframe))
@@ -1734,7 +1743,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableEMA && len(data.IntradaySeries.EMA20Values) > 0 {
-				sb.WriteString(fmt.Sprintf("EMA indicators (20-period): %s\n\n", formatFloatSlice(data.IntradaySeries.EMA20Values)))
+				sb.WriteString(fmt.Sprintf("EMA indicators (%d-period): %s\n\n", periods.EMA[0], formatFloatSlice(data.IntradaySeries.EMA20Values)))
 			}
 
 			if indicators.EnableMACD && len(data.IntradaySeries.MACDValues) > 0 {
@@ -1743,10 +1752,10 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 
 			if indicators.EnableRSI {
 				if len(data.IntradaySeries.RSI7Values) > 0 {
-					sb.WriteString(fmt.Sprintf("RSI indicators (7-Period): %s\n\n", formatFloatSlice(data.IntradaySeries.RSI7Values)))
+					sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", periods.RSI[0], formatFloatSlice(data.IntradaySeries.RSI7Values)))
 				}
 				if len(data.IntradaySeries.RSI14Values) > 0 {
-					sb.WriteString(fmt.Sprintf("RSI indicators (14-Period): %s\n\n", formatFloatSlice(data.IntradaySeries.RSI14Values)))
+					sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", rsiSecondaryLabel, formatFloatSlice(data.IntradaySeries.RSI14Values)))
 				}
 			}
 
@@ -1755,7 +1764,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableATR {
-				sb.WriteString(fmt.Sprintf("3m ATR (14-period): %.3f\n\n", data.IntradaySeries.ATR14))
+				sb.WriteString(fmt.Sprintf("3m ATR (%d-period): %.3f\n\n", periods.ATR[0], data.IntradaySeries.ATR14))
 			}
 		}
 
@@ -1763,13 +1772,20 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			sb.WriteString(fmt.Sprintf("Longer-term context (%s timeframe):\n\n", indicators.Klines.LongerTimeframe))
 
 			if indicators.EnableEMA {
-				sb.WriteString(fmt.Sprintf("20-Period EMA: %.3f vs. 50-Period EMA: %.3f\n\n",
-					data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
+				if len(periods.EMA) > 1 {
+					sb.WriteString(fmt.Sprintf("%d-Period EMA: %.3f vs. %d-Period EMA: %.3f\n\n",
+						periods.EMA[0], data.LongerTermContext.EMA20, periods.EMA[1], data.LongerTermContext.EMA50))
+				} else {
+					// Only one EMA period configured: EMA50 carries no
+					// series, so there is no pair to print.
+					sb.WriteString(fmt.Sprintf("%d-Period EMA: %.3f\n\n",
+						periods.EMA[0], data.LongerTermContext.EMA20))
+				}
 			}
 
 			if indicators.EnableATR {
-				sb.WriteString(fmt.Sprintf("3-Period ATR: %.3f vs. 14-Period ATR: %.3f\n\n",
-					data.LongerTermContext.ATR3, data.LongerTermContext.ATR14))
+				sb.WriteString(fmt.Sprintf("3-Period ATR: %.3f vs. %d-Period ATR: %.3f\n\n",
+					data.LongerTermContext.ATR3, periods.ATR[0], data.LongerTermContext.ATR14))
 			}
 
 			if indicators.EnableVolume {
@@ -1782,7 +1798,7 @@ func (e *StrategyEngine) formatMarketData(data *market.Data) string {
 			}
 
 			if indicators.EnableRSI && len(data.LongerTermContext.RSI14Values) > 0 {
-				sb.WriteString(fmt.Sprintf("RSI indicators (14-Period): %s\n\n", formatFloatSlice(data.LongerTermContext.RSI14Values)))
+				sb.WriteString(fmt.Sprintf("RSI indicators (%d-Period): %s\n\n", rsiSecondaryLabel, formatFloatSlice(data.LongerTermContext.RSI14Values)))
 			}
 		}
 	}
