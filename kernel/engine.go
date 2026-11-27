@@ -220,10 +220,13 @@ type Context struct {
 	OIRankingData      *aitos.OIRankingData               `json:"-"` // Market-wide OI ranking data
 	NetFlowRankingData *aitos.NetFlowRankingData          `json:"-"` // Market-wide fund flow ranking data
 	PriceRankingData   *aitos.PriceRankingData            `json:"-"` // Market-wide price gainers/losers
-	BTCETHLeverage     int                                `json:"-"`
-	AltcoinLeverage    int                                `json:"-"`
-	Timeframes         []string                           `json:"-"`
-	MarketEnv          *market.MarketEnvironment          `json:"-"` // Market regime (ADX-based)
+	// ExternalData (#157) holds this cycle's indicators.external_data_sources
+	// values by source name (nil = none configured).
+	ExternalData    map[string]interface{}    `json:"-"`
+	BTCETHLeverage  int                       `json:"-"`
+	AltcoinLeverage int                       `json:"-"`
+	Timeframes      []string                  `json:"-"`
+	MarketEnv       *market.MarketEnvironment `json:"-"` // Market regime (ADX-based)
 	// PromptTime is the prompt build time: the hybrid_v2 payload (U11)
 	// splits closed from unfinished bars at it. Zero = time.Now().
 	PromptTime time.Time `json:"-"`
@@ -596,6 +599,8 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 		if coinSource.Hunter != nil && coinSource.Hunter.MinOIValue > 0 {
 			cfg.MinOIValue = coinSource.Hunter.MinOIValue
 		}
+		params := local.ResolveHunterParams(coinSource.Hunter) // #155
+		cfg.Params = &params
 		scores := local.ScoreHunterFromSnapshot(snap, cfg)
 		candidates = e.hunterScoresToCandidateCoins(scores, coinSource.HunterDirection)
 		if coinSource.SourceType == "hunter_sniff" {
@@ -2473,7 +2478,28 @@ func (e *StrategyEngine) filterSniffCandidates(candidates []CandidateCoin, sniff
 		}
 	}
 	logger.Infof("🔍 Hunter Sniff (snapshot): %d/%d candidates passed threshold", len(filtered), len(candidates))
-	return filtered
+	return applySniffStrictSqueeze(filtered, snifferCfg)
+}
+
+// applySniffStrictSqueeze is the opt-in hunter_sniffer.strict_squeeze gate
+// (#157): with it on, a sniff candidate must carry bb_squeeze_15m on its
+// direction's tags (or its signal tags). Off (default) = unchanged.
+func applySniffStrictSqueeze(candidates []CandidateCoin, snifferCfg *store.SnifferConfig) []CandidateCoin {
+	if snifferCfg == nil || !snifferCfg.StrictSqueeze {
+		return candidates
+	}
+	kept := candidates[:0:0]
+	for _, cc := range candidates {
+		tags := cc.LongTags
+		if cc.Direction == "SHORT" {
+			tags = cc.ShortTags
+		}
+		if containsStringValue(tags, "bb_squeeze_15m") || containsStringValue(cc.SignalTags, "bb_squeeze_15m") {
+			kept = append(kept, cc)
+		}
+	}
+	logger.Infof("🔍 Hunter Sniff strict_squeeze: %d/%d candidates carry bb_squeeze_15m", len(kept), len(candidates))
+	return kept
 }
 
 // ============================================================================
@@ -3043,7 +3069,7 @@ func (e *StrategyEngine) getHunterSniffCoins(limit int, snifferCfg *store.Sniffe
 	logger.Infof("🔍 Hunter Sniff: %d candidates (LONG_AMBUSH: %d, SHORT_DIST: %d) from %d scanned",
 		len(candidates), snifferResult.Stats.LongPassed, snifferResult.Stats.ShortPassed, snifferResult.Stats.TotalScanned)
 
-	return candidates, nil
+	return applySniffStrictSqueeze(candidates, snifferCfg), nil
 }
 
 func (e *StrategyEngine) getOITopCoins(limit int) ([]CandidateCoin, error) {

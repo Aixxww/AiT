@@ -678,6 +678,9 @@ func (e *StrategyEngine) BuildUserPrompt(ctx *Context) string {
 		sb.WriteString(aitos.FormatPriceRankingForAI(ctx.PriceRankingData, aitosLang))
 	}
 
+	// #157: strategy-configured external data sources.
+	sb.WriteString(formatExternalDataSection(ctx.ExternalData))
+
 	sb.WriteString("---\n\n")
 	sb.WriteString("Now output a concise decision audit and the decision JSON.\n")
 

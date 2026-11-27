@@ -717,6 +717,12 @@ func parseFloat(v interface{}) (float64, error) {
 // The optional DataOptions carry the indicator periods (#156) for the
 // intraday and longer-term series; without them the defaults apply.
 func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline, opts ...DataOption) (*Data, error) {
+	return BuildDataFromKlinesWithLongerCount(symbol, primary, longer, DefaultLongerCount, opts...)
+}
+
+// BuildDataFromKlinesWithLongerCount is BuildDataFromKlines with the number
+// of longer-timeframe series points (indicators.klines.longer_count, #157).
+func BuildDataFromKlinesWithLongerCount(symbol string, primary []Kline, longer []Kline, longerCount int, opts ...DataOption) (*Data, error) {
 	opt := resolveDataOptions(opts)
 	if len(primary) == 0 {
 		return nil, fmt.Errorf("primary series is empty")
@@ -741,7 +747,7 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline, opts ..
 	}
 
 	if len(longer) > 0 {
-		data.LongerTermContext = calculateLongerTermData(longer, opt.periods)
+		data.LongerTermContext = calculateLongerTermDataN(longer, longerCount, opt.periods)
 	}
 
 	return data, nil
