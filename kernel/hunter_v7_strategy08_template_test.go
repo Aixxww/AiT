@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -113,4 +114,73 @@ func TestStrategy08TemplateRenderedPrompts(t *testing.T) {
 	assertNotContains173(t, "strategy-08 en system prompt", sysEN,
 		"# Hunter v7 Strategy Execution Framework (Five Segments)",
 	)
+}
+
+// Evidence-weight rework (owner decision 2026-11-28, after the replay
+// evaluation showed family-checklist magnitudes acting as a second hard
+// gate behind the #173 passthrough adjudication): checklist magnitudes
+// are reference magnitudes that weigh the evidence, never admission
+// gates. The numeric reference values stay; only their normative force
+// changes. The conditional-entry reading (steps 3-4) and the risk
+// controls are untouched by the rework.
+func TestStrategy08TemplateEvidenceWeights(t *testing.T) {
+	cfg := loadStrategyTemplate(t, strategyTemplateFamilyChecklists)
+	ps := cfg.PromptSections
+	es, dp := ps.EntryStandards, ps.DecisionProcess
+
+	// (a) The evidence-weight rule is stated where the checklists are
+	// introduced and mirrored in decision_process step 2, the step that
+	// consumes the checklists.
+	assertContains173(t, "strategy-08 entry_standards weight rule", es,
+		"均为参考量级，是证据权重（evidence weights），不是准入门槛",
+		"Checklist magnitudes are evidence weights, not admission gates: no candidate may be rejected solely because one magnitude falls below its reference value; rejection must cite the totality of the evidence.",
+		"凡以量级不足为由 wait，理由中必须点名该量级短板，并说明其余证据为何不足以补偿",
+		"按量级权重口径综合判断，不作单独证伪",
+	)
+	assertContains173(t, "strategy-08 decision_process weight rule", dp,
+		"清单中的量级是证据权重、不是准入门槛（checklist magnitudes are evidence weights, not admission gates）",
+		"不得仅因单个量级未达参考值就否决候选",
+		"以量级不足为由 wait 时，必须点名该量级并说明其余证据为何不足以补偿",
+	)
+	sysZH := renderTemplateSystemPrompt(cfg, "zh")
+	assertContains173(t, "strategy-08 zh system prompt weight rule", sysZH,
+		"Checklist magnitudes are evidence weights, not admission gates",
+	)
+
+	// (b) No hard-gate phrasing for magnitudes survives in the checklist
+	// sections: neither the old machine-gate framing, nor requirement
+	// verbs on a magnitude, nor a magnitude mapped straight to a
+	// blocked_reason_code.
+	assertNotContains173(t, "strategy-08 entry_standards hard gates", es,
+		"数值均为与机器门同数量级的量级读数",
+		"volatility_squeeze 要求 oi_change_last_1h_pct",
+		"起为有效冲洗",
+		"OI 增长达标",
+		"short_squeeze 的 24h 涨幅未达 +25% 量级透支区",
+		"accumulation 型 24h 涨幅已 > +8% 量级 → confirmation_missing",
+		"或 1h 涨跌幅进入极端区 → confirmation_missing",
+		"mms_squeeze_engine 型 rsi14(1h) ≥ 82 量级或 24h 涨幅 > +35% 量级 → confirmation_missing",
+		"panic 24h 跌幅深于 −45% 量级（崩盘而非投降）→ confirmation_missing",
+		"breakdown 1h 跌幅深于 −12% 量级（已耗尽）→ confirmation_missing",
+		"displacement 1h 涨幅 > +12% 量级，或现价远离 15m ema20 进入追价区且无回踩 → confirmation_missing",
+		"displacement funding > +0.1%/结算 → funding_crowded",
+		"range_reversion OI 单向爆量（|oi_change_last_1h_pct| > 10% 量级）→ confirmation_missing",
+		"mms_bottom_wake 4h 收盘涨幅 ≥ +6% 或跌幅 ≤ −2.5% 量级 → confirmation_missing",
+		"mms_bottom_wake 4h OI 量级超出 +45% → confirmation_missing",
+		"oi_change_last_1h_pct < +5% 量级 → oi_too_low",
+		"|funding| 超出中性区 → funding_crowded",
+	)
+
+	// The numeric reference values themselves are preserved — only
+	// their normative force changed.
+	assertContains173(t, "strategy-08 entry_standards reference values kept", es,
+		"−15%~−45%", "−12%", "+8%", "+25%", "+35%", "−12%",
+		"+0.1%/结算", "10% 量级", "+45%", "+5% 量级",
+	)
+
+	// (c) risk_control still deep-equals strategy-07's, value for value.
+	cfg07 := loadStrategyTemplate(t, strategyTemplateRedesigned)
+	if !reflect.DeepEqual(cfg.RiskControl, cfg07.RiskControl) {
+		t.Fatalf("strategy-08 risk_control drifted from strategy-07:\n08: %+v\n07: %+v", cfg.RiskControl, cfg07.RiskControl)
+	}
 }
