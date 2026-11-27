@@ -783,6 +783,96 @@ func (at *AutoTrader) enforceMaxPositions(currentPositionCount int) error {
 	return nil
 }
 
+// Reason codes for the max margin usage gate (#159). They are embedded in
+// the rejection error so they land in the decision record and the log like
+// the other risk rejections.
+const (
+	marginUsageExceededCode        = "margin_usage_exceeded"
+	marginUsageDataUnavailableCode = "margin_usage_data_unavailable"
+)
+
+// accountMarginFigures extracts the account-level figures the margin usage
+// gate needs from a trader balance map (the map GetBalance already returns
+// to the open path; no extra exchange call is made). Equity is the
+// account-level margin balance: totalEquity when the adapter provides it,
+// else totalWalletBalance + totalUnrealizedProfit (the derivation
+// auto_trader_decision.go uses). Used margin is the adapter's
+// totalInitialMargin when provided (Binance and Aster expose it from the
+// same account response), else equity - availableBalance, which on
+// cross-margin accounts equals the initial margin locked by positions and
+// open orders. ok is false when the figures cannot be obtained or are
+// inconsistent, so the caller can fail closed.
+func accountMarginFigures(balance map[string]interface{}) (usedMargin, equity float64, ok bool) {
+	if balance == nil {
+		return 0, 0, false
+	}
+	if eq, isFloat := balance["totalEquity"].(float64); isFloat && eq > 0 {
+		equity = eq
+	} else if wallet, isFloat := balance["totalWalletBalance"].(float64); isFloat {
+		upl, _ := balance["totalUnrealizedProfit"].(float64)
+		equity = wallet + upl
+	}
+	if equity <= 0 {
+		return 0, 0, false
+	}
+	if im, isFloat := balance["totalInitialMargin"].(float64); isFloat {
+		if im < 0 {
+			return 0, 0, false
+		}
+		return im, equity, true
+	}
+	avail, isFloat := balance["availableBalance"].(float64)
+	if !isFloat {
+		return 0, 0, false
+	}
+	used := equity - avail
+	if used < 0 {
+		return 0, 0, false
+	}
+	return used, equity, true
+}
+
+// enforceMaxMarginUsage checks the strategy's max_margin_usage limit
+// (CODE ENFORCED, #159): before opening a position, the projected account
+// margin usage after the order — (current used margin + the new position's
+// initial margin) / account equity — must not exceed the limit. The new
+// position's initial margin is positionSizeUSD / leverage, the same
+// derivation the open path's affordability check uses. A configured value
+// of 0 or negative disables the gate. The gate fails closed: when the
+// account figures cannot be obtained it rejects with
+// margin_usage_data_unavailable instead of silently skipping the check.
+// It is only called from the open executors; closes, stop-loss and
+// take-profit paths never consult it.
+func (at *AutoTrader) enforceMaxMarginUsage(balance map[string]interface{}, positionSizeUSD float64, leverage int) error {
+	if at.config.StrategyConfig == nil {
+		return nil
+	}
+
+	maxMarginUsage := at.resolved().MaxMarginUsage
+	if maxMarginUsage <= 0 {
+		return nil // 0 or negative disables the gate
+	}
+
+	if leverage <= 0 || positionSizeUSD < 0 {
+		return fmt.Errorf("❌ [RISK CONTROL] %s: cannot compute the new position's initial margin (size %.2f USD, leverage %d)",
+			marginUsageDataUnavailableCode, positionSizeUSD, leverage)
+	}
+
+	usedMargin, equity, ok := accountMarginFigures(balance)
+	if !ok {
+		return fmt.Errorf("❌ [RISK CONTROL] %s: account margin/equity figures unavailable, blocking open (fail closed)",
+			marginUsageDataUnavailableCode)
+	}
+
+	newInitialMargin := positionSizeUSD / float64(leverage)
+	projectedUsage := (usedMargin + newInitialMargin) / equity
+	if projectedUsage > maxMarginUsage {
+		return fmt.Errorf("❌ [RISK CONTROL] %s: projected margin usage %.1f%% (used %.2f + new initial margin %.2f) / equity %.2f exceeds max_margin_usage %.1f%%",
+			marginUsageExceededCode, projectedUsage*100, usedMargin, newInitialMargin, equity, maxMarginUsage*100)
+	}
+	return nil
+}
+
 func (at *AutoTrader) isHunterV7Strategy() bool {
 	if at == nil || at.config.StrategyConfig == nil {
 		return false

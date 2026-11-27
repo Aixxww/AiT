@@ -262,7 +262,7 @@ export interface RiskControlConfig {
   altcoin_max_position_value_ratio?: number // default: 1 (Altcoin max position = 1x equity)
 
   // Risk Parameters
-  max_margin_usage: number // Max margin utilization, e.g. 0.9 = 90% (CODE ENFORCED)
+  max_margin_usage: number // Max margin utilization, e.g. 0.9 = 90% (CODE ENFORCED; 0 or negative disables the gate)
   min_position_size: number // Min position size in USDT (CODE ENFORCED)
   min_risk_reward_ratio: number // Min take_profit / stop_loss ratio (AI guided)
   min_confidence: number // Min AI confidence to open position (CODE ENFORCED: a lower-confidence open is rejected)

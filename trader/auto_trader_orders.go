@@ -295,6 +295,13 @@ func (at *AutoTrader) executeOpenLongWithRecord(ctx *kernel.Context, decision *k
 		positionWasReduced = positionWasReduced || reduced
 	}
 
+	// [CODE ENFORCED] #159: max margin usage gate on the final position
+	// size, using the balance figures already fetched above.
+	if err := at.enforceMaxMarginUsage(balance, actualPositionSize, decision.Leverage); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "long")
+		return err
+	}
+
 	// Calculate quantity with adjusted position size
 	quantity := actualPositionSize / executionPrice
 	actionRecord.Quantity = quantity
@@ -443,6 +450,13 @@ func (at *AutoTrader) executeOpenShortWithRecord(ctx *kernel.Context, decision *
 	} else {
 		actualPositionSize = size
 		positionWasReduced = positionWasReduced || reduced
+	}
+
+	// [CODE ENFORCED] #159: max margin usage gate on the final position
+	// size, using the balance figures already fetched above.
+	if err := at.enforceMaxMarginUsage(balance, actualPositionSize, decision.Leverage); err != nil {
+		at.recordEffectiveOpenContract(actionRecord, decision, executionPrice, 0, requestedPositionSize, tpWasCapped, positionWasReduced, "short")
+		return err
 	}
 
 	// Calculate quantity with adjusted position size

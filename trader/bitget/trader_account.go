@@ -58,6 +58,9 @@ func (t *BitgetTrader) GetBalance() (map[string]interface{}, error) {
 		"availableBalance":      availableBalance,
 		"totalUnrealizedProfit": unrealizedPnL,
 		"total_equity":          totalEquity,
+		// #159: canonical camelCase key the risk gates read (the snake_case
+		// key above predates it and is kept for existing consumers).
+		"totalEquity": totalEquity,
 	}
 
 	// Update cache

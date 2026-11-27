@@ -120,7 +120,7 @@ type ResolvedValue struct {
 	Limit      string       `json:"limit,omitempty"`
 	Note       string       `json:"note,omitempty"`
 	// Enforced=false marks a value that is shown to the LLM but not
-	// enforced in execution (max_margin_usage).
+	// enforced in execution.
 	Enforced *bool `json:"enforced,omitempty"`
 }
 
@@ -162,7 +162,7 @@ type ResolvedHunterV7 struct {
 	MinPositionSizeUSD        float64
 	BTCETHMaxLeverage         int // 0 = no cap in the trader (§5.3 item 5)
 	AltcoinMaxLeverage        int
-	MaxMarginUsage            float64 // prompt-only, NOT enforced
+	MaxMarginUsage            float64 // enforced by the trader's pre-open margin gate (#159); 0 = disabled
 
 	// Cooldowns.
 	FailedOpenCooldownCycles int // 0 = off
@@ -356,9 +356,8 @@ func ResolveHunterV7(cfg *StrategyConfig) ResolvedHunterV7 {
 	out.BTCETHMaxLeverage = lev("btc_eth_max_leverage", rc.BTCETHMaxLeverage)
 	out.AltcoinMaxLeverage = lev("altcoin_max_leverage", rc.AltcoinMaxLeverage)
 	out.MaxMarginUsage = rc.MaxMarginUsage
-	notEnforced := false
 	out.Values = append(out.Values, ResolvedValue{Key: "max_margin_usage", Group: "sizing", Value: rc.MaxMarginUsage, Source: srcOf(rc.MaxMarginUsage > 0),
-		Note: "shown to the LLM only; no execution code enforces it (confirmed gap, owner decision)", Enforced: &notEnforced})
+		Note: "enforced by the trader before opening: projected (used margin + new initial margin) / equity must not exceed it (#159); 0 = disabled"})
 
 	// ---- Cooldowns ----
 	out.FailedOpenCooldownCycles = DefaultFailedOpenCooldownCycles

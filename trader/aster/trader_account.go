@@ -99,6 +99,7 @@ func (t *AsterTrader) GetBalance() (map[string]interface{}, error) {
 		"totalWalletBalance":    totalWalletBalance, // Wallet balance (excluding unrealized PnL)
 		"availableBalance":      availableBalance,   // Available balance
 		"totalUnrealizedProfit": realUnrealizedPnl,  // Unrealized PnL (accumulated from positions)
+		"totalInitialMargin":    totalMarginUsed,    // Account-level margin in use; read by the max_margin_usage gate (#159)
 	}, nil
 }
 
