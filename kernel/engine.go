@@ -746,7 +746,11 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 		}
 		hunterV7StampCandidateRisk(&cc, geometry)
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
-		cc.V7ConditionalEntry = cc.V7ExecutionTier == hunterV7T2MaxTier && cc.V7TierReason == hunterV7T2ConditionalReason(cc)
+		// U9 conditional entries stamp here; #162 pass-through rows stamp
+		// too, so an approved open on either is registered as a pending
+		// entry on the trigger cross instead of being sent at market.
+		cc.V7ConditionalEntry = cc.V7ExecutionTier == hunterV7T2MaxTier &&
+			(cc.V7TierReason == hunterV7T2ConditionalReason(cc) || cc.V7TierReason == hunterV7T2AwaitingTriggerPassThroughReason(cc))
 
 		if sig.Direction == local.V7DirLong {
 			cc.LongScore = sig.AIPriority
@@ -4118,7 +4122,13 @@ func hunterV7T2ReviewableStates(geometry HunterV7ExecutionGeometry) map[string][
 //   - observe-only setup (OD-5): WATCH t2_observe_only
 //   - class with no reviewable state (CONTEXT): WATCH t2_class_not_reviewable
 //   - lifecycle state reviewable for the class: REVIEWABLE t2_<class>_<state>
-//   - otherwise: WATCH t2_awaiting_trigger
+//   - conditional class before its trigger (U9, when enabled for the
+//     class): REVIEWABLE t2_<class>_conditional_<state>
+//   - otherwise: WATCH t2_awaiting_trigger — except the #162 pass-through
+//     (hunterV7T2AwaitingTriggerPassThrough): a sole-reason pre-trigger
+//     row of a price-trigger class advances to REVIEWABLE flagged
+//     t2_awaiting_trigger_passthrough_<class>_<state>, stamped as a
+//     conditional entry so its open stays gated on the trigger cross.
 //
 // The result is at most REVIEWABLE (OD-11).
 func hunterV7T2TierRule(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (string, string) {
@@ -4142,6 +4152,12 @@ func hunterV7T2TierRule(coin CandidateCoin, geometry HunterV7ExecutionGeometry) 
 	if hunterV7T2ConditionalEligible(coin, geometry) {
 		return hunterV7T2MaxTier, hunterV7T2ConditionalReason(coin)
 	}
+	// #162: a candidate whose ONLY remaining blocker is the pending
+	// trigger advances to REVIEWABLE flagged, so the LLM can adjudicate
+	// the setup while execution stays gated on the trigger cross.
+	if ok, passReason := hunterV7T2AwaitingTriggerPassThrough(coin, geometry); ok {
+		return hunterV7T2MaxTier, passReason
+	}
 	return "WATCH", "t2_awaiting_trigger"
 }
 
@@ -4158,6 +4174,90 @@ func hunterV7T2ConditionalEligible(coin CandidateCoin, geometry HunterV7Executio
 // hunterV7T2ConditionalReason is the tier reason of a conditional entry.
 func hunterV7T2ConditionalReason(coin CandidateCoin) string {
 	return "t2_" + strings.ToLower(coin.V7SignalClass) + "_conditional_" + strings.ToLower(coin.V7LifecycleState)
+}
+
+// hunterV7T2AwaitingTriggerPassThroughReason is the tier reason (the
+// payload flag) of a #162 pass-through: it names the mechanism, the
+// signal class and the pending lifecycle state, so records and the LLM
+// payload can tell a pre-trigger pass-through apart from a U9
+// conditional entry and from a natively reviewable row.
+func hunterV7T2AwaitingTriggerPassThroughReason(coin CandidateCoin) string {
+	return "t2_awaiting_trigger_passthrough_" + strings.ToLower(coin.V7SignalClass) + "_" + strings.ToLower(coin.V7LifecycleState)
+}
+
+// hunterV7T2AwaitingTriggerPassThrough implements #162: a Task-2
+// candidate whose ONLY remaining blocker is its pending trigger (the
+// tier rules reached the end of hunterV7T2TierRule: every shared
+// reject / wait check passed, the class is classified and not
+// observe-only, and no reviewable lifecycle state matched) advances to
+// REVIEWABLE, flagged "t2_awaiting_trigger_passthrough_<class>_<state>",
+// so the LLM adjudicates the setup instead of never seeing it.
+//
+// Why the promotion cannot open early (verified, not assumed — the
+// #161 lesson): nothing downstream re-reads the lifecycle state (the
+// trader never references V7LifecycleState, and T2 candidates carry no
+// required confirmations for the execution guard to recheck), so a
+// plain REVIEWABLE verdict would be opened at market the moment the
+// LLM approves it. The one trigger-enforcing channel is the U9
+// conditional-entry machinery, and it engages only for candidates
+// stamped V7ConditionalEntry. The assembly stamp therefore also
+// accepts this pass-through reason (see AssembleHunterV7CandidateCoins):
+// the candidate's execution contract reads "conditional_on_trigger"
+// with its trigger price, an approved open is registered as a pending
+// entry that fires only on a completed 1m close through the trigger
+// (invalidation touch cancels, MaxPendingMinutes expires, the execution
+// guard re-runs at fire time), and while conditional entry is disabled
+// in the strategy config the registration fails closed — the open is
+// rejected, never sent at market.
+//
+// Bounds (each keeps the pre-#162 outcome byte-identical):
+//   - Price-trigger classes only (TRIGGER, REVERSAL): their pending
+//     condition is a price level the conditional machinery can enforce
+//     (coin.V7TriggerPrice, the recorded entry). IMPULSE is excluded:
+//     its WATCH state is a score admission gate (the alert score), not
+//     a price trigger, and U9 conditional entry is a TRIGGER-class
+//     design; CONTEXT never reaches this branch.
+//   - Pre-trigger lifecycle states only (WATCH, ARMED). A TRIGGERED row
+//     held only because a strategy override narrowed the class's
+//     reviewable states is not passed through: its trigger already
+//     fired, so a conditional deferral would be wrong.
+//   - A trigger price must be present; without one the conditional
+//     registration cannot engage, so the row stays WATCH.
+//   - Shadow-only rows never pass through, so their outcomes
+//     (class_shadow_only when promoted by a reviewable state,
+//     t2_awaiting_trigger otherwise) stay byte-identical.
+//   - Rows an outer cap in classifyHunterV7CandidateTierWithGeometry
+//     would demote straight back to WATCH (correlation-floor context
+//     tag; backend-capped RR below its floor or not computable):
+//     promoting them only to be capped would rewrite their WATCH
+//     reason to the cap's reason. (The HTF cap needs no such guard:
+//     Task-2 setup types are not in the HTF family table, so it can
+//     never touch a T2 row.)
+//   - The probe hygiene of #161: never inside the #103 missing-data
+//     optimistic evaluation or the #161 confirmations probe.
+func hunterV7T2AwaitingTriggerPassThrough(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (bool, string) {
+	if coin.v7AssumeMissingDataPasses || coin.v7AssumeConfirmationsPass {
+		return false, ""
+	}
+	if coin.V7ClassAdmission == store.V7AdmissionShadowOnly {
+		return false, ""
+	}
+	if containsStringValue(coin.V7RiskTags, local.V7CorrelationFloorContextTag) {
+		return false, ""
+	}
+	if rr, floor, ok := hunterV7BackendCappedRR(coin, geometry); !ok || rr < floor {
+		return false, ""
+	}
+	if coin.V7SignalClass != store.V7ClassTrigger && coin.V7SignalClass != store.V7ClassReversal {
+		return false, ""
+	}
+	if !strings.EqualFold(coin.V7LifecycleState, store.V7T2StateWatch) && !strings.EqualFold(coin.V7LifecycleState, store.V7T2StateArmed) {
+		return false, ""
+	}
+	if coin.V7TriggerPrice <= 0 {
+		return false, ""
+	}
+	return true, hunterV7T2AwaitingTriggerPassThroughReason(coin)
 }
 
 // hunterV7ClassRegistry returns the assembly's class registry (U6a).
