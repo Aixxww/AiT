@@ -259,6 +259,13 @@ type V7SymbolContext struct {
 	VolumeBurst5m    float64 // latest 5m volume / recent average
 	VolumeBurst15m   float64 // latest 15m volume / recent average
 	ExecutionContext *V7ExecutionContext
+	// ClosedConfirmTimeframes and ClosedVolumeBurst15m (U5/M2b) carry strictly
+	// closed-bar 5m/15m confirmation facts built from closed klines even when
+	// feature_bars="forming" (the default). Nil means caller did not build from
+	// raw klines (tests / golden replay), so confirmation falls back to
+	// ExecutionContext.Timeframes.
+	ClosedConfirmTimeframes map[string]V7ExecutionTimeframeSummary `json:"-"`
+	ClosedVolumeBurst15m    float64                                `json:"-"`
 
 	// Structural geometry (M2): GeometryMode overrides the process-wide
 	// geometry_mode flag for this symbol ("" = process default, legacy
@@ -360,13 +367,15 @@ type V7DerivativesContext struct {
 }
 
 type V7ExecutionTimeframeSummary struct {
-	Timeframe        string  `json:"timeframe"`
-	CandleCount      int     `json:"candle_count"`
-	LastClose        float64 `json:"last_close"`
-	RecentHigh3      float64 `json:"recent_high3,omitempty"`
-	RecentLow3       float64 `json:"recent_low3,omitempty"`
-	HasEMA20         bool    `json:"has_ema20"`
-	CloseVsEMA20Pct  float64 `json:"close_vs_ema20_pct,omitempty"`
+	Timeframe         string  `json:"timeframe"`
+	CandleCount       int     `json:"candle_count"`
+	LastClose         float64 `json:"last_close"`
+	LastCloseTimeUnix int64   `json:"last_close_time_unix,omitempty"`
+	RecentHigh3       float64 `json:"recent_high3,omitempty"`
+	RecentLow3        float64 `json:"recent_low3,omitempty"`
+	HasEMA20          bool    `json:"has_ema20"`
+	EMA20             float64 `json:"-"`
+	CloseVsEMA20Pct   float64 `json:"close_vs_ema20_pct,omitempty"`
 	HasATR           bool    `json:"has_atr"`
 	ATRPct           float64 `json:"atr_pct,omitempty"`
 	MinStop08ATRPct  float64 `json:"min_stop_0_8atr_pct,omitempty"`
@@ -497,6 +506,9 @@ type V7SignalOutput struct {
 
 	ExecutionReadiness *V7ExecutionReadiness `json:"execution_readiness,omitempty"`
 	ExecutionContext   *V7ExecutionContext   `json:"execution_context,omitempty"`
+	// ConfirmTimeframes (U5/M2b) carries the closed-bar 5m/15m timeframe
+	// summaries used when evaluating required confirmations.
+	ConfirmTimeframes map[string]V7ExecutionTimeframeSummary `json:"-"`
 
 	// Liquidity context for adaptive OI threshold in prompt-data filter
 	QuoteVolume24h float64 `json:"quote_volume_24h,omitempty"` // 24h quote volume (USD)

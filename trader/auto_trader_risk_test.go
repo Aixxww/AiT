@@ -852,8 +852,18 @@ func TestHunterV7ReviewableConfirmationRequiresFreshRefresh(t *testing.T) {
 	}
 
 	candidate.V7ReasonCodes = []string{"fresh_rest_confirmed", "fresh_micro_confirmed"}
+	// U5b Fix 1: fresh refresh alone must NOT waive a live-verifiable bar/trigger
+	// confirmation when closed bars / entry zone are absent (unknown verdict).
+	if err := validateHunterV7RequiredConfirmations(candidate, decision); err == nil || !strings.Contains(err.Error(), "confirmation_missing") {
+		t.Fatalf("live-verifiable confirmation without closed bars must stay blocked even after refresh, got %v", err)
+	}
+
+	candidate.V7EntryZone = local.V7PriceZone{Lower: 99, Upper: 101}
+	candidate.V7ConfirmTimeframes = map[string]local.V7ExecutionTimeframeSummary{
+		"5m": {Timeframe: "5m", LastClose: 101.5},
+	}
 	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
-		t.Fatalf("fresh reviewable confirmation should pass, got %v", err)
+		t.Fatalf("fresh reviewable confirmation with closed-bar breakout should pass, got %v", err)
 	}
 }
 

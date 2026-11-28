@@ -136,8 +136,13 @@ func cloneV7StateSignal(sig V7SignalOutput) V7SignalOutput {
 		clone.DerivativesCtx = &copy
 	}
 	if sig.ConfirmSummary != nil {
-		copy := *sig.ConfirmSummary
-		clone.ConfirmSummary = &copy
+		clone.ConfirmSummary = sig.ConfirmSummary.Clone()
+	}
+	if sig.ConfirmTimeframes != nil {
+		clone.ConfirmTimeframes = make(map[string]V7ExecutionTimeframeSummary, len(sig.ConfirmTimeframes))
+		for timeframe, summary := range sig.ConfirmTimeframes {
+			clone.ConfirmTimeframes[timeframe] = summary
+		}
 	}
 	if sig.ExecutionReadiness != nil {
 		copy := *sig.ExecutionReadiness

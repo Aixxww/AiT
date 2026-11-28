@@ -13,34 +13,100 @@ const (
 // is the resolved strategy RR floor (#108; was risk_reward_min_1_2).
 const V7ConfirmRiskRewardMinRR = "risk_reward_min_rr"
 
+// V7ConfirmBarEvidence captures the closed-bar evidence backing a trigger or
+// bar-reading confirmation verdict (U5/M2b). Attached both on individual
+// V7ConfirmationCheck items and on V7ConfirmationSummary.BarEvidence so passed
+// and failed bar/trigger confirmations are equally auditable in prompt payloads
+// and persisted signal records.
+type V7ConfirmBarEvidence struct {
+	Code             string  `json:"code,omitempty"`
+	Passed           bool    `json:"passed"`
+	Timeframe        string  `json:"timeframe,omitempty"`
+	DecidingTF       string  `json:"deciding_tf,omitempty"`
+	BarCloseTimeUnix int64   `json:"bar_close_time_unix,omitempty"`
+	BarClose         float64 `json:"bar_close,omitempty"`
+	ReferenceEdge    float64 `json:"reference_edge,omitempty"`
+	ClosedOnly       bool    `json:"closed_only"`
+}
+
 // V7ConfirmationCheck is a machine-readable confirmation result for a single
 // setup requirement. It turns free-form RequiredConfirms into measurable funnel
 // attribution without changing each setup module's scoring contract.
 type V7ConfirmationCheck struct {
-	Code      string            `json:"code"`
-	Passed    bool              `json:"passed"`
-	Actual    float64           `json:"actual,omitempty"`
-	Threshold float64           `json:"threshold,omitempty"`
-	Severity  V7ConfirmSeverity `json:"severity"`
-	Reason    string            `json:"reason,omitempty"`
+	Code      string                `json:"code"`
+	Passed    bool                  `json:"passed"`
+	Actual    float64               `json:"actual,omitempty"`
+	Threshold float64               `json:"threshold,omitempty"`
+	Severity  V7ConfirmSeverity     `json:"severity"`
+	Reason    string                `json:"reason,omitempty"`
+	Evidence  *V7ConfirmBarEvidence `json:"evidence,omitempty"`
 }
 
 // V7ConfirmationSummary captures shared entry quality and risk geometry before
 // a signal is promoted to executable/reviewable tiers.
 type V7ConfirmationSummary struct {
-	PassedHard        bool                  `json:"passed_hard"`
-	PassedReview      bool                  `json:"passed_review"`
-	MissingHard       []V7ConfirmationCheck `json:"missing_hard,omitempty"`
-	MissingReview     []V7ConfirmationCheck `json:"missing_review,omitempty"`
-	ContextChecks     []V7ConfirmationCheck `json:"context_checks,omitempty"`
-	EntryZonePosition float64               `json:"entry_zone_position,omitempty"`
-	StopDistancePct   float64               `json:"stop_distance_pct,omitempty"`
-	RewardPct         float64               `json:"reward_pct,omitempty"`
-	RR                float64               `json:"rr,omitempty"`
+	PassedHard        bool                   `json:"passed_hard"`
+	PassedReview      bool                   `json:"passed_review"`
+	MissingHard       []V7ConfirmationCheck  `json:"missing_hard,omitempty"`
+	MissingReview     []V7ConfirmationCheck  `json:"missing_review,omitempty"`
+	ContextChecks     []V7ConfirmationCheck  `json:"context_checks,omitempty"`
+	BarEvidence       []V7ConfirmBarEvidence `json:"bar_evidence,omitempty"`
+	EntryZonePosition float64                `json:"entry_zone_position,omitempty"`
+	StopDistancePct   float64                `json:"stop_distance_pct,omitempty"`
+	RewardPct         float64                `json:"reward_pct,omitempty"`
+	RR                float64                `json:"rr,omitempty"`
 	// Checklist (#133) lists the required_confirmations codes no backend
 	// layer checks (V7ConfirmMachineVerifiable false): LLM checklist items,
 	// never a reason to wait or block.
 	Checklist []string `json:"checklist,omitempty"`
+}
+
+// UpsertBarEvidence records or replaces the closed-bar evidence for ev.Code.
+func (s *V7ConfirmationSummary) UpsertBarEvidence(ev V7ConfirmBarEvidence) {
+	if s == nil || ev.Code == "" {
+		return
+	}
+	for i := range s.BarEvidence {
+		if s.BarEvidence[i].Code == ev.Code {
+			s.BarEvidence[i] = ev
+			return
+		}
+	}
+	s.BarEvidence = append(s.BarEvidence, ev)
+}
+
+// Clone returns a deep copy of the summary so callers can mutate checks,
+// evidence, or reason flags without aliasing another stage's view.
+func (s *V7ConfirmationSummary) Clone() *V7ConfirmationSummary {
+	if s == nil {
+		return nil
+	}
+	out := *s
+	out.MissingHard = cloneV7ConfirmationChecks(s.MissingHard)
+	out.MissingReview = cloneV7ConfirmationChecks(s.MissingReview)
+	out.ContextChecks = cloneV7ConfirmationChecks(s.ContextChecks)
+	if s.BarEvidence != nil {
+		out.BarEvidence = append([]V7ConfirmBarEvidence(nil), s.BarEvidence...)
+	}
+	if s.Checklist != nil {
+		out.Checklist = append([]string(nil), s.Checklist...)
+	}
+	return &out
+}
+
+func cloneV7ConfirmationChecks(checks []V7ConfirmationCheck) []V7ConfirmationCheck {
+	if checks == nil {
+		return nil
+	}
+	out := make([]V7ConfirmationCheck, len(checks))
+	for i, c := range checks {
+		if c.Evidence != nil {
+			ev := *c.Evidence
+			c.Evidence = &ev
+		}
+		out[i] = c
+	}
+	return out
 }
 
 // EvaluateV7Confirmations evaluates confirmations that can be measured from the
@@ -128,6 +194,15 @@ func EvaluateV7Confirmations(sig *V7SignalOutput, ctx *V7SymbolContext, cfg V7Co
 }
 
 func (s *V7ConfirmationSummary) addCheck(check V7ConfirmationCheck) {
+	if check.Evidence != nil {
+		ev := *check.Evidence
+		if ev.Code == "" {
+			ev.Code = check.Code
+		}
+		ev.Passed = check.Passed
+		check.Evidence = &ev
+		s.UpsertBarEvidence(ev)
+	}
 	if check.Passed {
 		if check.Severity == V7ConfirmContext {
 			s.ContextChecks = append(s.ContextChecks, check)
@@ -183,34 +258,9 @@ func evaluateV7KnownConfirmation(code string, sig *V7SignalOutput, ctx *V7Symbol
 			Reason:    "risk level or risk score is too high for direct execution",
 		}, true
 	case "5m_close_above_ema20_or_entry_zone_mid":
-		mid := v7EntryZoneMid(sig)
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    mid > 0 && price >= mid,
-			Actual:    price,
-			Threshold: mid,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "live price should be above entry-zone midpoint when 5m EMA is unavailable",
-		}, true
+		return v7Confirm5mCloseCheck(code, sig, ctx, true), true
 	case "5m_close_below_ema20_or_entry_zone_mid":
-		mid := v7EntryZoneMid(sig)
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    mid > 0 && price <= mid,
-			Actual:    price,
-			Threshold: mid,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "live price should be below entry-zone midpoint when 5m EMA is unavailable",
-		}, true
-	case "5m_or_15m_close_above_entry_zone":
-		return V7ConfirmationCheck{
-			Code:      code,
-			Passed:    sig.EntryZone.Upper > 0 && price >= sig.EntryZone.Upper,
-			Actual:    price,
-			Threshold: sig.EntryZone.Upper,
-			Severity:  V7ConfirmReviewWait,
-			Reason:    "breakout confirmation requires price above entry-zone upper bound",
-		}, true
+		return v7Confirm5mCloseCheck(code, sig, ctx, false), true
 	case "no_new_low_after_reclaim", "no_new_low_after_rejection", "no_new_low_after_reversal_signal", "no_new_low_after_crowding_signal":
 		return v7NoNewExtremeCheck(code, ctx, true), true
 	case "no_new_high_after_rejection", "no_new_high_after_reversal_signal", "no_new_high_after_crowding_signal":
@@ -298,10 +348,96 @@ func v7Directional15mCloseCheck(code string, sig *V7SignalOutput, ctx *V7SymbolC
 	return check
 }
 
-// v7VWAP15mCloseCheck: the latest 15m close above (reclaim) or below
-// VWAP20 (#133).
+// v7Confirm5mCloseCheck evaluates 5m_close_above/below_ema20_or_entry_zone_mid
+// strictly on the latest closed 5m bar (U5/M2b).
+func v7Confirm5mCloseCheck(code string, sig *V7SignalOutput, ctx *V7SymbolContext, above bool) V7ConfirmationCheck {
+	mid := v7EntryZoneMid(sig)
+	check := V7ConfirmationCheck{
+		Code:      code,
+		Threshold: mid,
+		Severity:  V7ConfirmReviewWait,
+		Reason:    "closed 5m bar is unavailable",
+		Evidence: &V7ConfirmBarEvidence{
+			Code:          code,
+			Passed:        false,
+			Timeframe:     "5m",
+			DecidingTF:    "none",
+			ReferenceEdge: mid,
+			ClosedOnly:    true,
+		},
+	}
+	tf, ok := v7ExecutionTimeframe(ctx, "5m")
+	if !ok || tf.LastClose <= 0 {
+		return check
+	}
+	check.Actual = tf.LastClose
+	ema20 := v7SummaryEMA20(tf)
+	refEdge := mid
+	if above {
+		passed := false
+		if tf.HasEMA20 && tf.CloseVsEMA20Pct >= 0 {
+			passed = true
+			if ema20 > 0 {
+				refEdge = ema20
+			}
+		}
+		if mid > 0 && tf.LastClose >= mid {
+			passed = true
+			if refEdge <= 0 {
+				refEdge = mid
+			}
+		}
+		check.Passed = passed
+		check.Reason = "closed 5m bar is not above EMA20 or entry-zone midpoint"
+	} else {
+		passed := false
+		if tf.HasEMA20 && tf.CloseVsEMA20Pct <= 0 {
+			passed = true
+			if ema20 > 0 {
+				refEdge = ema20
+			}
+		}
+		if mid > 0 && tf.LastClose <= mid {
+			passed = true
+			if refEdge <= 0 {
+				refEdge = mid
+			}
+		}
+		check.Passed = passed
+		check.Reason = "closed 5m bar is not below EMA20 or entry-zone midpoint"
+	}
+	if refEdge <= 0 {
+		refEdge = ema20
+	}
+	check.Threshold = refEdge
+	check.Evidence = &V7ConfirmBarEvidence{
+		Code:             code,
+		Passed:           check.Passed,
+		Timeframe:        "5m",
+		DecidingTF:       "5m",
+		BarCloseTimeUnix: tf.LastCloseTimeUnix,
+		BarClose:         tf.LastClose,
+		ReferenceEdge:    refEdge,
+		ClosedOnly:       true,
+	}
+	return check
+}
+
+// v7VWAP15mCloseCheck: the latest closed 15m close above (reclaim) or below
+// VWAP20 (#133, U5/M2b).
 func v7VWAP15mCloseCheck(code string, ctx *V7SymbolContext, above bool) V7ConfirmationCheck {
-	check := V7ConfirmationCheck{Code: code, Severity: V7ConfirmReviewWait, Reason: "15m VWAP20 is unavailable"}
+	check := V7ConfirmationCheck{
+		Code:     code,
+		Severity: V7ConfirmReviewWait,
+		Reason:   "15m VWAP20 is unavailable",
+		Evidence: &V7ConfirmBarEvidence{
+			Code:       code,
+			Passed:     false,
+			Timeframe:  "15m",
+			DecidingTF: "none",
+			ClosedOnly: true,
+		},
+	}
 	tf, ok := v7ExecutionTimeframe(ctx, "15m")
 	if !ok || !tf.HasVWAP20 || tf.LastClose <= 0 {
 		return check
@@ -313,6 +449,16 @@ func v7VWAP15mCloseCheck(code string, ctx *V7SymbolContext, above bool) V7Confir
 	} else {
 		check.Passed = tf.CloseVsVWAP20Pct <= 0
 		check.Reason = "15m close is not below VWAP20"
+	}
+	check.Evidence = &V7ConfirmBarEvidence{
+		Code:             code,
+		Passed:           check.Passed,
+		Timeframe:        "15m",
+		DecidingTF:       "15m",
+		BarCloseTimeUnix: tf.LastCloseTimeUnix,
+		BarClose:         tf.LastClose,
+		ReferenceEdge:    tf.VWAP20,
+		ClosedOnly:       true,
 	}
 	return check
 }
@@ -351,7 +497,17 @@ func v7NoNewExtremeCheck(code string, ctx *V7SymbolContext, noNewLow bool) V7Con
 }
 
 func v7ExecutionTimeframe(ctx *V7SymbolContext, timeframe string) (V7ExecutionTimeframeSummary, bool) {
-	if ctx == nil || ctx.ExecutionContext == nil || len(ctx.ExecutionContext.Timeframes) == 0 {
+	if ctx == nil {
+		return V7ExecutionTimeframeSummary{}, false
+	}
+	// U5/M2b: prefer strictly closed-bar confirmation summaries when built from
+	// raw klines; a non-nil empty map means zero closed bars exist and must NOT
+	// fall back to forming bars in ExecutionContext.
+	if ctx.ClosedConfirmTimeframes != nil {
+		tf, ok := ctx.ClosedConfirmTimeframes[timeframe]
+		return tf, ok
+	}
+	if ctx.ExecutionContext == nil || len(ctx.ExecutionContext.Timeframes) == 0 {
 		return V7ExecutionTimeframeSummary{}, false
 	}
 	tf, ok := ctx.ExecutionContext.Timeframes[timeframe]

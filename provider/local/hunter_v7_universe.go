@@ -470,6 +470,39 @@ func buildSymbolContext(sym string, ss *datafetch.SymbolSnapshot, snap *datafetc
 	}
 	ctx.ExecutionContext = buildV7ExecutionContextFromKlines(executionKlines, ctx.CurrentPrice)
 
+	// U5/M2b: build closed-bar confirmation facts strictly from closed 5m/15m
+	// klines without altering feature_bars default or any non-confirmation
+	// features. Non-nil empty map signals raw klines were inspected and yielded
+	// zero closed bars (so confirmation evaluation never falls back to forming
+	// bars in ExecutionContext).
+	confirmAtMs := v7SnapshotRefTime(ss, snap, time.Now()).UnixMilli()
+	closedConfirm := make(map[string]V7ExecutionTimeframeSummary, 2)
+	for _, tf := range []string{"15m", "5m"} {
+		rawBars, ok := klines[tf]
+		if !ok || len(rawBars) == 0 {
+			continue
+		}
+		closedRaw := rawBars
+		if !ss.ClosedBarsOnly {
+			closedRaw = v7ClosedKlinesForTF(rawBars, tf, confirmAtMs)
+		}
+		if len(closedRaw) == 0 {
+			continue
+		}
+		closedKB := datafetchKlinesToKlineBar(closedRaw)
+		if summary, ok := buildV7ExecutionTimeframeSummary(tf, closedKB, ctx.CurrentPrice); ok {
+			closedConfirm[tf] = summary
+		}
+		if tf == "15m" {
+			vols := make([]float64, len(closedKB))
+			for i, b := range closedKB {
+				vols[i] = b.Volume
+			}
+			ctx.ClosedVolumeBurst15m = V7VolumeBurst(vols, V7VolumeBurst15mLookback)
+		}
+	}
+	ctx.ClosedConfirmTimeframes = closedConfirm
+
 	// Classify pool after all derived pool metrics are available.
 	ctx.PoolType = classifyPool(ctx)
 
@@ -680,6 +713,7 @@ func datafetchKlinesToKlineBar(dk []datafetch.Kline) []klineBar {
 	for i, k := range dk {
 		bars[i] = klineBar{
 			OpenTime:           k.OpenTime,
+			CloseTime:          k.CloseTime,
 			Open:               k.Open,
 			High:               k.High,
 			Low:                k.Low,

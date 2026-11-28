@@ -84,6 +84,7 @@ func buildV7SignalPasses(universe []V7SymbolContext, regime V7MarketRegime, cfg 
 		}},
 		{"attach_context", func(sig *V7SignalOutput, ctx *V7SymbolContext) {
 			sig.ExecutionContext = ctx.ExecutionContext
+			sig.ConfirmTimeframes = ctx.ClosedConfirmTimeframes
 			sig.DataFreshness = ctx.DataFreshness
 			// Propagate quote volume for adaptive OI threshold in prompt-data filter
 			if ctx.Snapshot != nil {
