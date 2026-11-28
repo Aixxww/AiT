@@ -38,9 +38,10 @@ type KlineBar struct {
 type TimeframeSeriesData struct {
 	Timeframe   string     `json:"timeframe"`    // Timeframe identifier, e.g. "5m", "15m", "1h"
 	Klines      []KlineBar `json:"klines"`       // Full OHLCV kline data
-	MidPrices   []float64  `json:"mid_prices"`   // Price series (deprecated, kept for compatibility)
-	EMA20Values []float64  `json:"ema20_values"` // EMA20 series
-	EMA50Values []float64  `json:"ema50_values"` // EMA50 series
+	MidPrices    []float64  `json:"mid_prices"`   // Price series (deprecated, kept for compatibility)
+	EMA20Values  []float64  `json:"ema20_values"` // EMA20 series
+	VWAP20Values []float64  `json:"-"`            // 20-bar rolling VWAP series (suffix-aligned with Klines, computed over full raw history)
+	EMA50Values  []float64  `json:"ema50_values"` // EMA50 series
 	MACDValues  []float64  `json:"macd_values"`  // MACD series
 	RSI7Values  []float64  `json:"rsi7_values"`  // RSI7 series
 	RSI14Values []float64  `json:"rsi14_values"` // RSI14 series

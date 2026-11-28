@@ -37,9 +37,10 @@ func buildV7ExecutionTimeframeSummary(tf string, bars []klineBar, price float64)
 		refPrice = last.Close
 	}
 	out := V7ExecutionTimeframeSummary{
-		Timeframe:   tf,
-		CandleCount: len(bars),
-		LastClose:   last.Close,
+		Timeframe:         tf,
+		CandleCount:       len(bars),
+		LastClose:         last.Close,
+		LastCloseTimeUnix: v7BarCloseTimeUnix(last.OpenTime, last.CloseTime, tf),
 	}
 	if refPrice <= 0 {
 		return out, true
@@ -52,6 +53,7 @@ func buildV7ExecutionTimeframeSummary(tf string, bars []klineBar, price float64)
 		ema20 := computeEMAFromKlines(bars, 20)
 		if ema20 > 0 {
 			out.HasEMA20 = true
+			out.EMA20 = ema20
 			out.CloseVsEMA20Pct = pctDiff(last.Close, ema20)
 		}
 		vwap20 := computeVWAP(lastV7Klines(bars, 20))
@@ -112,4 +114,47 @@ func pctDiff(value, base float64) float64 {
 		return 0
 	}
 	return (value - base) / math.Abs(base) * 100
+}
+
+// v7TimeframeIntervalMs returns the candle duration in milliseconds for
+// standard Hunter v7 timeframes, or 0 if unrecognized.
+func v7TimeframeIntervalMs(tf string) int64 {
+	switch tf {
+	case "1m":
+		return 60_000
+	case "3m":
+		return 180_000
+	case "5m":
+		return 300_000
+	case "15m":
+		return 900_000
+	case "30m":
+		return 1_800_000
+	case "1h":
+		return 3_600_000
+	case "4h":
+		return 14_400_000
+	case "1d":
+		return 86_400_000
+	default:
+		return 0
+	}
+}
+
+// v7BarCloseTimeUnix normalizes a bar's close timestamp to Unix seconds so
+// datafetch.Kline (CloseTime = open + interval - 1 ms) and market.KlineBar
+// (Time = open ms) produce identical close timestamps for the same closed bar.
+func v7BarCloseTimeUnix(openMs, closeMs int64, tf string) int64 {
+	if closeMs > 0 {
+		if closeMs%1000 == 999 {
+			return (closeMs + 1) / 1000
+		}
+		return closeMs / 1000
+	}
+	if openMs > 0 {
+		if ivMs := v7TimeframeIntervalMs(tf); ivMs > 0 {
+			return (openMs + ivMs) / 1000
+		}
+	}
+	return 0
 }

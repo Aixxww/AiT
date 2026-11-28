@@ -112,8 +112,11 @@ type CandidateCoin struct {
 	// block the candidate. It is never set on a live candidate.
 	v7AssumeConfirmationsPass bool
 	V7DataFreshness           local.V7DataFreshness       `json:"-"`
-	V7Readiness               *local.V7ExecutionReadiness `json:"-"`
-	V7ExecutionContext        *local.V7ExecutionContext   `json:"-"`
+	V7Readiness               *local.V7ExecutionReadiness                   `json:"-"`
+	V7ExecutionContext        *local.V7ExecutionContext                     `json:"-"`
+	// V7ConfirmTimeframes (U5/M2b) holds strictly closed-bar 5m/15m summaries
+	// used by confirmation evaluation (scoring -> live -> guard write-back).
+	V7ConfirmTimeframes       map[string]local.V7ExecutionTimeframeSummary  `json:"-"`
 	V7TP0Price                float64                     `json:"-"`
 	V7TP0RR                   float64                     `json:"-"`
 	V7TP0TimeWindow           string                      `json:"-"`
@@ -724,12 +727,13 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 			V7EntryZone:        sig.EntryZone,
 			V7Invalidation:     sig.Invalidation,
 			V7Targets:          append([]local.V7Target{}, sig.Targets...),
-			V7ConfirmSummary:   sig.ConfirmSummary,
-			V7PriceContext:     sig.PriceCtx,
-			V7DerivativesCtx:   sig.DerivativesCtx,
-			V7DataFreshness:    sig.DataFreshness,
-			V7Readiness:        sig.ExecutionReadiness,
-			V7ExecutionContext: sig.ExecutionContext,
+			V7ConfirmSummary:    sig.ConfirmSummary.Clone(),
+			V7PriceContext:      sig.PriceCtx,
+			V7DerivativesCtx:    sig.DerivativesCtx,
+			V7DataFreshness:     sig.DataFreshness,
+			V7Readiness:         sig.ExecutionReadiness,
+			V7ExecutionContext:  sig.ExecutionContext,
+			V7ConfirmTimeframes: cloneV7TimeframeMap(sig.ConfirmTimeframes),
 			V7TP0Price:         sig.TP0Price,
 			V7TP0RR:            sig.TP0RR,
 			V7TP0TimeWindow:    sig.TP0TimeWindow,

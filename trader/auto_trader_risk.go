@@ -1949,6 +1949,9 @@ func validateHunterV7RequiredConfirmations(candidate *kernel.CandidateCoin, deci
 		}
 	}
 	for _, check := range summary.ContextChecks {
+		if check.Passed {
+			continue
+		}
 		if _, ok := required[check.Code]; ok {
 			if hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate, check.Code) {
 				continue
@@ -2019,13 +2022,13 @@ func hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate *kernel.Candidat
 		!containsStringValue(candidate.V7ReasonCodes, "fresh_rest_confirmed") {
 		return false
 	}
-	// #136: the refresh waives a gap only if nothing proves it still fails.
-	// A code with a shared predicate is re-evaluated on the candidate's
-	// current facts with the same predicate scoring and the kernel live pass
-	// use; a known failure is never waived (a whale_flow_reversal at taker
-	// 0.53 cannot pass taker_flow_confirms_long here when scoring needs 0.56).
-	if passed, known := kernel.HunterV7VerifyConfirmation(*candidate, nil, 0, code); known && !passed {
-		return false
+	// #136 / U5b: for any live-verifiable code, re-evaluate its shared
+	// predicate on the candidate's current facts and require known && passed.
+	// An unknown verdict (missing inputs / missing closed bars) must never
+	// waive a confirmation.
+	if local.V7ConfirmLiveVerifiable(code) {
+		passed, known := kernel.HunterV7VerifyConfirmation(*candidate, nil, 0, code)
+		return known && passed
 	}
 	return true
 }

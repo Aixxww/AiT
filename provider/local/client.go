@@ -205,6 +205,7 @@ func isUSDTPerp(symbol string) bool {
 // klineBar represents a single Binance kline (candlestick).
 type klineBar struct {
 	OpenTime           int64
+	CloseTime          int64
 	Open               float64
 	High               float64
 	Low                float64

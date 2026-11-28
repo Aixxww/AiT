@@ -24,6 +24,24 @@ func calculateEMA(klines []Kline, period int) float64 {
 	return ema
 }
 
+// calculateVWAP computes volume-weighted average price over klines using
+// (High+Low+Close)/3 * Volume, matching provider/local's computeVWAP.
+func calculateVWAP(klines []Kline) float64 {
+	if len(klines) == 0 {
+		return 0
+	}
+	var totalPV, totalV float64
+	for _, k := range klines {
+		typical := (k.High + k.Low + k.Close) / 3
+		totalPV += typical * k.Volume
+		totalV += k.Volume
+	}
+	if totalV == 0 {
+		return 0
+	}
+	return totalPV / totalV
+}
+
 // calculateMACD calculates MACD
 func calculateMACD(klines []Kline) float64 {
 	if len(klines) < 26 {

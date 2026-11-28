@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/Aixxww/AiT/market"
+	"github.com/Aixxww/AiT/provider/local"
+	"github.com/Aixxww/AiT/store"
 )
 
 // Single authoritative Hunter v7 tier (#86, audit AUD-B7, design
@@ -105,9 +107,70 @@ func (e *StrategyEngine) finalizeHunterV7Tiers(ctx *Context, positionSymbols map
 		}
 		c.V7AssembledTier, c.V7AssembledReason = c.V7ExecutionTier, c.V7TierReason
 		c.V7ExecutionTier, c.V7TierReason = it.Tier, it.Reason
-		c.V7RRVerdict = it.Coin.V7RRVerdict
+		// U5/M2b write-back fix: copy the full live-updated confirmation and
+		// price/readiness state back to ctx.CandidateCoins defensively so the
+		// execution guard reads the exact same facts the LLM prompt rendered,
+		// without aliasing slices/pointers that the guard may later mutate.
+		c.V7RRVerdict = cloneHunterV7RRVerdict(it.Coin.V7RRVerdict)
+		c.V7ConfirmSummary = it.Coin.V7ConfirmSummary.Clone()
+		c.V7PriceContext = cloneHunterV7PriceContext(it.Coin.V7PriceContext)
+		c.V7ReasonCodes = cloneStringSlice(it.Coin.V7ReasonCodes)
+		c.V7Readiness = cloneHunterV7Readiness(it.Coin.V7Readiness)
+		c.V7ConfirmTimeframes = cloneV7TimeframeMap(it.Coin.V7ConfirmTimeframes)
+		c.V7RRReferencePrice = it.Coin.V7RRReferencePrice
 	}
 	ctx.CandidateCoins = coins
 	ctx.hunterV7Final = &hunterV7FinalTiers{items: items}
 	return items
+}
+
+func cloneStringSlice(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
+}
+
+func cloneHunterV7PriceContext(in *local.V7PriceContext) *local.V7PriceContext {
+	if in == nil {
+		return nil
+	}
+	cp := *in
+	return &cp
+}
+
+func cloneHunterV7Readiness(in *local.V7ExecutionReadiness) *local.V7ExecutionReadiness {
+	if in == nil {
+		return nil
+	}
+	cp := *in
+	cp.MissingHard = cloneStringSlice(in.MissingHard)
+	cp.MissingExecution = cloneStringSlice(in.MissingExecution)
+	cp.MissingContext = cloneStringSlice(in.MissingContext)
+	cp.NextConfirm = cloneStringSlice(in.NextConfirm)
+	return &cp
+}
+
+func cloneHunterV7RRVerdict(in *store.HunterV7RRVerdictRecord) *store.HunterV7RRVerdictRecord {
+	if in == nil {
+		return nil
+	}
+	cp := *in
+	return &cp
+}
+
+func cloneV7TimeframeMap(in map[string]local.V7ExecutionTimeframeSummary) map[string]local.V7ExecutionTimeframeSummary {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]local.V7ExecutionTimeframeSummary, len(in))
+	for k, v := range in {
+		if v.Anatomy != nil {
+			v.Anatomy = append([]local.V7CandleAnatomy(nil), v.Anatomy...)
+		}
+		out[k] = v
+	}
+	return out
 }

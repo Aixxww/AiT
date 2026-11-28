@@ -259,18 +259,19 @@ func calculateTimeframeSeries(klines []Kline, timeframe string, count int, perio
 	}
 
 	data := &TimeframeSeriesData{
-		Timeframe:   timeframe,
-		Klines:      make([]KlineBar, 0, count),
-		MidPrices:   make([]float64, 0, count),
-		EMA20Values: make([]float64, 0, count),
-		EMA50Values: make([]float64, 0, count),
-		MACDValues:  make([]float64, 0, count),
-		RSI7Values:  make([]float64, 0, count),
-		RSI14Values: make([]float64, 0, count),
-		Volume:      make([]float64, 0, count),
-		BOLLUpper:   make([]float64, 0, count),
-		BOLLMiddle:  make([]float64, 0, count),
-		BOLLLower:   make([]float64, 0, count),
+		Timeframe:    timeframe,
+		Klines:       make([]KlineBar, 0, count),
+		MidPrices:    make([]float64, 0, count),
+		EMA20Values:  make([]float64, 0, count),
+		VWAP20Values: make([]float64, 0, count),
+		EMA50Values:  make([]float64, 0, count),
+		MACDValues:   make([]float64, 0, count),
+		RSI7Values:   make([]float64, 0, count),
+		RSI14Values:  make([]float64, 0, count),
+		Volume:       make([]float64, 0, count),
+		BOLLUpper:    make([]float64, 0, count),
+		BOLLMiddle:   make([]float64, 0, count),
+		BOLLLower:    make([]float64, 0, count),
 	}
 
 	// Get latest N data points based on count from config
@@ -294,10 +295,13 @@ func calculateTimeframeSeries(klines []Kline, timeframe string, count int, perio
 		data.MidPrices = append(data.MidPrices, klines[i].Close)
 		data.Volume = append(data.Volume, klines[i].Volume)
 
-		// Calculate EMA20 for each point
+		// Calculate EMA20 and VWAP20 over the full raw kline history for each
+		// retained point (both suffix-aligned with Klines when start < 19).
 		if i >= 19 {
 			ema20 := calculateEMA(klines[:i+1], 20)
 			data.EMA20Values = append(data.EMA20Values, ema20)
+			vwap20 := calculateVWAP(klines[i-19 : i+1])
+			data.VWAP20Values = append(data.VWAP20Values, vwap20)
 		}
 
 		// Calculate EMA50 for each point

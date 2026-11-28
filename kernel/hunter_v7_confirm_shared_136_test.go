@@ -137,9 +137,14 @@ func TestConfirm136ScoringAndLiveAgreeOnBoundaries(t *testing.T) {
 		{"directional_15m_close_long", confirm136Fixture{name: "no_leg", direction: "LONG", setup: "pullback_reversal_long", price: 99.5, zone: local.V7PriceZone{Lower: 100, Upper: 102}, taker: 0.55, closes15m: confirm136Flat(25, 100, 99.5)}, false},
 		{"directional_15m_close_short", confirm136Fixture{name: "short_below_ema", direction: "SHORT", setup: "distribution_short", price: 99.5, zone: local.V7PriceZone{Lower: 100, Upper: 102}, taker: 0.45, closes15m: confirm136Flat(25, 100, 99.5)}, true},
 
-		// Trigger codes now have a live verifier with the scoring rule.
-		{"5m_or_15m_close_above_trigger", confirm136Fixture{name: "at_upper", direction: "LONG", setup: "squeeze_breakout_long", price: 101, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.55, closes15m: flat}, true},
+		// U5/M2b: trigger codes evaluate strictly on closed 5m/15m bar closes
+		// against the entry-zone edge; live/spot price never satisfies or fails
+		// a trigger code.
+		{"5m_or_15m_close_above_trigger", confirm136Fixture{name: "spot_at_upper_closed_below", direction: "LONG", setup: "squeeze_breakout_long", price: 101, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.55, closes15m: flat}, false},
+		{"5m_or_15m_close_above_trigger", confirm136Fixture{name: "closed_at_upper_spot_inside", direction: "LONG", setup: "squeeze_breakout_long", price: 100, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.55, closes15m: confirm136Flat(25, 100, 101)}, true},
 		{"5m_or_15m_close_below_trigger", confirm136Fixture{name: "above_lower", direction: "SHORT", setup: "breakdown_momentum_short", price: 99.01, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.45, closes15m: flat}, false},
+		{"5m_or_15m_close_below_trigger", confirm136Fixture{name: "spot_below_closed_above", direction: "SHORT", setup: "breakdown_momentum_short", price: 98.5, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.45, closes15m: flat}, false},
+		{"5m_or_15m_close_below_trigger", confirm136Fixture{name: "closed_at_lower_spot_inside", direction: "SHORT", setup: "breakdown_momentum_short", price: 100, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.45, closes15m: confirm136Flat(25, 100, 99)}, true},
 		{"live_price_in_entry_zone", confirm136Fixture{name: "at_lower_edge", direction: "LONG", setup: "leader_momentum_long", price: 99, zone: local.V7PriceZone{Lower: 99, Upper: 101}, taker: 0.55, closes15m: flat}, true},
 	}
 	for _, tc := range cases {

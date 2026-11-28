@@ -67,7 +67,27 @@
       "passed": false,
       "actual": -0.02832434712103769,
       "severity": "review_wait",
-      "reason": "5m close is below EMA20"
+      "reason": "5m close is below EMA20",
+      "evidence": {
+       "code": "5m_price_holds_ema20_or_trailing_support",
+       "passed": false,
+       "timeframe": "5m",
+       "deciding_tf": "5m",
+       "bar_close": 0.0931,
+       "reference_edge": 0.0931263774384069,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": false,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.0931,
+      "reference_edge": 0.0931263774384069,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 45.299784091309995,
@@ -428,6 +448,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.04528,
+      "reference_edge": 0.04523846752203179,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 64.30601676847981,
     "stop_distance_pct": 0.7019614476821179,
     "reward_pct": 4.399999999999997,
@@ -673,6 +704,17 @@
       "reason": "15m taker buy is below required long threshold"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "directional_15m_close_long",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 1.1727,
+      "reference_edge": 1.1088956066824003,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 62.50000000000018,
     "stop_distance_pct": 2.60262446570304,
     "reward_pct": 9.9784415211762,
@@ -855,10 +897,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 493.31,
+      "actual": 493.35,
       "threshold": 494.1645277220858,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 493.35,
+       "reference_edge": 494.1645277220858,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 493.35,
+      "reference_edge": 494.1645277220858,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.3312277946122749,
@@ -1047,10 +1109,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.07338,
+      "actual": 0.07339,
       "threshold": 0.07351952262327646,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.07339,
+       "reference_edge": 0.07351952262327646,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.07339,
+      "reference_edge": 0.07351952262327646,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.22676581459771034,
@@ -1240,7 +1322,27 @@
       "actual": 572.15,
       "threshold": 572.3197094155662,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 572.15,
+       "reference_edge": 572.3197094155662,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 572.15,
+      "reference_edge": 572.3197094155662,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.11465807180876615,
@@ -1427,7 +1529,27 @@
       "actual": 0.3786,
       "threshold": 0.3788367950468538,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_above_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.3786,
+       "reference_edge": 0.3788367950468538,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_above_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.3786,
+      "reference_edge": 0.3788367950468538,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 59.99999999999625,
@@ -1625,6 +1747,17 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.06679,
+      "reference_edge": 0.06739072515230098,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.499999999999694,
@@ -1844,7 +1977,27 @@
       "actual": 0.01201,
       "threshold": 0.011900409060616877,
       "severity": "review_wait",
-      "reason": "15m close is not below VWAP20"
+      "reason": "15m close is not below VWAP20",
+      "evidence": {
+       "code": "15m_close_below_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.01201,
+       "reference_edge": 0.011900409060616877,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.01201,
+      "reference_edge": 0.011900409060616877,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.4999999999997,
@@ -2252,6 +2405,17 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.10278,
+      "reference_edge": 0.10302108022072347,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 37.50000000000033,
     "stop_distance_pct": 1.6150423317334752,
     "reward_pct": 5.8774862043755824,
@@ -2449,7 +2613,27 @@
       "actual": 2.0635,
       "threshold": 2.0691656091849104,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 2.0635,
+       "reference_edge": 2.0691656091849104,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 2.0635,
+      "reference_edge": 2.0691656091849104,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.1758321019469692,
@@ -2661,7 +2845,27 @@
       "actual": 0.6295,
       "threshold": 0.6252650846374619,
       "severity": "review_wait",
-      "reason": "15m close is not below VWAP20"
+      "reason": "15m close is not below VWAP20",
+      "evidence": {
+       "code": "15m_close_below_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.6295,
+       "reference_edge": 0.6252650846374619,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.6295,
+      "reference_edge": 0.6252650846374619,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.50000000000056,
@@ -2866,7 +3070,16 @@
       "actual": 0.3855,
       "threshold": 0.3886276090748451,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.3855,
+       "reference_edge": 0.3886276090748451,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -2874,6 +3087,17 @@
       "actual": -0.6801453105897218,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.3855,
+      "reference_edge": 0.3886276090748451,
+      "closed_only": true
      }
     ],
     "reward_pct": 4.898501158697798,
@@ -3069,7 +3293,27 @@
       "actual": 0.06871,
       "threshold": 0.06934710078124891,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.06871,
+       "reference_edge": 0.06934710078124891,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.06871,
+      "reference_edge": 0.06934710078124891,
+      "closed_only": true
      }
     ],
     "reward_pct": 4.269791814724427,
@@ -3257,7 +3501,27 @@
       "actual": 572.15,
       "threshold": 572.3197094155662,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 572.15,
+       "reference_edge": 572.3197094155662,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 572.15,
+      "reference_edge": 572.3197094155662,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.11465807180876615,
@@ -3441,10 +3705,30 @@
      {
       "code": "5m_or_15m_close_below_trigger",
       "passed": false,
-      "actual": 0.001655,
+      "actual": 0.001654,
       "threshold": 0.0016515245,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.001654,
+       "reference_edge": 0.0016515245,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.001654,
+      "reference_edge": 0.0016515245,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.81818181818128,
@@ -3654,7 +3938,27 @@
       "actual": 0.1249,
       "threshold": 0.12570231077738914,
       "severity": "review_wait",
-      "reason": "15m close has not reclaimed VWAP20"
+      "reason": "15m close has not reclaimed VWAP20",
+      "evidence": {
+       "code": "15m_reclaim_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.1249,
+       "reference_edge": 0.12570231077738914,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_reclaim_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.1249,
+      "reference_edge": 0.12570231077738914,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 62.5000000000004,
@@ -3850,6 +4154,17 @@
       "reason": "15m taker buy is below required long threshold"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "directional_15m_close_long",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 1.1727,
+      "reference_edge": 1.1088956066824003,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 62.50000000000018,
     "stop_distance_pct": 2.60262446570304,
     "reward_pct": 9.9784415211762,
@@ -4038,6 +4353,17 @@
       "threshold": 65,
       "severity": "review_wait",
       "reason": "short price has not retested upper entry-zone area"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.3595,
+      "reference_edge": 0.3625370500022854,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.50000000000038,
@@ -4244,7 +4570,16 @@
       "actual": 0.04165,
       "threshold": 0.04192101717482195,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.04165,
+       "reference_edge": 0.04192101717482195,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -4252,6 +4587,17 @@
       "actual": -0.29700039960011626,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.04165,
+      "reference_edge": 0.04192101717482195,
+      "closed_only": true
      }
     ],
     "reward_pct": 7.5172716743230135,
@@ -4436,7 +4782,27 @@
       "actual": 1.896,
       "threshold": 1.8912979208080212,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 1.896,
+       "reference_edge": 1.8912979208080212,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 1.896,
+      "reference_edge": 1.8912979208080212,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.818181818181614,
@@ -4624,7 +4990,27 @@
       "actual": 58.664,
       "threshold": 58.89230129087421,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 58.664,
+       "reference_edge": 58.89230129087421,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 58.664,
+      "reference_edge": 58.89230129087421,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.0856001159099402,
@@ -4822,6 +5208,17 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.09526,
+      "reference_edge": 0.09619696471362946,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 37.49999999999925,
     "stop_distance_pct": 2.000000000000004,
     "reward_pct": 8.86944881889764,
@@ -5016,7 +5413,27 @@
       "actual": 0.7498,
       "threshold": 0.7519991524409101,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.7498,
+       "reference_edge": 0.7519991524409101,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.7498,
+      "reference_edge": 0.7519991524409101,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.29326825976898113,
@@ -5206,10 +5623,30 @@
      {
       "code": "5m_or_15m_close_below_trigger",
       "passed": false,
-      "actual": 0.008106,
+      "actual": 0.008101,
       "threshold": 0.008078346251749153,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.008101,
+       "reference_edge": 0.008078346251749153,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.008101,
+      "reference_edge": 0.008078346251749153,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.034482758619887,
@@ -5604,10 +6041,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.0809,
+      "actual": 0.081,
       "threshold": 0.08169430488446443,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.081,
+       "reference_edge": 0.08169430488446443,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.081,
+      "reference_edge": 0.08169430488446443,
+      "closed_only": true
      }
     ],
     "reward_pct": 4.521790195959363,
@@ -5794,6 +6251,17 @@
       "threshold": 0.899927704607213,
       "severity": "review_wait",
       "reason": "live price must be inside entry zone"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.9097,
+      "reference_edge": 0.8897238510601472,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 100,
@@ -5989,7 +6457,16 @@
       "passed": false,
       "actual": -0.557329222895483,
       "severity": "review_wait",
-      "reason": "5m close is below EMA20"
+      "reason": "5m close is below EMA20",
+      "evidence": {
+       "code": "5m_price_holds_ema20_or_trailing_support",
+       "passed": false,
+       "timeframe": "5m",
+       "deciding_tf": "5m",
+       "bar_close": 1.566,
+       "reference_edge": 1.5747766906925762,
+       "closed_only": true
+      }
      },
      {
       "code": "taker_flow_not_flipping_against_direction",
@@ -5998,6 +6475,17 @@
       "threshold": 0.5,
       "severity": "review_wait",
       "reason": "15m taker buy is below required long threshold"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": false,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 1.566,
+      "reference_edge": 1.5747766906925762,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 2.467280907421669,
@@ -6182,6 +6670,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap_or_ema20_or_entry_zone_lower",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.004293,
+      "reference_edge": 0.004303063541300852,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 27.777777777777246,
     "stop_distance_pct": 1.8000000000000076,
     "reward_pct": 8.930987968446157,
@@ -6391,7 +6890,16 @@
       "actual": 0.003524,
       "threshold": 0.0035359232041631693,
       "severity": "review_wait",
-      "reason": "15m close has not reclaimed VWAP20"
+      "reason": "15m close has not reclaimed VWAP20",
+      "evidence": {
+       "code": "15m_reclaim_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.003524,
+       "reference_edge": 0.0035359232041631693,
+       "closed_only": true
+      }
      },
      {
       "code": "taker_buy_15m_gt_0_52",
@@ -6400,6 +6908,17 @@
       "threshold": 0.52,
       "severity": "review_wait",
       "reason": "15m taker buy is below required long threshold"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_reclaim_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.003524,
+      "reference_edge": 0.0035359232041631693,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 62.5,
@@ -6588,7 +7107,27 @@
       "actual": 0.03311,
       "threshold": 0.03229170165129768,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.03311,
+       "reference_edge": 0.03229170165129768,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.03311,
+      "reference_edge": 0.03229170165129768,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.818181818181856,
@@ -6774,10 +7313,19 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.01956,
+      "actual": 0.01957,
       "threshold": 0.019656655851881612,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.01957,
+       "reference_edge": 0.019656655851881612,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -6785,6 +7333,17 @@
       "actual": -0.13049033982482072,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.01957,
+      "reference_edge": 0.019656655851881612,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.2631337801420625,
@@ -6975,7 +7534,16 @@
       "actual": 0.01786,
       "threshold": 0.017882982618705297,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.01786,
+       "reference_edge": 0.017882982618705297,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -6983,6 +7551,17 @@
       "actual": -0.012029208097408182,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.01786,
+      "reference_edge": 0.017882982618705297,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.5695348424236145,
@@ -7170,10 +7749,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.07338,
+      "actual": 0.07339,
       "threshold": 0.07351952262327646,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.07339,
+       "reference_edge": 0.07351952262327646,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.07339,
+      "reference_edge": 0.07351952262327646,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.22676581459771034,
@@ -7359,7 +7958,27 @@
       "actual": 0.0030725,
       "threshold": 0.0030611181996425263,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.0030725,
+       "reference_edge": 0.0030611181996425263,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.0030725,
+      "reference_edge": 0.0030611181996425263,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.818181818182094,
@@ -7543,10 +8162,19 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 1.9162,
+      "actual": 1.916,
       "threshold": 1.9266449437130873,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 1.916,
+       "reference_edge": 1.9266449437130873,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -7554,6 +8182,17 @@
       "actual": -0.20403625247308144,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 1.916,
+      "reference_edge": 1.9266449437130873,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.36673996818661614,
@@ -7766,7 +8405,27 @@
       "actual": 0.01201,
       "threshold": 0.011900409060616877,
       "severity": "review_wait",
-      "reason": "15m close is not below VWAP20"
+      "reason": "15m close is not below VWAP20",
+      "evidence": {
+       "code": "15m_close_below_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.01201,
+       "reference_edge": 0.011900409060616877,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.01201,
+      "reference_edge": 0.011900409060616877,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.4999999999997,
@@ -7956,7 +8615,27 @@
       "passed": false,
       "actual": -0.03671380607895195,
       "severity": "review_wait",
-      "reason": "5m close is below EMA20"
+      "reason": "5m close is below EMA20",
+      "evidence": {
+       "code": "5m_price_holds_ema20_or_trailing_support",
+       "passed": false,
+       "timeframe": "5m",
+       "deciding_tf": "5m",
+       "bar_close": 14.322,
+       "reference_edge": 14.32726008248311,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": false,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 14.322,
+      "reference_edge": 14.32726008248311,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 75.39309758681797,
@@ -8142,7 +8821,27 @@
       "actual": 2.171,
       "threshold": 2.1768652345684685,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 2.171,
+       "reference_edge": 2.1768652345684685,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 2.171,
+      "reference_edge": 2.1768652345684685,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.08870151028382764,
@@ -8331,7 +9030,27 @@
       "actual": 0.3786,
       "threshold": 0.3788367950468538,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_above_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.3786,
+       "reference_edge": 0.3788367950468538,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_above_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.3786,
+      "reference_edge": 0.3788367950468538,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 59.99999999999625,
@@ -8701,7 +9420,27 @@
       "actual": 0.026893,
       "threshold": 0.02708815192807786,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.026893,
+       "reference_edge": 0.02708815192807786,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.026893,
+      "reference_edge": 0.02708815192807786,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.14358344626213002,
@@ -8890,6 +9629,17 @@
       "reason": "live price must be inside entry zone"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.1436,
+      "reference_edge": 0.1434598767392492,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 2.1999999999999953,
     "reward_pct": 22.115550313757787,
@@ -9073,7 +9823,27 @@
       "passed": false,
       "actual": -0.02832434712103769,
       "severity": "review_wait",
-      "reason": "5m close is below EMA20"
+      "reason": "5m close is below EMA20",
+      "evidence": {
+       "code": "5m_price_holds_ema20_or_trailing_support",
+       "passed": false,
+       "timeframe": "5m",
+       "deciding_tf": "5m",
+       "bar_close": 0.0931,
+       "reference_edge": 0.0931263774384069,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": false,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.0931,
+      "reference_edge": 0.0931263774384069,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 45.299784091309995,
@@ -9263,7 +10033,16 @@
       "actual": 0.03355,
       "threshold": 0.03386692057763376,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.03355,
+       "reference_edge": 0.03386692057763376,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -9271,6 +10050,17 @@
       "actual": -0.7981218870477659,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.03355,
+      "reference_edge": 0.03386692057763376,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.2314881534236308,
@@ -9475,6 +10265,17 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.10278,
+      "reference_edge": 0.10302108022072347,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 37.50000000000033,
     "stop_distance_pct": 1.6150423317334752,
     "reward_pct": 5.8774862043755824,
@@ -9665,10 +10466,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 493.31,
+      "actual": 493.35,
       "threshold": 494.1645277220858,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 493.35,
+       "reference_edge": 494.1645277220858,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 493.35,
+      "reference_edge": 494.1645277220858,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.3312277946122749,
@@ -9869,7 +10690,27 @@
       "actual": 1.796,
       "threshold": 1.805508830507287,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 1.796,
+       "reference_edge": 1.805508830507287,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 1.796,
+      "reference_edge": 1.805508830507287,
+      "closed_only": true
      }
     ],
     "reward_pct": 3.0052363749393174,
@@ -10069,7 +10910,16 @@
       "actual": 0.1581,
       "threshold": 0.15943467026993305,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.1581,
+       "reference_edge": 0.15943467026993305,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -10077,6 +10927,17 @@
       "actual": -0.2747699017386333,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.1581,
+      "reference_edge": 0.15943467026993305,
+      "closed_only": true
      }
     ],
     "reward_pct": 4.072083068545773,
@@ -10258,6 +11119,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.04528,
+      "reference_edge": 0.04523846752203179,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 64.30601676847981,
     "stop_distance_pct": 0.7019614476821179,
     "reward_pct": 4.399999999999997,
@@ -10443,7 +11315,16 @@
       "actual": 0.1653,
       "threshold": 0.16551179760067933,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.1653,
+       "reference_edge": 0.16551179760067933,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -10451,6 +11332,17 @@
       "actual": -0.29617170431799783,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.1653,
+      "reference_edge": 0.16551179760067933,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.23369619498414934,
@@ -10660,7 +11552,27 @@
       "actual": 0.33541,
       "threshold": 0.34449747275875786,
       "severity": "review_wait",
-      "reason": "15m close has not reclaimed VWAP20"
+      "reason": "15m close has not reclaimed VWAP20",
+      "evidence": {
+       "code": "15m_reclaim_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.33541,
+       "reference_edge": 0.34449747275875786,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_reclaim_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.33541,
+      "reference_edge": 0.34449747275875786,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 62.5,
@@ -10851,7 +11763,27 @@
       "actual": 0.02954,
       "threshold": 0.029822387546742327,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.02954,
+       "reference_edge": 0.029822387546742327,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.02954,
+      "reference_edge": 0.029822387546742327,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 1.7320826641198095,
@@ -11053,6 +11985,17 @@
       "reason": "short price has not retested upper entry-zone area"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": true,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.06679,
+      "reference_edge": 0.06739072515230098,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 37.499999999999694,
     "stop_distance_pct": 1.9999999999999938,
     "reward_pct": 8.732574535511974,
@@ -11240,6 +12183,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.3025,
+      "reference_edge": 0.30223992494015695,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 62.36795565160427,
     "stop_distance_pct": 1.3399339515943898,
     "reward_pct": 4.399999999999996,
@@ -11425,7 +12379,27 @@
       "actual": 0.06901,
       "threshold": 0.06970696178035433,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.06901,
+       "reference_edge": 0.06970696178035433,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.06901,
+      "reference_edge": 0.06970696178035433,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 1.2671687694322002,
@@ -11617,6 +12591,17 @@
       "reason": "live price must be inside entry zone"
      }
     ],
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 0.02271,
+      "reference_edge": 0.022570245373877078,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 1.6972365249847159,
     "reward_pct": 5.38300426435736,
@@ -11802,10 +12787,19 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.3347,
+      "actual": 0.3346,
       "threshold": 0.336304786673888,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.3346,
+       "reference_edge": 0.336304786673888,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -11813,6 +12807,17 @@
       "actual": -0.012880018981619657,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.3346,
+      "reference_edge": 0.336304786673888,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.10405314193862099,
@@ -12000,10 +13005,19 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.03192,
+      "actual": 0.03193,
       "threshold": 0.0321528254675687,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.03193,
+       "reference_edge": 0.0321528254675687,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -12011,6 +13025,17 @@
       "actual": -0.9325130445745541,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.03193,
+      "reference_edge": 0.0321528254675687,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.21922934688044016,
@@ -12210,7 +13235,27 @@
       "actual": 0.17783,
       "threshold": 0.17849006493050215,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.17783,
+       "reference_edge": 0.17849006493050215,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.17783,
+      "reference_edge": 0.17849006493050215,
+      "closed_only": true
      }
     ],
     "reward_pct": 2.687396179415165,
@@ -12397,7 +13442,27 @@
       "actual": 0.07011,
       "threshold": 0.07030370483866064,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.07011,
+       "reference_edge": 0.07030370483866064,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.07011,
+      "reference_edge": 0.07030370483866064,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.14438694488825035,
@@ -12599,7 +13664,16 @@
       "actual": 0.01272,
       "threshold": 0.012787430488446445,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.01272,
+       "reference_edge": 0.012787430488446445,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -12607,6 +13681,17 @@
       "actual": -0.23368661258124931,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.01272,
+      "reference_edge": 0.012787430488446445,
+      "closed_only": true
      }
     ],
     "reward_pct": 3.0563658521263504,
@@ -12789,6 +13874,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_price_holds_ema20_or_trailing_support",
+      "passed": true,
+      "timeframe": "5m",
+      "deciding_tf": "5m",
+      "bar_close": 26.75,
+      "reference_edge": 26.66079893446283,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 88.0065742140006,
     "stop_distance_pct": 1.2698147873973706,
     "reward_pct": 4.98722146886374,
@@ -12976,7 +14072,16 @@
       "actual": 0.001251,
       "threshold": 0.0012584161081071682,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.001251,
+       "reference_edge": 0.0012584161081071682,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -12984,6 +14089,17 @@
       "actual": -0.4148980609240394,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.001251,
+      "reference_edge": 0.0012584161081071682,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.057126375506369086,
@@ -13185,7 +14301,16 @@
       "actual": 0.1502,
       "threshold": 0.15168717426496114,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.1502,
+       "reference_edge": 0.15168717426496114,
+       "closed_only": true
+      }
      },
      {
       "code": "oi_or_volume_expands_with_price",
@@ -13193,6 +14318,17 @@
       "actual": -0.08554176113665252,
       "severity": "review_wait",
       "reason": "OI or short-term volume expansion is not yet confirmed"
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.1502,
+      "reference_edge": 0.15168717426496114,
+      "closed_only": true
      }
     ],
     "reward_pct": 5.3125147781207565,
@@ -13396,7 +14532,27 @@
       "actual": 0.06163,
       "threshold": 0.0611943361769469,
       "severity": "review_wait",
-      "reason": "15m close is not below VWAP20"
+      "reason": "15m close is not below VWAP20",
+      "evidence": {
+       "code": "15m_close_below_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.06163,
+       "reference_edge": 0.0611943361769469,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.06163,
+      "reference_edge": 0.0611943361769469,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.50000000000021,
@@ -13577,6 +14733,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": true,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 8.45,
+      "reference_edge": 8.443013080821649,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 0.4085882666687943,
     "reward_pct": 2.02708547277521,
@@ -13762,7 +14929,27 @@
       "actual": 0.02156,
       "threshold": 0.021497432598135007,
       "severity": "review_wait",
-      "reason": "short trigger has not cleared entry-zone lower bound"
+      "reason": "short trigger has not cleared entry-zone lower bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_below_trigger",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.02156,
+       "reference_edge": 0.021497432598135007,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_below_trigger",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.02156,
+      "reference_edge": 0.021497432598135007,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 31.818181818181657,
@@ -13973,7 +15160,27 @@
       "actual": 0.11732,
       "threshold": 0.1163516430421296,
       "severity": "review_wait",
-      "reason": "15m close is not below VWAP20"
+      "reason": "15m close is not below VWAP20",
+      "evidence": {
+       "code": "15m_close_below_vwap",
+       "passed": false,
+       "timeframe": "15m",
+       "deciding_tf": "15m",
+       "bar_close": 0.11732,
+       "reference_edge": 0.1163516430421296,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "15m_close_below_vwap",
+      "passed": false,
+      "timeframe": "15m",
+      "deciding_tf": "15m",
+      "bar_close": 0.11732,
+      "reference_edge": 0.1163516430421296,
+      "closed_only": true
      }
     ],
     "entry_zone_position": 37.5,
@@ -14152,6 +15359,17 @@
    "confirmation_summary": {
     "passed_hard": true,
     "passed_review": true,
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": true,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 1.1019,
+      "reference_edge": 1.1013376581158456,
+      "closed_only": true
+     }
+    ],
     "entry_zone_position": 100,
     "stop_distance_pct": 0.26889791412363645,
     "reward_pct": 1.7009293438951067,
@@ -14396,10 +15614,30 @@
      {
       "code": "5m_or_15m_close_through_breakout_level",
       "passed": false,
-      "actual": 0.02466,
+      "actual": 0.02467,
       "threshold": 0.02480319154913861,
       "severity": "review_wait",
-      "reason": "long trigger has not cleared entry-zone upper bound"
+      "reason": "long trigger has not cleared entry-zone upper bound on closed 5m/15m bar",
+      "evidence": {
+       "code": "5m_or_15m_close_through_breakout_level",
+       "passed": false,
+       "timeframe": "5m|15m",
+       "deciding_tf": "5m",
+       "bar_close": 0.02467,
+       "reference_edge": 0.02480319154913861,
+       "closed_only": true
+      }
+     }
+    ],
+    "bar_evidence": [
+     {
+      "code": "5m_or_15m_close_through_breakout_level",
+      "passed": false,
+      "timeframe": "5m|15m",
+      "deciding_tf": "5m",
+      "bar_close": 0.02467,
+      "reference_edge": 0.02480319154913861,
+      "closed_only": true
      }
     ],
     "stop_distance_pct": 0.5627507513898168,
