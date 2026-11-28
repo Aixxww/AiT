@@ -376,6 +376,47 @@ type DecisionTrigger struct {
 	ActionIfTriggered string  `json:"action_if_triggered,omitempty"`
 }
 
+// UnmarshalJSON decodes a Decision, scoping wait-trigger scalar coercion to
+// action == "wait" via store.UnmarshalDecisionTriggerList so kernel and store
+// parse sites behave identically. All non-wait actions restore the original
+// receiver and delegate to plain encoding/json so non-wait parsing stays
+// strictly fail-closed.
+func (d *Decision) UnmarshalJSON(data []byte) error {
+	orig := *d
+	type decisionAlias Decision
+	aux := struct {
+		*decisionAlias
+		Trigger store.RawJSONList `json:"trigger,omitempty"`
+	}{
+		decisionAlias: (*decisionAlias)(d),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if d.Action != "wait" {
+		*d = orig
+		return json.Unmarshal(data, (*decisionAlias)(d))
+	}
+	if len(aux.Trigger) == 0 {
+		return nil
+	}
+	tr, err := store.UnmarshalDecisionTriggerList(aux.Trigger, d.Action, d.Symbol)
+	if err != nil {
+		return err
+	}
+	if tr == nil {
+		d.Trigger = nil
+		return nil
+	}
+	d.Trigger = &DecisionTrigger{
+		TriggerPrice:      tr.TriggerPrice,
+		RequiredClose:     tr.RequiredClose,
+		ExpiresInBars:     tr.ExpiresInBars,
+		ActionIfTriggered: tr.ActionIfTriggered,
+	}
+	return nil
+}
+
 // FullDecision AI's complete decision (including chain of thought)
 type FullDecision struct {
 	SystemPrompt        string     `json:"system_prompt"`

@@ -157,6 +157,37 @@ type DecisionTrigger struct {
 	ActionIfTriggered string  `json:"action_if_triggered,omitempty"`
 }
 
+// UnmarshalJSON decodes a DecisionAction, scoping wait-trigger scalar coercion
+// to action == "wait" via the shared UnmarshalDecisionTriggerList helper. All
+// non-wait actions restore the original receiver and delegate to plain
+// encoding/json so non-wait parsing stays strictly fail-closed.
+func (d *DecisionAction) UnmarshalJSON(data []byte) error {
+	orig := *d
+	type decisionActionAlias DecisionAction
+	aux := struct {
+		*decisionActionAlias
+		Trigger RawJSONList `json:"trigger,omitempty"`
+	}{
+		decisionActionAlias: (*decisionActionAlias)(d),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if d.Action != "wait" {
+		*d = orig
+		return json.Unmarshal(data, (*decisionActionAlias)(d))
+	}
+	if len(aux.Trigger) == 0 {
+		return nil
+	}
+	tr, err := UnmarshalDecisionTriggerList(aux.Trigger, d.Action, d.Symbol)
+	if err != nil {
+		return err
+	}
+	d.Trigger = tr
+	return nil
+}
+
 // Statistics statistics information
 type Statistics struct {
 	TotalCycles         int `json:"total_cycles"`
