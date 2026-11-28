@@ -23,7 +23,7 @@ func t2TagSignal(setup string, dir local.V7Direction, state string) local.V7Sign
 		stop, tp1, tp2 = 101, 98.2, 97
 	}
 	return local.V7SignalOutput{
-		SignalID: setup, Stack: local.V7StackT2, LifecycleState: state, TriggerPrice: 100, ATR15mPct: 1.25,
+		SignalID: setup, Stack: local.V7StackT2, LifecycleState: state, TriggerPrice: 100, ATR15mPct: 1.25, LiquidityScore: 80,
 		DataGaps: []string{local.V7T2DataGapGlobalLSR, local.V7T2DataGapMarketCap},
 		Symbol:   "AUSDT", Direction: dir, SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate,
 		EntryZone: local.V7PriceZone{Lower: 100, Upper: 100}, Invalidation: local.V7InvalidationRule{Price: stop},

@@ -1714,6 +1714,51 @@ func EvaluateV7T2Snapshot(s *V7T2Snapshot, cfg *V7T2Config, regime *V7T2RegimeIn
 // Conversion into the v7 pipeline output type
 // ----------------------------------------------------------------------------
 
+const (
+	v7T2MinEntryZoneATR15mMult = 0.35
+	v7T2MaxEntryZoneStopFrac   = 0.50
+)
+
+// v7T2BuildEntryZone widens a Task-2 entry zone on the pullback side only so
+// its width reaches atrMult * ATR14(15m), capped at stopCapFrac * |anchor-Stop|
+// so the zone stays clear of invalidation. The breakout edge (Upper for LONG,
+// Lower for SHORT) remains pinned to the legacy edge (sig.Entry == TriggerPrice),
+// preserving V7RRReferencePrice and planned RR invariants. Missing ATR, invalid
+// stop, or unknown direction falls back to [min(Entry,Trigger), max(Entry,Trigger)].
+func v7T2BuildEntryZone(sig *V7T2Signal, atrMult, stopCapFrac float64) V7PriceZone {
+	if sig == nil {
+		return V7PriceZone{}
+	}
+	lo := math.Min(sig.Entry, sig.Trigger)
+	hi := math.Max(sig.Entry, sig.Trigger)
+	if sig.ATR15mPct <= 0 || atrMult <= 0 {
+		return V7PriceZone{Lower: lo, Upper: hi}
+	}
+	if sig.Direction == "LONG" {
+		anchor := hi
+		if anchor <= 0 || sig.Stop <= 0 || sig.Stop >= anchor {
+			return V7PriceZone{Lower: lo, Upper: hi}
+		}
+		target := anchor * (sig.ATR15mPct / 100) * atrMult
+		if stopCapFrac > 0 {
+			target = math.Min(target, (anchor-sig.Stop)*stopCapFrac)
+		}
+		return V7PriceZone{Lower: math.Min(lo, anchor-target), Upper: hi}
+	}
+	if sig.Direction == "SHORT" {
+		anchor := lo
+		if anchor <= 0 || sig.Stop <= 0 || sig.Stop <= anchor {
+			return V7PriceZone{Lower: lo, Upper: hi}
+		}
+		target := anchor * (sig.ATR15mPct / 100) * atrMult
+		if stopCapFrac > 0 {
+			target = math.Min(target, (sig.Stop-anchor)*stopCapFrac)
+		}
+		return V7PriceZone{Lower: lo, Upper: math.Max(hi, anchor+target)}
+	}
+	return V7PriceZone{Lower: lo, Upper: hi}
+}
+
 // ToV7SignalOutput converts a Task-2 signal into the hunter_v7 output
 // contract. Mapping (documented in M3_REPORT.md): ARMED -> candidate,
 // WATCH -> wait_confirm; the scanner score fills both SetupScore and
@@ -1730,11 +1775,7 @@ func (sig *V7T2Signal) ToV7SignalOutput(regime V7MarketRegime) V7SignalOutput {
 		MarketRegime:   regime,
 		QuoteVolume24h: 0,
 	}
-	if sig.Direction == "LONG" {
-		out.EntryZone = V7PriceZone{Lower: math.Min(sig.Entry, sig.Trigger), Upper: math.Max(sig.Entry, sig.Trigger)}
-	} else {
-		out.EntryZone = V7PriceZone{Lower: math.Min(sig.Entry, sig.Trigger), Upper: math.Max(sig.Entry, sig.Trigger)}
-	}
+	out.EntryZone = v7T2BuildEntryZone(sig, v7T2MinEntryZoneATR15mMult, v7T2MaxEntryZoneStopFrac)
 	out.Invalidation = V7InvalidationRule{Price: sig.Stop, Reason: "t2_scanner_stop"}
 	out.Targets = []V7Target{
 		{Price: sig.Target1, Reason: "t2_tp1_1.8R"},

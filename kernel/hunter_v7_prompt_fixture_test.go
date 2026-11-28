@@ -110,7 +110,7 @@ func u11T2Signal(symbol, setup string, dir local.V7Direction, state string, pric
 	return local.V7SignalOutput{
 		SignalID: "sig-" + strings.ToLower(symbol), Stack: local.V7StackT2, LifecycleState: state, TriggerPrice: price, ATR15mPct: 1.25,
 		Symbol: symbol, Direction: dir, SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate,
-		AIPriority: 70, SetupScore: 82, Confidence: "MEDIUM", MarketRegime: "BULL",
+		AIPriority: 70, SetupScore: 82, LiquidityScore: 80, Confidence: "MEDIUM", MarketRegime: "BULL",
 		EntryZone: local.V7PriceZone{Lower: price, Upper: price}, Invalidation: local.V7InvalidationRule{Price: stop, Reason: "t2_stop"},
 		Targets: []local.V7Target{{Price: tp1}, {Price: tp2}}, TP1Price: tp1, TP2Price: tp2, TP1RR: 1.8, TP2RR: 3.0, RiskLevel: local.V7RiskMedium,
 		ReasonCodes:    []string{"flow_taker_buy_strong"},

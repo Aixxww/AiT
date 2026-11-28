@@ -131,6 +131,7 @@ func t2Coin(setup, state string, tags ...string) CandidateCoin {
 	c.V7SetupType = setup
 	c.V7LifecycleState = state
 	c.V7Status = "candidate"
+	c.V7LiquidityScore = 80
 	c.V7RiskTags = tags
 	if e, ok := store.DefaultV7SignalClassRegistry()[setup]; ok {
 		c.V7SignalClass, c.V7ClassAdmission = e.Class, e.Admission
@@ -211,5 +212,58 @@ func TestT2TierCappedAtReviewable(t *testing.T) {
 	ready.V7LifecycleState = "ARMED"
 	if tier, reason := classifyHunterV7CandidateTierWithGeometry(ready, g); tier != "REVIEWABLE" {
 		t.Fatalf("T2 must cap at REVIEWABLE, got %s/%s", tier, reason)
+	}
+}
+
+// U6b (M5): fail-closed liquidity guard on T2 candidates — a T2 candidate with
+// V7LiquidityScore <= 0 is held at WATCH with reason t2_liquidity_missing and
+// can never reach REVIEWABLE or U9 conditional registration (nor be promoted by
+// #103's v7AssumeMissingDataPasses optimistic pass).
+func TestU6bT2MissingLiquidityHeldAtWatchNeverReviewableOrU9(t *testing.T) {
+	cases := []struct {
+		name     string
+		setup    string
+		state    string
+		liq      float64
+		geometry HunterV7ExecutionGeometry
+		wantTier string
+		wantRsn  string
+	}{
+		{"impulse armed liq=0", "momentum_continuation_long", "ARMED", 0, defaultGeometry(), "WATCH", "t2_liquidity_missing"},
+		{"impulse triggered liq=0", "momentum_continuation_short", "TRIGGERED", 0, defaultGeometry(), "WATCH", "t2_liquidity_missing"},
+		{"trigger triggered liq=0", "ignition_early_long", "TRIGGERED", 0, defaultGeometry(), "WATCH", "t2_liquidity_missing"},
+		{"trigger triggered liq<0", "ignition_early_long", "TRIGGERED", -5, defaultGeometry(), "WATCH", "t2_liquidity_missing"},
+		{"reversal triggered liq=0", "trend_pullback_short", "TRIGGERED", 0, defaultGeometry(), "WATCH", "t2_liquidity_missing"},
+		{"u9 conditional watch liq=0", "ignition_early_long", "WATCH", 0, condGeometry(true), "WATCH", "t2_liquidity_missing"},
+		{"passthrough162 watch liq=0", "ignition_early_long", "WATCH", 0, condGeometry(false), "WATCH", "t2_liquidity_missing"},
+		// Positive but illiquid (<50) hits the shared REJECTED/liquidity_lt_50 check.
+		{"trigger triggered liq=40 rejected", "ignition_early_long", "TRIGGERED", 40, defaultGeometry(), "REJECTED", "liquidity_lt_50"},
+		// Healthy liquidity passes cleanly to REVIEWABLE.
+		{"trigger triggered liq=80 reviewable", "ignition_early_long", "TRIGGERED", 80, defaultGeometry(), "REVIEWABLE", "t2_trigger_triggered"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := t2Coin(tc.setup, tc.state)
+			c.V7LiquidityScore = tc.liq
+			c.V7TriggerPrice = 100
+			tier, reason := classifyHunterV7CandidateTierWithGeometry(c, tc.geometry)
+			if tier != tc.wantTier || reason != tc.wantRsn {
+				t.Fatalf("classify = %s/%s, want %s/%s", tier, reason, tc.wantTier, tc.wantRsn)
+			}
+		})
+	}
+
+	// End-to-end through AssembleHunterV7CandidateCoins with U9 enabled:
+	// liq=0 WATCH must stay WATCH/t2_liquidity_missing and never stamp V7ConditionalEntry.
+	sig := t2TagSignal("ignition_early_long", local.V7DirLong, "WATCH")
+	sig.LiquidityScore = 0
+	cands := AssembleHunterV7CandidateCoins([]local.V7SignalOutput{sig}, "BOTH", condGeometry(true))
+	if len(cands) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(cands))
+	}
+	if cands[0].V7ExecutionTier != "WATCH" || cands[0].V7TierReason != "t2_liquidity_missing" || cands[0].V7ConditionalEntry {
+		t.Fatalf("U9 assembly with liq=0: tier=%s reason=%s cond=%v, want WATCH/t2_liquidity_missing cond=false",
+			cands[0].V7ExecutionTier, cands[0].V7TierReason, cands[0].V7ConditionalEntry)
 	}
 }

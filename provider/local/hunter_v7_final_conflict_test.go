@@ -186,3 +186,46 @@ func TestNativeResolverUnchanged(t *testing.T) {
 		t.Fatalf("native conflict row changed: %+v", out)
 	}
 }
+
+// U6b (M5): newV7ConflictWatchSignal preserves LiquidityScore and QuoteVolume24h
+// (max of long and short inputs) in both native ResolveV7Conflicts and final
+// cross-stack ResolveV7FinalDirectionConflicts.
+func TestU6bConflictWatchPreservesLiquidityAndQuoteVolume(t *testing.T) {
+	// Native resolver: short has higher liquidity, long has higher quote volume.
+	longSig := nat("ZUSDT", "leader_momentum_long", V7DirLong, 70)
+	longSig.LiquidityScore = 75
+	longSig.QuoteVolume24h = 42_000_000
+	shortSig := nat("ZUSDT", "distribution_short", V7DirShort, 65)
+	shortSig.LiquidityScore = 90
+	shortSig.QuoteVolume24h = 18_000_000
+
+	out := ResolveV7Conflicts([]V7SignalOutput{longSig, shortSig})
+	if len(out) != 1 || out[0].Status != V7StatusConflictWatch {
+		t.Fatalf("native conflict_watch expected, got %+v", out)
+	}
+	if out[0].LiquidityScore != 90 {
+		t.Fatalf("native conflict LiquidityScore = %v, want 90 (max of 75, 90)", out[0].LiquidityScore)
+	}
+	if out[0].QuoteVolume24h != 42_000_000 {
+		t.Fatalf("native conflict QuoteVolume24h = %v, want 42000000 (max of 42M, 18M)", out[0].QuoteVolume24h)
+	}
+
+	// Cross-stack final resolver (native short vs T2 long, both strong).
+	natShort := nat("BUSDT", "distribution_short", V7DirShort, 65)
+	natShort.LiquidityScore = 80
+	natShort.QuoteVolume24h = 30_000_000
+	t2Long := t2("BUSDT", "ignition_early_long", V7DirLong, 76)
+	t2Long.LiquidityScore = 95
+	t2Long.QuoteVolume24h = 55_000_000
+
+	finalOut, res := ResolveV7FinalDirectionConflicts([]V7SignalOutput{natShort, t2Long}, finalCfg())
+	if len(finalOut) != 1 || finalOut[0].Status != V7StatusConflictWatch || len(res) != 1 || res[0].Outcome != "conflict_watch" {
+		t.Fatalf("final conflict_watch expected: out=%+v res=%+v", finalOut, res)
+	}
+	if finalOut[0].LiquidityScore != 95 {
+		t.Fatalf("final conflict LiquidityScore = %v, want 95", finalOut[0].LiquidityScore)
+	}
+	if finalOut[0].QuoteVolume24h != 55_000_000 {
+		t.Fatalf("final conflict QuoteVolume24h = %v, want 55000000", finalOut[0].QuoteVolume24h)
+	}
+}

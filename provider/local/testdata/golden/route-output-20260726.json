@@ -583,7 +583,7 @@
    "status": "conflict_watch",
    "setup_score": 100,
    "risk_score": 0,
-   "liquidity_score": 0,
+   "liquidity_score": 90,
    "timing_score": 0,
    "regime_fit_score": 0,
    "ai_priority": 71.70250000000001,
@@ -629,7 +629,8 @@
     "lsr_newest": 0,
     "taker_buy_ratio_15m": 0.5122977068006112
    },
-   "data_freshness": {}
+   "data_freshness": {},
+   "quote_volume_24h": 36341254.4747
   },
   {
    "signal_id": "0|KAITOUSDT|LONG|whale_flow_reversal",
@@ -15498,7 +15499,7 @@
    "status": "conflict_watch",
    "setup_score": 100,
    "risk_score": 0,
-   "liquidity_score": 0,
+   "liquidity_score": 90,
    "timing_score": 0,
    "regime_fit_score": 0,
    "ai_priority": 71.70250000000001,
@@ -15544,7 +15545,8 @@
     "lsr_newest": 0,
     "taker_buy_ratio_15m": 0.5122977068006112
    },
-   "data_freshness": {}
+   "data_freshness": {},
+   "quote_volume_24h": 36341254.4747
   },
   {
    "signal_id": "0|AIGENSYNUSDT|LONG|trend_breakout_long",
