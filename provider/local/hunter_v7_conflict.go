@@ -102,6 +102,8 @@ func newV7ConflictWatchSignal(bestLong, bestShort *V7SignalOutput) V7SignalOutpu
 		SetupScore:     maxFloat(bestLong.SetupScore, bestShort.SetupScore),
 		AIPriority:     (bestLong.AIPriority + bestShort.AIPriority) / 2,
 		MarketRegime:   bestLong.MarketRegime,
+		LiquidityScore: maxFloat(bestLong.LiquidityScore, bestShort.LiquidityScore),
+		QuoteVolume24h: maxFloat(bestLong.QuoteVolume24h, bestShort.QuoteVolume24h),
 		Confidence:     "C",
 		ReasonCodes:    []string{"directional_conflict"},
 		RiskTags:       []string{"do_not_market_chase"},

@@ -198,3 +198,71 @@ func TestTA1ApplyIsIdempotentAndNilSafe(t *testing.T) {
 		t.Fatalf("context gap duplicated: %v", o.DataGaps)
 	}
 }
+
+// U6b (M5): ApplyV7T2ContractFields populates LiquidityScore (via
+// AssessLiquidityScore) and QuoteVolume24h when ss != nil, and leaves both 0
+// with V7T2DataGapContextUnavailable when ss == nil (no fabrication).
+func TestU6bApplyV7T2ContractFieldsLiquidityAndQuoteVolume(t *testing.T) {
+	ss := &datafetch.SymbolSnapshot{
+		Symbol:         "AUSDT",
+		Price:          100,
+		QuoteVolume24h: 85_000_000,
+		TradeCount24h:  120_000,
+		OI:             250_000, // $25M notional -> OI/Vol ~ 0.294
+		FundingRate:    0.0001,
+	}
+	snap := ta1Snapshot(ss)
+	wantCtx := buildSymbolContext("AUSDT", ss, snap)
+	wantLiq := AssessLiquidityScore(wantCtx)
+	if wantLiq <= 0 {
+		t.Fatalf("fixture sanity: AssessLiquidityScore returned %v", wantLiq)
+	}
+
+	// Present in snapshot: populates liquidity and 24h quote volume.
+	o := u1Sig("ignition_early_long", "LONG", 70).ToV7SignalOutputWithLifecycle("", "WATCH")
+	ApplyV7T2ContractFields(&o, snap)
+	if o.LiquidityScore != wantLiq {
+		t.Fatalf("LiquidityScore = %v, want %v", o.LiquidityScore, wantLiq)
+	}
+	if o.QuoteVolume24h != ss.QuoteVolume24h {
+		t.Fatalf("QuoteVolume24h = %v, want %v", o.QuoteVolume24h, ss.QuoteVolume24h)
+	}
+	if v7HasTag(o.DataGaps, V7T2DataGapContextUnavailable) {
+		t.Fatalf("unexpected context-unavailable gap when ss != nil: %v", o.DataGaps)
+	}
+
+	// End-to-end RunV7T2Module: fresh detector fire also carries non-zero liquidity + volume.
+	modSS := t2AdapterMomentumSnapshot(true)
+	modSnap := ta1Snapshot(modSS)
+	modOut := RunV7T2Module(modSnap, &V7T2Config{Enabled: true}, NewV7T2EventStore(), nil, "", u1T0)
+	if len(modOut) != 1 {
+		t.Fatalf("RunV7T2Module emitted %d, want 1", len(modOut))
+	}
+	wantModLiq := AssessLiquidityScore(buildSymbolContext(modSS.Symbol, modSS, modSnap))
+	if modOut[0].LiquidityScore != wantModLiq || modOut[0].LiquidityScore <= 0 {
+		t.Fatalf("RunV7T2Module LiquidityScore = %v, want %v", modOut[0].LiquidityScore, wantModLiq)
+	}
+	if modOut[0].QuoteVolume24h != modSS.QuoteVolume24h {
+		t.Fatalf("RunV7T2Module QuoteVolume24h = %v, want %v", modOut[0].QuoteVolume24h, modSS.QuoteVolume24h)
+	}
+
+	// Absent from snapshot & nil snapshot: stays 0 with data-gap marker (no fabrication).
+	for name, absentSnap := range map[string]*datafetch.Snapshot{
+		"nil_snapshot":  nil,
+		"symbol_absent": ta1Snapshot(&datafetch.SymbolSnapshot{Symbol: "OTHERUSDT", Price: 10, QuoteVolume24h: 50_000_000}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			miss := u1Sig("ignition_early_long", "LONG", 70).ToV7SignalOutputWithLifecycle("", "WATCH")
+			ApplyV7T2ContractFields(&miss, absentSnap)
+			if miss.LiquidityScore != 0 {
+				t.Fatalf("LiquidityScore = %v, want 0 when ss == nil", miss.LiquidityScore)
+			}
+			if miss.QuoteVolume24h != 0 {
+				t.Fatalf("QuoteVolume24h = %v, want 0 when ss == nil", miss.QuoteVolume24h)
+			}
+			if !v7HasTag(miss.DataGaps, V7T2DataGapContextUnavailable) {
+				t.Fatalf("missing %s data gap: %v", V7T2DataGapContextUnavailable, miss.DataGaps)
+			}
+		})
+	}
+}

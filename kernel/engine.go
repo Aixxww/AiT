@@ -4052,6 +4052,7 @@ func hunterV7T2ReviewableStates(geometry HunterV7ExecutionGeometry) map[string][
 // runs after the shared reject / wait checks and the backend RR check.
 //   - no class: WATCH t2_unclassified
 //   - observe-only setup (OD-5): WATCH t2_observe_only
+//   - missing liquidity (U6b / M5): WATCH t2_liquidity_missing (fail-closed)
 //   - class with no reviewable state (CONTEXT): WATCH t2_class_not_reviewable
 //   - lifecycle state reviewable for the class: REVIEWABLE t2_<class>_<state>
 //   - conditional class before its trigger (U9, when enabled for the
@@ -4069,6 +4070,9 @@ func hunterV7T2TierRule(coin CandidateCoin, geometry HunterV7ExecutionGeometry) 
 	}
 	if containsStringValue(coin.V7RiskTags, "t2_observe_only") {
 		return "WATCH", "t2_observe_only"
+	}
+	if coin.V7LiquidityScore <= 0 {
+		return "WATCH", "t2_liquidity_missing"
 	}
 	states := hunterV7T2ReviewableStates(geometry)[coin.V7SignalClass]
 	if len(states) == 0 {

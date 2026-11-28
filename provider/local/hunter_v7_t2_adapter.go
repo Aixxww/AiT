@@ -279,12 +279,13 @@ const V7T2DataGapContextUnavailable = "t2_context_unavailable"
 const v7T2LivePriceConfirmation = "live_price_in_entry_zone"
 
 // ApplyV7T2ContractFields fills the signal-contract fields the Task-2
-// converter cannot (it has no snapshot): price_context and
-// derivatives_context, built from the symbol's datafetch snapshot exactly
-// as native modules build them (buildSymbolContext -> buildPriceCtx /
-// buildDerivCtx), and required_confirmations for outputs whose entry is not
-// immediate. A symbol absent from the snapshot gets empty contexts plus the
-// t2_context_unavailable data gap: values are never fabricated. Score,
+// converter cannot (it has no snapshot): price_context, derivatives_context,
+// liquidity_score and quote_volume_24h, built from the symbol's datafetch
+// snapshot exactly as native modules build them (buildSymbolContext ->
+// buildPriceCtx / buildDerivCtx / AssessLiquidityScore), and
+// required_confirmations for outputs whose entry is not immediate. A symbol
+// absent from the snapshot gets empty contexts, zero liquidity/volume, plus
+// the t2_context_unavailable data gap: values are never fabricated. Score,
 // status, entry mode, targets and lifecycle state are not touched.
 //
 // price_context.last is the scan price (ss.Price, as native modules carry
@@ -310,6 +311,8 @@ func ApplyV7T2ContractFields(out *V7SignalOutput, snap *datafetch.Snapshot) {
 		ctx := buildSymbolContext(out.Symbol, ss, snap)
 		out.PriceCtx = buildPriceCtx(ctx)
 		out.DerivativesCtx = buildDerivCtx(ctx)
+		out.LiquidityScore = AssessLiquidityScore(ctx)
+		out.QuoteVolume24h = ss.QuoteVolume24h
 	}
 	if out.EntryMode != V7EntryImmediate {
 		out.RequiredConfirms = appendIfMissing(out.RequiredConfirms, v7T2LivePriceConfirmation)

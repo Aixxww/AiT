@@ -62,7 +62,7 @@ func TestDefaultShadowFamiliesStayWatch(t *testing.T) {
 			dir = local.V7DirShort
 		}
 		sigs = append(sigs, local.V7SignalOutput{SignalID: setup, Symbol: string(rune('A'+i)) + "USDT", Direction: dir,
-			SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate, Stack: local.V7StackT2, LifecycleState: "TRIGGERED"})
+			SetupType: local.V7SetupType(setup), Status: local.V7StatusCandidate, Stack: local.V7StackT2, LifecycleState: "TRIGGERED", LiquidityScore: 80})
 	}
 	for _, c := range AssembleHunterV7CandidateCoins(sigs, "BOTH", defaultGeometry()) {
 		if c.V7ExecutionTier != "WATCH" || c.V7TierReason != "class_shadow_only" {

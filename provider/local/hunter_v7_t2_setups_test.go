@@ -298,3 +298,212 @@ func TestV7T2LifecycleStore(t *testing.T) {
 		t.Fatal("expected at least one activity invalidation")
 	}
 }
+
+// U6b (M5): v7T2BuildEntryZone widens T2 entry zones on the pullback side only
+// to atrMult*ATR14(15m), capped at stopCapFrac*|anchor-Stop|, while pinning the
+// breakout edge (Upper for LONG, Lower for SHORT) and falling back cleanly when
+// ATR, stop, or direction is invalid.
+func TestU6bV7T2BuildEntryZone(t *testing.T) {
+	const (
+		atrMult     = v7T2MinEntryZoneATR15mMult // 0.35
+		stopCapFrac = v7T2MaxEntryZoneStopFrac   // 0.50
+		eps         = 1e-9
+	)
+	cases := []struct {
+		name      string
+		sig       *V7T2Signal
+		wantLower float64
+		wantUpper float64
+		checkCap  bool
+	}{
+		{
+			name: "normal LONG widening (ATR < stop cap)",
+			// anchor=100, stopDist=1.0 -> cap=0.50; atrTarget=100*0.014*0.35=0.49 < 0.50
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.9, Entry: 100, Stop: 99, ATR15mPct: 1.4},
+			wantLower: 99.51,
+			wantUpper: 100,
+			checkCap:  true,
+		},
+		{
+			name: "normal SHORT widening (ATR < stop cap)",
+			// anchor=100, stopDist=1.27 -> cap=0.635; atrTarget=100*0.018*0.35=0.63 < 0.635
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100.127, Entry: 100, Stop: 101.27, ATR15mPct: 1.8},
+			wantLower: 100,
+			wantUpper: 100.63,
+			checkCap:  true,
+		},
+		{
+			name: "BLUR-like high-ATR tight-stop LONG capped at 0.50*stopDist",
+			// anchor=100, stopDist=2.648 -> cap=1.324; atrTarget=100*0.05353*0.35=1.87355 > 1.324
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.7352, Entry: 100, Stop: 97.352, ATR15mPct: 5.353},
+			wantLower: 98.676,
+			wantUpper: 100,
+			checkCap:  true,
+		},
+		{
+			name: "BLUR-like high-ATR tight-stop SHORT capped at 0.50*stopDist",
+			// anchor=100, stopDist=2.648 -> cap=1.324; atrTarget=1.87355 > 1.324
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100.2648, Entry: 100, Stop: 102.648, ATR15mPct: 5.353},
+			wantLower: 100,
+			wantUpper: 101.324,
+			checkCap:  true,
+		},
+		{
+			name: "secondary-chain zero-width LONG (Entry == Trigger)",
+			// anchor=100, stopDist=1.0 -> cap=0.50; atrTarget=0.42
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 100, Entry: 100, Stop: 99, ATR15mPct: 1.2},
+			wantLower: 99.58,
+			wantUpper: 100,
+			checkCap:  true,
+		},
+		{
+			name: "secondary-chain zero-width SHORT (Entry == Trigger)",
+			// anchor=100, stopDist=1.0 -> cap=0.50; atrTarget=0.42
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100, Entry: 100, Stop: 101, ATR15mPct: 1.2},
+			wantLower: 100,
+			wantUpper: 100.42,
+			checkCap:  true,
+		},
+		{
+			name: "legacy zone already wider than target is preserved (never shrunk)",
+			// lo=99.4 < anchor-0.35=99.65 -> keeps lo=99.4
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.4, Entry: 100, Stop: 98, ATR15mPct: 1.0},
+			wantLower: 99.4,
+			wantUpper: 100,
+			checkCap:  true,
+		},
+		{
+			name:      "missing ATR (0) falls back to legacy [min, max]",
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.9, Entry: 100, Stop: 99, ATR15mPct: 0},
+			wantLower: 99.9,
+			wantUpper: 100,
+		},
+		{
+			name:      "negative ATR falls back to legacy [min, max]",
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100.1, Entry: 100, Stop: 101, ATR15mPct: -1.5},
+			wantLower: 100,
+			wantUpper: 100.1,
+		},
+		{
+			name:      "invalid stop LONG (Stop == 0) falls back",
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.9, Entry: 100, Stop: 0, ATR15mPct: 1.5},
+			wantLower: 99.9,
+			wantUpper: 100,
+		},
+		{
+			name:      "invalid stop LONG (Stop >= anchor) falls back",
+			sig:       &V7T2Signal{Direction: "LONG", Trigger: 99.9, Entry: 100, Stop: 100.5, ATR15mPct: 1.5},
+			wantLower: 99.9,
+			wantUpper: 100,
+		},
+		{
+			name:      "invalid stop SHORT (Stop == 0) falls back",
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100.1, Entry: 100, Stop: 0, ATR15mPct: 1.5},
+			wantLower: 100,
+			wantUpper: 100.1,
+		},
+		{
+			name:      "invalid stop SHORT (Stop <= anchor) falls back",
+			sig:       &V7T2Signal{Direction: "SHORT", Trigger: 100.1, Entry: 100, Stop: 99.5, ATR15mPct: 1.5},
+			wantLower: 100,
+			wantUpper: 100.1,
+		},
+		{
+			name:      "unknown direction falls back to legacy [min, max]",
+			sig:       &V7T2Signal{Direction: "FLAT", Trigger: 99.9, Entry: 100, Stop: 99, ATR15mPct: 1.5},
+			wantLower: 99.9,
+			wantUpper: 100,
+		},
+		{
+			name:      "nil signal returns zero zone",
+			sig:       nil,
+			wantLower: 0,
+			wantUpper: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := v7T2BuildEntryZone(tc.sig, atrMult, stopCapFrac)
+			if math.Abs(got.Lower-tc.wantLower) > eps || math.Abs(got.Upper-tc.wantUpper) > eps {
+				t.Fatalf("got {%v, %v}, want {%v, %v}", got.Lower, got.Upper, tc.wantLower, tc.wantUpper)
+			}
+			if tc.sig == nil || !tc.checkCap {
+				return
+			}
+			width := got.Upper - got.Lower
+			if tc.sig.Direction == "LONG" {
+				if got.Upper != tc.sig.Entry {
+					t.Fatalf("LONG breakout edge not pinned: Upper=%v Entry=%v", got.Upper, tc.sig.Entry)
+				}
+				stopDist := tc.sig.Entry - tc.sig.Stop
+				if width > stopCapFrac*stopDist+eps {
+					t.Fatalf("LONG widened width %v exceeds cap %v", width, stopCapFrac*stopDist)
+				}
+				if got.Lower <= tc.sig.Stop {
+					t.Fatalf("LONG zone lower %v crossed/touched stop %v", got.Lower, tc.sig.Stop)
+				}
+			} else if tc.sig.Direction == "SHORT" {
+				if got.Lower != tc.sig.Entry {
+					t.Fatalf("SHORT breakout edge not pinned: Lower=%v Entry=%v", got.Lower, tc.sig.Entry)
+				}
+				stopDist := tc.sig.Stop - tc.sig.Entry
+				if width > stopCapFrac*stopDist+eps {
+					t.Fatalf("SHORT widened width %v exceeds cap %v", width, stopCapFrac*stopDist)
+				}
+				if got.Upper >= tc.sig.Stop {
+					t.Fatalf("SHORT zone upper %v crossed/touched stop %v", got.Upper, tc.sig.Stop)
+				}
+			}
+		})
+	}
+}
+
+// U6b (M5): ToV7SignalOutput preserves TriggerPrice pinned to EntryZone.Upper
+// (LONG) / EntryZone.Lower (SHORT), widens on the pullback side, stays clear of
+// invalidation, and leaves planned TP1RR/TP2RR unchanged.
+func TestU6bToV7SignalOutputPinnedEdgeAndRR(t *testing.T) {
+	for _, dir := range []string{"LONG", "SHORT"} {
+		e, s, t1, t2 := v7t2TriggerBasedPlan(100, 1.0, 100, dir)
+		base := &V7T2Signal{
+			Symbol:    "AUSDT",
+			Direction: dir,
+			SetupType: "ignition_early_" + map[string]string{"LONG": "long", "SHORT": "short"}[dir],
+			Status:    "WATCH",
+			Score:     70,
+			Trigger:   100,
+			Entry:     e,
+			Stop:      s,
+			Target1:   t1,
+			Target2:   t2,
+			ATR15mPct: 0,
+		}
+		legacyOut := base.ToV7SignalOutput(V7RegimeMixed)
+
+		widened := *base
+		widened.ATR15mPct = 1.6 // 0.35*1.6% = 0.56%, capped at 0.50*1.0% = 0.50%
+		out := widened.ToV7SignalOutput(V7RegimeMixed)
+
+		if out.TriggerPrice != e {
+			t.Fatalf("%s TriggerPrice = %v, want %v", dir, out.TriggerPrice, e)
+		}
+		if dir == "LONG" {
+			if out.EntryZone.Upper != out.TriggerPrice {
+				t.Fatalf("LONG EntryZone.Upper=%v != TriggerPrice=%v", out.EntryZone.Upper, out.TriggerPrice)
+			}
+			if !(out.EntryZone.Lower < legacyOut.EntryZone.Lower && out.EntryZone.Lower > out.Invalidation.Price) {
+				t.Fatalf("LONG Lower=%v expected strictly between stop %v and legacy lower %v", out.EntryZone.Lower, out.Invalidation.Price, legacyOut.EntryZone.Lower)
+			}
+		} else {
+			if out.EntryZone.Lower != out.TriggerPrice {
+				t.Fatalf("SHORT EntryZone.Lower=%v != TriggerPrice=%v", out.EntryZone.Lower, out.TriggerPrice)
+			}
+			if !(out.EntryZone.Upper > legacyOut.EntryZone.Upper && out.EntryZone.Upper < out.Invalidation.Price) {
+				t.Fatalf("SHORT Upper=%v expected strictly between legacy upper %v and stop %v", out.EntryZone.Upper, legacyOut.EntryZone.Upper, out.Invalidation.Price)
+			}
+		}
+		if math.Abs(out.TP1RR-legacyOut.TP1RR) > 1e-12 || math.Abs(out.TP2RR-legacyOut.TP2RR) > 1e-12 {
+			t.Fatalf("%s planned RR changed: TP1 %v->%v TP2 %v->%v", dir, legacyOut.TP1RR, out.TP1RR, legacyOut.TP2RR, out.TP2RR)
+		}
+	}
+}
