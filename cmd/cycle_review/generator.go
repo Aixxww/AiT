@@ -126,7 +126,7 @@ func GenerateReport(db *gorm.DB, traderID string, cycles int) (*CycleReviewRepor
 			if d.Action == "open_long" || d.Action == "open_short" {
 				cs.Action = d.Action
 				cs.Symbol = d.Symbol
-				if d.Success {
+				if d.Success && !d.ConditionalPending {
 					report.OpenCount++
 				}
 				break

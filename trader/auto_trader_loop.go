@@ -2,6 +2,7 @@ package trader
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
@@ -355,20 +356,7 @@ func (at *AutoTrader) runCycle() error {
 			actionRecord.Error = fmt.Sprintf("validator_rejected(%s): %s", d.RejectedAction, d.ValidatorRejection)
 			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⚠️ %s %s demoted to wait by validator: %s", d.Symbol, d.RejectedAction, d.ValidatorRejection))
 		}
-		if err := at.validateHunterV7ExecutionGuard(ctx, &d); err != nil {
-			at.logErrorf("❌ Hunter v7 execution guard blocked (%s %s): %v", d.Symbol, d.Action, err)
-			actionRecord.Error = err.Error()
-			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s blocked: %v", d.Symbol, d.Action, err))
-		} else if err := at.executeDecisionWithRecord(ctx, &d, &actionRecord); err != nil {
-			at.logErrorf("❌ Failed to execute decision (%s %s): %v", d.Symbol, d.Action, err)
-			actionRecord.Error = err.Error()
-			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s failed: %v", d.Symbol, d.Action, err))
-		} else {
-			actionRecord.Success = true
-			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("✓ %s %s succeeded", d.Symbol, d.Action))
-			if logLine := effectiveOpenContractLog(actionRecord); logLine != "" {
-				record.ExecutionLog = append(record.ExecutionLog, logLine)
-			}
+		if at.runGuardedDecision(ctx, &d, &actionRecord, record, time.Now()) {
 			// Brief delay after successful execution
 			time.Sleep(1 * time.Second)
 		}
@@ -384,6 +372,77 @@ func (at *AutoTrader) runCycle() error {
 	at.conditional.entryMu.Unlock()
 
 	return nil
+}
+
+// runGuardedDecision validates a decision through the Hunter v7 execution
+// guard, reroutes eligible confirmation-only guard vetoes to U9 conditional
+// entry (P0-2), and otherwise executes or records the decision unchanged.
+// Returns true iff the decision succeeded (market/conditional open or wait/close).
+func (at *AutoTrader) runGuardedDecision(ctx *kernel.Context, d *kernel.Decision, actionRecord *store.DecisionAction, record *store.DecisionRecord, now time.Time) bool {
+	guardOutcome := at.evaluateHunterV7ExecutionGuard(ctx, d)
+	if guardOutcome.Err != nil {
+		if d.ValidatorRejection == "" &&
+			!d.HunterV7ConditionalEntry &&
+			guardOutcome.SoleClosedBarConfirmCode != "" &&
+			(d.Action == "open_long" || d.Action == "open_short") {
+			side := "long"
+			if d.Action == "open_short" {
+				side = "short"
+			}
+			if trigger, inval, ok := hunterV7RerouteGeometry(guardOutcome.Candidate, d, side); ok {
+				code := guardOutcome.SoleClosedBarConfirmCode
+				if regErr := at.rerouteHunterV7ConfirmationVeto(ctx, d, side, code, trigger, inval, actionRecord, now); regErr != nil {
+					if errors.Is(regErr, errConditionalEntryDisabled) {
+						actionRecord.BlockedReasonCode = store.V7BlockedReasonConditionalRerouteDisabled
+					} else {
+						actionRecord.BlockedReasonCode = store.V7BlockedReasonConditionalRerouteFailed
+					}
+					actionRecord.ConditionalRerouteSource = code
+					actionRecord.Error = fmt.Sprintf("%s; %s: %v", guardOutcome.Err.Error(), actionRecord.BlockedReasonCode, regErr)
+					at.logErrorf("❌ Hunter v7 confirmation-only veto reroute fail-closed (%s %s, blocker=%s, status=%s): %v",
+						d.Symbol, d.Action, code, actionRecord.BlockedReasonCode, regErr)
+					if record != nil {
+						record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s %s (sole_blocker=%s): %v",
+							d.Symbol, d.Action, actionRecord.BlockedReasonCode, code, regErr))
+					}
+					return false
+				}
+				actionRecord.Success = true
+				actionRecord.BlockedReasonCode = store.V7BlockedReasonReroutedConditionalEntry
+				actionRecord.ConditionalRerouteSource = code
+				at.logInfof("⏳ Hunter v7 confirmation-only guard veto rerouted to conditional entry (%s %s, sole_blocker=%s, trigger=%.8f, invalidation=%.8f)",
+					d.Symbol, d.Action, code, trigger, inval)
+				if record != nil {
+					record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("⏳ %s %s %s (sole_blocker=%s trigger=%.8f invalidation=%.8f)",
+						d.Symbol, d.Action, store.V7BlockedReasonReroutedConditionalEntry, code, trigger, inval))
+				}
+				return true
+			}
+		}
+		at.logErrorf("❌ Hunter v7 execution guard blocked (%s %s): %v", d.Symbol, d.Action, guardOutcome.Err)
+		actionRecord.Error = guardOutcome.Err.Error()
+		if record != nil {
+			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s blocked: %v", d.Symbol, d.Action, guardOutcome.Err))
+		}
+		return false
+	}
+
+	if err := at.executeDecisionWithRecord(ctx, d, actionRecord); err != nil {
+		at.logErrorf("❌ Failed to execute decision (%s %s): %v", d.Symbol, d.Action, err)
+		actionRecord.Error = err.Error()
+		if record != nil {
+			record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("❌ %s %s failed: %v", d.Symbol, d.Action, err))
+		}
+		return false
+	}
+	actionRecord.Success = true
+	if record != nil {
+		record.ExecutionLog = append(record.ExecutionLog, fmt.Sprintf("✓ %s %s succeeded", d.Symbol, d.Action))
+		if logLine := effectiveOpenContractLog(*actionRecord); logLine != "" {
+			record.ExecutionLog = append(record.ExecutionLog, logLine)
+		}
+	}
+	return true
 }
 
 func effectiveOpenContractLog(action store.DecisionAction) string {
@@ -1032,7 +1091,7 @@ func (at *AutoTrader) latestOpenDecisionRiskByPosition(limit int) map[string]pla
 		}
 		for _, decision := range record.Decisions {
 			side, ok := openDecisionSide(decision.Action)
-			if !ok || !decision.Success || decision.Symbol == "" {
+			if !ok || !decision.Success || decision.ConditionalPending || decision.Symbol == "" {
 				continue
 			}
 			if decision.StopLoss <= 0 && decision.TakeProfit <= 0 {

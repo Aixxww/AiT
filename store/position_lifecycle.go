@@ -67,6 +67,10 @@ type PositionLifecycle struct {
 	// Conditional entry (C6): the serialized pending entry and its expiry.
 	PendingPayload string `gorm:"column:pending_payload;type:text" json:"-"`
 	ExpiresAt      int64  `gorm:"column:expires_at" json:"expires_at,omitempty"`
+	// EntrySource (U9 P0-2): provenance marker for pending entries
+	// ("" for scan-time #162 entries, "rerouted_conditional_entry" for
+	// confirmation-only guard-veto reroutes).
+	EntrySource string `gorm:"column:entry_source" json:"entry_source,omitempty"`
 
 	Note      string `gorm:"column:note;type:text" json:"note,omitempty"`
 	CreatedAt int64  `gorm:"column:created_at" json:"created_at"` // Unix ms

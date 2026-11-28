@@ -1751,16 +1751,26 @@ func validateHunterV7DecisionReasoningDirection(decision *kernel.Decision) error
 	return nil
 }
 
+type hunterV7GuardOutcome struct {
+	Err                      error
+	Candidate                *kernel.CandidateCoin
+	SoleClosedBarConfirmCode string
+}
+
 func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decision *kernel.Decision) error {
+	return at.evaluateHunterV7ExecutionGuard(ctx, decision).Err
+}
+
+func (at *AutoTrader) evaluateHunterV7ExecutionGuard(ctx *kernel.Context, decision *kernel.Decision) hunterV7GuardOutcome {
 	if ctx == nil || decision == nil || !at.isHunterV7Strategy() {
-		return nil
+		return hunterV7GuardOutcome{}
 	}
 	if decision.Action != "open_short" && decision.Action != "open_long" {
-		return nil
+		return hunterV7GuardOutcome{}
 	}
 
 	if decision.Action == "open_short" && hunterV7MMSSqueezeShortBanActive(ctx, decision.Symbol) {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: MMS squeeze-engine short ban active", decision.Symbol)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s SHORT blocked: MMS squeeze-engine short ban active", decision.Symbol)}
 	}
 
 	// F01 (candidate-set enforcement, design after Nofx
@@ -1770,25 +1780,25 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	candidate := hunterV7CandidateForDecision(ctx, decision)
 	if candidate == nil {
 		if strings.TrimSpace(decision.SelectedHunterV7SignalID) != "" {
-			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q does not match any current candidate (signal_contract_mismatch)",
-				decision.Symbol, decision.SelectedHunterV7SignalID)
+			return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q does not match any current candidate (signal_contract_mismatch)",
+				decision.Symbol, decision.SelectedHunterV7SignalID)}
 		}
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: symbol/direction is not in this cycle's candidate set (outside_candidate_set)",
-			decision.Symbol, decision.Action)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: symbol/direction is not in this cycle's candidate set (outside_candidate_set)",
+			decision.Symbol, decision.Action)}
 	}
 	if !strings.EqualFold(market.Normalize(candidate.Symbol), market.Normalize(decision.Symbol)) {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q belongs to %s (signal_contract_mismatch)",
-			decision.Symbol, decision.SelectedHunterV7SignalID, candidate.Symbol)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s blocked: selected_hunter_v7_signal_id %q belongs to %s (signal_contract_mismatch)",
+			decision.Symbol, decision.SelectedHunterV7SignalID, candidate.Symbol), Candidate: candidate}
 	}
 	if candidate.V7SetupType == "" {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: candidate carries no Hunter v7 setup (outside_candidate_set)",
-			decision.Symbol, decision.Action)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: candidate carries no Hunter v7 setup (outside_candidate_set)",
+			decision.Symbol, decision.Action), Candidate: candidate}
 	}
 
 	// Stage A (pure eligibility): tier gate, tag action gate, signal contract.
 	if strings.EqualFold(candidate.V7ExecutionTier, "WATCH") || strings.EqualFold(candidate.V7ExecutionTier, "REJECTED") {
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: execution_tier=%s (%s)",
-			candidate.V7SetupType, decision.Symbol, candidate.V7ExecutionTier, candidate.V7TierReason)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: execution_tier=%s (%s)",
+			candidate.V7SetupType, decision.Symbol, candidate.V7ExecutionTier, candidate.V7TierReason), Candidate: candidate}
 	}
 	for _, tag := range candidate.V7RiskTags {
 		action, ok := local.HunterV7TagLLMAction(tag)
@@ -1796,8 +1806,8 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 			continue
 		}
 		if action == local.V7TagActionWaitOnly || action == local.V7TagActionRejectOnly {
-			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: risk tag %s is %s",
-				candidate.V7SetupType, decision.Symbol, tag, action)
+			return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: risk tag %s is %s",
+				candidate.V7SetupType, decision.Symbol, tag, action), Candidate: candidate}
 		}
 	}
 
@@ -1806,17 +1816,17 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	// execution-side backstop with the same family table and floor).
 	switch kernel.HunterV7HTFGate(*candidate) {
 	case store.V7HTFFamilyTrend:
-		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: trend-family setup against the candidate's 1h/4h direction (htf_against_trend_family)",
-			candidate.V7SetupType, decision.Symbol)
+		return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: trend-family setup against the candidate's 1h/4h direction (htf_against_trend_family)",
+			candidate.V7SetupType, decision.Symbol), Candidate: candidate}
 	case store.V7HTFFamilyCounterTrend:
 		if decision.Confidence < store.V7CounterTrendMinConfidence {
-			return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: confidence %d below the counter-trend floor %d against the candidate's 1h/4h direction (htf_against_counter_trend)",
-				candidate.V7SetupType, decision.Symbol, decision.Confidence, store.V7CounterTrendMinConfidence)
+			return hunterV7GuardOutcome{Err: fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: confidence %d below the counter-trend floor %d against the candidate's 1h/4h direction (htf_against_counter_trend)",
+				candidate.V7SetupType, decision.Symbol, decision.Confidence, store.V7CounterTrendMinConfidence), Candidate: candidate}
 		}
 	}
 
 	if err := validateHunterV7DecisionSignalContract(candidate, decision); err != nil {
-		return err
+		return hunterV7GuardOutcome{Err: err, Candidate: candidate}
 	}
 	// Stage B (live evidence, no mutation) + Stage C (explicit apply): the
 	// fresh_* codes minted here are what the pure freshness/confirmation
@@ -1829,28 +1839,58 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 		price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
 		evidence, err := at.collectHunterV7RefreshEvidence(ctx, decision, side, price, decision.Price)
 		if err != nil {
-			return err
+			return hunterV7GuardOutcome{Err: err, Candidate: candidate}
 		}
 		evidence.applyTo(candidate)
 	}
 	// Stage A again (pure, evidence-aware): freshness, required confirmations
 	// and tag combos re-evaluated against the applied evidence.
 	if err := validateHunterV7SignalFreshness(candidate, decision); err != nil {
-		return err
+		return hunterV7GuardOutcome{Err: err, Candidate: candidate}
 	}
 	if err := at.validateHunterV7SnapshotBudget(candidate, decision); err != nil {
-		return err
+		return hunterV7GuardOutcome{Err: err, Candidate: candidate}
 	}
-	if err := validateHunterV7RequiredConfirmations(candidate, decision); err != nil {
-		return err
+	if confirmErr := validateHunterV7RequiredConfirmations(candidate, decision); confirmErr != nil {
+		// U9 P0-2: determine whether this rejection is a SOLE closed-bar
+		// trigger confirmation failure with zero coexisting guard blockers.
+		// Post-confirmation checks are evaluated purely (no sizing mutation).
+		side := "long"
+		if decision.Action == "open_short" {
+			side = "short"
+		}
+		if code, ok := hunterV7SoleClosedBarTriggerBlocker(candidate, side); ok &&
+			at.validateHunterV7PostConfirmGuardChecks(ctx, candidate, decision) == nil {
+			return hunterV7GuardOutcome{
+				Err:                      confirmErr,
+				Candidate:                candidate,
+				SoleClosedBarConfirmCode: code,
+			}
+		}
+		return hunterV7GuardOutcome{Err: confirmErr, Candidate: candidate}
 	}
 	if err := validateHunterV7RiskTagCombos(candidate, decision); err != nil {
-		return err
+		return hunterV7GuardOutcome{Err: err, Candidate: candidate}
 	}
 
 	// Stage C (explicit position mutation).
 	at.capHunterV7LowLiquidityPosition(decision, candidate)
 
+	if err := at.validateHunterV7PostSizingGuardChecks(ctx, candidate, decision); err != nil {
+		return hunterV7GuardOutcome{Err: err, Candidate: candidate}
+	}
+
+	return hunterV7GuardOutcome{Candidate: candidate}
+}
+
+func (at *AutoTrader) validateHunterV7PostConfirmGuardChecks(ctx *kernel.Context, candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if err := validateHunterV7RiskTagCombosOnly(candidate, decision); err != nil {
+		return err
+	}
+	return at.validateHunterV7PostSizingGuardChecks(ctx, candidate, decision)
+}
+
+func (at *AutoTrader) validateHunterV7PostSizingGuardChecks(ctx *kernel.Context, candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
 	// Look up per-setup guard thresholds from strategy config
 	guard := at.setupGuardForSetup(candidate.V7SetupType)
 	price := hunterV7DecisionReferencePrice(ctx, candidate, decision)
@@ -1890,6 +1930,78 @@ func (at *AutoTrader) validateHunterV7ExecutionGuard(ctx *kernel.Context, decisi
 	}
 
 	return nil
+}
+
+// hunterV7SoleClosedBarTriggerBlocker (U9 P0-2) returns (code, true) iff
+// candidate's confirmation failure consists of EXACTLY ONE unresolved failing
+// confirmation, no hard blocks exist (PassedHard && len(MissingHard)==0), that
+// sole code is machine-verifiable & required by candidate, it belongs to the
+// U5 closed-bar trigger family (local.V7ConfirmIsClosedBarTrigger), and its
+// direction matches side.
+func hunterV7SoleClosedBarTriggerBlocker(candidate *kernel.CandidateCoin, side string) (string, bool) {
+	if candidate == nil || candidate.V7ConfirmSummary == nil {
+		return "", false
+	}
+	summary := candidate.V7ConfirmSummary
+	if !summary.PassedHard || len(summary.MissingHard) > 0 {
+		return "", false
+	}
+	required := map[string]struct{}{}
+	for _, code := range local.V7MachineConfirms(candidate.V7RequiredConfirms) {
+		required[code] = struct{}{}
+	}
+	if len(required) == 0 {
+		return "", false
+	}
+	unresolved := map[string]struct{}{}
+	for _, check := range summary.MissingReview {
+		if _, isReq := required[check.Code]; isReq && hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate, check.Code) {
+			continue
+		}
+		code := strings.TrimSpace(check.Code)
+		if code == "" {
+			return "", false
+		}
+		unresolved[code] = struct{}{}
+	}
+	for _, check := range summary.ContextChecks {
+		if check.Passed {
+			continue
+		}
+		if _, isReq := required[check.Code]; isReq {
+			if hunterV7ReviewableConfirmationSatisfiedByRefresh(candidate, check.Code) {
+				continue
+			}
+			unresolved[check.Code] = struct{}{}
+		}
+	}
+	if len(unresolved) != 1 {
+		return "", false
+	}
+	var sole string
+	for code := range unresolved {
+		sole = code
+	}
+	if _, isReq := required[sole]; !isReq {
+		return "", false
+	}
+	if !local.V7ConfirmIsClosedBarTrigger(sole) || !hunterV7ClosedBarTriggerMatchesSide(sole, side) {
+		return "", false
+	}
+	return sole, true
+}
+
+func hunterV7ClosedBarTriggerMatchesSide(code, side string) bool {
+	switch code {
+	case "5m_or_15m_close_below_trigger":
+		return side == "short"
+	case "5m_or_15m_close_above_trigger", "5m_or_15m_close_above_entry_zone":
+		return side == "long"
+	case "5m_or_15m_close_through_breakout_level":
+		return side == "long" || side == "short"
+	default:
+		return false
+	}
 }
 
 func hunterV7OpenNeedsGuardRefresh(candidate *kernel.CandidateCoin) bool {
@@ -2095,7 +2207,7 @@ func validateHunterV7SignalFreshness(candidate *kernel.CandidateCoin, decision *
 	return nil
 }
 
-func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+func validateHunterV7RiskTagCombosOnly(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
 	if candidate == nil || decision == nil {
 		return nil
 	}
@@ -2111,6 +2223,13 @@ func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *ke
 	if containsStringValue(tags, "stale_data_risk") && !containsStringValue(candidate.V7ReasonCodes, "fresh_micro_confirmed") {
 		return fmt.Errorf("❌ [HUNTER V7 GUARD] %s %s blocked: stale_data_risk requires fresh_micro_confirmed before open (stale_data_risk)",
 			candidate.V7SetupType, decision.Symbol)
+	}
+	return nil
+}
+
+func validateHunterV7RiskTagCombos(candidate *kernel.CandidateCoin, decision *kernel.Decision) error {
+	if err := validateHunterV7RiskTagCombosOnly(candidate, decision); err != nil {
+		return err
 	}
 	applyHunterV7RiskSizingPolicy(candidate, decision)
 	return nil

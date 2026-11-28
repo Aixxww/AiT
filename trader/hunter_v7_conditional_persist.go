@@ -13,19 +13,22 @@ import (
 	"github.com/Aixxww/AiT/datafetch"
 	"github.com/Aixxww/AiT/kernel"
 	"github.com/Aixxww/AiT/logger"
+	"github.com/Aixxww/AiT/provider/local"
 	"github.com/Aixxww/AiT/store"
 )
 
 // persistedPendingEntry is the stored form of a pending entry. gob keeps the
 // decision's hydrated (json:"-") contract fields, which JSON would drop.
 type persistedPendingEntry struct {
-	Decision     kernel.Decision
-	Candidate    kernel.CandidateCoin
-	Side         string
-	Trigger      float64
-	Invalidation float64
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
+	Decision          kernel.Decision
+	Candidate         kernel.CandidateCoin
+	Side              string
+	Trigger           float64
+	Invalidation      float64
+	CreatedAt         time.Time
+	ExpiresAt         time.Time
+	ReroutedFromGuard bool
+	ReroutedBlockCode string
 }
 
 func encodePendingEntry(p *hunterV7PendingEntry) (string, error) {
@@ -33,6 +36,7 @@ func encodePendingEntry(p *hunterV7PendingEntry) (string, error) {
 	err := gob.NewEncoder(&buf).Encode(persistedPendingEntry{
 		Decision: p.Decision, Candidate: p.Candidate, Side: p.Side, Trigger: p.Trigger,
 		Invalidation: p.Invalidation, CreatedAt: p.CreatedAt, ExpiresAt: p.ExpiresAt,
+		ReroutedFromGuard: p.ReroutedFromGuard, ReroutedBlockCode: p.ReroutedBlockCode,
 	})
 	if err != nil {
 		return "", err
@@ -49,8 +53,11 @@ func decodePendingEntry(payload string) (*hunterV7PendingEntry, error) {
 	if err := gob.NewDecoder(bytes.NewReader(raw)).Decode(&pe); err != nil {
 		return nil, err
 	}
-	return &hunterV7PendingEntry{Decision: pe.Decision, Candidate: pe.Candidate, Side: pe.Side, Trigger: pe.Trigger,
-		Invalidation: pe.Invalidation, CreatedAt: pe.CreatedAt, ExpiresAt: pe.ExpiresAt}, nil
+	return &hunterV7PendingEntry{
+		Decision: pe.Decision, Candidate: pe.Candidate, Side: pe.Side, Trigger: pe.Trigger,
+		Invalidation: pe.Invalidation, CreatedAt: pe.CreatedAt, ExpiresAt: pe.ExpiresAt,
+		ReroutedFromGuard: pe.ReroutedFromGuard, ReroutedBlockCode: pe.ReroutedBlockCode,
+	}, nil
 }
 
 // persistPendingEntry writes the pending_entry row. A store failure is
@@ -72,6 +79,10 @@ func (at *AutoTrader) persistPendingEntry(p *hunterV7PendingEntry) {
 		PlanSizeUSD: p.Decision.PositionSizeUSD, Leverage: p.Decision.Leverage,
 		PendingPayload: payload, ExpiresAt: p.ExpiresAt.UnixMilli(), CreatedAt: p.CreatedAt.UnixMilli(),
 	}
+	if p.ReroutedFromGuard {
+		rec.EntrySource = store.LifecycleEntrySourceGuardConfirmReroute
+		rec.Note = fmt.Sprintf("%s: %s", store.LifecycleEntrySourceGuardConfirmReroute, p.ReroutedBlockCode)
+	}
 	if err := ds.CreateLifecycle(rec); err != nil {
 		logger.Errorf("  ⚠ [HUNTER V7 CONDITIONAL] %s %s pending entry not persisted: %v", p.Decision.Symbol, p.Side, err)
 		return
@@ -91,16 +102,76 @@ func (at *AutoTrader) closePendingEntryRecord(p *hunterV7PendingEntry, status, n
 }
 
 // fireTimeCandidate is the stored candidate refreshed from the latest
-// snapshot: last price and the price/snapshot age at fire time, so the
-// guard's freshness checks see the real age.
+// snapshot: t0 refresh stamps are stripped so fire-time guards re-verify live
+// freshness/confirmations instead of trusting registration-time evidence, and
+// last price plus price/snapshot age are updated from the latest snapshot.
 func (at *AutoTrader) fireTimeCandidate(p *hunterV7PendingEntry, now time.Time) kernel.CandidateCoin {
 	c := p.Candidate
 	if c.V7PriceContext != nil {
 		pc := *c.V7PriceContext
 		c.V7PriceContext = &pc
 	}
+	// U9b Finding 1: strip t0 refresh-confirmation stamps so the fire-time
+	// execution guard re-runs collectHunterV7RefreshEvidence when required and
+	// enforces signal freshness (>45s) / stale_data_risk at fire time.
+	if len(c.V7ReasonCodes) > 0 {
+		filtered := make([]string, 0, len(c.V7ReasonCodes))
+		for _, code := range c.V7ReasonCodes {
+			if code == "fresh_micro_confirmed" || code == "fresh_rest_confirmed" {
+				continue
+			}
+			filtered = append(filtered, code)
+		}
+		c.V7ReasonCodes = filtered
+	}
+	// U9 P0-2: for a guard-veto rerouted pending entry, the firing closed 1m
+	// bar through p.Trigger satisfies ONLY the single closed-bar trigger
+	// confirmation that caused the reroute. Every other guard check
+	// (freshness, snapshot budget, risk tags, HTF, breaker, drift, RR) still
+	// runs in full at fire time.
+	if p.ReroutedFromGuard && p.ReroutedBlockCode != "" && c.V7ConfirmSummary != nil {
+		s := c.V7ConfirmSummary.Clone()
+		barClose := p.FiredBarClose
+		if barClose <= 0 {
+			barClose = p.Trigger
+		}
+		var closeUnix int64
+		if p.FiredBarCloseTime > 0 {
+			closeUnix = p.FiredBarCloseTime / 1000
+		}
+		ev := local.V7ConfirmBarEvidence{
+			Code:             p.ReroutedBlockCode,
+			Passed:           true,
+			Timeframe:        "1m",
+			DecidingTF:       "1m",
+			BarCloseTimeUnix: closeUnix,
+			BarClose:         barClose,
+			ReferenceEdge:    p.Trigger,
+			ClosedOnly:       true,
+		}
+		remaining := make([]local.V7ConfirmationCheck, 0, len(s.MissingReview))
+		for _, chk := range s.MissingReview {
+			if chk.Code != p.ReroutedBlockCode {
+				remaining = append(remaining, chk)
+			}
+		}
+		s.MissingReview = remaining
+		for i := range s.ContextChecks {
+			if s.ContextChecks[i].Code == p.ReroutedBlockCode {
+				evCopy := ev
+				s.ContextChecks[i].Passed = true
+				s.ContextChecks[i].Actual = barClose
+				s.ContextChecks[i].Threshold = p.Trigger
+				s.ContextChecks[i].Evidence = &evCopy
+			}
+		}
+		s.PassedReview = s.PassedHard && len(s.MissingHard) == 0 && len(s.MissingReview) == 0
+		s.UpsertBarEvidence(ev)
+		c.V7ConfirmSummary = s
+	}
 	sym := at.latestSymbolSnapshot(p.Decision.Symbol)
 	if sym == nil {
+		at.applyMissingFireSnapshotAge(&c, p, now)
 		return c
 	}
 	if sym.Price > 0 && c.V7PriceContext != nil {
@@ -113,8 +184,43 @@ func (at *AutoTrader) fireTimeCandidate(p *hunterV7PendingEntry, now time.Time) 
 		}
 		c.V7DataFreshness.PriceAgeMs = age
 		c.V7DataFreshness.SnapshotAgeMs = age
+	} else {
+		at.applyMissingFireSnapshotAge(&c, p, now)
 	}
 	return c
+}
+
+// applyMissingFireSnapshotAge ensures that when no fire-time snapshot
+// timestamp is available, a t0 PriceAgeMs == 0 (e.g. zeroed by registration-time
+// refresh evidence) is never treated as evidence of fire-time freshness. It
+// computes t0's stored age plus elapsed time since registration and floors it
+// above the guard's freshness limits so high-velocity / budgeted guards fail
+// closed unless live fire-time evidence is obtained.
+func (at *AutoTrader) applyMissingFireSnapshotAge(c *kernel.CandidateCoin, p *hunterV7PendingEntry, now time.Time) {
+	baseAge := c.V7DataFreshness.PriceAgeMs
+	if c.V7DataFreshness.SnapshotAgeMs > baseAge {
+		baseAge = c.V7DataFreshness.SnapshotAgeMs
+	}
+	var elapsed int64
+	if !p.CreatedAt.IsZero() && now.After(p.CreatedAt) {
+		elapsed = now.Sub(p.CreatedAt).Milliseconds()
+	}
+	age := baseAge + elapsed
+	const signalFreshnessLimitMs int64 = 45_000
+	minStale := signalFreshnessLimitMs + 1
+	if c.V7DataFreshness.StaleThresholdMs >= minStale {
+		minStale = c.V7DataFreshness.StaleThresholdMs + 1
+	}
+	if budget := at.dataTimingConfig().FreshnessBudgetSeconds[c.V7SignalClass]; budget > 0 {
+		if budgetMs := int64(budget*1000) + 1; budgetMs > minStale {
+			minStale = budgetMs
+		}
+	}
+	if age < minStale {
+		age = minStale
+	}
+	c.V7DataFreshness.PriceAgeMs = age
+	c.V7DataFreshness.SnapshotAgeMs = age
 }
 
 func (at *AutoTrader) latestSymbolSnapshot(symbol string) *datafetch.SymbolSnapshot {

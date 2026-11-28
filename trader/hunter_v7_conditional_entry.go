@@ -1,6 +1,7 @@
 package trader
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,6 +13,8 @@ import (
 	"github.com/Aixxww/AiT/logger"
 	"github.com/Aixxww/AiT/store"
 )
+
+var errConditionalEntryDisabled = errors.New("conditional_entry_disabled")
 
 // U9: TRIGGER-class conditional entry, option A (owner decision): a backend
 // check on every completed 1-minute candle. See store.V7ConditionalEntryConfig.
@@ -48,6 +51,12 @@ type hunterV7PendingEntry struct {
 	// #92 / AUD-C6
 	LifecycleID uint      // persisted pending_entry row (0 = not persisted)
 	ArmedAt     time.Time // re-arm time after a restart: earlier candles can cancel, never fire
+	// U9 P0-2: provenance when registered via confirmation-only guard-veto reroute.
+	ReroutedFromGuard bool
+	ReroutedBlockCode string
+	// Fire-time closed 1m bar evidence (in-memory only, populated when triggered).
+	FiredBarClose     float64
+	FiredBarCloseTime int64
 }
 
 func pendingEntryKey(symbol, side string) string { return strings.ToUpper(symbol) + "|" + side }
@@ -87,22 +96,162 @@ func (at *AutoTrader) pendingConditionalEntries() []hunterV7PendingEntry {
 	return out
 }
 
+type hunterV7ConditionalRegisterOptions struct {
+	ReroutedFromGuard    bool
+	ReroutedBlockCode    string
+	TriggerOverride      float64
+	InvalidationOverride float64
+}
+
+// hunterV7RerouteTriggerPrice resolves the trigger price for a P0-2 guard-veto
+// reroute. It anchors strictly to the closed-bar confirmation predicate's own
+// edge (EntryZone.Lower for SHORT, EntryZone.Upper for LONG), requiring a valid
+// V7EntryZone. If an explicit trigger disagrees on the loose/inverted side
+// (SHORT: trig > edge; LONG: trig < edge — e.g. trend_pullback_*), the setup is
+// ineligible and returns 0 so a pending entry can never settle a predicate at a
+// threshold the predicate itself does not evaluate. When an explicit trigger
+// equals or is stricter than the edge, registration still anchors to the edge
+// itself so firing settles the exact predicate that blocked.
+func hunterV7RerouteTriggerPrice(candidate *kernel.CandidateCoin, decision *kernel.Decision, side string) float64 {
+	if candidate == nil {
+		return 0
+	}
+	z := candidate.V7EntryZone
+	if !(z.Lower > 0 && z.Upper >= z.Lower) {
+		return 0
+	}
+	var edge float64
+	switch side {
+	case "short":
+		edge = z.Lower
+	case "long":
+		edge = z.Upper
+	default:
+		return 0
+	}
+	explicitAllowed := func(trig float64) bool {
+		if trig <= 0 {
+			return true
+		}
+		if side == "short" {
+			return trig <= edge
+		}
+		return trig >= edge
+	}
+	if decision != nil && !explicitAllowed(decision.HunterV7TriggerPrice) {
+		return 0
+	}
+	if !explicitAllowed(candidate.V7TriggerPrice) {
+		return 0
+	}
+	return edge
+}
+
+// hunterV7RerouteGeometry validates that the candidate/decision carries both a
+// valid predicate-edge trigger price and valid directional invalidation/stop
+// geometry relative to that trigger before attempting a P0-2 reroute. When
+// decision.StopLoss > 0 is tighter than the candidate/decision invalidation,
+// the tighter stop is used as the pending invalidation (SHORT: min; LONG: max).
+func hunterV7RerouteGeometry(candidate *kernel.CandidateCoin, decision *kernel.Decision, side string) (trigger, inval float64, ok bool) {
+	trigger = hunterV7RerouteTriggerPrice(candidate, decision, side)
+	if !(trigger > 0) {
+		return 0, 0, false
+	}
+	if decision != nil && decision.HunterV7InvalidationPrice > 0 {
+		inval = decision.HunterV7InvalidationPrice
+	} else if candidate != nil && candidate.V7Invalidation.Price > 0 {
+		inval = candidate.V7Invalidation.Price
+	}
+	hasSL := decision != nil && decision.StopLoss > 0
+	if inval <= 0 {
+		if hasSL {
+			inval = decision.StopLoss
+		} else {
+			return 0, 0, false
+		}
+	}
+	switch side {
+	case "long":
+		if !(inval < trigger) {
+			return 0, 0, false
+		}
+		if hasSL {
+			if !(decision.StopLoss < trigger) {
+				return 0, 0, false
+			}
+			if decision.StopLoss > inval {
+				inval = decision.StopLoss
+			}
+		}
+	case "short":
+		if !(inval > trigger) {
+			return 0, 0, false
+		}
+		if hasSL {
+			if !(decision.StopLoss > trigger) {
+				return 0, 0, false
+			}
+			if decision.StopLoss < inval {
+				inval = decision.StopLoss
+			}
+		}
+	default:
+		return 0, 0, false
+	}
+	return trigger, inval, true
+}
+
+// rerouteHunterV7ConfirmationVeto (U9 P0-2) routes an eligible approval whose
+// SOLE execution-guard blocker is a closed-bar trigger confirmation through the
+// daily-loss breaker check and into U9 conditional entry registration.
+// Class-agnostic (keyed on block reason, not on strategy classes); remains
+// fail-closed when v7_conditional_entry.enabled is false or breaker is armed.
+func (at *AutoTrader) rerouteHunterV7ConfirmationVeto(ctx *kernel.Context, decision *kernel.Decision, side, blockCode string, trigger, inval float64, record *store.DecisionAction, now time.Time) error {
+	// F08 / U3: breaker semantics cover rerouted registration identically to
+	// direct opens and scan-time conditional registrations.
+	if err := at.enforceDailyLossBreaker(decision.Symbol, decision.Action); err != nil {
+		return err
+	}
+	return at.registerHunterV7ConditionalEntryWithOptions(ctx, decision, side, record, now, hunterV7ConditionalRegisterOptions{
+		ReroutedFromGuard:    true,
+		ReroutedBlockCode:    blockCode,
+		TriggerOverride:      trigger,
+		InvalidationOverride: inval,
+	})
+}
+
 // registerHunterV7ConditionalEntry keeps an approved open as a pending
 // entry instead of sending it (see the file comment).
 func (at *AutoTrader) registerHunterV7ConditionalEntry(ctx *kernel.Context, decision *kernel.Decision, side string, record *store.DecisionAction, now time.Time) error {
-	if !at.conditionalEntryEnabled() {
+	return at.registerHunterV7ConditionalEntryWithOptions(ctx, decision, side, record, now, hunterV7ConditionalRegisterOptions{})
+}
+
+func (at *AutoTrader) registerHunterV7ConditionalEntryWithOptions(ctx *kernel.Context, decision *kernel.Decision, side string, record *store.DecisionAction, now time.Time, opts hunterV7ConditionalRegisterOptions) error {
+	if !opts.ReroutedFromGuard && !at.conditionalEntryEnabled() {
 		// Fail closed: a conditional candidate must never be entered at market.
-		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s blocked: candidate is conditional on its trigger but conditional entry is disabled (conditional_entry_disabled)",
-			decision.Symbol, decision.Action)
+		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s blocked: candidate is conditional on its trigger but conditional entry is disabled (%w)",
+			decision.Symbol, decision.Action, errConditionalEntryDisabled)
 	}
 	candidate := hunterV7CandidateForDecision(ctx, decision)
-	if candidate == nil || !candidate.V7ConditionalEntry || decision.HunterV7TriggerPrice <= 0 {
+	trigger := decision.HunterV7TriggerPrice
+	if opts.ReroutedFromGuard && opts.TriggerOverride > 0 {
+		trigger = opts.TriggerOverride
+	}
+	if candidate == nil || (!opts.ReroutedFromGuard && !candidate.V7ConditionalEntry) || trigger <= 0 {
 		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s blocked: no conditional candidate with a trigger price (conditional_contract_mismatch)",
 			decision.Symbol, decision.Action)
 	}
-	trigger := decision.HunterV7TriggerPrice
-	if err := at.validateOpenDecision(decision, trigger, side); err != nil {
+	storedDecision := *decision
+	storedDecision.HunterV7TriggerPrice = trigger
+	if err := at.validateOpenDecision(&storedDecision, trigger, side); err != nil {
 		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s rejected at the trigger %.8f: %w", decision.Symbol, decision.Action, trigger, err)
+	}
+	if opts.ReroutedFromGuard && !at.conditionalEntryEnabled() {
+		// Fail closed on the reroute path after validating the open contract at
+		// trigger so infeasible approvals record reroute_conditional_entry_failed
+		// rather than inflating reroute_conditional_entry_disabled telemetry.
+		return fmt.Errorf("❌ [HUNTER V7 CONDITIONAL] %s %s blocked: candidate is conditional on its trigger but conditional entry is disabled (%w)",
+			decision.Symbol, decision.Action, errConditionalEntryDisabled)
 	}
 	positions, err := at.trader.GetPositions()
 	if err != nil {
@@ -126,20 +275,42 @@ func (at *AutoTrader) registerHunterV7ConditionalEntry(ctx *kernel.Context, deci
 		return err
 	}
 	inval := decision.HunterV7InvalidationPrice
+	if opts.ReroutedFromGuard && opts.InvalidationOverride > 0 {
+		inval = opts.InvalidationOverride
+	} else if inval <= 0 && opts.InvalidationOverride > 0 {
+		inval = opts.InvalidationOverride
+	}
 	if inval <= 0 {
 		inval = decision.StopLoss
 	}
-	p := &hunterV7PendingEntry{Decision: *decision, Candidate: *candidate, Side: side, Trigger: trigger, Invalidation: inval,
-		CreatedAt: now, ExpiresAt: now.Add(time.Duration(at.conditionalEntryConfig().MaxPendingMinutes * float64(time.Minute)))}
-	p.Decision.HunterV7IntentKey = at.openIntentKey(decision, side) + "|conditional"
+	if opts.ReroutedFromGuard || storedDecision.HunterV7InvalidationPrice <= 0 {
+		storedDecision.HunterV7InvalidationPrice = inval
+	}
+	storedDecision.HunterV7IntentKey = at.openIntentKey(decision, side) + "|conditional"
+	p := &hunterV7PendingEntry{
+		Decision:          storedDecision,
+		Candidate:         *candidate,
+		Side:              side,
+		Trigger:           trigger,
+		Invalidation:      inval,
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(time.Duration(at.conditionalEntryConfig().MaxPendingMinutes * float64(time.Minute))),
+		ReroutedFromGuard: opts.ReroutedFromGuard,
+		ReroutedBlockCode: opts.ReroutedBlockCode,
+	}
 	at.persistPendingEntry(p) // AUD-C6
 	at.conditional.pending[key] = p
 	if record != nil {
 		record.ConditionalPending = true
 		record.Price = trigger
 	}
-	logger.Infof("  ⏳ [HUNTER V7 CONDITIONAL] %s %s pending: enters on a 1m close through %.8f, cancelled at %.8f, expires %s",
-		decision.Symbol, side, trigger, inval, p.ExpiresAt.Format(time.RFC3339))
+	if opts.ReroutedFromGuard {
+		logger.Infof("  ⏳ [HUNTER V7 CONDITIONAL] %s %s pending (rerouted_conditional_entry blocker=%s): enters on a 1m close through %.8f, cancelled at %.8f, expires %s",
+			decision.Symbol, side, opts.ReroutedBlockCode, trigger, inval, p.ExpiresAt.Format(time.RFC3339))
+	} else {
+		logger.Infof("  ⏳ [HUNTER V7 CONDITIONAL] %s %s pending: enters on a 1m close through %.8f, cancelled at %.8f, expires %s",
+			decision.Symbol, side, trigger, inval, p.ExpiresAt.Format(time.RFC3339))
+	}
 	return nil
 }
 
@@ -200,7 +371,10 @@ func (at *AutoTrader) checkHunterV7ConditionalEntries(now time.Time) {
 			}
 			if (long && b.Close >= p.Trigger) || (!long && b.Close <= p.Trigger) {
 				delete(at.conditional.pending, k) // removed before sending: executes at most once
-				fire = append(fire, *p)
+				firedCopy := *p
+				firedCopy.FiredBarClose = b.Close
+				firedCopy.FiredBarCloseTime = b.CloseTime
+				fire = append(fire, firedCopy)
 				break
 			}
 		}
@@ -228,6 +402,9 @@ func (at *AutoTrader) executeHunterV7PendingEntry(p *hunterV7PendingEntry) {
 		HunterV7TP0Price: d.HunterV7TP0Price, HunterV7TP1Price: d.HunterV7TP1Price, HunterV7TP2Price: d.HunterV7TP2Price,
 		Confidence: d.Confidence, Reasoning: d.Reasoning, Trigger: decisionTriggerForStore(d.Trigger), Timestamp: time.Now().UTC(),
 		WhyThisCouldFail: string(d.WhyThisCouldFail)} // #111 S3
+	if p.ReroutedFromGuard {
+		rec.ConditionalRerouteSource = p.ReroutedBlockCode
+	}
 	ctx := &kernel.Context{CandidateCoins: []kernel.CandidateCoin{at.fireTimeCandidate(p, time.Now())}}
 	exec := at.conditional.execute
 	if exec == nil {
