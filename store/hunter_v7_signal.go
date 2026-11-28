@@ -125,9 +125,9 @@ func NewHunterV7SignalStore(db *gorm.DB) *HunterV7SignalStore {
 	return &HunterV7SignalStore{db: db}
 }
 
-// initTables creates the hunter_v7_signal_records table if it doesn't exist.
+// initTables creates the hunter_v7_signal_records and hunter_v7_rr_verdicts tables if they don't exist.
 func (s *HunterV7SignalStore) initTables() error {
-	return s.db.AutoMigrate(&HunterV7SignalRecord{})
+	return s.db.AutoMigrate(&HunterV7SignalRecord{}, &HunterV7RRVerdictRecord{})
 }
 
 // CreateBatch inserts multiple signal records in a single transaction.

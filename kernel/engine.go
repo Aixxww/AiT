@@ -128,8 +128,12 @@ type CandidateCoin struct {
 	V7TP2Method               string                      `json:"-"`
 	V7TPPlan                  *local.V7TakeProfitPlan     `json:"-"`
 	V7VWAP15m                 float64                     `json:"-"`
-	V7ExecutionTier           string                      `json:"-"`
-	V7TierReason              string                      `json:"-"`
+	V7ExecutionTier           string                        `json:"-"`
+	V7TierReason              string                        `json:"-"`
+	// V7RRVerdict carries the structured backend-RR computation terms when
+	// V7TierReason is backend_rr_infeasible, rr_below_floor, or rr_unknown.
+	// Nil otherwise. Observability only: never read by gates or prompts.
+	V7RRVerdict               *store.HunterV7RRVerdictRecord `json:"-"`
 	// V7AssembledTier / V7AssembledReason keep the assembly verdict after
 	// FinalizeHunterV7Tiers has replaced V7ExecutionTier / V7TierReason with
 	// the prompt-final verdict (#86). Empty until finalization; read only
@@ -437,7 +441,8 @@ type StrategyEngine struct {
 	squareClient     *square.Client              // nil when square_heat not configured
 	marketEnv        *market.MarketEnvironment   // cached market regime classification (ADX-based)
 	snapshotEngine   *SnapshotEngine             // nil = use legacy coin sources
-	v7SignalRecorder local.V7SignalRecorder      // optional callback for funnel attribution
+	v7SignalRecorder    local.V7SignalRecorder      // optional callback for funnel attribution
+	v7RRVerdictRecorder HunterV7RRVerdictRecorder   // optional callback for infeasible-RR verdict diagnostics
 	v7ExpectedR      hunterV7ERState             // U7 shadow E[R] calibration (nil = none)
 	v7CycleCounter   int                         // incremented each scoring call for recorder
 	v7WatchState     *local.V7SignalStateManager // cross-cycle watch upgrade tracker
@@ -655,6 +660,7 @@ func (e *StrategyEngine) scoreFromSnapshot(snap *datafetch.Snapshot) ([]Candidat
 // CandidateCoin while preserving the rich signal context for the AI prompt.
 func (e *StrategyEngine) hunterV7SignalsToCandidateCoins(signals []local.V7SignalOutput, direction string) []CandidateCoin {
 	cands := AssembleHunterV7CandidateCoins(signals, direction, e.hunterV7ExecutionGeometry())
+	e.recordV7RRVerdicts(cands, HunterV7RRVerdictStageAssembly, e.v7CycleCounter, time.Now().UTC())
 	// U7: shadow E[R] after tiering; nothing downstream reads it.
 	if cal := e.V7ExpectedRCalibration(); cal != nil {
 		HunterV7StampExpectedR(cands, cal, HunterV7RecordTagOptionsFromConfig(e.config).Tags)
@@ -746,6 +752,10 @@ func AssembleHunterV7CandidateCoins(signals []local.V7SignalOutput, direction st
 		}
 		hunterV7StampCandidateRisk(&cc, geometry)
 		cc.V7ExecutionTier, cc.V7TierReason = classifyHunterV7CandidateTierWithGeometry(cc, geometry)
+		if isHunterV7RRInfeasibleReason(cc.V7TierReason) {
+			rec := buildHunterV7RRVerdictRecord(cc, geometry, cc.V7TierReason, HunterV7RRVerdictStageAssembly, 0, time.Time{})
+			cc.V7RRVerdict = &rec
+		}
 		// U9 conditional entries stamp here; #162 pass-through rows stamp
 		// too, so an approved open on either is registered as a pending
 		// entry on the trigger cross instead of being sent at market.
@@ -2450,59 +2460,11 @@ func hunterV7BackendCappedRRWaitReason(coin CandidateCoin, geometry HunterV7Exec
 // stamps. ok is false when the geometry is incomplete (no price, stop or
 // target).
 func hunterV7BackendCappedRR(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (rr, floor float64, ok bool) {
-	price := hunterV7ReferencePrice(coin)
-	if price <= 0 || coin.V7Invalidation.Price <= 0 || len(coin.V7Targets) == 0 {
+	res := hunterV7BackendCappedRREval(coin, geometry, false)
+	if !res.ok {
 		return 0, 0, false
 	}
-	// U6: the candidate's own values (class profile over the stack values,
-	// then the per-setup relaxation) — the same values the validator and the
-	// executor receive through the candidate stamps.
-	geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct = hunterV7CandidateRisk(coin, geometry)
-	if geometry.MinRR <= 0 {
-		geometry.MinRR = store.DefaultMinRiskRewardRatio // #77: unset only
-	}
-	if geometry.MinSLMovePct <= 0 {
-		geometry.MinSLMovePct = hunterV7BackendMinStopPct
-	}
-	if geometry.MaxTPMovePct <= 0 {
-		geometry.MaxTPMovePct = HunterV7EffectiveExecutionGeometry(0, 0, 0, geometry.MinRR, true).MaxTPMovePct
-	}
-
-	riskPct := 0.0
-	switch {
-	case strings.EqualFold(coin.Direction, "SHORT"):
-		riskPct = (coin.V7Invalidation.Price - price) / price * 100
-	case strings.EqualFold(coin.Direction, "LONG"):
-		riskPct = (price - coin.V7Invalidation.Price) / price * 100
-	default:
-		return 0, 0, false
-	}
-	if riskPct <= 0 {
-		return 0, 0, false
-	}
-
-	effectiveRiskPct := riskPct
-	if effectiveRiskPct < geometry.MinSLMovePct {
-		effectiveRiskPct = geometry.MinSLMovePct + hunterV7BackendStopRepairBuffer
-	}
-
-	bestRewardPct := 0.0
-	for _, target := range coin.V7Targets {
-		rewardPct := hunterV7DirectionalRewardPct(price, target.Price, coin.Direction)
-		if rewardPct <= 0 {
-			continue
-		}
-		if rewardPct > geometry.MaxTPMovePct {
-			rewardPct = geometry.MaxTPMovePct
-		}
-		if rewardPct > bestRewardPct {
-			bestRewardPct = rewardPct
-		}
-	}
-	if bestRewardPct <= 0 {
-		return 0, 0, false
-	}
-	return bestRewardPct / effectiveRiskPct, geometry.MinRR, true
+	return res.rr, res.minRR, true
 }
 
 func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7ExecutionGeometry) HunterV7ExecutionGeometry {
@@ -2524,19 +2486,8 @@ func hunterV7SetupExecutionGeometry(coin CandidateCoin, geometry HunterV7Executi
 }
 
 func hunterV7ReferencePrice(coin CandidateCoin) float64 {
-	if coin.V7RRReferencePrice > 0 {
-		return coin.V7RRReferencePrice
-	}
-	if coin.V7PriceContext != nil && coin.V7PriceContext.Last > 0 {
-		return coin.V7PriceContext.Last
-	}
-	if strings.EqualFold(coin.Direction, "SHORT") && coin.V7EntryZone.Lower > 0 {
-		return coin.V7EntryZone.Lower
-	}
-	if strings.EqualFold(coin.Direction, "LONG") && coin.V7EntryZone.Upper > 0 {
-		return coin.V7EntryZone.Upper
-	}
-	return 0
+	price, _ := hunterV7ReferencePriceWithSource(coin)
+	return price
 }
 
 // hunterV7T2RRReferencePrice is a Task-2 candidate's RR reference price
@@ -4030,31 +3981,8 @@ func hunterV7T2MinSLMovePct(geometry HunterV7ExecutionGeometry) float64 {
 // applies last, so the kernel RR check, the validator and the executor all
 // see the same per-setup values.
 func hunterV7CandidateRisk(coin CandidateCoin, geometry HunterV7ExecutionGeometry) (minRR, minSL, maxTP float64) {
-	minRR, minSL, maxTP = geometry.MinRR, geometry.MinSLMovePct, geometry.MaxTPMovePct
-	stack := store.V7StackNative
-	if coin.V7Stack == local.V7StackT2 {
-		stack = store.V7StackT2
-		minRR, minSL = hunterV7T2MinRR(geometry), hunterV7T2MinSLMovePct(geometry)
-	}
-	profiles := geometry.ClassProfiles
-	if profiles == nil {
-		profiles = store.DefaultV7ClassProfiles()
-	}
-	p := profiles[coin.V7SignalClass].ForStack(stack)
-	if p.MinRiskRewardRatio > 0 {
-		minRR = p.MinRiskRewardRatio
-	}
-	if p.MinStopLossPriceMovePct > 0 {
-		minSL = p.MinStopLossPriceMovePct
-	}
-	if p.MaxTakeProfitPriceMovePct > 0 {
-		maxDrift, _ := hunterV7CandidateDrift(coin, geometry)
-		maxTP = HunterV7EffectiveExecutionGeometry(p.MaxTakeProfitPriceMovePct, minSL, maxDrift, minRR, true).MaxTPMovePct
-	}
-	g := geometry
-	g.MinRR, g.MinSLMovePct, g.MaxTPMovePct = minRR, minSL, maxTP
-	g = hunterV7SetupExecutionGeometry(coin, g)
-	return g.MinRR, g.MinSLMovePct, g.MaxTPMovePct
+	minRR, minSL, maxTP, _, _, _ = hunterV7CandidateRiskWithSources(coin, geometry)
+	return minRR, minSL, maxTP
 }
 
 // hunterV7StampCandidateRisk stamps the candidate's own risk values for the
