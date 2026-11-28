@@ -36,6 +36,22 @@ const (
 	// DefaultV7ConditionalEntryCheckIntervalSeconds keeps the delay after a
 	// candle closes well inside one candle.
 	DefaultV7ConditionalEntryCheckIntervalSeconds = 10
+
+	// V7BlockedReasonReroutedConditionalEntry marks a decision action whose
+	// confirmation-only guard veto was rerouted into a U9 pending conditional
+	// entry (P0-2).
+	V7BlockedReasonReroutedConditionalEntry = "rerouted_conditional_entry"
+	// V7BlockedReasonConditionalRerouteDisabled marks an eligible guard-veto
+	// reroute attempt that stayed fail-closed because v7_conditional_entry is
+	// disabled in the strategy config.
+	V7BlockedReasonConditionalRerouteDisabled = "reroute_conditional_entry_disabled"
+	// V7BlockedReasonConditionalRerouteFailed marks an eligible guard-veto
+	// reroute attempt that failed conditional registration (e.g., armed
+	// daily-loss breaker, max positions, drift/RR at trigger, duplicate).
+	V7BlockedReasonConditionalRerouteFailed = "reroute_conditional_entry_failed"
+	// LifecycleEntrySourceGuardConfirmReroute identifies a persisted
+	// PositionLifecycle pending_entry row registered via P0-2 guard-veto reroute.
+	LifecycleEntrySourceGuardConfirmReroute = "rerouted_conditional_entry"
 )
 
 // EffectiveV7ConditionalEntry returns the config with defaults filled in

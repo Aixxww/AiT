@@ -190,6 +190,24 @@ func V7ConfirmBarTimeframes(code string) []string {
 	}
 }
 
+// V7ConfirmIsClosedBarTrigger reports whether code is one of the U5-unified
+// closed-bar trigger-cross confirmation codes evaluated strictly by
+// v7ClosedBarThroughEdgePredicate against closed 5m/15m bars (including its
+// aliases in v7ConfirmPredicateAliases).
+func V7ConfirmIsClosedBarTrigger(code string) bool {
+	if target, alias := v7ConfirmPredicateAliases[code]; alias {
+		code = target
+	}
+	switch code {
+	case "5m_or_15m_close_below_trigger",
+		"5m_or_15m_close_above_trigger",
+		"5m_or_15m_close_through_breakout_level":
+		return true
+	default:
+		return false
+	}
+}
+
 func v7TakerPredicate(code string, f V7ConfirmFacts, threshold float64, above bool) (V7ConfirmationCheck, bool) {
 	check := V7ConfirmationCheck{Code: code, Actual: f.TakerBuy15m, Threshold: threshold, Severity: V7ConfirmReviewWait}
 	if above {
