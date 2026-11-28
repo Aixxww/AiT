@@ -535,6 +535,12 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 				}
 			}
 		})
+
+		strategyEngine.SetV7RRVerdictRecorder(func(rec store.HunterV7RRVerdictRecord) {
+			if err := st.HunterV7Signal().CreateRRVerdict(&rec); err != nil {
+				logger.Warnf("⚠️ [%s] Failed to persist V7 RR verdict (%s %s): %v", config.Name, rec.Symbol, rec.Reason, err)
+			}
+		})
 	}
 
 	return &AutoTrader{

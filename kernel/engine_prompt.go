@@ -906,6 +906,22 @@ func (e *StrategyEngine) hunterV7PromptItems(ctx *Context, positionSymbols map[s
 		tier, reason := classifyHunterV7CandidateTierWithGeometry(coin, geometry)
 		coin.V7ExecutionTier = tier
 		coin.V7TierReason = reason
+		coin.V7RRVerdict = nil
+		if isHunterV7RRInfeasibleReason(reason) {
+			cycleNum := ctx.CallCount
+			if cycleNum <= 0 {
+				cycleNum = e.v7CycleCounter
+			}
+			ts := ctx.PromptTime
+			if ts.IsZero() {
+				ts = time.Now().UTC()
+			}
+			rec := buildHunterV7RRVerdictRecord(coin, geometry, reason, HunterV7RRVerdictStagePromptFinal, cycleNum, ts)
+			coin.V7RRVerdict = &rec
+			if e != nil && e.v7RRVerdictRecorder != nil {
+				e.v7RRVerdictRecorder(rec)
+			}
+		}
 		readiness := hunterV7PromptExecutionReadiness(coin, data, tier, reason)
 		coin.V7Readiness = &readiness
 		tier, reason = hunterV7TierFromPromptReadiness(coin, tier, reason, readiness)

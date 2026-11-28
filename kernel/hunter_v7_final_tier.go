@@ -105,6 +105,7 @@ func (e *StrategyEngine) finalizeHunterV7Tiers(ctx *Context, positionSymbols map
 		}
 		c.V7AssembledTier, c.V7AssembledReason = c.V7ExecutionTier, c.V7TierReason
 		c.V7ExecutionTier, c.V7TierReason = it.Tier, it.Reason
+		c.V7RRVerdict = it.Coin.V7RRVerdict
 	}
 	ctx.CandidateCoins = coins
 	ctx.hunterV7Final = &hunterV7FinalTiers{items: items}
